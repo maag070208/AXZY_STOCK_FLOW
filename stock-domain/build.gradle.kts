@@ -156,9 +156,53 @@ tasks.register("verifyDomainPurity") {
     }
 }
 
+// ── Defensa estructural ────────────────────────────────────────────────────
+// La guardia de arriba solo inspecciona directorios que EXISTEN. Si alguien
+// crea `jvmMain` (que es exactamente donde aparecería la tentación de usar
+// Exposed o una conexión a base de datos), su contenido no se revisaría.
+//
+// Esta tarea cierra ese hueco: si aparece `src/jvmMain`, el build falla hasta
+// que se revise por qué. Es preferible un fallo explícito a una regla que se
+// degrada en silencio.
+tasks.register("forbidJvmMainSourceSet") {
+    group = "verification"
+    description = "Impide añadir código en jvmMain (el dominio debe ser común, no específico de JVM)"
+
+    doLast {
+        val forbidden = listOf(
+            file("src/jvmMain/kotlin"),
+            file("src/androidMain/kotlin"),
+            file("src/iosMain/kotlin"),
+        ).filter { it.exists() && it.walkTopDown().any { f -> f.extension == "kt" } }
+
+        if (forbidden.isNotEmpty()) {
+            throw GradleException(
+                buildString {
+                    appendLine()
+                    appendLine("════════════════════════════════════════════════════════════════")
+                    appendLine("CÓDIGO ESPECÍFICO DE PLATAFORMA EN stock-domain")
+                    appendLine("════════════════════════════════════════════════════════════════")
+                    forbidden.forEach { appendLine("  ✗ ${it.relativeTo(projectDir)} tiene código") }
+                    appendLine()
+                    appendLine("El dominio debe ser multiplataforma PURO: todo su código vive en")
+                    appendLine("commonMain. Si necesitas algo específico de JVM, Android o iOS,")
+                    appendLine("va en el módulo que corresponda (backend, stock-network,")
+                    appendLine("stock-database) con un expect/actual.")
+                    appendLine()
+                    appendLine("Razón: `jvmMain` es la puerta por la que entraría Exposed y con ello")
+                    appendLine("la imposibilidad de compartir el dominio con el móvil.")
+                    appendLine("Ver PLAN_ALMACEN_INTEGRAL.md §3.2-bis.")
+                    appendLine("════════════════════════════════════════════════════════════════")
+                }
+            )
+        }
+        logger.lifecycle("✓ stock-domain no tiene código específico de plataforma")
+    }
+}
+
 // La verificación corre en cada `check`: no se puede saltar por descuido.
 tasks.named("check") {
-    dependsOn("verifyDomainPurity")
+    dependsOn("verifyDomainPurity", "forbidJvmMainSourceSet")
 }
 
 // ============================================================================

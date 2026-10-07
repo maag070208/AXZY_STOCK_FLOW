@@ -28,6 +28,8 @@ secrets/
 # GRADLE_USER_HOME local del proyecto. Se usa para que el build sea aislado y
 # no dependa de ~/.gradle, pero es 100% caché de descarga: no se versiona.
 .gradle-home/
+# Temporales del daemon de Kotlin (redirigidos al workspace por gradle.properties)
+.kotlin-tmp/
 build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/**/build/

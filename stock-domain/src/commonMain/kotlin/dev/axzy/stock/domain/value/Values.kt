@@ -246,6 +246,19 @@ value class BoxQuantity private constructor(val value: Long) {
         }
     }
 
+    /**
+     * Comprueba que las cajas declaradas **quepan** en la cantidad declarada.
+     *
+     * Es una validación de coherencia, no de divisibilidad exacta: contar 80
+     * piezas con cajas de 50 significa "1 caja y 30 sueltas", y eso es válido.
+     * Lo que no es válido es declarar 2 cajas para 80 piezas, porque 2 cajas de
+     * 50 son 100 y el dato se contradice a sí mismo.
+     */
+    fun isConsistentWith(quantity: Quantity, unitsPerBox: UnitsPerBox): Boolean {
+        val maximumBoxes = quantity.units / unitsPerBox.value
+        return value <= maximumBoxes
+    }
+
     override fun toString(): String = value.toString()
 }
 
