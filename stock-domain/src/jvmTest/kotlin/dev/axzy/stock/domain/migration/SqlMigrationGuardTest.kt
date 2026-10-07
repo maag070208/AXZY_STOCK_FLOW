@@ -179,6 +179,136 @@ class SqlMigrationGuardTest : DescribeSpec({
             }
         }
 
+        it("el kardex es append-only y protege su integridad") {
+            // El ledger es el libro de inventario. En el legacy,
+            // `removeUnitsFromKardex` hacía `kardex.update`: un registro
+            // histórico se modificaba y la trazabilidad se destruía.
+            val sql = contenidoCompleto()
+
+            withClue("Debe existir la función que bloquea las mutaciones del kardex") {
+                sql shouldContain "kardex_block_mutations"
+            }
+            withClue("Y los triggers de UPDATE y DELETE") {
+                sql shouldContain "kardex_no_update"
+                sql shouldContain "kardex_no_delete"
+            }
+            withClue("Todo ajuste del kardex debe exigir motivo (invariante I6)") {
+                sql shouldContain "kardex_adjustment_requires_reason"
+            }
+            withClue("Ubicar exige origen y destino distintos: si no, no es un traslado") {
+                sql shouldContain "kardex_locate_requires_locations"
+            }
+            withClue("La idempotencia del móvil se protege con un índice único") {
+                sql shouldContain "kardex_client_uuid_idx"
+            }
+        }
+
+        it("`difference` es una COLUMNA GENERADA, no un campo que se pueda desincronizar") {
+            // El legacy declaraba `difference` en modelo, DTO, mapper y
+            // respuesta, y siempre escribía 0 (hallazgo R-58).
+            val sql = contenidoCompleto()
+
+            withClue("La columna debe ser GENERATED ALWAYS AS ... STORED") {
+                sql shouldContain "GENERATED ALWAYS AS (physical_quantity - quantity) STORED"
+            }
+        }
+
+        it("el stock por ubicación y el total no pueden ser negativos (invariante I2)") {
+            val sql = contenidoCompleto()
+
+            withClue("La proyección por ubicación tiene CHECK") {
+                sql shouldContain "stock_non_negative"
+            }
+            withClue("Y el total por producto también") {
+                sql shouldContain "product_stock_non_negative"
+            }
+        }
+
+        it("una línea de factura no llega a APPROVED sin aprobador ni sin motivo") {
+            // Es la regla B1 y la segregación de funciones (R-74) impuestas en
+            // la base de datos: sin esto, el control interno depende de que el
+            // código se acuerde de validarlo.
+            val sql = contenidoCompleto()
+
+            withClue("Debe exigirse aprobador") {
+                sql shouldContain "invoice_lines_approved_has_approver"
+            }
+            withClue("Y motivo del ajuste") {
+                sql shouldContain "invoice_lines_approved_has_reason"
+            }
+        }
+
+        it("el borrado de documentos deja rastro: no se borra sin motivo") {
+            // El legacy declaraba `deleted` en el esquema y hacía DELETE físico,
+            // sin escribir nunca el flag (hallazgo B-1 / R-57).
+            val sql = contenidoCompleto()
+
+            withClue("La factura exige motivo y fecha si está borrada") {
+                sql shouldContain "invoices_deleted_coherent"
+            }
+            withClue("La orden también") {
+                sql shouldContain "orders_deleted_coherent"
+            }
+        }
+
+        it("una etiqueta no se marca impresa hasta que la impresora confirma") {
+            // El legacy marcaba `printed = true` sin esperar la respuesta del
+            // POST: si la Zebra estaba apagada, la etiqueta se perdía para
+            // siempre (hallazgo R-83).
+            val sql = contenidoCompleto()
+
+            withClue("Debe existir la máquina de estados de impresión") {
+                sql shouldContain "CREATE TYPE print_status"
+            }
+            withClue("Una etiqueta PRINTED debe tener la hora de confirmación") {
+                sql shouldContain "print_jobs_printed_has_timestamp"
+            }
+            withClue("El payload debe tener esquema validable") {
+                sql shouldContain "field_schema"
+            }
+        }
+
+        it("la conversión al ERP tiene estado y no solo un booleano") {
+            // El flujo de conversión NUNCA existió en el legacy: `converted` y
+            // `sent` estaban y no se escribían ni se leían (hallazgo R-82).
+            val sql = contenidoCompleto()
+
+            withClue("Debe registrarse cuándo se convirtió") {
+                sql shouldContain "orders_converted_coherent"
+            }
+            withClue("Y debe haber estado de exportación con reintentos") {
+                sql shouldContain "export_attempts"
+                sql shouldContain "export_last_error"
+            }
+        }
+
+        it("el tránsito entre bodegas tiene tabla propia y exige bodegas distintas") {
+            // La mercancía que viaja SIGUE contando en el inventario. Si se
+            // modelara como dos movimientos instantáneos, el total bajaría
+            // durante el trayecto y los reportes mentirían.
+            val sql = contenidoCompleto()
+
+            withClue("Debe existir la tabla de tránsito") {
+                sql shouldContain "CREATE TABLE stock_in_transit"
+            }
+            withClue("Un traslado no puede ser a la misma bodega") {
+                sql shouldContain "transit_different_warehouses"
+            }
+        }
+
+        it("la ubicación de RECEPCIÓN existe como ubicación real, no como pseudo-ubicación") {
+            // El legacy devolvía 'ADMIN' hardcodeada con un id ficticio que podía
+            // colisionar con la ubicación real 1 (hallazgo R-69).
+            val sql = contenidoCompleto()
+
+            withClue("Debe existir el tipo de ubicación") {
+                sql shouldContain "CREATE TYPE location_kind"
+            }
+            withClue("Y sembrarse una ubicación de recepción por bodega") {
+                sql shouldContain "'RECEIVING'"
+            }
+        }
+
         it("las bodegas del alcance AREA viven en la PERSONA, no en el rol") {
             // Es lo que permite que un solo rol JEFE_BODEGA sirva para cualquier
             // bodega, en lugar de crear un rol por cada una.
