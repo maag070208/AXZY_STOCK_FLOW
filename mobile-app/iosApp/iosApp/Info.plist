@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  NSCameraUsageDescription ES OBLIGATORIO Y NO PUEDE ESTAR VACÍO:
+	  iOS termina el proceso si la app pide la cámara sin esta clave, y App Store
+	  rechaza un texto genérico. El texto explica PARA QUÉ se usa, que es lo que
+	  Apple revisa.
+	-->
+	<key>NSCameraUsageDescription</key>
+	<string>Se usa la cámara para leer los códigos de producto y de ubicación del almacén.</string>
+
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
+	</dict>
+
+	<!--
+	  ATS PERMISIVO SOLO PORQUE EL SERVIDOR DE DESARROLLO VA EN HTTP.
+	  Al desplegar, el backend va detrás de TLS y esta clave debe ELIMINARSE: dejarla
+	  permitiría que un atacante en la red del almacén interceptara la sesión.
+	-->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
+</dict>
+</plist>

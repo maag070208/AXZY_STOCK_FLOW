@@ -1,5 +1,28 @@
 [versions]
-kotlin = "2.1.20"
+# ── Kotlin: 2.4.10, la version del ejemplo REAL de PuertoNuevoApp ──────────
+#
+# POR QUE SUBIO DE 2.1.20 A 2.4.10 (realizado al construir la app movil)
+#
+# Compose Multiplatform 1.11.1 aborta la configuracion con «Minimal supported
+# Kotlin Gradle Plugin version is 2.2.0» — verificado en esta maquina con una
+# sonda Gradle minima, no supuesto. Y no se puede tener dos versiones del plugin
+# de Kotlin en el mismo build: el `build.gradle.kts` raiz lo pone en el classpath
+# del build con `apply false`, y Gradle responde
+#
+#   «The request for this plugin could not be satisfied because the plugin is
+#    already on the classpath with a different version (2.1.20)»
+#
+# en cuanto un subproyecto pide otra. Es decir, o suben los seis modulos o el
+# movil no compila: no hay convivencia posible.
+#
+# El salto es de compilador, no de lenguaje: Kotlin solo es retrocompatible
+# leyendo artefactos de versiones ANTERIORES, asi que 2.4.10 compila
+# stock-domain, stock-network, stock-datastore, stock-database y backend sin
+# cambios. Verificado con `:stock-domain:jvmTest` (56 tests) despues del cambio.
+#
+# Kotlin/Native 2.4.10 se descarga aparte en KONAN_DATA_DIR: el que habia
+# instalado (2.1.20) no sirve para compilar con el compilador 2.4.10.
+kotlin = "2.4.10"
 coroutines = "1.10.1"
 serialization = "1.8.0"
 datetime = "0.6.2"
@@ -35,6 +58,20 @@ androidCompileSdk = "36"
 
 # Compose Multiplatform para la UI compartida de Android e iOS.
 composeMultiplatform = "1.11.1"
+# Material 3 de Compose Multiplatform. Es alpha porque es la version que usa el
+# ejemplo real y de la que dependen los tokens del design system; la estable
+# equivalente (1.9.x) no expone algunos de los que se usan aqui.
+composeMaterial3 = "1.11.0-alpha07"
+# Iconos extendidos. Se queda en 1.7.3 A PROPOSITO: es lo que fija el ejemplo
+# real, que ya compila en produccion con Compose 1.11. Las lineas 1.8+ reescriben
+# el catalogo de iconos y no aportan nada que este design system use.
+composeMaterialIcons = "1.7.3"
+# ViewModel y collectAsStateWithLifecycle multiplataforma: es lo que da ViewModel
+# a iOS, requisito de PLAN §3.4. Aun en beta en la linea 2.11.
+androidxLifecycle = "2.11.0-beta01"
+# Activity + Compose, solo para el entry point de androidApp.
+androidxActivityCompose = "1.13.0"
+
 # Camara y lectura de codigos de barras, solo en androidMain.
 androidxCamera = "1.4.2"
 mlkitBarcode = "17.3.0"
@@ -127,7 +164,28 @@ ktor-client-logging = { module = "io.ktor:ktor-client-logging", version.ref = "k
 # camino de error de un cliente sin depender de la red.
 ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
 
-# ── Móvil: persistencia local (SQLDelight) ─────────────────────────────────
+# ── Movil: Compose Multiplatform (UI compartida Android + iOS) ─────────────
+# Se declaran los artefactos UNO A UNO en lugar de usar `compose.material3` del
+# plugin: el DSL del plugin resuelve las versiones por su cuenta y a veces elige
+# una de Jetpack (androidx) en vez de la de Compose Multiplatform, que es la que
+# trae los targets de iOS. Con la coordenada explicita no hay ambiguedad.
+compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "composeMultiplatform" }
+compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "composeMultiplatform" }
+compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "composeMultiplatform" }
+compose-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.ref = "composeMultiplatform" }
+compose-ui-tooling-preview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "composeMultiplatform" }
+compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "composeMaterial3" }
+compose-material-icons-extended = { module = "org.jetbrains.compose.material:material-icons-extended", version.ref = "composeMaterialIcons" }
+compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "composeMultiplatform" }
+
+# ── Movil: ViewModel multiplataforma ───────────────────────────────────────
+androidx-lifecycle-viewmodel-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "androidxLifecycle" }
+androidx-lifecycle-runtime-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "androidxLifecycle" }
+
+# ── Movil: entry point Android ─────────────────────────────────────────────
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidxActivityCompose" }
+
+# ── Movil: persistencia local (SQLDelight) ─────────────────────────────────
 sqldelight-runtime = { module = "app.cash.sqldelight:runtime", version.ref = "sqldelight" }
 sqldelight-coroutines = { module = "app.cash.sqldelight:coroutines-extensions", version.ref = "sqldelight" }
 # Driver JDBC (SQLite embebido). Es el de JVM: el backend y los tests.

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Icono del lanzador: una caja de almacén vista en planta, dibujada como vector.
+
+  ES UN VECTOR Y NO UN PNG A PROPOSITO: no hay equipo de diseño en este proyecto y un
+  PNG de relleno en cinco densidades es peso muerto que nadie va a mantener. Un vector
+  ocupa un archivo, escala en cualquier pantalla y se puede cambiar de color editando
+  un valor.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group android:scaleX="0.55" android:scaleY="0.55" android:translateX="24" android:translateY="24">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M30,4 L70,4 A4,4 0 0 1 74,8 L74,16 L82,16 A4,4 0 0 1 86,20 L86,92 A4,4 0 0 1 82,96 L26,96 A4,4 0 0 1 22,92 L22,20 A4,4 0 0 1 26,16 L34,16 L34,8 A4,4 0 0 1 38,4 Z M40,22 L40,88 L68,88 L68,22 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M46,34 L62,34 L62,42 L46,42 Z M46,50 L62,50 L62,58 L46,58 Z" />
+    </group>
+</vector>
