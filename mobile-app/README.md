@@ -383,25 +383,55 @@ suspend fun printJobs(status: String? = null): List<PrintJobDto>
 
 ## 8. Estado de verificación
 
+Salida real ejecutada en esta máquina (macOS, JDK 17, Kotlin 2.4.10, AGP 9.0.1,
+Gradle 9.1.0). El resumen está aquí; la transcripción literal está en la entrega.
+
 | Comprobación | Comando | Resultado |
 |---|---|---|
-| UI compartida en JVM | `:mobile-app:compileKotlinJvm` | ✅ |
-| Tests del reducer/ViewModel | `:mobile-app:jvmTest` | ✅ **30 tests, 0 fallos, 0 saltados** (leído del XML) |
-| Biblioteca para Android | `:mobile-app:compileAndroidMain` | ✅ |
-| iOS arm64 | `:mobile-app:compileKotlinIosArm64 -PenableIosTargets=true` | ver nota abajo |
-| APK Android | `androidApp/./gradlew :assembleDebug` | ✅ `androidApp-debug.apk` |
+| UI compartida en JVM | `:mobile-app:compileKotlinJvm` | ✅ `BUILD SUCCESSFUL` |
+| Tests del reducer/ViewModel | `:mobile-app:jvmTest` | ✅ **30 tests, 0 fallos, 0 saltados** (leído del XML, no del «BUILD SUCCESSFUL») |
+| Biblioteca para Android | `:mobile-app:compileAndroidMain` | ✅ `BUILD SUCCESSFUL` |
+| iOS arm64 | `:mobile-app:compileKotlinIosArm64 -PenableIosTargets=true` | ✅ `BUILD SUCCESSFUL` |
+| Framework iOS enlazado | `:mobile-app:linkDebugFrameworkIosSimulatorArm64 -PenableIosTargets=true` | ✅ `MobileApp.framework` generado (3 m 21 s) |
+| APK Android | `androidApp/./gradlew :assembleDebug` | ✅ `androidApp-debug.apk` (42 MB, sin minificar) |
+
+Desglose del XML de tests (`mobile-app/build/test-results/jvmTest/TEST-*.xml`):
+
+```txt
+ScanSessionTest            tests= 7 failures=0 errors=0 skipped=0
+ScanThrottleTest           tests= 5 failures=0 errors=0 skipped=0
+MoveStockReducerTest       tests=12 failures=0 errors=0 skipped=0
+MoveStockViewModelTest     tests= 6 failures=0 errors=0 skipped=0
+TOTAL tests=30 failures=0 errors=0 skipped=0
+```
 
 **Lo que NO está verificado en esta máquina, y por qué:**
 
-- **`iosApp` no se compiló con Xcode.** El **framework** de Kotlin sí se compila para
-  iOS (`compileKotlinIosArm64`), que es lo que valida el código compartido y el
-  `actual` de AVFoundation. Lo que no se ha ejecutado es el proyecto Xcode ni la
-  cámara en un iPhone: el `pbxproj` está escrito a mano y **no se ha abierto en
-  Xcode**. La conversión de coordenadas del `actual` de iOS está razonada pero no
-  probada en dispositivo.
+- **`iosApp` no se ha abierto ni compilado con Xcode.** Lo que sí está verificado es
+  que el **framework de Kotlin** compila y enlaza para iOS, que es lo que valida el
+  código compartido y el `actual` de AVFoundation. Lo que **no** está probado es el
+  `pbxproj` (escrito a mano, sin abrirlo en Xcode) ni la **cámara en un iPhone**. La
+  conversión de coordenadas del `actual` de iOS está razonada y comentada, pero no
+  ejecutada en dispositivo: es la primera cosa que hay que probar en un iPhone real.
 - **Nada se ha ejecutado en un emulador o dispositivo Android.** El APK se genera; no
-  se ha instalado.
-- **`stock-database` no compila** por una dependencia `kotlinx-datetime` que falta en
-  su `build.gradle.kts`. Es de otro agente y **no se ha tocado**.
-- **`stock-network` no compila**: tiene errores de sintaxis (`Unclosed comment`) en
-  varios DTOs, de otro agente en paralelo. No se ha tocado.
+  se ha instalado ni arrancado. El escáner Android (CameraX + ML Kit) **no se ha
+  probado con una cámara real**.
+- **`stock-database` no compila**: le falta la dependencia `kotlinx-datetime` en su
+  `build.gradle.kts` (error `Unresolved reference 'datetime'` en
+  `ColaSincronizacion.kt`). Es de otro agente y **no se ha tocado**.
+- **`stock-network` no compila**: tiene errores de sintaxis (`Syntax error: Unclosed
+  comment`) en varios DTOs, de otro agente en paralelo. No se ha tocado.
+- **La cámara real, la sincronización sin red y la idempotencia de extremo a extremo
+  no se pueden verificar todavía**: dependen de `stock-network` y de un dispositivo.
+
+### Deuda asumida en esta entrega, con su motivo
+
+| Deuda | Por qué se asumió | Cuándo se paga |
+|---|---|---|
+| Kotlin 2.4.10 en TODO el monorepo (estaba en 2.1.20) | Compose Multiplatform 1.11.1 exige Kotlin ≥ 2.2.0 y Gradle no admite dos versiones del plugin en el mismo build. Verificado que `stock-domain` compila y pasa sus **299 tests** con 2.4.10. | Ya está pagada; era obligatoria para que el móvil compile |
+| `androidApp` con su propio build de Gradle | AGP 9 no admite `com.android.application` y el plugin de KMP en el mismo build. Ver §5. | Cuando AGP 10 (2026) o el plugin de KMP lo permitan |
+| Versiones de los plugins del móvil repetidas en `settings.gradle.kts` (`pluginManagement`) y en `libs.versions.toml` | Un alias del catálogo rompe la resolución de plugins del monorepo. Ver §5. | Si Gradle permite unificar ambas rutas |
+| Rutas absolutas a `/Users/axzy/DEV/STOCK/.gradle-home` en `androidApp/gradle.properties` y en su `signingConfigs` | El sandbox bloquea `~/.android`. Ver §5. | Al mover el repo a otra máquina (borrar y dejar que AGP use el suyo) |
+| `jvmMain` con un stub del escáner | Kotlin exige un `actual` por target, y el JVM es el target de los tests. | Nunca: es el precio de poder probar sin emulador |
+| `Navigator` propio en vez de `androidx.navigation` | Evita una dependencia más que verificar; cubre 16 destinos sin enlaces profundos. | Al necesitar deep links o el «atrás» del sistema |
+

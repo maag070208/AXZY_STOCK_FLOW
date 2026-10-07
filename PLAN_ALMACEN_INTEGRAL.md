@@ -2242,3 +2242,60 @@ exhaustivo con rutas y números de línea. Son la evidencia de este plan:
 
 > Nota: el inventario del backend y del frontend web legacy se entregó íntegro en la sesión de
 > análisis y sus hallazgos están incorporados en §1.1, §1.2, §1.3-bis, §2.2-bis, §2.2-ter y §8.2.
+
+---
+
+## §10-bis. Limitación de AGP 9: `androidApp` necesita su propio build
+
+**Hallazgo verificado durante la Fase 0/1, y afecta a la estructura del proyecto.**
+
+Con **AGP 9.0.1**, los plugins `com.android.application` y `org.jetbrains.kotlin.multiplatform` **no
+pueden coexistir en el mismo build de Gradle**. El fallo no es del módulo del APK: **tumba la
+configuración de todo el monorepo**, incluidos `stock-domain` y `backend`:
+
+```
+Could not generate a decorated class for type KotlinAndroidTarget.
+> com/android/build/gradle/api/BaseVariant
+```
+
+`BaseVariant` es una clase que **AGP 9 eliminó**.
+
+### Las cuatro alternativas probadas, y por qué ninguna sirve
+
+| Alternativa | Resultado real |
+|---|---|
+| `apply false` en el `plugins {}` raíz (lo que pide la guía oficial de migración) | `Unresolved reference 'namespace' / 'compileSdk'` en `stock-database` |
+| Versiones en `pluginManagement` + `id(...)` sin versión | El mismo error de `KotlinAndroidTarget` |
+| `android.enableLegacyVariantApi=true` | AGP 9: *«the property has no effect, use android.newDsl instead»* |
+| `org.jetbrains.kotlin.android` en `androidApp` | Gradle no lo encuentra, y AGP 9 ya integra Kotlin |
+
+### La solución aplicada
+
+`mobile-app/androidApp/` es un **build de Gradle independiente** (`includeBuild("../..")` para consumir
+`:mobile-app` por coordenada), igual que `iosApp` es un proyecto de Xcode aparte:
+
+```bash
+cd mobile-app/androidApp && ./gradlew :assembleDebug
+```
+
+### Deuda a vigilar, con condición de revisión
+
+**Cuando AGP 10 o el plugin de KMP lo permitan, `androidApp` puede volver a ser un subproyecto del
+monorepo.** La condición concreta que hay que comprobar: que la clase
+`com.android.build.gradle.api.BaseVariant` haya vuelto, o que `com.android.application` publique un
+plugin compatible con KMP. Sin esa comprobación no se debe intentar.
+
+**Por qué esto importa y no es un detalle de configuración:** un build separado significa que
+`androidApp` **no participa** en el `./gradlew build` del monorepo, así que **un CI que solo compile la
+raíz no compilará el APK**. Hay que añadir el paso explícito, y esa omisión es silenciosa: todo pasa y
+el APK se queda sin construir.
+
+### Nota sobre la versión de Kotlin
+
+Se subió de **2.1.20 a 2.4.10** y no había alternativa: Compose Multiplatform 1.11.1 aborta con
+*«Minimal supported Kotlin Gradle Plugin version is 2.2.0»*, y Gradle **no admite dos versiones del
+plugin de Kotlin en el mismo build** (*«already on the classpath with a different version»*).
+
+Verificado tras la subida, con recompilación forzada:
+- `stock-domain`: guardias de arquitectura en verde y **299 tests, 0 fallos**
+- `mobile-app`: **30 tests, 0 fallos**
