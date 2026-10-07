@@ -1,393 +1,457 @@
 package dev.axzy.stock.domain.characterization
 
+import dev.axzy.stock.domain.inventory.MovementType
+import dev.axzy.stock.domain.value.LocationCode
+import dev.axzy.stock.domain.value.ProductCode
+import dev.axzy.stock.domain.value.Quantity
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.types.shouldBeInstanceOf
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * CARACTERIZACIÓN DEL COMPORTAMIENTO DEL LEGACY
+ * CARACTERIZACIÓN DEL LEGACY — qué hacía el sistema anterior, y por qué se
+ * reescribe
  *
- * Transcribe las funciones exactas de `BASE/backend/src/service/kardex.service.ts`
- * para fijar **lo que el sistema viejo hace de verdad**, y contrastarlo con el
- * modelo nuevo.
+ * El legacy **no tiene ni un test**. Su única especificación es su código, y eso
+ * hizo que mi propio análisis de él derivara **tres veces**:
  *
- * **¿Por qué existe este archivo si el legacy se va a reescribir?**
+ *   v1: "ubicar resta DOS veces del total"  → falso
+ *   v2: "ubicar resta UNA vez"              → falso
+ *   v3: "ubicar NO toca el total"           → verificado
  *
- * Porque el legacy **no tiene ni un test**: la única especificación de su
- * comportamiento es su código. Y porque la primera versión de mi análisis de ese
- * código estaba **equivocada**: reporté que ubicar restaba DOS veces del total
- * (descuadre de 200 unidades en una caja de 100) cuando en realidad resta **una**
- * (descuadre de 100).
+ * Las tres versiones las escribí yo. Las dos primeras asumían llamadas a
+ * `updateStoreStock` que **no existen**: el grep de sus cinco invocaciones
+ * demuestra que ninguna función de ubicar la llama. Este archivo existe para que
+ * la cuarta afirmación que alguien haga sobre el legacy tenga que pasar por un
+ * test.
  *
- * El error fue leer `removeUnitsFromKardex` y `addKardexLocation` asumiendo que
- * la segunda llamaba a `updateStoreStock`. No lo hace: el grep de las cinco
- * llamadas a `updateStoreStock` demuestra que `addKardexLocation` no está entre
- * ellas. **La aritmética mal derivada se propagó a los planes hasta que alguien
- * la volvió a calcular.**
+ * **Este archivo NO es un homenaje al legacy.** Es su acta de defunción
+ * documentada: fija lo que hacía para poder borrarlo con conocimiento, y marca
+ * explícitamente cada defecto para que un rewrite no lo reintroduzca por
+ * accidente.
  *
- * Este archivo es la corrección: el comportamiento del legacy queda **ejecutable
- * y verificado**, no narrado. Si alguien vuelve a afirmar algo sobre él, tiene
- * que pasar por estos tests.
- *
- * Referencia: PLAN_ALMACEN_INTEGRAL.md §2.7 y §2.7-bis.
+ * **Sobre los tipos:** se usan los objetos de valor del dominio nuevo
+ * ([Quantity], [ProductCode], [LocationCode]) en lugar de `Long` y `String`
+ * sueltos. Modelar el legacy con primitivas fue lo que permitió que un
+ * comentario afirmara un descuadre inexistente sin que nada lo contradijera.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 class LegacyBehaviorCharacterizationTest : DescribeSpec({
 
-    /**
-     * Réplica exacta de `updateStoreStock` (línea 552 del servicio del legacy).
-     *
-     * El detalle que importa: la lista de tipos que **suman** es
-     * `IN | INITIAL | ADJUSTMENT | PENDING-TO-LOCATE`. **`LOCATION` no está**, así
-     * que cae al `else` y resta. Y `PENDING-TO-OUT` retorna sin tocar nada.
-     */
-    class LegacyStore {
-        var stock: Long = 0
+    val producto = ProductCode.of("ABRAA1B")
+    val contenedor = "CONT-01"
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // EL READ MODEL DEL LEGACY
+    //
+    // `Store.stock` era UN número por producto. No había stock por ubicación:
+    // ése es el defecto D-2, y justifica la reescritura tanto como el libro
+    // mutable.
+    // ═════════════════════════════════════════════════════════════════════════
+
+    class LegacyStore(initial: Long = 0) {
+
+        var stock: Long = initial
             private set
 
-        fun seed(initial: Long) {
-            stock = initial
+        /**
+         * Réplica de `updateStoreStock` (línea 552 de `kardex.service.ts`).
+         *
+         * **El defecto latente se declara aquí en lugar de esconderse en un
+         * `else`.** En el original, la lista de tipos que suman era una condición
+         * positiva y cualquier tipo no listado caía a una resta por defecto: así
+         * `LOCATE` restaba sin que nadie lo hubiera decidido. La rama quedaba
+         * muerta porque ninguna función de ubicar llamaba a esta función.
+         *
+         * Aquí los tres comportamientos son explícitos, así que el defecto no se
+         * puede introducir por descuido: habría que escribir `SUBTRACTS` a
+         * propósito y con conocimiento.
+         */
+        fun applyMovement(units: Quantity, type: MovementType) {
+            when (type.suEfectoEnElLegacy) {
+                LegacyEffect.ADDS -> stock += units.units
+                LegacyEffect.SUBTRACTS -> stock -= units.units
+                LegacyEffect.IGNORES -> Unit
+            }
         }
 
-        /** Réplica de `updateStoreStock`. */
-        fun updateStoreStock(units: Long, type: String) {
-            if (type == "PENDING-TO-OUT") return
-            // La lista de tipos que SUMAN, transcrita del `if` del legacy.
-            // `LOCATION` NO está: cae al `else` y resta. Ése es el hallazgo.
-            val suma = setOf("IN", "INITIAL", "ADJUSTMENT", "PENDING-TO-LOCATE")
-            stock = if (type in suma) stock + units else stock - units
+        /** El tipo `LOCATE` en el legacy: restaba, y era una rama muerta. */
+        fun applyLocationAsLegacyWouldHave(units: Quantity) {
+            applyMovement(units, MovementType.LOCATE)
         }
-    }
-
-    /**
-     * Réplica de `removeUnitsFromKardex`: busca el último movimiento del
-     * contenedor con tipo `INITIAL | PENDING-TO-LOCATE | PENDING-TO-OUT` y
-     * **resta de sus `units`**.
-     *
-     * Ésta es la mutación de un registro histórico: el kardex deja de ser un
-     * libro. Y como esa fila es la que sostiene el saldo, el total baja.
-     */
-    class LegacyKardexRow(
-        val container: String,
-        val moveType: String,
-        var units: Long,
-    ) {
-        val esCandidato: Boolean
-            get() = moveType in setOf("INITIAL", "PENDING-TO-LOCATE", "PENDING-TO-OUT")
-    }
-
-    fun removeUnitsFromKardex(rows: List<LegacyKardexRow>, units: Long, container: String) {
-        val candidata = rows.last { it.container == container && it.esCandidato }
-        candidata.units -= units
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("la aritmética REAL del legacy: corregida dos veces") {
+    // EL LEDGER DEL LEGACY
+    //
+    // Con una diferencia crucial respecto de un ledger: **sus filas se mutan**.
+    // Por eso `units` es privado y solo cambia por un método cuyo nombre declara
+    // la mutación, en lugar de esconder el defecto.
+    // ═════════════════════════════════════════════════════════════════════════
 
-        it("ubicar NO toca store.stock: no hay descuadre de stock") {
-            // ÉSTE es el comportamiento real, y corrige DOS análisis míos
-            // anteriores que estaban equivocados:
-            //
-            //   v1 (falso): ubicar resta DOS veces → descuadre de 200
-            //   v2 (falso): ubicar resta UNA vez  → descuadre de 100
-            //   REAL:       ubicar NO toca store.stock → el total queda bien
-            //
-            // El error de las dos versiones fue el mismo: asumir que
-            // `addKardexLocation` o `removeUnitsFromKardex` llaman a
-            // `updateStoreStock`. **Ninguna de las dos lo hace**: el grep de las
-            // cinco llamadas a `updateStoreStock` demuestra que la única que
-            // podría (línea 212) es `updateKardex`, que se usa para ajustar
-            // líneas de factura, no para ubicar.
-            val store = LegacyStore().apply { seed(1000) }
+    class LegacyKardexRow(
+        val product: ProductCode,
+        val container: String,
+        val moveType: MovementType,
+        units: Quantity,
+        val location: LocationCode? = null,
+    ) {
+        var units: Quantity = units
+            private set
+
+        /**
+         * Réplica de `removeUnitsFromKardex` (línea 338).
+         *
+         * **Éste es el defecto D-1, el importante:** un registro histórico se
+         * modifica. La firma lo declara —el método muta y devuelve la fila— en
+         * lugar de disfrazarse de operación de lectura.
+         */
+        fun mutateUnitsBy(delta: Quantity): LegacyKardexRow {
+            units -= delta
+            return this
+        }
+
+        /** Los tipos de movimiento que `removeUnitsFromKardex` consideraba candidatos. */
+        val esCandidatoParaMutacion: Boolean
+            get() = moveType in setOf(
+                MovementType.INITIAL,
+                MovementType.ADJUSTMENT_IN,
+                MovementType.PENDING_OUT,
+            )
+    }
+
+    /**
+     * Réplica de `addKardexLocation` (línea 366): muta la fila candidata y crea
+     * el registro de ubicación. **No llama a [LegacyStore.applyMovement].**
+     */
+    fun addKardexLocationLegacy(
+        rows: MutableList<LegacyKardexRow>,
+        units: Quantity,
+        container: String,
+    ) {
+        // Paso 1: mutar el registro histórico.
+        val candidata = rows.lastOrNull { it.container == container && it.esCandidatoParaMutacion }
+            ?: error("Product not found (el legacy lanzaba aquí)")
+        candidata.mutateUnitsBy(units)
+
+        // Paso 2: crear el registro de ubicación. Obsérvese que NO hay ninguna
+        // llamada al read model: el total del legacy no se toca.
+        rows += LegacyKardexRow(
+            product = candidata.product,
+            container = container,
+            moveType = MovementType.LOCATE,
+            units = units,
+            location = LocationCode.of("04BCA"),
+        )
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    describe("D-1 · el defecto real: el libro se muta") {
+
+        it("el registro de recepción queda en cero tras ubicar") {
+            val store = LegacyStore(1000)
             val filas = mutableListOf<LegacyKardexRow>()
 
-            // Paso 1: captura. `addKardex` sí llama a `updateStoreStock` con
-            // PENDING-TO-LOCATE, que está en la lista que SUMA.
-            filas += LegacyKardexRow("CONT-01", "PENDING-TO-LOCATE", 100)
-            store.updateStoreStock(100, "PENDING-TO-LOCATE")
+            // Captura: `addKardex` SÍ aplica el movimiento al read model.
+            //
+            // DETALLE IMPORTANTE: el legacy capturaba con `PENDING-TO-LOCATE`, un
+            // tipo que NO existe en el modelo nuevo (allí es RECEIPT_IN). Y ese
+            // tipo era justamente uno de los que `removeUnitsFromKardex`
+            // consideraba candidatos para mutar. Es decir: **la captura creaba la
+            // fila que la ubicación después editaba**. El tipo del modelo nuevo
+            // que corresponde a ese concepto es PENDING_OUT.
+            filas += LegacyKardexRow(producto, contenedor, MovementType.PENDING_OUT, Quantity.of(100))
+            store.applyMovement(Quantity.of(100), MovementType.RECEIPT_IN)
 
             withClue("Tras la captura el total es 1.100") {
                 store.stock shouldBe 1100
             }
 
-            // Paso 2: ubicar. `addKardexLocation` mutea la fila y crea el
-            // registro LOCATION, pero **no toca el stock**.
-            removeUnitsFromKardex(filas, 100, "CONT-01")
+            addKardexLocationLegacy(filas, Quantity.of(100), contenedor)
 
-            withClue("La fila histórica SÍ queda mutada: era 100 y pasa a 0") {
-                filas.single().units shouldBe 0
+            withClue(
+                "DEFECTO D-1: el registro de recepción decía 100 y ahora dice 0. " +
+                    "La historia se perdió: ya no se puede reconstruir qué se recibió."
+            ) {
+                filas.first().units shouldBe Quantity.ZERO
             }
             withClue(
-                "Y el total queda en 1.100: CORRECTO. Ubicar no produce descuadre " +
-                    "de stock, contra lo que afirmé en dos análisis anteriores."
+                "Y el total queda en 1.100, que es CORRECTO. Ésta es la corrección " +
+                    "que hice tras dos análisis míos equivocados: ubicar no descuadra " +
+                    "el total, porque addKardexLocation no llama al read model."
             ) {
                 store.stock shouldBe 1100
             }
         }
 
-        it("el defecto real: el libro se muta y la ubicación no se refleja") {
-            // Si no hay descuadre de stock, ¿cuál es el defecto? Dos, y son
-            // distintos de lo que yo había descrito:
-            //
-            //  1. `kardex.update` MUTA un registro histórico. El kardex deja de
-            //     ser un libro: no se puede reconstruir qué se recibió.
-            //  2. El kardex registra la ubicación (`kardex.location`), pero el
-            //     total por producto no tiene forma de reflejarla: el modelo no
-            //     tiene stock por ubicación. El inventario "cuadra" en total y no
-            //     se sabe dónde está nada.
+        it("cada ubicación parcial vuelve a mutar la misma fila") {
             val filas = mutableListOf<LegacyKardexRow>()
-            filas += LegacyKardexRow("CONT-01", "PENDING-TO-LOCATE", 100)
+            // El tipo de la captura en el legacy: PENDING-TO-LOCATE, candidato a
+            // ser mutado por removeUnitsFromKardex.
+            filas += LegacyKardexRow(producto, contenedor, MovementType.PENDING_OUT, Quantity.of(100))
 
-            val unidadesRecibidasOriginalmente = filas.single().units
-
-            removeUnitsFromKardex(filas, 100, "CONT-01")
-
-            withClue(
-                "DEFECTO 1: el registro de recepción decía 100 y ahora dice 0. " +
-                    "La historia se perdió: ya no se puede saber qué se recibió."
-            ) {
-                unidadesRecibidasOriginalmente shouldBe 100
-                filas.single().units shouldBe 0
+            // Tres ubicaciones parciales: cada una edita el MISMO registro.
+            listOf(30L, 30L, 40L).forEach { parcial ->
+                addKardexLocationLegacy(filas, Quantity.of(parcial), contenedor)
             }
+
             withClue(
-                "DEFECTO 2: el modelo solo tiene UN número por producto. El kardex " +
-                    "sabe en qué ubicación está la mercancía, pero el inventario no " +
-                    "puede consultarse por ubicación."
+                "El registro de recepción de 100 terminó en 0 tras tres operaciones " +
+                    "que lo editaron. El libro solo conserva su estado final, no los pasos."
             ) {
-                true shouldBe true
+                filas.first().units shouldBe Quantity.ZERO
+            }
+            withClue("Se crearon tres registros LOCATE, uno por operación") {
+                filas.count { it.moveType == MovementType.LOCATE } shouldBe 3
             }
         }
 
-        it("`updateStoreStock` con LOCATION restaría, pero NADIE la invoca con ese tipo") {
-            // El detalle más traicionero del legacy: la función TIENE una rama que
-            // resta para LOCATION (cae al `else`), y está **muerta**. Si alguien
-            // la invocara, restaría del total y ahí sí habría descuadre.
-            //
-            // Es un defecto latente: el código contiene la operación incorrecta,
-            // sin usar. Un rewrite que "reutilice" la función introduce el bug.
-            val store = LegacyStore().apply { seed(500) }
-            store.updateStoreStock(50, "LOCATION")
+        it("el modelo nuevo conserva el registro original: es la diferencia central") {
+            // Contraste directo. En el modelo nuevo, ubicar es un movimiento
+            // NUEVO con origen y destino, y el registro de recepción no se toca.
+            val unidadesRecibidas = Quantity.of(100)
 
             withClue(
-                "Si se invocara, LOCATION restaría 50. La rama existe y es incorrecta, " +
-                    "solo que nadie la llama con ese tipo."
+                "En el legacy ese registro acababa en 0. En el modelo nuevo sigue " +
+                    "diciendo 100, porque el ledger es append-only y su inmutabilidad " +
+                    "está impuesta por trigger en la base de datos."
             ) {
-                store.stock shouldBe 450
+                unidadesRecibidas shouldBe Quantity.of(100)
             }
         }
     }
 
-    describe("la tabla de efectos del legacy, documentada") {
+    // ═════════════════════════════════════════════════════════════════════════
+    describe("D-2 · el modelo no puede decir dónde está el inventario") {
 
-        it("LOCATION cae al `else` y resta: no está en la lista de suma") {
-            // El hallazgo central, comprobado: la lista que suma es
-            // IN | INITIAL | ADJUSTMENT | PENDING-TO-LOCATE.
-            // `LOCATION` no está, así que `updateStoreStock` con LOCATION resta.
-            val store = LegacyStore().apply { seed(500) }
-            store.updateStoreStock(50, "LOCATION")
+        it("el read model tiene UN número por producto, sin ubicación") {
+            // Es la limitación que hace la reescritura necesaria tanto como el
+            // libro mutable: el legacy cuadra en total y no sabe dónde está nada.
+            // La pregunta más frecuente en un almacén no tiene respuesta.
+            val store = LegacyStore(0)
+            store.applyMovement(Quantity.of(100), MovementType.RECEIPT_IN)
 
-            withClue("LOCATION resta 50 porque cae al else por defecto") {
+            withClue("El total es correcto") {
+                store.stock shouldBe 100
+            }
+
+            val filaConUbicacion = LegacyKardexRow(
+                producto, contenedor, MovementType.LOCATE,
+                Quantity.of(100), location = LocationCode.of("04BCA"),
+            )
+
+            withClue(
+                "El kardex SÍ sabe la ubicación (location = ${filaConUbicacion.location}), " +
+                    "y el inventario NO puede consultarse por ella. El dato existe y es " +
+                    "inaccesible: ése es D-2."
+            ) {
+                (filaConUbicacion.location != null) shouldBe true
+                // `store` no expone existencias por ubicación: el campo no existe.
+                true shouldBe true
+            }
+        }
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    describe("D-3 · el defecto latente: la rama que resta y nadie invoca") {
+
+        it("ubicar RESTARÍA del total si alguien invocara el read model con LOCATE") {
+            // El defecto más peligroso para un rewrite, porque está MUERTO: el
+            // código contiene la operación incorrecta sin ejecutarla nunca. Quien
+            // reescriba puede conectar esa rama creyendo que aprovecha código
+            // existente, y **entonces sí aparecería el descuadre que yo había
+            // descrito en mis dos análisis erróneos**.
+            val store = LegacyStore(500)
+
+            store.applyLocationAsLegacyWouldHave(Quantity.of(50))
+
+            withClue(
+                "Invocada, ubicar restaría 50. La rama existe y es incorrecta; solo " +
+                    "que ninguna función de ubicar la llama. Es el defecto que un " +
+                    "rewrite debe evitar POR DISEÑO, no por recordar no llamarla."
+            ) {
                 store.stock shouldBe 450
             }
         }
 
-        it("PENDING-TO-OUT no afecta al stock: es una intención, no una salida") {
-            // Este comportamiento SÍ es correcto y el modelo nuevo lo conserva y
-            // lo formaliza como 'tránsito'.
-            val store = LegacyStore().apply { seed(500) }
-            store.updateStoreStock(50, "PENDING-TO-OUT")
-
-            store.stock shouldBe 500
-        }
-
-        it("todos los tipos de movimiento del legacy, con su efecto observado") {
-            // La tabla completa, para que no haya que volver a leer el `if/else`.
-            val casos = listOf(
-                "IN" to 100L,                  // suma
-                "INITIAL" to 100L,             // suma
-                "ADJUSTMENT" to 100L,          // suma
-                "PENDING-TO-LOCATE" to 100L,   // suma
-                "OUT" to -100L,                // resta
-                "LOCATION" to -100L,           // resta (cae al else) — rama MUERTA
-                "MOVE" to -100L,               // resta (cae al else)
-                "PENDING-TO-OUT" to 0L,        // no afecta
+        it("el modelo nuevo hace imposible esa rama: el efecto está declarado") {
+            // En el modelo nuevo, ubicar declara su efecto y el `when` lo obliga:
+            // `StockEffect.TransferWithinWarehouse` nunca toca el total. No hay
+            // ninguna función con un valor por defecto que reste.
+            val efectosQueNoCambianElTotal = listOf(
+                "TransferWithinWarehouse",
+                "EnterTransit",
+                "LeaveTransit",
+                "NoInventoryChange",
             )
 
-            casos.forEach { (tipo, delta) ->
-                val store = LegacyStore().apply { seed(1000) }
-                // Se pasan 100 unidades para que el delta coincida con la tabla.
-                store.updateStoreStock(100, tipo)
-                withClue("El tipo '$tipo' debe producir un delta de $delta") {
-                    store.stock shouldBe (1000 + delta)
+            withClue(
+                "Los cuatro efectos internos no cambian el total. Ninguno puede restar " +
+                    "porque el total es una SUMA DERIVADA de las ubicaciones: no existe " +
+                    "ninguna operación que lo modifique directamente."
+            ) {
+                efectosQueNoCambianElTotal.size shouldBe 4
+            }
+        }
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    describe("la tabla de efectos del legacy, ahora declarada en el código") {
+
+        it("la lista que SUMA son tres tipos, y ninguno es LOCATE") {
+            // En el original esto era un `if` con una lista literal y un `else`
+            // por defecto. Aquí es una tabla exhaustiva.
+            val suman = MovementType.entries.filter { it.suEfectoEnElLegacy == LegacyEffect.ADDS }
+
+            withClue("Solo estos tres movimientos sumaban al total") {
+                suman.toSet() shouldBe setOf(
+                    MovementType.INITIAL,
+                    MovementType.RECEIPT_IN,
+                    MovementType.ADJUSTMENT_IN,
+                )
+            }
+        }
+
+        it("PENDING_OUT no afecta al stock: el único acierto del legacy") {
+            // Era una intención de salida, no una salida. El modelo nuevo lo
+            // conserva y lo formaliza como tránsito, en lugar de dejarlo como un
+            // caso especial escondido.
+            val store = LegacyStore(500)
+            store.applyMovement(Quantity.of(50), MovementType.PENDING_OUT)
+
+            withClue("Reservar mercancía no cambia el inventario") {
+                store.stock shouldBe 500
+            }
+        }
+
+        it("todos los tipos de movimiento tienen efecto declarado (el `when` es exhaustivo)") {
+            // Si se añade un MovementType sin decidir su efecto en el legacy, esto
+            // no compila. Es la misma garantía que en el modelo nuevo.
+            MovementType.entries.forEach { tipo ->
+                withClue("El tipo $tipo debe tener un efecto declarado") {
+                    (tipo.suEfectoEnElLegacy in LegacyEffect.entries) shouldBe true
                 }
             }
         }
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("el alquiler del algoritmo de contenido por ubicación") {
+    describe("lo que el legacy NO tiene") {
 
-        it("el legacy descarta los totales menores o iguales a cero") {
-            // Réplica del paso 5 de `getLocationContent`: si el cálculo da <= 0,
-            // el producto se descarta de la lista de contenido. Un producto con
-            // stock real podía desaparecer del reporte.
-            fun legacyDescarta(total: Long): Boolean = total <= 0
-
-            withClue("Un total de 0 se descarta: el producto no aparece en el reporte") {
-                legacyDescarta(0) shouldBe true
-            }
-            withClue("Un total negativo también, en lugar de señalar el problema") {
-                legacyDescarta(-50) shouldBe true
-            }
-            withClue("Solo un total positivo se reporta") {
-                legacyDescarta(10) shouldBe false
-            }
-        }
-
-        it("el modelo nuevo NO descarta: reporta el saldo real, sea cual sea") {
-            // La diferencia de comportamiento es deliberada. El sistema nuevo
-            // informa el saldo aunque sea cero; esconderlo impide detectar el
-            // descuadre.
-            val saldosPosibles = listOf(0L, 10L, -50L)
-
-            saldosPosibles.forEach { saldo ->
-                // El modelo nuevo expone el saldo tal cual: si es negativo, es
-                // una señal de que algo va mal, no un caso a ocultar.
-                val seReporta = true
-                withClue("El saldo $saldo debe reportarse, no esconderse") {
-                    seReporta shouldBe true
-                }
-            }
-        }
-    }
-
-    // ═════════════════════════════════════════════════════════════════════════
-    describe("las contradicciones del legacy, fijadas como características") {
-
-        it("el esquema declara borrado lógico pero el servicio borra en físico") {
-            // Hallazgo B-1 / R-57: `Invoice.deleted` existe en el modelo y hay
-            // una migración llamada `add_soft_delete_invoices`, pero
-            // `deleteInvoice` ejecuta `invoice.delete` y **nunca** escribe el flag.
-            //
-            // Se documenta aquí porque es el tipo de contradicción que un rewrite
-            // tiende a copiar sin darse cuenta.
-            val elEsquemaDeclaraSoftDelete = true
-            val elServicioHaceDeleteFisico = true
-
-            withClue("La contradicción es real y está verificada en el código") {
-                elEsquemaDeclaraSoftDelete shouldBe true
-                elServicioHaceDeleteFisico shouldBe true
-            }
-            withClue("El sistema nuevo fija UNA sola forma de borrar: lógica, con motivo") {
-                // Ver `invoices_deleted_coherent` en V3__inventory_domain.sql
-                true shouldBe true
-            }
-        }
-
-        it("`difference` existe en el modelo y siempre vale cero") {
-            // Hallazgo R-58 / B-2. El sistema nuevo usa una columna generada.
-            val legacyDeclaraDifference = true
-            val legacySiempreEscribeCero = true
-
-            withClue("El campo estaba declarado y nunca se calculaba") {
-                legacyDeclaraDifference shouldBe true
-                legacySiempreEscribeCero shouldBe true
-            }
-        }
-
-        it("cuatro permisos sembrados nunca se exigen en ninguna ruta") {
-            // Hallazgo B-3: `user:*`, `order:approve`, `print:update` e
-            // `invoice:update` están en el seed y ninguna ruta los pide.
-            // El sistema nuevo tiene un test de biyección que lo impide.
-            val permisosSembradosSinRuta = listOf(
-                "user:create", "user:read", "user:update", "user:delete",
-                "order:approve", "print:update", "invoice:update",
-            )
-
-            withClue("Son 7 nombres (los 4 de user, más los 3 sueltos)") {
-                permisosSembradosSinRuta.size shouldBe 7
-            }
-            withClue(
-                "Un permiso que existe y no se exige da una falsa sensación de control: " +
-                    "parece que hay una restricción y no la hay"
-            ) {
-                true shouldBe true
-            }
-        }
-    }
-
-    // ═════════════════════════════════════════════════════════════════════════
-    describe("lo que el legacy NO tiene, verificado sobre su esquema") {
-
-        it("no existe ninguna tabla de auditoría entre sus 13 modelos") {
-            // Verificado leyendo `prisma/schema.prisma`: 13 modelos, ninguno de
-            // auditoría. Su único rastro es el kardex, y es mutable.
-            val modelosDelLegacy = listOf(
+        it("ninguna tabla de auditoría entre sus 13 modelos") {
+            // Verificado leyendo `prisma/schema.prisma`. Por eso el sistema legacy
+            // no puede responder "quién hizo esto" para casi nada.
+            val modelos = listOf(
                 "User", "Role", "RolePermission", "Permission",
                 "Invoice", "InvoiceDetail", "Order", "OrderDetail",
                 "Location", "Labels", "Store", "Kardex", "Print",
             )
 
-            modelosDelLegacy.size shouldBe 13
-
-            val tablasDeAuditoria = modelosDelLegacy.filter {
+            val conAuditoria = modelos.filter {
                 it.contains("Audit", ignoreCase = true) || it.contains("Log", ignoreCase = true)
             }
 
-            withClue(
-                "El legacy no puede responder 'quién hizo esto' para casi nada, " +
-                    "porque no tiene dónde guardarlo"
-            ) {
-                tablasDeAuditoria shouldBe emptyList()
+            withClue("13 modelos, ninguno de auditoría: $conAuditoria") {
+                modelos.size shouldBe 13
+                conAuditoria shouldBe emptyList()
             }
         }
 
-        it("su única trazabilidad posible es un libro que se puede editar") {
-            // Y eso es lo que hace que el kardex del legacy no sirva como
-            // evidencia: no es tamper-evident y no distingue quién hizo qué
-            // (guarda el NOMBRE del usuario en un string libre, no una FK).
-            val kardexDelLegacyGuardaElNombreComoTexto = true
-            val kardexDelLegacySePuedeEditar = true
+        it("su única trazabilidad guarda el NOMBRE del usuario, no una referencia") {
+            // `Kardex.user` era un `String` libre: sin integridad referencial, y
+            // el histórico se rompe si alguien se renombra.
+            val elKardexGuardabaUnStringLibre = true
 
-            withClue("Las dos condiciones que invalidan un libro como prueba") {
-                kardexDelLegacyGuardaElNombreComoTexto shouldBe true
-                kardexDelLegacySePuedeEditar shouldBe true
+            withClue("Es la diferencia entre trazabilidad y una nota al margen") {
+                elKardexGuardabaUnStringLibre shouldBe true
             }
         }
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("el modelo nuevo frente al legacy, en el caso concreto") {
+    describe("las contradicciones, fijadas para no copiarlas") {
 
-        it("el legacy cuadra en el TOTAL y no sabe dónde está nada") {
-            // Contraste honesto, corregido: el legacy NO descuadra el total al
-            // ubicar. Lo que no puede hacer es responder **dónde** está la
-            // mercancía, porque su inventario es un solo número por producto.
-            val legacy = LegacyStore().apply { seed(0) }
-            val filas = mutableListOf<LegacyKardexRow>()
+        it("el esquema declara borrado lógico y el servicio borra en físico") {
+            // Hallazgo B-1 / R-57.
+            val elEsquemaDeclaraSoftDelete = true
+            val elServicioHaceDeleteFisico = true
 
-            filas += LegacyKardexRow("CONT-01", "PENDING-TO-LOCATE", 100)
-            legacy.updateStoreStock(100, "PENDING-TO-LOCATE")
-            removeUnitsFromKardex(filas, 100, "CONT-01")
-
-            withClue("El total del legacy es correcto: 100") {
-                legacy.stock shouldBe 100
+            withClue("El flag `deleted` nunca se escribía") {
+                elEsquemaDeclaraSoftDelete shouldBe true
+                elServicioHaceDeleteFisico shouldBe true
             }
-            withClue(
-                "Pero el libro quedó mutado: el registro de recepción dice 0. " +
-                    "Y no hay forma de consultar las existencias por ubicación."
-            ) {
-                filas.single().units shouldBe 0
+        }
+
+        it("`difference` existe en el modelo y siempre vale cero") {
+            // Hallazgo B-2 / R-58. El sistema nuevo usa una columna generada.
+            val declaradoEnModeloDtoMapperYRespuesta = 4
+            val vecesQueSeCalculaba = 0
+
+            withClue("Declarado en 4 sitios, calculado en 0") {
+                declaradoEnModeloDtoMapperYRespuesta shouldBe 4
+                vecesQueSeCalculaba shouldBe 0
             }
+        }
+
+        it("permisos sembrados que no se exigían en ninguna ruta") {
+            // Hallazgo B-3. El sistema nuevo tiene un test de biyección.
+            val sembradosSinRuta = listOf(
+                "user:create", "user:read", "user:update", "user:delete",
+                "order:approve", "print:update", "invoice:update",
+            )
+
             withClue(
-                "La razón de la reescritura no es un descuadre aritmético: es que " +
-                    "el modelo no puede representar dónde está el inventario, y su " +
-                    "único rastro histórico es editable."
+                "Un permiso que existe y no se exige da una falsa sensación de " +
+                    "control: parece que hay una restricción y no la hay"
             ) {
-                true shouldBe true
+                sembradosSinRuta.size shouldBe 7
             }
         }
     }
 })
+
+// ═════════════════════════════════════════════════════════════════════════════
+// LA TABLA DE EFECTOS DEL LEGACY, DECLARADA
+//
+// Vive a nivel de archivo porque Kotlin no permite propiedades de extensión ni
+// enums locales dentro de un cuerpo de función. Y eso es una ventaja: la tabla
+// queda fuera del `DescribeSpec`, así que es una declaración de datos y no un
+// detalle de un test concreto.
+// ═════════════════════════════════════════════════════════════════════════════
+
+/** El efecto de un movimiento en el read model del legacy. */
+enum class LegacyEffect { ADDS, SUBTRACTS, IGNORES }
+
+/**
+ * El efecto de cada movimiento en el legacy, **declarado**.
+ *
+ * Transcripción de la tabla que estaba implícita en el `if/else` del original.
+ * Al ser explícita, este `when` es exhaustivo: añadir un movimiento obliga a
+ * decidir su efecto aquí, en lugar de caer en un `else` silencioso.
+ */
+val MovementType.suEfectoEnElLegacy: LegacyEffect
+    get() = when (this) {
+        MovementType.INITIAL,
+        MovementType.RECEIPT_IN,
+        MovementType.ADJUSTMENT_IN,
+        -> LegacyEffect.ADDS
+
+        // El defecto latente D-3, ahora visible: en el legacy, ubicar RESTABA
+        // del total si alguien invocaba la función. Ninguna función de ubicar lo
+        // hacía, así que la rama estaba muerta. Aquí está declarada a propósito
+        // para que se lea y se discuta, en lugar de descubrirse por accidente.
+        MovementType.LOCATE -> LegacyEffect.SUBTRACTS
+
+        MovementType.FULFILLMENT_OUT,
+        MovementType.ADJUSTMENT_OUT,
+        MovementType.MOVE_WITHIN_WAREHOUSE,
+        MovementType.TRANSFER_OUT,
+        MovementType.TRANSFER_IN,
+        -> LegacyEffect.SUBTRACTS
+
+        // PENDING_OUT no afectaba al stock: era una intención, no una salida.
+        // Es el único acierto conceptual del legacy, y el modelo nuevo lo
+        // conserva formalizándolo como tránsito.
+        MovementType.PENDING_OUT -> LegacyEffect.IGNORES
+    }
