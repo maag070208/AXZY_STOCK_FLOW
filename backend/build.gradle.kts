@@ -47,7 +47,11 @@ dependencies {
 
     implementation(libs.logback.classic)
     implementation(libs.koin.ktor)
+    // Argon2: se toma el artefacto por sus LIBRERIAS NATIVAS. Su binding de Java
+    // no se usa porque esta roto (falla con «Output is too short (-2)» aunque la
+    // libreria nativa devuelve exito). Los bindings JNA se escriben a mano.
     implementation(libs.argon2)
+    implementation(libs.jna)
     implementation(libs.java.jwt)
 
     testImplementation(libs.kotlin.test)

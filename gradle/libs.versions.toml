@@ -16,6 +16,11 @@ flyway = "11.3.4"
 logback = "1.5.16"
 koin = "4.0.4"
 argon2 = "2.12"
+# JNA: los bindings nativos. Se declara EXPLICITAMENTE porque JNA no llega
+# como dependencia transitiva de argon2-jvm, y hace falta para llamar a la
+# libreria nativa (el binding de Java de argon2-jvm esta roto: ver
+# NativeArgon2PasswordHasher).
+jna = "5.17.0"
 jwt = "4.6.1"
 # Android Gradle Plugin. Solo se aplica si se activan los targets moviles.
 #
@@ -91,7 +96,12 @@ flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
 flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 koin-ktor = { module = "io.insert-koin:koin-ktor", version.ref = "koin" }
+# Se usa SOLO por sus librerias nativas (macOS, Linux y Windows, x86-64 y ARM).
+# El binding de Java de este artefacto no funciona: cualquier hash falla con
+# «Output is too short (-2)» aunque la libreria nativa responde 0 = exito.
+# Los bindings se escriben a mano sobre el binario. Ver NativeArgon2PasswordHasher.
 argon2 = { module = "de.mkammerer:argon2-jvm", version.ref = "argon2" }
+jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
 java-jwt = { module = "com.auth0:java-jwt", version.ref = "jwt" }
 
 # ── Móvil: Ktor client ─────────────────────────────────────────────────────
