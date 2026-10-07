@@ -14,13 +14,25 @@ postgresql = "42.7.5"
 hikari = "6.2.1"
 flyway = "11.3.4"
 logback = "1.5.16"
-koin = "4.0.2"
-argon2 = "1.3.0"
-jwt = "5.0.0"
-# Android Gradle Plugin: solo se aplica si se activan los targets moviles
-androidGradlePlugin = "8.7.3"
+koin = "4.0.4"
+argon2 = "2.12"
+jwt = "4.6.1"
+# Android Gradle Plugin. Solo se aplica si se activan los targets moviles.
+#
+# AGP 9 en lugar de 8.x: aporta `com.android.kotlin.multiplatform.library`, el
+# plugin que integra el target de Android DENTRO del bloque `kotlin {}` de un
+# modulo KMP. Con AGP 8 habia que aplicar `com.android.library` aparte, que no
+# soporta KMP de forma nativa. Verificado contra el ejemplo de PuertoNuevoApp,
+# que ya usa AGP 9 en produccion.
+androidGradlePlugin = "9.0.1"
 androidMinSdk = "24"
-androidCompileSdk = "35"
+androidCompileSdk = "36"
+
+# Compose Multiplatform para la UI compartida de Android e iOS.
+composeMultiplatform = "1.11.1"
+# Camara y lectura de codigos de barras, solo en androidMain.
+androidxCamera = "1.4.2"
+mlkitBarcode = "17.3.0"
 
 [libraries]
 # ═══════════════════════════════════════════════════════════════════════════
@@ -36,6 +48,15 @@ coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", ve
 serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "datetime" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+
+# ── Movil: escaner de codigos de barras ────────────────────────────────────
+# La camara y el lector de codigos son de PLATAFORMA, por eso van en androidMain
+# y en iosMain; el modelo de que hacer con lo escaneado vive en commonMain.
+androidx-camera-core = { module = "androidx.camera:camera-core", version.ref = "androidxCamera" }
+androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "androidxCamera" }
+androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "androidxCamera" }
+androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "androidxCamera" }
+mlkit-barcode = { module = "com.google.mlkit:barcode-scanning", version.ref = "mlkitBarcode" }
 
 # ── Tests: property-based para las invariantes I1-I10 ──────────────────────
 kotest-property = { module = "io.kotest:kotest-property", version.ref = "kotest" }
@@ -85,4 +106,9 @@ kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref 
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
-android-library = { id = "com.android.library", version.ref = "androidGradlePlugin" }
+# Plugin de Android para modulos KMP (AGP 9). Reemplaza a `com.android.library`,
+# que no soporta Kotlin Multiplatform de forma nativa.
+android-kmp-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "androidGradlePlugin" }
+android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
