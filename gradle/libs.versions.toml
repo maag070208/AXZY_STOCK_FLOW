@@ -39,6 +39,18 @@ composeMultiplatform = "1.11.1"
 androidxCamera = "1.4.2"
 mlkitBarcode = "17.3.0"
 
+# SQLDelight: la persistencia local del movil (catalogo, existencias y cola de
+# sincronizacion). Se eligio SQLDelight y no un ORM porque genera el codigo de
+# acceso a partir de archivos `.sql` REALES: la migracion se revisa como SQL en
+# un diff, y las migraciones versionadas (`.sqm`) son una funcion del plugin, no
+# una convencion que haya que recordar.
+sqldelight = "2.1.0"
+# androidx.datastore: preferencias con escritura atomica en Android. No se usa
+# SharedPreferences a mano porque su `apply()` es asincrono y no avisa del fallo:
+# con DataStore, guardar es una corrutina que termina o falla, y eso se puede
+# probar.
+androidxDatastore = "1.1.7"
+
 [libraries]
 # ═══════════════════════════════════════════════════════════════════════════
 # ATENCIÓN: los nombres de estas claves NO pueden empezar por "kotlin-".
@@ -110,6 +122,21 @@ ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "kto
 ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
 ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
 ktor-client-logging = { module = "io.ktor:ktor-client-logging", version.ref = "ktor" }
+# MockEngine: permite probar el cliente HTTP (parseo, paginacion, contrato de
+# error y refresh) sin levantar un servidor. Es la unica forma de cubrir el
+# camino de error de un cliente sin depender de la red.
+ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
+
+# ── Móvil: persistencia local (SQLDelight) ─────────────────────────────────
+sqldelight-runtime = { module = "app.cash.sqldelight:runtime", version.ref = "sqldelight" }
+sqldelight-coroutines = { module = "app.cash.sqldelight:coroutines-extensions", version.ref = "sqldelight" }
+# Driver JDBC (SQLite embebido). Es el de JVM: el backend y los tests.
+sqldelight-driver-sqlite = { module = "app.cash.sqldelight:sqlite-driver", version.ref = "sqldelight" }
+sqldelight-driver-android = { module = "app.cash.sqldelight:android-driver", version.ref = "sqldelight" }
+sqldelight-driver-native = { module = "app.cash.sqldelight:native-driver", version.ref = "sqldelight" }
+
+# ── Móvil: preferencias (solo Android; en iOS y JVM no hace falta) ─────────
+androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "androidxDatastore" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
@@ -120,5 +147,7 @@ detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 # que no soporta Kotlin Multiplatform de forma nativa.
 android-kmp-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "androidGradlePlugin" }
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
+# Genera el codigo Kotlin de acceso a partir de los `.sq` y aplica los `.sqm`.
+sqldelight = { id = "app.cash.sqldelight", version.ref = "sqldelight" }
 compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

@@ -43,6 +43,14 @@ include(":stock-datastore")
 // ── Backend Ktor ───────────────────────────────────────────────────────────
 include(":backend")
 
-// El módulo de móvil (Compose Multiplatform) se añadirá en la Fase 6.
-// Se incluye comentado para que el árbol de Gradle no falle al no existir aún:
-// include(":mobile:composeApp")
+// ── Aplicación móvil (KMP + Compose Multiplatform) ─────────────────────────
+// Comparte stock-domain con el backend, así que las decisiones de negocio son
+// IDÉNTICAS en las dos partes por construcción, no por disciplina.
+//
+// El directorio se crea al incluirlo: si no existe, Gradle falla al configurar.
+include(":mobile-app")
+
+// ── Web (React JS, proyecto aparte) ────────────────────────────────────────
+// NO es un módulo de Gradle: es un proyecto de pnpm en `web/`. Se deja
+// constancia aquí para que quien lea el grafo sepa que existe y de quién depende
+// (consume el contrato de CONTRATO_API.md).
