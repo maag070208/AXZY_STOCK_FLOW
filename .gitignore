@@ -25,12 +25,19 @@ secrets/
 
 # ─── Gradle / Kotlin / JVM ────────────────────────────────────────────────
 .gradle/
+# GRADLE_USER_HOME local del proyecto. Se usa para que el build sea aislado y
+# no dependa de ~/.gradle, pero es 100% caché de descarga: no se versiona.
+.gradle-home/
 build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/**/build/
 out/
 *.class
 *.jar
+# EXCEPCIÓN: el wrapper de Gradle SÍ se versiona. Es la única forma de que
+# cualquiera pueda compilar con `./gradlew` sin instalar Gradle a mano.
+!.gitignore
+!/gradle/wrapper/gradle-wrapper.jar
 *.hprof
 local.properties
 .kotlin/

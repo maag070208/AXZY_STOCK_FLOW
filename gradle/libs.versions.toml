@@ -1,0 +1,88 @@
+[versions]
+kotlin = "2.1.20"
+coroutines = "1.10.1"
+serialization = "1.8.0"
+datetime = "0.6.2"
+# Tests
+kotest = "5.9.1"
+# Calidad
+detekt = "1.23.8"
+# Solo para el backend (ver la guardia de arquitectura: stock-domain NO los usa)
+exposed = "0.59.0"
+ktor = "3.1.1"
+postgresql = "42.7.5"
+hikari = "6.2.1"
+flyway = "11.3.4"
+logback = "1.5.16"
+koin = "4.0.2"
+argon2 = "1.3.0"
+jwt = "5.0.0"
+# Android Gradle Plugin: solo se aplica si se activan los targets moviles
+androidGradlePlugin = "8.7.3"
+androidMinSdk = "24"
+androidCompileSdk = "35"
+
+[libraries]
+# ═══════════════════════════════════════════════════════════════════════════
+# ATENCIÓN: los nombres de estas claves NO pueden empezar por "kotlin-".
+# El version catalog genera un namespace `libs.kotlin.*` para el plugin
+# `kotlin`, y una librería `kotlin-coroutines-core` produciría el accessor
+# `libs.kotlin.coroutines.core`, que colisiona y rompe el build.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# ── Kotlin core: lo ÚNICO que stock-domain puede usar ──────────────────────
+coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
+datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "datetime" }
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+
+# ── Tests: property-based para las invariantes I1-I10 ──────────────────────
+kotest-property = { module = "io.kotest:kotest-property", version.ref = "kotest" }
+kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
+kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
+kotest-datatest = { module = "io.kotest:kotest-framework-datatest", version.ref = "kotest" }
+turbine = { module = "app.cash.turbine:turbine", version = "1.2.0" }
+
+# ── Backend: Ktor ──────────────────────────────────────────────────────────
+ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
+ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor" }
+ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation", version.ref = "ktor" }
+ktor-serialization-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
+ktor-server-status-pages = { module = "io.ktor:ktor-server-status-pages", version.ref = "ktor" }
+ktor-server-call-logging = { module = "io.ktor:ktor-server-call-logging", version.ref = "ktor" }
+ktor-server-auth = { module = "io.ktor:ktor-server-auth", version.ref = "ktor" }
+ktor-server-auth-jwt = { module = "io.ktor:ktor-server-auth-jwt", version.ref = "ktor" }
+ktor-server-cors = { module = "io.ktor:ktor-server-cors", version.ref = "ktor" }
+ktor-server-request-validation = { module = "io.ktor:ktor-server-request-validation", version.ref = "ktor" }
+ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
+ktor-server-config-yaml = { module = "io.ktor:ktor-server-config-yaml", version.ref = "ktor" }
+
+# ── Backend: Exposed y persistencia ────────────────────────────────────────
+exposed-core = { module = "org.jetbrains.exposed:exposed-core", version.ref = "exposed" }
+exposed-jdbc = { module = "org.jetbrains.exposed:exposed-jdbc", version.ref = "exposed" }
+exposed-java-time = { module = "org.jetbrains.exposed:exposed-java-time", version.ref = "exposed" }
+exposed-json = { module = "org.jetbrains.exposed:exposed-json", version.ref = "exposed" }
+
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+hikaricp = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
+flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
+flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+koin-ktor = { module = "io.insert-koin:koin-ktor", version.ref = "koin" }
+argon2 = { module = "de.mkammerer:argon2-jvm", version.ref = "argon2" }
+java-jwt = { module = "com.auth0:java-jwt", version.ref = "jwt" }
+
+# ── Móvil: Ktor client ─────────────────────────────────────────────────────
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
+ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
+ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-client-logging = { module = "io.ktor:ktor-client-logging", version.ref = "ktor" }
+
+[plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+android-library = { id = "com.android.library", version.ref = "androidGradlePlugin" }
