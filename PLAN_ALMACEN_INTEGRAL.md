@@ -67,7 +67,7 @@ así que **no existe ninguna operación capaz de restar del total**. Implicació
 corroído; la Fase 7 lo cuantifica y se decide con datos delante.
 
 **Hallazgo clave 4 — el catálogo real está perfilado y es de buena calidad.** El Excel
-`INVENTARIO REAL LUNES 10 DE JUN 2024` trae **1.396 productos** con `product_code` único, `PZA` al
+`INVENTARIO REAL LUNES 10 DE JUN 2024` trae **1.398 productos** con `product_code` único, `PZA` al
 100%, **10.914.130 unidades** y cero nulos (§3.5). Eso permite un importador **estricto** que
 rechaza filas en vez de adivinar. Salvo un punto que requiere tu decisión: **201 productos tienen
 un código hermano con sufijo `N` y 180 comparten el mismo nombre** — si son un solo producto con
@@ -1351,8 +1351,8 @@ las cifras reales, no estimaciones:
 
 | Métrica | Valor |
 |---|---|
-| Filas del archivo | 1.402 → **1.398 útiles** (+2 filas vacías al final, a ignorar) |
-| Productos únicos | **1.396** |
+| Filas del archivo | 1.400 → **1.398 útiles** (+2 filas vacías al final, a ignorar) |
+| Productos únicos | **1.398** |
 | `CIDPRODUCTO` | 1 → 1.398, **secuencial y sin huecos** |
 | `CCODIGOPRODUCTO` | **único**, 6–14 caracteres, alfabeto `0-9` + `A-Z` (sin Ñ, O ni W) |
 | `CUNIDADMEDIDA` | **`PZA` en el 100%** de las filas |
@@ -1417,7 +1417,7 @@ delante puede decirlo. Hay tres caminos y conviene decidir antes de Fase 7:
 | **B. Importar a 0 y hacer conteo físico** | Los productos se cargan con stock 0 y el stock se descubre ubicación por ubicación | El sistema coincide con la realidad física desde el inicio | Requiere conteo físico completo antes de operar |
 | **C. Repartir el total entre ubicaciones** | Se distribuye el stock por criterio histórico o estimado | El sistema arranca "cuadrado" en apariencia | **Inventa datos**: el descuadre aparece después y es más difícil de diagnosticar |
 
-**Recomendación: A y B combinadas.** Cargar los 1.396 productos con su stock en la ubicación
+**Recomendación: A y B combinadas.** Cargar los 1.398 productos con su stock en la ubicación
 virtual `ADMIN` (idéntico al legacy, para que Fase 7 sea una migración fiel) **y** planificar el
 conteo físico por ubicación como actividad de arranque, con una pantalla de conteo que use la regla
 única `AdjustStock` (B3) para mover de `ADMIN` a la ubicación real. Se rechaza explícitamente C.
@@ -1789,7 +1789,7 @@ GET    /v1/system/stats                  dashboard
   entregable que da la confianza de que el inventario cuadra: se generan secuencias aleatorias de
   operaciones y se afirma que I1–I10 se mantienen.
 - **Importador del catálogo (§3.5)** con las reglas estrictas, **modo dry-run** e informe por fila.
-  Se prueba contra el Excel real de 1.396 productos y se verifica que el dry-run reproduce las
+  Se prueba contra el Excel real de 1.398 productos y se verifica que el dry-run reproduce las
   cifras exactas del archivo (suma = 10.914.130).
 - `shared-contracts/openapi.yaml` v1 con auth + products + locations + warehouses.
 - **Tests de caracterización de los flujos A–E (§1.4) contra la API legacy**: levantar el backend
@@ -1916,18 +1916,18 @@ GET    /v1/system/stats                  dashboard
   por desalineación de la ventana (bug M4 del legacy cubierto por test).
 
 ### Fase 7 — Migración de datos y despliegue (2,5 semanas)
-- **Importar el catálogo desde el Excel real** (1.396 productos) con el importador de §3.5 y
+- **Importar el catálogo desde el Excel real** (1.398 productos) con el importador de §3.5 y
   verificar el cuadre: suma de existencias = **10.914.130**, `PZA` al 100%, 334 productos en cero.
   Cualquier desviación se explica antes de continuar.
 - **Resolver el sufijo `N` antes de importar** (decisión abierta 1): si son un solo producto con dos
-  códigos, fusionar; si son dos, importar los 1.396. Esta decisión no se puede posponer a después
+  códigos, fusionar; si son dos, importar los 1.398. Esta decisión no se puede posponer a después
   de operar.
 - **Cuantificar el descuadre heredado del bug B6 (§2.7)** con la consulta de §2.7-bis, por
   producto, y **presentarlo al negocio antes de cortar**. El `Store.stock` del legacy está por
   debajo del real porque venía perdiendo unidades en cada ubicación. Hay que decidir con datos
   delante: cargar el número del legacy (fiel, pero sabiendo que es bajo) o reconciliar contra
   conteo físico.
-- **Conteo físico como proyecto propio (R-73/R-81)**: hay que contar **1.396 productos**. Lo ejecuta
+- **Conteo físico como proyecto propio (R-73/R-81)**: hay que contar **1.398 productos**. Lo ejecuta
   **personal de almacén** con una **pantalla de conteo nueva** (el jefe de bodega asigna zonas; los
   operadores cuentan). Cada conteo genera evento de auditoría. **No es un script: es trabajo físico
   planificado con fechas y personal.**
@@ -2073,16 +2073,16 @@ Por impacto/riesgo, el backend nuevo debe construirse **de dentro hacia fuera**:
 | D8 | Transporte en producción | HTTPS detrás de nginx; el móvil usa `AppConfig(scheme, host, port)` en vez de la IP pelada |
 | D9 | Regla de discrepancia y merma | Cerradas como B1/B2/B3 |
 | D10 | `external_id` del ERP | **Pendiente** — decisión abierta 3 |
-| D11 | Catálogo perfilado contra datos reales | Excel analizado: 1.396 productos, calidad excelente, importador **estricto** (§3.5) |
+| D11 | Catálogo perfilado contra datos reales | Excel analizado: 1.398 productos, calidad excelente, importador **estricto** (§3.5) |
 | D12 | Estrategia de pruebas | Suite de 10 niveles + invariantes I1–I10 + puertas de CI (§3.6) |
 | B6 | **Bug del doble descuento al ubicar** | **Confirmado y verificado por simulación** (§2.7). El modelo nuevo no puede reproducirlo |
 | B7 | Ubicación `ADMIN` | **Ubicación real con id real, marcada `kind = RECEIVING`** (ubicación temporal de recepción) |
 | B8 | Rutas intencionalmente abiertas | `PATCH /prints` (Zebra) y `GET /kardo` (ERP) **siguen sin JWT de usuario, pero con API key de servicio**. `DELETE /invoices/detail/:id` **sí es descuido**: se cierra con auth |
 | B9 | Política de cambios | **Se mejora sin preguntar lo que no mueve cantidades/estados/histórico; se pregunta lo que sí** (§2.8) |
 | R-65 | **Ubicar no baja el total** | **Confirmado.** Ubicar = traslado entre la ubicación de recepción y el estante. El total es invariante y el registro de recepción **no se muta** (§2.7) |
-| R-71 | Sufijo `N` | **Son dos SKUs distintos** (decisión de negocio). Se importan los 1.396 tal cual. *Riesgo documentado: si resultaran ser un producto partido, el stock quedaría duplicado* |
+| R-71 | Sufijo `N` | **Son dos SKUs distintos** (decisión de negocio). Se importan los 1.398 tal cual. *Riesgo documentado: si resultaran ser un producto partido, el stock quedaría duplicado* |
 | R-72 | Órdenes al ERP | **El ERP sigue vivo y hay que devolverle las órdenes convertidas.** Es una **feature nueva** (el flujo nunca existió): se dispara al confirmar el empaque, con job de reintentos e idempotencia |
-| R-73 | Stock heredado | **Reconciliar con conteo físico ANTES de cortar.** Es un proyecto aparte: 1.396 productos a contar, con pantalla de conteo nueva |
+| R-73 | Stock heredado | **Reconciliar con conteo físico ANTES de cortar.** Es un proyecto aparte: 1.398 productos a contar, con pantalla de conteo nueva |
 | R-74 | Segregación de funciones | **El que captura NO puede aprobar su propia discrepancia** (política PB3 activa) |
 | R-75 | Umbral de discrepancia | **Sin umbral: TODA discrepancia requiere aprobación.** Ver §2.9 |
 | R-86 | **Resolución del cuello de botella (D-1)** | **Aprobación POR FACTURA, no por línea.** El supervisor ve el listado de diferencias y resuelve la factura completa con una acción. **Mismo control** (una persona distinta autoriza), pero el trabajo pasa de 15 acciones a 1 |
@@ -2103,7 +2103,7 @@ Por impacto/riesgo, el backend nuevo debe construirse **de dentro hacia fuera**:
 1. **El sufijo `N` — la más importante.** Encontré **201 productos** cuyo código es otro código más
    `N` (`ABRATL1G` / `ABRATL1GN`), y en **180 casos comparten exactamente el mismo nombre**.
    ¿Son **dos SKUs distintos** (lo que asume el legacy) o es **un producto con dos códigos**?
-   - Si son distintos: no hay nada que hacer, se importan los 1.396 tal cual.
+   - Si son distintos: no hay nada que hacer, se importan los 1.398 tal cual.
    - Si es un producto con dos códigos: **hay stock partido en dos** y fusionarlos antes de operar
      es trivial; descubrirlo después obliga a reconciliar dos historiales de kardex.
    Es la única pregunta que puede invalidar la importación inicial, por eso va primera.
@@ -2176,7 +2176,7 @@ Por impacto/riesgo, el backend nuevo debe construirse **de dentro hacia fuera**:
   obligatorio del flujo de inventario; las puertas de CI están activas (cobertura ≥95% en el
   dominio, guardia de arquitectura, escáner de secretos, lint de fronteras FSD, migraciones desde
   cero); y **ningún issue del flujo de inventario se cierra sin su test**.
-- **Datos reales migrados:** el catálogo importado cuadra al peso con el Excel (1.396 productos,
+- **Datos reales migrados:** el catálogo importado cuadra al peso con el Excel (1.398 productos,
   10.914.130 unidades) y **las 10 invariantes se verifican sobre los datos migrados**, no solo
   sobre datos sintéticos.
 - **Deuda del legacy saldada:** ninguna de las **36 malas prácticas de §2.2-quater** reaparece; cada
@@ -2213,7 +2213,7 @@ Por impacto/riesgo, el backend nuevo debe construirse **de dentro hacia fuera**:
 `nginx.conf`, `render-config.sh`, `electron/`).
 
 **Datos reales de negocio**: `~/Downloads/INVENTARIO REAL LUNES 10 DE JUN 2024 - Copy.xlsx`
-(hoja `Hoja1`, 1.402 filas, 7 columnas) — perfilado completo en §3.5: 1.396 productos únicos,
+(hoja `Hoja1`, 1.402 filas, 7 columnas) — perfilado completo en §3.5: 1.398 productos únicos,
 `product_code` único, `PZA` al 100%, 10.914.130 unidades totales, cero nulos y cero decimales.
 
 **UI system** (`~/DEV/AXZY/AXZY_UI_SYSTEM`): `package.json` v1.4.0,

@@ -62,6 +62,9 @@ kotlin {
             implementation(libs.kotest.datatest)
         }
 
+        // jvmTest contiene el test de "no queda código de plataforma" y los
+        // tests que leen recursos del classpath (el CSV real del catálogo).
+        // Es SOLO test: por eso la guardia permite jvmTest y prohíbe jvmMain.
         jvmTest.dependencies {
             implementation(libs.kotest.runner.junit5)
         }

@@ -322,7 +322,7 @@ surtida) **no debe borrarse ni lógicamente**, sino **anularse con un movimiento
 
 - **Clase:** C · **Severidad:** **Crítica para la migración**
 - **Evidencia:** 201 productos con código `X` y `XN`; en 180 casos **mismo nombre**.
-- **CERRADA (R-71): SON DOS SKUs DISTINTOS.** Se importan los 1.396 tal cual, sin fusionar.
+- **CERRADA (R-71): SON DOS SKUs DISTINTOS.** Se importan los 1.398 tal cual, sin fusionar.
 - **Riesgo documentado:** es una **decisión de negocio**, no una verificación técnica. Nombrar los
   201 pares con el mismo nombre es sospechoso, y si resultara que son un producto partido, el stock
   quedaría **duplicado** en el sistema. Queda registrado como riesgo aceptado, con esta nota para

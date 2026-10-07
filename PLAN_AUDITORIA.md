@@ -671,6 +671,6 @@ la auditoría se diseña desde el primer día en lugar de parchearse.
    una **pantalla de conteo nueva** (asignación de zonas por el jefe de bodega). Cada conteo genera
    un evento de auditoría con `source_channel = MOBILE` o `WEB` y su resultado.
 7. **¿Qué pasa con la auditoría al migrar?** Los datos del legacy **no tienen auditoría**. ¿Se
-   registra un evento de `MIGRATION` por cada registro migrado (1.396 productos + 10,9M de unidades),
+   registra un evento de `MIGRATION` por cada registro migrado (1.398 productos + 10,9M de unidades),
    o un evento agregado por lote? Propongo **un evento por lote con el detalle en `metadata`**, y
    dejarlo documentado como "origen desconocido, migrado" en lugar de inventar un actor.
