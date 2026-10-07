@@ -201,7 +201,14 @@ class ApplicationTest : DescribeSpec({
             }
         }
 
-        it("el historial de Flyway queda con las 3 versiones aplicadas") {
+        it("el historial de Flyway coincide con las migraciones del repositorio") {
+            // Se compara con los ARCHIVOS REALES y no con una lista fija.
+            //
+            // La primera versión de este test esperaba ["1","2","3"] y falló al
+            // añadirse la V4. Un test que hay que actualizar cada vez que se
+            // añade una migración es un test que, con prisa, se actualiza sin
+            // mirar si el número es el correcto. Comparar con el repositorio
+            // verifica lo que de verdad importa: que **no falte ninguna**.
             if (!hayBase) return@it
 
             val pool = buildDataSource(configMigracion)
@@ -215,8 +222,21 @@ class ApplicationTest : DescribeSpec({
                             val versiones = mutableListOf<String>()
                             while (filas.next()) versiones += filas.getString("version")
 
-                            withClue("Las tres migraciones deben quedar registradas") {
-                                versiones shouldBe listOf("1", "2", "3")
+                            val esperadas = java.io.File("src/main/resources/db/migration")
+                                .takeIf { it.isDirectory }
+                                ?: java.io.File("../backend/src/main/resources/db/migration")
+
+                            val versionesEnDisco = (esperadas.listFiles { f ->
+                                f.name.startsWith("V") && f.name.endsWith(".sql")
+                            } ?: emptyArray())
+                                .map { it.name.substringAfter('V').substringBefore("__") }
+                                .sortedBy { it.toInt() }
+
+                            withClue(
+                                "El historial debe coincidir con las migraciones del " +
+                                    "repositorio ($versionesEnDisco) y no faltar ninguna: $versiones"
+                            ) {
+                                versiones shouldBe versionesEnDisco
                             }
                         }
                     }
