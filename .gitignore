@@ -1,0 +1,110 @@
+# ============================================================================
+# .gitignore del proyecto Almacén Integral
+#
+# REGLA DE ORO: este archivo existe ANTES que cualquier archivo de código.
+# El hallazgo S5 del legacy es "credenciales en el repositorio". Ese defecto no
+# se repite: si un secreto entra al primer commit, ya nacimos con el problema.
+# ============================================================================
+
+# ─── Secretos (lo más importante de este archivo) ──────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+secrets/
+*.secret
+*.credentials
+
+# ─── Repos legacy: SOLO LECTURA, no se versionan aquí ─────────────────────
+# Son el sistema en producción. Se consultan, no se tocan ni se copian al repo.
+/BASE/
+
+# ─── Gradle / Kotlin / JVM ────────────────────────────────────────────────
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/**/build/
+out/
+*.class
+*.jar
+*.hprof
+local.properties
+.kotlin/
+
+# ─── Android ──────────────────────────────────────────────────────────────
+*.apk
+*.aab
+*.ap_
+*.dex
+.cxx/
+captures/
+androidApp/release/
+
+# ─── iOS / Xcode ──────────────────────────────────────────────────────────
+*.xcuserstate
+xcuserdata/
+*.xccheckout
+*.moved-aside
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+Pods/
+.swiftpm/
+
+# ─── Node / React ─────────────────────────────────────────────────────────
+node_modules/
+dist/
+dist-electron/
+release/
+.vite/
+coverage/
+*.tsbuildinfo
+.eslintcache
+.npm/
+.pnpm-store/
+
+# ─── Docker ───────────────────────────────────────────────────────────────
+# Volúmenes locales de datos (NUNCA versionar datos de negocio ni dumps)
+infra/data/
+*.sql.gz
+*.dump
+
+# ─── Entorno / IDE ────────────────────────────────────────────────────────
+.idea/
+*.iml
+*.iws
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# ─── Logs y temporales ────────────────────────────────────────────────────
+*.log
+logs/
+tmp/
+temp/
+.cache/
+
+# ─── Salidas de tests y reportes ──────────────────────────────────────────
+test-results/
+playwright-report/
+/reports/
+*.exec
+
+# ─── Datos sensibles de negocio ───────────────────────────────────────────
+# Inventarios reales, exportaciones y cualquier dato de negocio.
+# El Excel de inventario NO se versiona: son datos reales de la empresa.
+*.xlsx
+*.xls
+*.csv
+!docs/**/*.example.csv
