@@ -80,8 +80,11 @@ class CatalogRoutesTest : DescribeSpec({
         verificador: PermissionChecker = AllowAllPermissionChecker,
     ) {
         application {
-            module(pool)
-            routing { catalogRoutes(pool, verificador) }
+            // El verificador se pasa a `module()`, que registra las rutas
+            // UNA sola vez. Antes se montaba `module(pool)` y ADEMAS un
+            // `routing { catalogRoutes(...) }`, asi que las rutas quedaban
+            // duplicadas y Ktor resolvia la del verificador que deniega todo.
+            module(pool, verificador)
         }
     }
 

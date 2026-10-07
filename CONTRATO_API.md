@@ -65,6 +65,56 @@ Códigos de autorización, que **el cliente debe distinguir** porque la acción 
 Colapsar los cinco en un `403` genérico es el defecto del legacy: el usuario recibe «no autorizado»
 y no sabe si pedir un permiso, esperar, o llamar a otra persona.
 
+### 1.3-bis Catálogo de códigos de error
+
+**Lista cerrada.** Un código nuevo se añade aquí antes de usarlo, y el cliente solo necesita contemplar
+éstos. Escribirlos en el contrato evita el problema de siempre: el backend inventa un código, el
+cliente no lo reconoce y cae en el mensaje genérico.
+
+Errores de la petición (§1.4):
+
+| `code` | Situación |
+|---|---|
+| `INVALID_PAGINATION` | `page` o `size` fuera de rango. **Un `size` > 200 se rechaza, no se recorta** |
+| `INVALID_SORT` | el campo o la dirección de `sort` no se admiten en ese endpoint |
+| `INVALID_ID` | el identificador de la ruta no es un número |
+| `INVALID_PARAMETER` | un parámetro de consulta tiene un valor inadmisible |
+| `FILE_REQUIRED` | falta el archivo en un `multipart` |
+| `FILE_TOO_LARGE` | el archivo supera el límite |
+| `EMPTY_FILE` | el archivo no tiene filas |
+| `IMPORT_FILE_FORMAT` | el formato no es CSV canónico ni XLSX |
+| `INVALID_DRY_RUN` | `dryRun` no es un booleano |
+
+Errores de validación de campo (§422, con `details` por campo):
+
+| `code` | Situación |
+|---|---|
+| `FIELD_REQUIRED` | falta un campo obligatorio |
+| `FIELD_TOO_LONG` | supera la longitud de la columna |
+| `INVALID_PRODUCT_CODE` | no cumple el alfabeto `0-9A-Z` ni la longitud 6–14 |
+| `UNKNOWN_UNIT_MEASURE` | la unidad no está en el catálogo |
+| `INVALID_LEVELS` | el número de niveles no es positivo |
+| `INVALID_LOCATION_KIND` | `kind` no es `SHELF` ni `RECEIVING` |
+| `INVALID_LOCATION_PART` | `hall`/`code`/`position` no cumplen el formato |
+| `UNKNOWN_WAREHOUSE` | la bodega no existe |
+| `IMPORT_INVALID_EXTERNAL_ID` | `external_id` no es numérico. **Se rechaza en lugar de guardarlo nulo**: perdería la referencia cruzada con el ERP en silencio |
+
+Errores de conflicto con el estado actual (§409):
+
+| `code` | Situación |
+|---|---|
+| `DUPLICATE_PRODUCT_CODE` | ya existe ese código |
+| `DUPLICATE_EXTERNAL_ID` | ya existe ese identificador del ERP |
+| `DUPLICATE_LOCATION` | ya existe esa ubicación en la bodega |
+| `PRODUCT_CODE_IMMUTABLE` | se intentó cambiar el código de un producto |
+| `WAREHOUSE_IMMUTABLE` | se intentó mover una ubicación de bodega |
+| `PRODUCT_ALREADY_INACTIVE` | ya estaba desactivado |
+| `LOCATION_ALREADY_INACTIVE` | ya estaba desactivada |
+| `RECEIVING_LOCATION_PROTECTED` | no se puede desactivar la ubicación de recepción: el flujo de ubicación la necesita |
+| `LOCATION_HAS_STOCK` | la ubicación tiene existencias: `details.quantity` |
+| `PRODUCT_HAS_STOCK` | el producto tiene existencias: `details.stock` |
+| `IMPORT_HAS_REJECTIONS` | el import real encontró filas inválidas y **no escribió ninguna** |
+
 ### 1.4 Paginación
 
 Toda lista se pagina. El legacy devolvía **todos** los registros, y con 1.398 productos y meses de
@@ -119,6 +169,7 @@ exportación al ERP. El móvil sin señal reintenta; sin esto, un reintento dupl
 | `X-Request-Id: <uuid>` | ambas | correlación con la auditoría |
 | `X-Client-Channel` | petición | `WEB`, `MOBILE`, `MOBILE_OFFLINE` |
 | `X-Client-Timezone` | petición | IANA, p. ej. `America/Mexico_City` |
+| `X-Service-Key` | petición | credencial de una integración. **Solo en `PATCH /v1/print-jobs/{id}`** |
 
 **`X-Client-Channel` no es decorativo**: la auditoría registra el canal, y `MOBILE_OFFLINE` dispara
 el camino de sincronización diferida con sus dos horas.
@@ -226,8 +277,15 @@ Lista paginada. `sort` admitido: `productCode`, `name`, `createdAt`.
 }
 ```
 
-`stock` es el **total derivado** de `stock_by_location` + `stock_in_transit`. Se incluye en el
-listado porque es el dato que más se consulta y evitar una petición por producto importa con 1.398.
+`stock` es el **total derivado**: `Σ stock_by_location` + `Σ stock_in_transit` **con `received_at IS NULL`**.
+
+La condición `received_at IS NULL` es imprescindible: un traslado ya recibido tiene sus unidades en
+`stock_by_location` **y** su fila de tránsito sigue existiendo como histórico. Sin excluirla, la misma
+mercancía contaría dos veces y el total sería un número inflado que nadie podría cuadrar.
+
+`stockInTransit` se devuelve **por separado**, para que la interfaz pueda mostrar «100 en existencia,
+20 en camino» en lugar de un total sin explicación. Un total que suma mercancía que no está en el
+estante, sin decirlo, es la clase de dato que hace desconfiar de todo el sistema.
 
 ### `POST /v1/products`
 
@@ -524,6 +582,36 @@ quedaba bloqueada sin que nadie supiera que había que aprobarla.
 son del flujo de recepción y no significan nada en surtido. Compartir la unión obligaba a la interfaz
 a contemplar estados imposibles, y a un `when` exhaustivo a tener ramas que nunca se ejecutan.
 
+### `GET /v1/orders/{id}`
+
+**Devuelve la orden CON sus líneas.** El listado devuelve solo la cabecera; el detalle las incluye,
+porque la pantalla de empaque no puede funcionar sin ellas y obligar a una segunda petición por línea
+sería absurdo con órdenes de decenas de líneas.
+
+```json
+{
+  "id": 30, "orderNumber": "ORD-2024-0042", "packagingDate": "2026-10-07",
+  "status": "IN_PROGRESS", "customerCode": null, "concept": null,
+  "converted": false, "convertedAt": null,
+  "exportStatus": null, "exportAttempts": 0, "exportLastError": null,
+  "totalLines": 5, "packagedLines": 2,
+  "lines": [
+    {
+      "id": 55, "productId": 1, "productCode": "ABRAA1B",
+      "productName": "ABRAZADERA DE ARRANQUE 1-5/8\"",
+      "unitMeasure": "PZA",
+      "quantity": 10.000, "suppliedQuantity": 7.000,
+      "supplied": false, "status": "ASSIGNED",
+      "assignedUserId": 7, "assignedUserName": "Juan Pérez",
+      "locationId": 2, "locationDisplayName": "04-B-C"
+    }
+  ]
+}
+```
+
+`status` de la línea es la unión **propia** del surtido: `PENDING` | `ASSIGNED` | `SUPPLIED` |
+`VERIFIED` | `CANCELLED`. No comparte valores con la línea de factura.
+
 ### `POST /v1/orders/{id}/lines/{lineId}/package`
 
 ```json
@@ -660,9 +748,21 @@ Antes estaba como `PATCH /v1/prints`, que era **un error mío de diseño**: no c
 recurso, usaba un verbo que no describía el efecto, y era imposible de descubrir leyendo la
 documentación de etiquetas.
 
-Es la llamada que hace la Zebra. **No exige JWT de usuario, sino credencial de servicio**
-(`service_api_keys`, cabecera `X-Service-Key`). El legacy tenía este endpoint **abierto sin ninguna
-credencial**, así que cualquiera en la red podía marcar trabajos como impresos.
+Es la llamada que hace la Zebra. **No exige JWT de usuario, sino credencial de servicio en la
+cabecera `X-Service-Key`** (tabla `service_api_keys`; el secreto se guarda hasheado y se muestra una
+sola vez al crearlo). El legacy tenía este endpoint **abierto sin ninguna credencial**, así que
+cualquiera en la red podía marcar trabajos como impresos.
+
+**`X-Service-Key` y no `Authorization`** para que quede claro en los registros que no es una persona:
+la auditoría guarda `SERVICE_PRINTER` como canal y el id de la clave, y así un trabajo marcado como
+impreso sin usuario detrás se distingue de uno hecho por alguien.
+
+```json
+{ "status": "PRINTED", "error": null }
+```
+
+`status`: `PRINTED` | `FAILED`. El `jobId` va en la ruta, no en el cuerpo: es el recurso que se
+actualiza, y repetir la llamada no debe imprimir dos veces.
 
 **Errores:** `401` `INVALID_SERVICE_KEY`, `404` si el trabajo no existe, `409` si el trabajo ya está
 en `PRINTED` — una etiqueta no se imprime dos veces por un reintento de la impresora.
@@ -696,6 +796,26 @@ Devuelve el archivo con `Content-Disposition: attachment`. **Los filtros son los
 listado**: si el usuario ve 200 filas filtradas y exporta, debe recibir esas 200.
 
 ### `GET /v1/reports/movements-summary?from=&to=&groupBy=day|week|month|product|location`
+
+```json
+{
+  "from": "2026-10-01", "to": "2026-10-31", "groupBy": "day",
+  "totals": { "inUnits": 12500.000, "outUnits": 8300.000, "netUnits": 4200.000, "movements": 412 },
+  "items": [
+    { "key": "2026-10-07", "keyLabel": "2026-10-07",
+      "inUnits": 1200.000, "outUnits": 300.000, "netUnits": 900.000, "movements": 18 }
+  ]
+}
+```
+
+`items[].key` es el valor por el que se agrupa —una fecha ISO, un `productCode` o un
+`locationDisplayName`— y `keyLabel` su forma para mostrar. Se separan porque una fecha se ordena
+como texto ISO y se muestra formateada según el idioma, y **el cliente no debe tener que saber cuál es
+cuál**.
+
+`groupBy` inválido → `400 INVALID_PARAMETER` con los valores admitidos en `details.allowed`.
+
+### `GET /v1/reports/kardex/export?format=xlsx|csv`
 
 ### `GET /v1/reports/kardex-vs-projection`
 
@@ -744,7 +864,11 @@ su `PermissionScope` (`NONE`/`OWN`/`AREA`/`ALL`).
 | `DELETE /v1/products/{id}` | `product.delete` | `ALL` |
 | `POST /v1/products/import` | `product.import` | `ALL` |
 | `GET /v1/locations` | `location.view` | `ALL` |
+| `GET /v1/locations/{id}` | `location.view` | `ALL` |
 | `POST /v1/locations` | `location.create` | `ALL` |
+| `PUT /v1/locations/{id}` | `location.edit` | `ALL` |
+| `DELETE /v1/locations/{id}` | `location.delete` | `ALL` |
+| `GET /v1/warehouses` | `location.view` | `ALL` |
 | `GET /v1/inventory/stock` | `inventory.view` | `AREA` |
 | `GET /v1/inventory/kardex` | `inventory.view` | `AREA` |
 | `POST /v1/inventory/adjustments` | `inventory.adjust_*` | `AREA` |

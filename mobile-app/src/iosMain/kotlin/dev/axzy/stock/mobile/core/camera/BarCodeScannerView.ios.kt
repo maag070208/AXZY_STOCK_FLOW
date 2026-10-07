@@ -27,7 +27,6 @@ import kotlinx.cinterop.useContents
 import platform.AVFoundation.AVCaptureConnection
 import platform.AVFoundation.AVCaptureDevice
 import platform.AVFoundation.AVCaptureDeviceInput
-import platform.AVFoundation.AVCaptureDevicePositionBack
 import platform.AVFoundation.AVCaptureMetadataOutput
 import platform.AVFoundation.AVCaptureMetadataOutputObjectsDelegateProtocol
 import platform.AVFoundation.AVCaptureOutput
@@ -176,11 +175,15 @@ private class ScannerController(
     }
 
     private fun configure(): Boolean {
-        // Cámara trasera explícita: el operador apunta al estante, no a su cara.
-        // Sin pedirla, en un dispositivo con dos cámaras puede elegirse la frontal.
-        val device = AVCaptureDevice.deviceWithMediaType(AVMediaTypeVideo, AVCaptureDevicePositionBack)
-            ?: AVCaptureDevice.deviceWithMediaType(AVMediaTypeVideo)
-            ?: return false
+        // `defaultDeviceWithMediaType` devuelve la cámara TRASERA por defecto, que es
+        // la que hace falta: el operador apunta al estante, no a su cara.
+        //
+        // SI NO HAY CÁMARA, SE SALE ANTES DE CREAR EL INPUT. En el simulador y en un
+        // iPod touch no existe, y `AVCaptureDeviceInput.deviceInputWithDevice` lanza
+        // una excepción de Objective-C que en Kotlin/Native **termina el proceso**:
+        // no es capturable con `runCatching`, porque no es una excepción de Kotlin.
+        // Por eso la comprobación es el `?: return false` de la línea siguiente.
+        val device = AVCaptureDevice.defaultDeviceWithMediaType(AVMediaTypeVideo) ?: return false
 
         val input = runCatching { AVCaptureDeviceInput.deviceInputWithDevice(device, null) }.getOrNull()
             ?: return false
@@ -221,10 +224,13 @@ private class ScannerController(
      */
     private inner class MetadataDelegate : NSObject(), AVCaptureMetadataOutputObjectsDelegateProtocol {
 
+        // La firma la dicta Kotlin/Native, no Objective-C: `fromConnection` NO es
+        // opcional en el puente (el propio compilador ofrece ésta como la única
+        // candidata). Declararla como `AVCaptureConnection?` da «overrides nothing».
         override fun captureOutput(
             output: AVCaptureOutput,
             didOutputMetadataObjects: List<*>,
-            fromConnection: AVCaptureConnection?,
+            fromConnection: AVCaptureConnection,
         ) {
             val first = didOutputMetadataObjects.firstOrNull() as? AVMetadataObject ?: return
 

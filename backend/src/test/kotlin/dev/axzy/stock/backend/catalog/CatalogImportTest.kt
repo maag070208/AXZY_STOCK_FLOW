@@ -74,8 +74,7 @@ class CatalogImportTest : DescribeSpec({
 
     fun ApplicationTestBuilder.montar(pool: DataSource) {
         application {
-            module(pool)
-            routing { catalogRoutes(pool, AllowAllPermissionChecker) }
+            module(pool, AllowAllPermissionChecker)
         }
     }
 

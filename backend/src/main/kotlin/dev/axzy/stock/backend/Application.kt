@@ -6,6 +6,9 @@ import dev.axzy.stock.backend.config.logger
 import dev.axzy.stock.backend.config.migrate
 import dev.axzy.stock.backend.error.ErrorResponse
 import dev.axzy.stock.backend.error.StockException
+import dev.axzy.stock.backend.routes.catalogRoutes
+import dev.axzy.stock.backend.security.DenyAllPermissionChecker
+import dev.axzy.stock.backend.security.PermissionChecker
 import dev.axzy.stock.backend.routes.healthRoutes
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
@@ -59,7 +62,26 @@ fun main() {
  * puedan instalar el mismo módulo con un pool distinto, sin arrancar un servidor
  * real. Es lo que permite probar el comportamiento HTTP en milisegundos.
  */
-fun Application.module(dataSource: DataSource) {
+fun Application.module(
+    dataSource: DataSource,
+    /**
+     * El verificador de permisos.
+     *
+     * **Es un parámetro y no una constante, y eso corrige un defecto real.**
+     * Estaba fijo a [DenyAllPermissionChecker], así que los tests de las rutas
+     * montaban `module(pool)` **y además** su propio `routing { catalogRoutes(...) }`
+     * con un verificador que permite todo. Al conectar el catálogo en este
+     * módulo, las rutas quedaron registradas **dos veces** y Ktor resolvía la
+     * primera —la del verificador que deniega— así que 49 tests empezaron a
+     * recibir 401.
+     *
+     * La causa de fondo no era el duplicado: era que **los tests no probaban la
+     * configuración que se despliega**. Ahora el módulo recibe el verificador, se
+     * registra una sola vez, y un test puede ejercitar el camino real con un
+     * verificador de prueba.
+     */
+    permissionChecker: PermissionChecker = DenyAllPermissionChecker,
+) {
 
     // ── Negociación de contenido ────────────────────────────────────────────
     install(ContentNegotiation) {
@@ -136,6 +158,12 @@ fun Application.module(dataSource: DataSource) {
 
     routing {
         healthRoutes(dataSource)
+
+        // ── Catálogo y ubicaciones ──────────────────────────────────────────
+        // El verificador por defecto DENIEGA TODO, así que estas rutas responden
+        // 401 hasta que se conecte la identidad. Es la postura correcta: una
+        // ruta sin permiso concedido no debe quedar abierta mientras tanto.
+        catalogRoutes(dataSource, permissionChecker)
     }
 }
 

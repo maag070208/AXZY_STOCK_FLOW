@@ -142,13 +142,52 @@ class TokenServiceTest : DescribeSpec({
         }
 
         it("un token con la FIRMA manipulada no verifica") {
-            // Se altera el último carácter de la firma. Es el caso de alguien que
-            // edita el token para cambiar sus permisos.
+            // **OJO CON DÓNDE SE ALTERA.** La primera versión de este test
+            // cambiaba el ÚLTIMO carácter de la firma, y el test fallaba de forma
+            // intermitente: en base64url, el último carácter solo aporta los bits
+            // que caben, y los sobrantes se ignoran al decodificar. Cambiarlo
+            // puede no alterar NI UN BIT de la firma, con lo que el token sigue
+            // siendo válido y el test falla sin que haya nada roto.
+            //
+            // Era un defecto de MI TEST, no del servicio. Ahora se altera un
+            // carácter del MEDIO, que siempre cambia los bytes decodificados.
             val (token, _) = servicio.issueAccessToken(sujeto())
-            val manipulado = token.dropLast(1) + if (token.last() == 'A') 'B' else 'A'
+            val partes = token.split('.')
+            val firma = partes[2]
 
-            withClue("Alterar un solo carácter de la firma debe invalidarlo") {
+            val posicion = firma.length / 2
+            val original = firma[posicion]
+            val alterado = if (original == 'A') 'B' else 'A'
+            val firmaManipulada = firma.substring(0, posicion) + alterado + firma.substring(posicion + 1)
+            val manipulado = "${partes[0]}.${partes[1]}.$firmaManipulada"
+
+            withClue("El token debe cambiar de verdad, o el test no prueba nada") {
+                (manipulado != token) shouldBe true
+            }
+            withClue("Alterar un carácter del medio de la firma debe invalidarlo") {
                 servicio.verify(manipulado) shouldBe TokenVerification.Invalid
+            }
+        }
+
+        it("alterar la firma SIEMPRE invalida, en cualquier posición") {
+            // Se corrige así porque el caso anterior dependía de qué carácter se
+            // eligiera. Aquí se prueban TODAS las posiciones del medio: si alguna
+            // no invalidara, sería un agujero real en la verificación.
+            val (token, _) = servicio.issueAccessToken(sujeto())
+            val partes = token.split('.')
+            val firma = partes[2]
+
+            // Se recorren posiciones intermedias, donde cada carácter aporta bits
+            // completos y el cambio siempre altera la firma decodificada.
+            (1 until firma.length - 1).forEach { posicion ->
+                val original = firma[posicion]
+                val alterado = if (original == 'A') 'B' else 'A'
+                val manipulado = partes[0] + "." + partes[1] + "." +
+                    firma.substring(0, posicion) + alterado + firma.substring(posicion + 1)
+
+                withClue("Alterar la posición $posicion de la firma debe invalidar el token") {
+                    servicio.verify(manipulado) shouldBe TokenVerification.Invalid
+                }
             }
         }
 
