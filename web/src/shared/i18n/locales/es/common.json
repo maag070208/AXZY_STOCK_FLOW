@@ -1,0 +1,71 @@
+{
+  "app": {
+    "name": "Almacén Integral",
+    "shortName": "Almacén"
+  },
+  "nav": {
+    "home": "Inicio",
+    "reception": "Recepción",
+    "invoices": "Facturas",
+    "invoiceDetails": "Detalle de factura",
+    "pendingApproval": "Pendientes de aprobación",
+    "fulfillment": "Surtido",
+    "orders": "Órdenes",
+    "orderDetails": "Detalle de orden",
+    "transfers": "Traslados",
+    "warehouse": "Almacén",
+    "products": "Productos",
+    "locations": "Ubicaciones",
+    "stock": "Existencias",
+    "kardex": "Kardex",
+    "adjustmentApproval": "Ajustes por aprobar",
+    "labels": "Etiquetas",
+    "reports": "Reportes",
+    "settings": "Configuración",
+    "users": "Usuarios",
+    "audit": "Bitácora",
+    "health": "Salud del sistema",
+    "logout": "Cerrar sesión",
+    "collapse": "Contraer menú",
+    "expand": "Expandir menú"
+  },
+  "actions": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "retry": "Reintentar",
+    "search": "Buscar",
+    "refresh": "Actualizar",
+    "back": "Regresar"
+  },
+  "states": {
+    "loading": "Cargando…",
+    "empty": "Sin datos",
+    "emptyDescription": "No hay registros que mostrar con los filtros actuales.",
+    "errorTitle": "No se pudo cargar",
+    "forbidden": "No tienes acceso a esta pantalla.",
+    "offline": "Sin conexión"
+  },
+  "scope": {
+    "NONE": "sin acceso",
+    "OWN": "sólo lo propio",
+    "AREA": "su área",
+    "ALL": "todas las bodegas"
+  },
+  "errors": {
+    "network": "No se pudo contactar al servidor.",
+    "UNAUTHENTICATED": "Tu sesión venció. Vuelve a iniciar sesión.",
+    "TOKEN_REUSED": "Por seguridad tu sesión se cerró. Vuelve a iniciar sesión.",
+    "PERMISSION_DENIED": "No tienes el permiso; pídelo a un administrador.",
+    "SCOPE_INSUFFICIENT": "Tienes el permiso, pero no alcanza este recurso: pide acceso a esa bodega.",
+    "POLICY_DENIED": "Una política lo prohíbe: cambia cuándo o cómo lo haces.",
+    "SEGREGATION_OF_DUTIES": "No puedes aprobar lo que tú mismo capturaste.",
+    "UNKNOWN": "Ocurrió un error inesperado."
+  },
+  "placeholder": {
+    "title": "Pantalla en construcción",
+    "body": "El contrato y la ruta ya existen; falta la tabla, el formulario y la conexión con la API.",
+    "permission": "Permiso requerido"
+  },
+  "contractEndpoints": "Endpoints del contrato que alimentan esta pantalla"
+}

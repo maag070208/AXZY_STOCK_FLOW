@@ -1,0 +1,1 @@
+export { PermissionScopeTag } from "./PermissionScopeTag";

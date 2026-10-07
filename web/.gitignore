@@ -1,0 +1,15 @@
+node_modules
+dist
+dist-electron
+release
+coverage
+
+# Salida de Playwright (Fase 5).
+playwright-report
+test-results
+
+# Caché del binario nativo de SWC (ver scripts de package.json).
+.cache
+
+.DS_Store
+*.local
