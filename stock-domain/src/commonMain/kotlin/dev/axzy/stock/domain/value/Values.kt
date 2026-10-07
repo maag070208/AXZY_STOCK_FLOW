@@ -13,7 +13,7 @@ import kotlinx.serialization.Serializable
  */
 
 /** Identificador de una entidad persistida. */
-@JvmInline
+@kotlin.jvm.JvmInline
 @Serializable
 value class Id<T>(val value: Long) {
     init {
@@ -34,7 +34,7 @@ value class Id<T>(val value: Long) {
  * importador tolerante esconde errores de captura que después aparecen como
  * stock mal contado.
  */
-@JvmInline
+@kotlin.jvm.JvmInline
 @Serializable
 value class ProductCode private constructor(val value: String) {
 
@@ -88,7 +88,7 @@ value class ProductCode private constructor(val value: String) {
  * Se conserva el formato del legacy porque **es lo que está impreso en los
  * estantes y en las etiquetas**. Cambiarlo obligaría a reetiquetar el almacén.
  */
-@JvmInline
+@kotlin.jvm.JvmInline
 @Serializable
 value class LocationCode private constructor(val value: String) {
 
@@ -154,7 +154,7 @@ object ReceivingLocation {
  * representaciones para el mismo concepto, y una de ellas incapaz de
  * representar fracciones. Aquí hay **una sola**.
  */
-@JvmInline
+@kotlin.jvm.JvmInline
 @Serializable
 value class Quantity private constructor(val value: Long) {
 
@@ -233,7 +233,7 @@ value class Quantity private constructor(val value: Long) {
  * Se mantiene separada de [Quantity] porque tiene reglas propias (debe ser entera
  * y `cantidad / unidadesPorCaja` debe dar exacto — decisión R-80).
  */
-@JvmInline
+@kotlin.jvm.JvmInline
 @Serializable
 value class BoxQuantity private constructor(val value: Long) {
 
@@ -269,7 +269,7 @@ value class BoxQuantity private constructor(val value: Long) {
  * cuando no era numérico (hallazgo R-48), y división por cero en el cálculo de
  * cajas. Aquí **no puede ser cero ni negativo**: el tipo lo impide.
  */
-@JvmInline
+@kotlin.jvm.JvmInline
 @Serializable
 value class UnitsPerBox private constructor(val value: Long) {
 

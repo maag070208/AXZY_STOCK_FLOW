@@ -26,23 +26,52 @@ plugins {
 // JVM SIEMPRE: es donde corren los tests del dominio (milisegundos, sin base
 // de datos ni emulador) y donde lo consume el backend.
 //
-// Android e iOS son OPT-IN mediante la propiedad `enableNativeTargets`:
-//   ./gradlew -PenableNativeTargets=true build
+// Android e iOS son OPT-IN, y con **propiedades SEPARADAS a propósito**:
+//   ./gradlew -PenableIosTargets=true build      ← requería estar acoplado
+//   ./gradlew -PenableAndroidTarget=true build
+//
+// Estaban acoplados en una sola propiedad y eso era un defecto real: activar
+// iOS obligaba a añadir el target de Android, que exige el Android Gradle
+// Plugin y por tanto **no se podía compilar iOS sin AGP**. Al separarlos, cada
+// plataforma se verifica con su propio toolchain.
 //
 // El default es JVM-only a propósito: así el build de la Fase 0 no depende de
 // tener el SDK de Android ni Xcode instalados, y cualquier persona del equipo
 // puede correr los tests del dominio con solo un JDK.
+val enableIosTargets = providers.gradleProperty("enableIosTargets")
+    .map(String::toBoolean)
+    .getOrElse(false)
+
+/** Compatibilidad con el nombre anterior de la propiedad. */
 val enableNativeTargets = providers.gradleProperty("enableNativeTargets")
     .map(String::toBoolean)
     .getOrElse(false)
 
+val enableAndroidTarget = providers.gradleProperty("enableAndroidTarget")
+    .map(String::toBoolean)
+    .getOrElse(false)
+
+// Fallar temprano y con un mensaje útil, en lugar de un error de configuración
+// de Gradle que no explica qué falta.
+if (enableAndroidTarget && !enableIosTargets && !enableNativeTargets) {
+    logger.lifecycle(
+        "Target Android activado. Requiere el Android Gradle Plugin (JDK 21) y " +
+            "el SDK de Android instalados."
+    )
+}
+
 kotlin {
     jvm()
 
-    if (enableNativeTargets) {
-        androidTarget()
+    if (enableIosTargets || enableNativeTargets) {
+        // Kotlin/Native. Compilar esto valida que el dominio NO dependa de la
+        // JVM: es la verificación cruzada de que es realmente multiplataforma.
         iosArm64()
         iosSimulatorArm64()
+    }
+
+    if (enableAndroidTarget) {
+        androidTarget()
     }
 
     jvmToolchain(17)
@@ -136,6 +165,49 @@ tasks.register("verifyDomainPurity") {
                 }
         }
 
+        // 3. Verificar que no se usen anotaciones o APIs SOLO de JVM.
+        //
+        // ── POR QUÉ EXISTE ESTA COMPROBACIÓN ────────────────────────────────
+        // La guardia anterior revisaba DEPENDENCIAS e IMPORTS. Ninguna de las dos
+        // detectó que el código usaba `@JvmInline` sin calificar, que es una
+        // anotación de la JVM: el dominio compilaba en JVM y **fallaba al
+        // compilar para iOS** con «Unresolved reference 'JvmInline'».
+        //
+        // Lo encontró Kotlin/Native, no la guardia. Ésta es la corrección: la
+        // guardia ahora detecta lo mismo que encontró el compilador, sin esperar
+        // a tener Xcode y el toolchain de iOS instalados.
+        //
+        // La forma correcta es `@kotlin.jvm.JvmInline`, que sí es multiplataforma.
+        val anotacionesSoloJvm = listOf(
+            "@JvmInline", "@JvmName", "@JvmStatic", "@JvmField",
+            "@JvmOverloads", "@JvmSuppressWildcards", "@JvmWildcard",
+            "@Synchronized", "@Strictfp", "@Transient", "@Volatile",
+        )
+
+        sourceDirs.forEach { dir ->
+            dir.walkTopDown()
+                .filter { it.extension == "kt" }
+                .forEach { file ->
+                    file.readLines().forEachIndexed { index, line ->
+                        val trimmed = line.trim()
+                        anotacionesSoloJvm.forEach { anotacion ->
+                            // Se excluye la forma calificada, que sí es correcta.
+                            val calificada = "@kotlin.jvm." + anotacion.removePrefix("@")
+                            if (trimmed.contains(anotacion + " ") ||
+                                trimmed.endsWith(anotacion) ||
+                                trimmed.contains(anotacion + "(")
+                            ) {
+                                if (!trimmed.contains(calificada)) {
+                                    violations += "  ✗ ${file.relativeTo(projectDir)}:${index + 1}: " +
+                                        "'$anotacion' es una anotación SOLO de JVM. Usa " +
+                                        "'@kotlin.jvm.${anotacion.removePrefix("@")}' o elimínala."
+                                }
+                            }
+                        }
+                    }
+                }
+        }
+
         if (violations.isNotEmpty()) {
             throw GradleException(
                 buildString {
@@ -150,6 +222,9 @@ tasks.register("verifyDomainPurity") {
                     appendLine()
                     appendLine("Si necesitas un framework, el código NO va aquí: va en el módulo")
                     appendLine("que corresponda (backend, stock-network, stock-database).")
+                    appendLine()
+                    appendLine("Un uso de JVM sin calificar compila en JVM y ROMPE el build de iOS.")
+                    appendLine("Se detecta aquí para no depender de tener Xcode instalado.")
                     appendLine("Ver PLAN_ALMACEN_INTEGRAL.md §3.2-bis.")
                     appendLine("════════════════════════════════════════════════════════════════")
                 }

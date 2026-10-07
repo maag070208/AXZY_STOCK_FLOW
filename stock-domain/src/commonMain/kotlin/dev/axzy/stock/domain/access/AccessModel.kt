@@ -145,7 +145,7 @@ data class Permission(
  *
  * El nombre visible es renombrable; la clave no.
  */
-@JvmInline
+@kotlin.jvm.JvmInline
 value class RoleKey private constructor(val value: String) {
 
     companion object {
