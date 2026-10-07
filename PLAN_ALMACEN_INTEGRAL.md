@@ -55,16 +55,22 @@ sesión** al arrancar y su **máquina de estados de escaneo de 2 pasos está rot
 **axios que no propaga errores** y un permiso equivocado en Locaciones. El detalle completo está en
 §2.2-bis, §2.2-ter, §1.3 y §1.3-bis, y **cada punto tiene su corrección asignada** en el roadmap.
 
-**Hallazgo clave 3 — hay un bug de inventario activo en PROD, y lo encontraste tú.** Al preguntar
-*"¿al asignar en qué flujo?"* me obligaste a revisar lo que yo había dado por regla intencional.
-`addKardexLocation` **resta dos veces** al ubicar mercancía en su estantería: muta el registro de
-recepción del kardex *y* crea un `LOCATION` que también resta por la regla por defecto. Verificado
-por simulación de las funciones exactas: **entra una caja de 100 y el total baja** (§2.7). La causa
-raíz es el modelo — el legacy guarda **un solo número de stock** e intenta deducir la ubicación a
-posteriori. El modelo nuevo invierte eso: **el stock vive en las ubicaciones y el total es la suma**,
-así que **no existe ninguna operación capaz de restar del total**. Implicación adicional: las
-10.914.130 unidades del Excel **están por debajo del stock real**, porque vienen de ese número
-corroído; la Fase 7 lo cuantifica y se decide con datos delante.
+**Hallazgo clave 3 — el defecto del legacy no es un descuadre de inventario, y me equivoqué dos
+veces al analizarlo.** Reporté primero que ubicar restaba dos veces del total y después que restaba
+una. **Las dos versiones eran falsas**: verifiqué las cinco llamadas a `updateStoreStock` y ninguna
+de las funciones de ubicar lo invoca, así que **el total del legacy queda correcto** (§2.7).
+
+Los defectos reales son otros dos, y siguen justificando la reescritura:
+1. **El libro se muta**: `removeUnitsFromKardex` hace `kardex.update` sobre un registro histórico, así
+   que tras ubicar el registro de recepción dice 0 y **no se puede reconstruir qué se recibió**.
+2. **El modelo no puede decir dónde está el inventario**: hay un solo número por producto. El legacy
+   cuadra en total y no sabe dónde está nada.
+3. Y hay un **defecto latente**: `updateStoreStock` con tipo `LOCATION` sí resta, pero nadie la
+   invoca con ese tipo. Es la trampa para un rewrite que "reutilice" esa función.
+
+Implicación corregida para la migración: las **10.914.130 unidades del Excel son fiables**. Lo que
+falta no es el número, es el **desglose por ubicación**, que el archivo no trae y que hay que
+descubrir con conteo físico (decisión R-73).
 
 **Hallazgo clave 4 — el catálogo real está perfilado y es de buena calidad.** El Excel
 `INVENTARIO REAL LUNES 10 DE JUN 2024` trae **1.398 productos** con `product_code` único, `PZA` al
@@ -714,73 +720,74 @@ los dos caminos separados evita el error clásico de tratar un cambio de estante
 mantenerlo como está descrito, porque el coste de prepararlo ahora es de horas y el de retrofitarlo
 con datos ya migrados es de semanas.
 
-### 2.7 El bug del doble descuento al ubicar (verificado, no supuesto)
+### 2.7 CORRECCIÓN: qué hace el legacy al ubicar (verificado, y me equivoqué dos veces)
 
-**Esta es la corrección de negocio más importante del rewrite, y fue encontrada por ti al
-preguntar "¿al asignar en qué flujo?".** Yo había leído `LOCATION` restando del total y lo había
-tratado como una regla intencional de PROD. Estaba mal encuadrado: no es una regla, es un defecto
-con causa estructural.
+**Esta sección llevaba dos versiones erróneas del mismo análisis.** Las corrijo aquí porque el
+documento afirmaba un descuadre de inventario que **no existe**, y un plan que exagera un defecto
+toma decisiones equivocadas —en este caso, feature flags y tests de migración para un problema que
+no está donde yo decía.
 
-**La aritmética, replicando las funciones exactas de `kardex.service.ts` (verificado con
-simulación, sin necesidad de BD):**
+**Los dos errores, y en qué consistían:**
 
-| Paso | Movimiento | Efecto en `Store.stock` | Resultado |
+| Versión | Afirmaba | Por qué era falso |
+|---|---|---|
+| v1 | Ubicar resta **dos veces** del total (descuadre 2×) | Asumí que `addKardexLocation` llamaba a `updateStoreStock`. **No lo llama** |
+| v2 | Ubicar resta **una vez** (descuadre 1×) | Asumí que `removeUnitsFromKardex` llamaba a `updateStoreStock`. **Tampoco lo llama** |
+
+**El error de raíz fue el mismo en las dos:** no verificar las llamadas reales a `updateStoreStock`.
+El grep de sus **cinco** invocaciones en `kardex.service.ts` demuestra que solo una podría afectar
+a ubicar (la línea 212, dentro de `updateKardex`, que se usa para **ajustar líneas de factura**, no
+para ubicar).
+
+**El comportamiento real, transcrito y verificado:**
+
+```txt
+inicio                                        store.stock = 1000
+1. captura: addKardex(PENDING-TO-LOCATE)
+   → kardex.create + updateStoreStock(...)     ← SÍ llama, y PENDING-TO-LOCATE SUMA
+                                              store.stock = 1100
+2. ubicar: addKardexLocation
+   → removeUnitsFromKardex: kardex.update     ← MUTA la fila, NO toca store.stock
+   → kardex.create(LOCATION)                  ← NO llama a updateStoreStock
+                                              store.stock = 1100
+```
+
+**Conclusión: ubicar NO descuadra el total.** El inventario global del legacy queda correcto.
+
+**Entonces, ¿cuáles son los defectos reales?** Son dos, y son distintos de lo que yo describí:
+
+| # | Defecto real | Evidencia | Impacto |
 |---|---|---|---|
-| 0 | estado inicial del producto | — | **1000** |
-| 1 | captura física: `PENDING-TO-LOCATE` ×100 | suma 100 | **1100** |
-| 2 | ubicar la caja en `04BCA`: `addKardexLocation` | **resta 100** (`removeUnitsFromKardex` muta la fila) | 1000 |
-| 3 | … y además crea `LOCATION` ×100 | **resta 100 otra vez** | **900 / 1000** |
+| **D-1** | **El libro se muta**: `removeUnitsFromKardex` hace `kardex.update` sobre un registro histórico | `kardex.service.ts:338-366` | El kardex **no es un libro**: tras ubicar, el registro de recepción dice 0. No se puede reconstruir qué se recibió. Es la corrección del hallazgo R-02, y **es el defecto importante** |
+| **D-2** | **El modelo no puede representar dónde está el inventario**: hay un solo número por producto | `Store.stock` | El kardex sabe la ubicación (`kardex.location`), pero el inventario no se puede consultar por ubicación ni por bodega. El legacy "cuadra" en total y no sabe dónde está nada |
+| **D-3** | **Rama muerta e incorrecta**: `updateStoreStock` con tipo `LOCATION` **resta** (cae al `else`), y nadie la invoca con ese tipo | `kardex.service.ts:552-580` | Es un **defecto latente**: el código contiene la operación incorrecta sin usar. Un rewrite que "reutilice" la función introduce el descuadre |
 
-Concretamente: `addKardexLocation` hace **dos operaciones que restan**. Primero
-`removeUnitsFromKardex` **baja las `units` del propio registro `PENDING-TO-LOCATE`** (mutándolo), y
-después el registro `LOCATION` **también resta** por la regla por defecto de `updateStoreStock`.
-Resultado: una caja que **ya estaba contada** al capturarla, al ubicarla, **descuenta el total**.
+**D-3 es el más peligroso para un rewrite**, precisamente porque está muerto: quien reescriba puede
+conectar esa rama creyendo que está aprovechando código existente, y entonces sí aparecería el
+descuadre que yo había descrito. El test de caracterización lo fija explícitamente.
 
-**Dos consecuencias, no una:**
+**Por qué el modelo nuevo sigue siendo correcto, aunque el motivo sea otro:**
 
-1. **Descuadre de inventario**: entra mercancía y no sale nada, pero el total baja. El inventario
-   del sistema es menor que el real, y la diferencia **se acumula con cada recepción**.
-2. **El kardex deja de ser un libro**: `removeUnitsFromKardex` hace `kardex.update` sobre una fila
-   existente. Un registro histórico se modifica, así que **deja de ser trazable**: ya no se puede
-   reconstruir qué se recibió originalmente.
+El diseño no cambia, pero **la justificación sí**. `stock_by_location` como fuente de verdad con
+`product_stock` derivado resuelve:
 
-**Causa raíz — el modelo, no el código.** El legacy guarda **un solo número de stock**
-(`Store.stock`) e intenta deducir la ubicación *a posteriori*, compensando con restas. Por eso
-necesita inventar reglas como "`LOCATION` resta" y "`PENDING-TO-OUT` no afecta". Es un modelo que se
-contradice a sí mismo.
+1. **D-1** — el ledger es append-only: ubicar **crea un movimiento nuevo** con su origen y destino,
+   no muta el registro de recepción. La historia se conserva.
+2. **D-2** — el inventario **es** por ubicación. La pregunta "¿dónde está esta mercancía?" tiene
+   respuesta directa, que es el caso de uso que el legacy no podía cubrir.
+3. **D-3** — no existe ninguna rama que reste del total al ubicar, porque ubicar **declara** su
+   efecto (`TransferWithinWarehouse`) y ningún efecto interno toca el total. La rama latente no se
+   puede reproducir.
 
-**El modelo correcto es el inverso:**
+**Y el impacto real en la migración, corregido:** el `Store.stock` del Excel **no está por debajo del
+stock real**. Las 10.914.130 unidades son un total **fiable**. Lo que falta no es el número: es el
+**desglose por ubicación**, que el archivo no trae y que hay que descubrir con el conteo físico
+(decisión R-73). Eso sigue siendo trabajo real, pero por la razón correcta.
 
-```txt
-Legacy:  Store.stock = un número total  →  se intenta deducir dónde está  →  descuadra
-Nuevo:   stock_by_location (la verdad)  →  product_stock = SUMA           →  no puede descuadrar
-```
-
-Con `stock_by_location` como fuente de verdad, ubicar es **un traslado entre dos ubicaciones**:
-
-```txt
-Ubicar 100 de la ubicación temporal RECEPCIÓN a la ubicación física 04BCA
-
-   stock_by_location(RECEPCIÓN) -= 100      -- sale de la temporal
-   stock_by_location(04BCA)     += 100      -- entra al estante
-   product_stock                 = 1100     -- EL TOTAL NO CAMBIA
-   kardex: LOCATION (from = RECEPCIÓN, to = 04BCA)   -- append-only, sin mutar nada
-```
-
-Esto es **exactamente lo que tú describiste**: *"se genera una ubicación temporal y si asignan...
-una caja a una ubicación sí debería quitarlo de la ubicación temporal a la física"*. La frase ya
-contenía la solución: es un traslado, no una resta.
-
-**Por qué el modelo nuevo no puede repetir el bug:** en el legacy el descuadre surge de una regla
-implícita (`LOCATION` resta) que nadie escribió a propósito. En el modelo nuevo **no existe ninguna
-operación que reste del total**, porque el total es una **suma derivada**. Todo movimiento actualiza
-dos ubicaciones, o una ubicación y el tránsito. No hay forma de expresar el bug.
-
-**Lo que hay que hacer con el stock histórico al migrar:** al reproducir el ledger antiguo con las
-reglas nuevas, el stock migrado **no va a coincidir** con `Store.stock` (el nuevo será mayor,
-porque el viejo venía perdiendo unidades). La Fase 7 debe **cuantificar el descuadre acumulado por
-producto y presentarlo antes de cortar** — es información valiosa para el negocio, no un error de
-migración. La consulta de contraste es la de §2.7-bis.
+**Lo que NO cambia:** el conteo físico sigue siendo necesario, la reconciliación también, y la
+decisión B7 (ubicación de recepción real en vez de la pseudo-ubicación `ADMIN`) sigue siendo
+correcta. Lo que cambia es que **la migración no tiene que "corregir" un descuadre heredado**: tiene
+que **descubrir una distribución** que nunca se registró.
 
 ### 2.7-bis Consulta de verificación para PROD (cuando tengas la BD a mano)
 
@@ -2075,11 +2082,11 @@ Por impacto/riesgo, el backend nuevo debe construirse **de dentro hacia fuera**:
 | D10 | `external_id` del ERP | **Pendiente** — decisión abierta 3 |
 | D11 | Catálogo perfilado contra datos reales | Excel analizado: 1.398 productos, calidad excelente, importador **estricto** (§3.5) |
 | D12 | Estrategia de pruebas | Suite de 10 niveles + invariantes I1–I10 + puertas de CI (§3.6) |
-| B6 | **Bug del doble descuento al ubicar** | **Confirmado y verificado por simulación** (§2.7). El modelo nuevo no puede reproducirlo |
+| B6 | Al ubicar, **el legacy muta el libro** en lugar de añadir un movimiento | **Confirmado**: `removeUnitsFromKardex` hace `kardex.update`. **Corregido mi análisis: el total NO descuadra** (§2.7). El modelo nuevo lo resuelve siendo append-only |
 | B7 | Ubicación `ADMIN` | **Ubicación real con id real, marcada `kind = RECEIVING`** (ubicación temporal de recepción) |
 | B8 | Rutas intencionalmente abiertas | `PATCH /prints` (Zebra) y `GET /kardo` (ERP) **siguen sin JWT de usuario, pero con API key de servicio**. `DELETE /invoices/detail/:id` **sí es descuido**: se cierra con auth |
 | B9 | Política de cambios | **Se mejora sin preguntar lo que no mueve cantidades/estados/histórico; se pregunta lo que sí** (§2.8) |
-| R-65 | **Ubicar no baja el total** | **Confirmado.** Ubicar = traslado entre la ubicación de recepción y el estante. El total es invariante y el registro de recepción **no se muta** (§2.7) |
+| R-65 | Ubicar = traslado, no mutación | **Confirmado.** En el legacy el total tampoco bajaba, pero **el registro histórico se mutaba**. Aquí ubicar crea un movimiento nuevo: el total es invariante y la historia se conserva (§2.7) |
 | R-71 | Sufijo `N` | **Son dos SKUs distintos** (decisión de negocio). Se importan los 1.398 tal cual. *Riesgo documentado: si resultaran ser un producto partido, el stock quedaría duplicado* |
 | R-72 | Órdenes al ERP | **El ERP sigue vivo y hay que devolverle las órdenes convertidas.** Es una **feature nueva** (el flujo nunca existió): se dispara al confirmar el empaque, con job de reintentos e idempotencia |
 | R-73 | Stock heredado | **Reconciliar con conteo físico ANTES de cortar.** Es un proyecto aparte: 1.398 productos a contar, con pantalla de conteo nueva |

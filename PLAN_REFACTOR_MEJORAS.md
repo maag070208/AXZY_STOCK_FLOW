@@ -90,7 +90,7 @@ regresión.
 
 | # | Defecto | Evidencia | Corrección | Mejor práctica |
 |---|---|---|---|---|
-| R-01 | **Doble descuento al ubicar**: muta el kardex y además resta con un `LOCATION` | `kardex.service.ts` `addKardexLocation` | Ubicar = traslado entre ubicaciones (baja en recepción, sube en estante, total invariante) | Modelo de stock por ubicación; total derivado |
+| R-01 | **El libro se muta al ubicar**: `removeUnitsFromKardex` hace `kardex.update` sobre un registro histórico. **El total NO descuadra** (verificado: ninguna función de ubicar llama a `updateStoreStock`) | `kardex.service.ts` `addKardexLocation` | Ubicar = traslado entre ubicaciones (baja en recepción, sube en estante, total invariante) | Modelo de stock por ubicación; total derivado |
 | R-02 | **El kardex se muta**: `kardex.update` sobre una fila histórica | `removeUnitsFromKardex` | Kardex **append-only**; permisos de BD sin `UPDATE` ni `DELETE` | Event sourcing / ledger inmutable |
 | R-03 | **Sin transacción** entre kardex y proyección de stock | `addKardex` → `updateStoreStock` | Una transacción por movimiento; o ledger como única escritura y proyección derivada | Atomicidad; consistencia |
 | R-04 | **Race condition**: el stock se lee, se calcula y se reescribe en JS | `updateStoreStock` | `UPDATE … SET quantity = quantity + ?` atómico, o lock optimista con versión | Operación atómica en BD |
@@ -191,14 +191,19 @@ declarada, que es la que el propio autor del legacy quiso.
 Estos **no los toco sin tu confirmación**, y llevan feature flag + test de caracterización del
 comportamiento viejo.
 
-### R-65: Confirmar el fix del doble descuento al ubicar
+### R-65: Ubicar: de mutación del libro a movimiento append-only
 
 - **Clase:** C (afecta cantidades)
 - **Severidad:** **Crítica**
-- **Evidencia:** `addKardexLocation` resta dos veces; verificado por simulación (§2.7 del plan
-  principal): entra una caja de 100 y el total baja.
+- **Evidencia CORREGIDA:** `addKardexLocation` → `removeUnitsFromKardex` hace `kardex.update` sobre
+  un registro histórico. **Ninguna función de ubicar llama a `updateStoreStock`**, así que **el total
+  NO descuadra**. Mis dos análisis anteriores (doble resta y resta simple) eran falsos porque asumían
+  una llamada que no existe.
+- **El defecto real:** el libro se muta, así que tras ubicar el registro de recepción dice 0 y no se
+  puede reconstruir qué se recibió.
 - **Comportamiento correcto propuesto:** ubicar es un **traslado** entre la ubicación de recepción y
-  el estante. El total **no cambia**. El registro de recepción **conserva sus unidades originales**.
+  el estante. El total sigue sin cambiar, y el registro de recepción **conserva sus unidades
+  originales** porque se crea un movimiento nuevo en lugar de mutar el existente.
 - **CERRADA (R-65): CONFIRMADO.** Ubicar **no baja el total**: es un traslado entre la ubicación de
   recepción y el estante. El registro de recepción **conserve sus unidades originales**. Se
   implementa con feature flag `stock.locate.legacyDecrements` (por defecto `false`) para poder
@@ -380,7 +385,7 @@ Van primero porque **no pueden romper el negocio**: el sistema se comporta igual
 
 Aquí el negocio ve diferencias. Van **una por una**, con feature flag y test del comportamiento viejo.
 
-5. **R-65 + R-66** (doble descuento al ubicar) — el más importante, y el que más stock mueve
+5. **R-65 + R-66** (ubicar como movimiento append-only) — importante por la **trazabilidad**, no porque el total descuadre (que no lo hace)
 6. **R-67** (algoritmo de contenido por ubicación)
 7. **R-68** (borrado vs anulación)
 8. **R-69** (`ADMIN` como ubicación real)
