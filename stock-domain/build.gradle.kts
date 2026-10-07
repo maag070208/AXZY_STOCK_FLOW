@@ -18,6 +18,11 @@
 // ============================================================================
 
 plugins {
+    // El plugin de Android para KMP de AGP 9. Reemplaza a `com.android.library`,
+    // que no soporta Kotlin Multiplatform de forma nativa: con AGP 9 el target
+    // de Android se declara DENTRO del bloque `kotlin {}`, como una plataforma
+    // más, en lugar de como un módulo aparte.
+    alias(libs.plugins.android.kmp.library)
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.serialization)
 }
@@ -71,7 +76,13 @@ kotlin {
     }
 
     if (enableAndroidTarget) {
-        androidTarget()
+        // El target de Android de KMP. El SDK mínimo es 24 porque CameraX exige
+        // 21 y ML Kit 19, así que 24 deja margen sin excluir dispositivos.
+        android {
+            namespace = "dev.axzy.stock.domain"
+            compileSdk = libs.versions.androidCompileSdk.get().toInt()
+            minSdk = libs.versions.androidMinSdk.get().toInt()
+        }
     }
 
     jvmToolchain(17)
