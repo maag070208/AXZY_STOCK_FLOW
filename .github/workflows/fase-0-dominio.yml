@@ -171,3 +171,55 @@ jobs:
           fi
 
           echo "✓ Esquema de auditoría: particionado, inmutable y con triggers por partición"
+
+  # ==========================================================================
+  # APK DE ANDROID — PASO SEPARADO Y OBLIGATORIO
+  #
+  # `mobile-app/androidApp` es un build de Gradle INDEPENDIENTE, porque con
+  # AGP 9 `com.android.application` y el plugin de KMP no pueden coexistir en el
+  # mismo build y el fallo tumba la configuración de todo el monorepo.
+  #
+  # Consecuencia que hay que cubrir explícitamente: el APK **no participa** en
+  # `./gradlew build` de la raíz. Sin este job, el CI pasaría en verde con el APK
+  # sin compilar, y esa omisión es SILENCIOSA. Ver PLAN_ALMACEN_INTEGRAL.md §10-bis.
+  # ==========================================================================
+  apk-android:
+    name: APK de Android (build aparte)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Configurar el SDK de Android
+        uses: android-actions/setup-android@v3
+
+      - name: Compilar el APK de depuración
+        working-directory: mobile-app/androidApp
+        run: ./gradlew :assembleDebug --console=plain
+
+      - name: Comprobar que el APK existe y no está vacío
+        # No basta con que Gradle diga OK: un APK de 0 bytes también daría éxito.
+        run: |
+          set -euo pipefail
+          APK=$(find mobile-app/androidApp/build/outputs/apk -name '*.apk' | head -1)
+          if [ -z "$APK" ]; then
+            echo "::error::No se generó ningún APK. El build de androidApp está roto o no se ejecutó."
+            exit 1
+          fi
+          TAMANO=$(stat -c%s "$APK")
+          echo "APK: $APK ($TAMANO bytes)"
+          if [ "$TAMANO" -lt 1000000 ]; then
+            echo "::error::El APK pesa $TAMANO bytes: parece incompleto."
+            exit 1
+          fi
+          echo "✓ APK generado y con tamaño plausible"
