@@ -90,6 +90,18 @@ GET /v1/products?page=0&size=50&sort=productCode,asc&q=abra
 - `sort` es `campo,direccion`. Los campos admitidos se documentan por endpoint.
 - `q` es la búsqueda libre.
 
+**Dos excepciones, y son deliberadas:** `/v1/warehouses` y `/v1/label-templates` devuelven **todas**
+sus filas sin sobre de paginación y sin límite de 200.
+
+El motivo: son **catálogos cerrados y pequeños**. Habrá una o dos bodegas y ocho plantillas de
+etiqueta, y la interfaz necesita las listas **completas** para poblar desplegables. Paginarlas
+obligaría al cliente a pedir todas las páginas antes de poder dibujar un `select`, que es trabajo
+peor y más lento que devolver ocho filas.
+
+**El límite que lo hace seguro:** los dos requieren permisos de administración
+(`location.view` / `label.template_view`) sobre un conjunto que crece solo cuando un administrador
+lo decide. No son colecciones que crezcan con la operación, como el kardex o el inventario.
+
 ### 1.5 Idempotencia
 
 Las operaciones que **mueven inventario** o **crean documentos** aceptan la cabecera
@@ -235,6 +247,11 @@ se puede desactivar sin forzarlo explícitamente: `409` con `code = PRODUCT_HAS_
 
 `multipart/form-data` con `file` (CSV o XLSX) y `dryRun=true|false`.
 
+**Siempre `200`, nunca `201`, incluso con `dryRun=false`.** No es una creación de recurso: es una
+**operación sobre una colección** que produce un informe. El `201` implica que el cuerpo es el
+recurso creado y que su `Location` apunta a él; aquí no hay un recurso único que devolver. Por eso
+§1.2 no aplica y el ejemplo es correcto.
+
 **200 con `dryRun=true`:** el informe, **sin escribir nada**.
 
 ```json
@@ -268,6 +285,15 @@ archivo. El importador del dominio ya lo produce (`CatalogImporter`).
 `kind` es `SHELF` o `RECEIVING`. **La ubicación de recepción es real, con `id` real** — no la
 pseudo-ubicación `ADMIN` con identificador ficticio que el legacy devolvía hardcodeada y que podía
 colisionar con la ubicación 1.
+
+**`displayName` es DERIVADO, no un campo libre.** El servidor lo compone con
+`hall-code-position` para las ubicaciones `SHELF` (`"04-B-C"`). Para la de recepción devuelve
+**`"RECEPCION"`**, que es su `code`, no `"RECEPCION-RECEPCION-RECEPCION"`.
+
+La regla: **el cliente nunca compone el nombre visible, lo recibe.** Así, si mañana cambia el formato
+de las etiquetas de estante, no hay que tocar el backend, la web y el móvil a la vez. En el kardex,
+`fromLocationDisplayName` y `toLocationDisplayName` usan la misma regla; es lo que explica que el
+ejemplo muestre `"RECEPCION"`.
 
 ### `GET /v1/warehouses`
 
@@ -437,22 +463,32 @@ Calcula `difference` y decide el estado: `CAPTURED` si coincide, `DISCREPANCY` s
 **Una línea en `DISCREPANCY` no se puede ubicar.** El `POST /inventory/locate` responde `409` con
 `code = DISCREPANCY_NOT_APPROVED`. Es la regla B1.
 
-### `POST /v1/invoices/{id}/lines/{lineId}/approve`
+### `POST /v1/invoices/{id}/approve`
+
+**La ÚNICA ruta de aprobación. No existe una variante por línea.**
 
 ```json
 { "adjustmentReason": "SUPPLIER_ERROR", "note": "..." }
 ```
 
-Requiere `invoice.approve`. **Aprobación por factura, no por línea** (decisión R-86): la acción de
-aprobar opera sobre **todas** las líneas pendientes de la factura.
+Requiere `invoice.approve`. **La aprobación es por factura, no por línea** (decisión R-86).
 
-```json
-POST /v1/invoices/{id}/approve
-{ "adjustmentReason": "SUPPLIER_ERROR", "note": "..." }
-```
+**Por qué no hay ruta por línea.** Una factura llega con varias líneas con discrepancia, y
+aprobarlas de una en una obliga al supervisor a repetir el mismo juicio N veces y deja la factura en
+un estado intermedio donde unas líneas están aprobadas y otras no. El supervisor revisa la factura
+completa y decide una vez. Aprobar por línea era además lo que invitaba a **aprobar lo propio sin
+darse cuenta**: con una sola acción sobre el documento, la segregación de funciones es evidente.
 
-`422` con `code = SEGREGATION_OF_DUTIES` si quien aprueba fue quien capturó. La base lo impone con un
-`CHECK`: es imposible que una línea llegue a `APPROVED` sin `approved_by`.
+**Respuesta 200:** la factura completa con sus líneas ya en `APPROVED`.
+
+**Errores:**
+- `409` `NO_PENDING_APPROVAL` si no hay ninguna línea por aprobar.
+- `422` `REASON_REQUIRED` si falta `adjustmentReason`.
+- `422` `SEGREGATION_OF_DUTIES` si quien aprueba fue quien capturó **alguna** de las líneas
+  pendientes. El mensaje indica **cuáles**, para que el supervisor sepa qué reasignar.
+
+La base impone la regla con un `CHECK`: es imposible que una línea llegue a `APPROVED` sin
+`approved_by`. No depende de que el código se acuerde de validarlo.
 
 ### `POST /v1/invoices/{id}/reject-discrepancy`, `POST /v1/invoices/{id}/close`
 
@@ -479,7 +515,14 @@ quedaba bloqueada sin que nadie supiera que había que aprobarla.
 }
 ```
 
-`status`: `PENDING` | `IN_PROGRESS` | `PACKAGED` | `PENDING_TO_OUT` | `COMPLETED` | `CANCELLED`.
+`status` de la **orden**: `PENDING` | `IN_PROGRESS` | `PACKAGED` | `PENDING_TO_OUT` | `COMPLETED` | `CANCELLED`.
+
+`status` de la **línea** (`order_lines.status`), y es una unión **distinta** de la de factura:
+`PENDING` | `ASSIGNED` | `SUPPLIED` | `VERIFIED` | `CANCELLED`.
+
+**Antes reutilizaba los estados de `InvoiceLineStatus` y era un error**: `LOCATED` y `DISCREPANCY`
+son del flujo de recepción y no significan nada en surtido. Compartir la unión obligaba a la interfaz
+a contemplar estados imposibles, y a un `when` exhaustivo a tener ramas que nunca se ejecutan.
 
 ### `POST /v1/orders/{id}/lines/{lineId}/package`
 
@@ -608,10 +651,21 @@ apagada, la etiqueta se perdía para siempre.
 Exige motivo. Genera un **trabajo nuevo** enlazado al original, no reutiliza el registro: la
 trazabilidad de una reimpresión exige saber quién la pidió y por qué.
 
-### `PATCH /v1/prints` — **integración con la impresora**
+### `PATCH /v1/print-jobs/{id}` — **integración con la impresora**
+
+**Es la única ruta que no vive bajo `/v1/labels`**, y aun así cuelga de un recurso: es la
+actualización del estado de UN trabajo de impresión.
+
+Antes estaba como `PATCH /v1/prints`, que era **un error mío de diseño**: no colgaba de ningún
+recurso, usaba un verbo que no describía el efecto, y era imposible de descubrir leyendo la
+documentación de etiquetas.
 
 Es la llamada que hace la Zebra. **No exige JWT de usuario, sino credencial de servicio**
-(`service_api_keys`). El legacy tenía este endpoint abierto sin ninguna credencial.
+(`service_api_keys`, cabecera `X-Service-Key`). El legacy tenía este endpoint **abierto sin ninguna
+credencial**, así que cualquiera en la red podía marcar trabajos como impresos.
+
+**Errores:** `401` `INVALID_SERVICE_KEY`, `404` si el trabajo no existe, `409` si el trabajo ya está
+en `PRINTED` — una etiqueta no se imprime dos veces por un reintento de la impresora.
 
 ```json
 { "jobId": 501, "status": "PRINTED", "error": null }
