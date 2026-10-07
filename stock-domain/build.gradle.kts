@@ -88,6 +88,22 @@ kotlin {
     jvmToolchain(17)
 
     sourceSets {
+        // ── androidMain NO TIENE DEPENDENCIAS, Y ES DELIBERADO ──────────────
+        // Aquí NO van CameraX ni ML Kit, aunque el escáner los necesite.
+        //
+        // El motivo: `stock-domain` debe poder compartirse con el móvil **sin
+        // arrastrar la plataforma**, y la guardia de arquitectura prohíbe
+        // cualquier import de `androidx` —incluido en `androidMain`—. Añadir
+        // aquí las dependencias de la cámara sin poder usarlas sería una
+        // dependencia engañosa: parecería que el dominio sabe de cámara y no es
+        // así.
+        //
+        // Lo que vive aquí es el CONTRATO ([ScanWindow], [ScanState], [ScanOutcome])
+        // y el modelo de qué hacer con lo escaneado, que es idéntico en Android
+        // e iOS y está cubierto por 16 tests en JVM. La implementación con
+        // CameraX y ML Kit va en un módulo de móvil, que es donde le
+        // corresponde. Ver PLAN_ALMACEN_INTEGRAL.md §3.2-bis.
+
         commonMain.dependencies {
             // ── LO ÚNICO PERMITIDO ───────────────────────────────────────────
             implementation(libs.datetime)
@@ -135,9 +151,25 @@ tasks.register("verifyDomainPurity") {
     doLast {
         val violations = mutableListOf<String>()
 
-        // 1. Verificar las dependencias declaradas en commonMain
+        // 1. Verificar TODAS las configuraciones de código de producción.
+        //
+        // SE INCLUYEN androidMain e iosMain A PROPÓSITO, y antes no estaban.
+        // Ésa era una incoherencia real de esta guardia: revisaba las
+        // dependencias solo de `commonMain` y `jvmMain`, pero escaneaba los
+        // imports de los cuatro source sets. Es decir, se podía declarar CameraX
+        // en `androidMain` sin que la guardia dijera nada, y el error aparecía
+        // después, al escribir el primer `import androidx.`.
+        //
+        // La regla que se quiere imponer es simple: **el dominio no depende de
+        // frameworks de plataforma, en NINGÚN source set**. Es lo que permite
+        // que el mismo código tome las mismas decisiones en el backend, en
+        // Android y en iOS.
         configurations
-            .filter { it.name.contains("commonMain") || it.name.contains("jvmMain") }
+            .filter {
+                it.name.contains("Main") &&
+                    !it.name.contains("Test") &&
+                    !it.name.contains("Metadata")
+            }
             .forEach { config ->
                 config.dependencies.forEach { dep ->
                     val notation = "${dep.group}:${dep.name}".lowercase()
