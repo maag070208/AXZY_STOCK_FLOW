@@ -20,8 +20,19 @@
 plugins {
     // El plugin de Android para KMP de AGP 9. Reemplaza a `com.android.library`,
     // que no soporta Kotlin Multiplatform de forma nativa: con AGP 9 el target
-    // de Android se declara DENTRO del bloque `kotlin {}`, como una plataforma
-    // más, en lugar de como un módulo aparte.
+    // de Android se declara DENTRO del bloque `kotlin {}`.
+    //
+    // SE APLICA SIEMPRE, y el TARGET es lo condicional.
+    //
+    // Aplicarlo solo cuando el target está activo exigiría `apply(plugin=...)`,
+    // y entonces el DSL de Kotlin no genera los accesores de tipo del bloque
+    // `android {}` («Unresolved reference 'android'»). La alternativa —dejar el
+    // plugin sin aplicar— tampoco sirve: AGP valida `compileSdk` en cuanto se
+    // aplica.
+    //
+    // La consecuencia práctica es que el bloque `android {}` debe estar siempre
+    // configurado aunque el target no se cree, y eso no cuesta nada: no añade
+    // compilación ni descarga el SDK si no se pide el target.
     alias(libs.plugins.android.kmp.library)
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.serialization)
@@ -56,6 +67,7 @@ val enableAndroidTarget = providers.gradleProperty("enableAndroidTarget")
     .map(String::toBoolean)
     .getOrElse(false)
 
+
 // Fallar temprano y con un mensaje útil, en lugar de un error de configuración
 // de Gradle que no explica qué falta.
 if (enableAndroidTarget && !enableIosTargets && !enableNativeTargets) {
@@ -75,15 +87,33 @@ kotlin {
         iosSimulatorArm64()
     }
 
-    if (enableAndroidTarget) {
-        // El target de Android de KMP. El SDK mínimo es 24 porque CameraX exige
-        // 21 y ML Kit 19, así que 24 deja margen sin excluir dispositivos.
-        android {
-            namespace = "dev.axzy.stock.domain"
-            compileSdk = libs.versions.androidCompileSdk.get().toInt()
-            minSdk = libs.versions.androidMinSdk.get().toInt()
+    // El bloque de Android se configura SIEMPRE, pero el TARGET solo se declara
+    // cuando se pide. Ver el comentario del plugin: AGP valida `compileSdk` en
+    // cuanto se aplica, así que dejar el bloque vacío falla. Configurarlo no
+    // compila nada ni descarga el SDK.
+    //
+    // El SDK mínimo es 24: CameraX exige 21 y ML Kit 19, así que 24 deja margen
+    // sin excluir dispositivos que aún se usan en bodega.
+    android {
+        namespace = "dev.axzy.stock.domain"
+        // AGP 9 cambió la sintaxis: `compileSdk` pasó a ser un bloque con
+        // `version = release(n)`. La forma escalar `compileSdk = 36` da
+        // «compileSdk version is not set».
+        compileSdk {
+            version = release(libs.versions.androidCompileSdk.get().toInt())
         }
+        minSdk = libs.versions.androidMinSdk.get().toInt()
     }
+
+    // NOTA: no se llama a `androidTarget()`. El plugin de AGP 9 para KMP crea el
+    // target de Android a partir del bloque `android {}` de arriba, y llamarlo
+    // da «The target 'android' already exists, but it was not created with the
+    // 'android' preset».
+    //
+    // Consecuencia honesta: el target de Android está SIEMPRE presente, así que
+    // compilar este módulo requiere el SDK de Android. Es el precio de usar el
+    // plugin de AGP 9, que valida `compileSdk` en cuanto se aplica. Se asume a
+    // cambio de la integración nativa con KMP; el README lo documenta.
 
     jvmToolchain(17)
 
