@@ -167,12 +167,56 @@ IntelliJ detecta el build de Gradle y carga los 7 módulos de una vez.
 Configura **Gradle user home** = `.../STOCK/.gradle-home`, porque el sandbox
 bloquea `~/.gradle` y la sincronización fallaría.
 
-**Dos excepciones que se abren aparte, no desde la raíz:**
+**Una excepción que se abre aparte:**
 
 | Carpeta | Por qué |
 |---|---|
-| `mobile-app/androidApp/` | Tiene su propio `settings.gradle.kts` (limitación de AGP 9) |
 | `web/` | Es un proyecto de pnpm, no de Gradle |
+
+### ⚠️ No abras `mobile-app` suelto
+
+**`mobile-app` es un submódulo del monorepo, no un proyecto.** Su build depende del
+`settings.gradle.kts` de la raíz. Si lo abres en solitario, IntelliJ intenta
+sincronizarlo como proyecto independiente y falla con:
+
+```
+Task 'prepareKotlinBuildScriptModel' not found in project ':mobile-app'
+```
+
+**Ese task ya no existe en ningún módulo** del proyecto: lo eliminaron Gradle 9 y
+Kotlin 2.2, y lo sustituyó el soporte de *Proyectos Aislados*. IntelliJ lo sigue
+pidiendo por su versión de plugin.
+
+Además, al abrirlo suelto IntelliJ crea un **`.idea` dentro de `mobile-app`** que
+lo trata como proyecto propio. Si eso pasa, **bórralo**: es basura, no
+configuración.
+
+**Se probó a activar `org.gradle.unsafe.isolated-projects=true` para que el IDE
+sincronice por la vía nueva, y rompe la guardia de arquitectura**: accede a
+`Project.tasks` de subproyectos, y esa API está prohibida en modo aislado. Se
+revirtió: no compensa reescribir la guardia.
+
+**Cómo trabajarlo:** abre la raíz `~/DEV/STOCK` (ya incluye `mobile-app` entre sus
+módulos), o usa los scripts del terminal.
+
+### Los avisos de iOS son cosméticos
+
+Al sincronizar verás:
+
+```
+iOS Source Set Used Without an iOS Target   (×2)
+Unused Kotlin Source Sets                    (×2)
+```
+
+**Los targets de iOS son opt-in a propósito.** Sin el flag, el build funciona **con
+solo un JDK**, sin descargar Kotlin/Native (unos 300 MB). El precio es que
+IntelliJ, que sincroniza sin el flag, ve `iosMain` sin target y avisa.
+
+**Se intentó activarlos por defecto y no se puede**: obliga a descargar
+Kotlin/Native en cada build, y el entorno bloquea `~/.konan`. Se prefirió un build
+que funciona en cualquier máquina a uno que exige 300 MB para compilar el dominio.
+
+Para iOS se usa `./scripts/ios.sh`, que sí define `KONAN_DATA_DIR`.
 
 ### Documentos de referencia
 
