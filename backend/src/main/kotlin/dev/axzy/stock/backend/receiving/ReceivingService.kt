@@ -294,6 +294,35 @@ class ReceivingService(private val dataSource: DataSource) {
             // COMPLETED.
             refreshInvoiceStatus(connection, invoiceId)
 
+            // ── AUDITORÍA DEL CONTEO FÍSICO ─────────────────────────────────
+            //
+            // **El conteo es el dato del que depende toda la discrepancia.** Si no
+            // queda registrado quién contó, cuándo y con qué resultado, aprobar una
+            // diferencia se convierte en un acto de fe: no se puede comprobar si la
+            // persona que contó tenía la formación, ni si contó cinco facturas
+            // seguidas a las tres de la mañana.
+            //
+            // `previousState` y `newState` llevan las CANTIDADES, no solo el estado:
+            // «pasó de PENDING a DISCREPANCY» no dice nada; «contó 90 donde decía 100»
+            // es lo que permite investigar.
+            audit.record(
+                connection = connection,
+                actorUserId = userId,
+                actorUsername = null,
+                channel = dev.axzy.stock.backend.audit.AuditWriter.Channel.WEB,
+                entityType = "invoice_line",
+                entityId = lineId.toString(),
+                entityLabel = "invoice #$invoiceId",
+                action = "invoice.line.capture",
+                level = dev.axzy.stock.backend.audit.AuditWriter.Level.RELEVANT,
+                previousState = """{"status":"PENDING","invoiced":"${line.quantity}"}""",
+                newState = """{"status":"$newStatus","physical":"${java.math.BigDecimal.valueOf(quantityPhysical.value).movePointLeft(dev.axzy.stock.domain.value.Quantity.SCALE).toPlainString()}"}""",
+                permissionKey = "invoice.capture",
+                decision = dev.axzy.stock.backend.audit.AuditWriter.Decision.ALLOWED,
+                result = dev.axzy.stock.backend.audit.AuditWriter.Result.SUCCESS,
+                businessDate = java.time.LocalDate.now(java.time.ZoneOffset.UTC),
+            )
+
             connection.commit()
 
             // Se responde con la línea COMPLETA leída de `leerLineas`, no con el

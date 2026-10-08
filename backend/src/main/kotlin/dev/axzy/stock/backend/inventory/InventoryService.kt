@@ -274,6 +274,35 @@ class InventoryService(private val dataSource: DataSource) {
                 key = key,
             )
 
+            // ── AUDITORÍA DEL TRASLADO ──────────────────────────────────────
+            //
+            // **Ubicar es un traslado, y por eso el registro guarda el ORIGEN y el
+            // DESTINO.** Un registro que solo dijera «se movieron 300 unidades» no
+            // permitiría reconstruir de dónde salieron, que es la pregunta que se
+            // hace cuando un estante aparece vacío y nadie sabe por qué.
+            //
+            // El kardex ya guarda el movimiento, pero **el kardex es del producto y la
+            // auditoría es de la PERSONA**: quién lo hizo, desde qué IP y con qué
+            // permiso. Son dos preguntas distintas y las dos hay que poder responder.
+            audit.record(
+                connection = connection,
+                actorUserId = userId,
+                actorUsername = null,
+                channel = dev.axzy.stock.backend.audit.AuditWriter.Channel.WEB,
+                entityType = "product",
+                entityId = productId.toString(),
+                entityLabel = productCode.value,
+                action = "inventory.locate",
+                level = dev.axzy.stock.backend.audit.AuditWriter.Level.RELEVANT,
+                previousState = """{"location":"${from.value}"}""",
+                newState = """{"location":"${until.value}","units":"${quantity.unitsText()}"}""",
+                permissionKey = "invoice.locate",
+                decision = dev.axzy.stock.backend.audit.AuditWriter.Decision.ALLOWED,
+                result = dev.axzy.stock.backend.audit.AuditWriter.Result.SUCCESS,
+                idempotencyKey = key,
+                businessDate = java.time.LocalDate.now(java.time.ZoneOffset.UTC),
+            )
+
             connection.commit()
             id
         } catch (e: Exception) {
