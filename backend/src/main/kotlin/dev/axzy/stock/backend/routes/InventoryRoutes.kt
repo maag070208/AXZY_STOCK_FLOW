@@ -159,7 +159,16 @@ fun Route.inventoryRoutes(
                 origin = origen,
                 note = cuerpo.note,
                 requestedBy = solicitante,
-                idempotencyKey = call.request.headers["Idempotency-Key"],
+                // **La clave se valida aquí y no se deja al CAST de PostgreSQL.**
+                // `?::uuid` con un valor que no es UUID lanza una excepción de
+                // PostgreSQL que sale como **500 INTERNAL_ERROR**, cuando el problema
+                // es del cliente y merece un **400**. Lo encontré pasando
+                // `Idempotency-Key: v-SINUBICAR-...` en una prueba mía.
+                //
+                // Un 500 es una mentira: dice «el servidor falló» cuando el servidor
+                // está bien y el que se equivocó fue quien llamó. Y en los registros
+                // deja un incidente que no existe.
+                idempotencyKey = claveDeIdempotencia(call),
             )
         ) {
             is Either.Left -> throw dev.axzy.stock.backend.error.UnprocessableException(
@@ -268,7 +277,7 @@ fun Route.inventoryRoutes(
             limite = page.size,
         )
 
-        val total = servicio.contarKardex(productCode = producto, tipo = tipo)
+        val total = servicio.contarKardex(productCode = producto, tipo = tipo, desde = desde, hasta = hasta)
 
         call.respond(HttpStatusCode.OK, Page(items, page.page, page.size, total).aRespuesta { it })
     }
@@ -353,7 +362,7 @@ private suspend fun manejarTraslado(
         hasta = hasta,
         cantidad = cantidad(cuerpo.quantity),
         usuarioId = usuario,
-        clave = call.request.headers["Idempotency-Key"],
+        clave = claveDeIdempotencia(call),
     )
 
     call.respond(
@@ -392,3 +401,27 @@ private fun io.ktor.server.application.ApplicationCall.pagina(
     camposOrdenables = camposOrdenables,
     ordenPorDefecto = ordenPorDefecto,
 )
+
+/**
+ * La clave de idempotencia de la petición, validada como UUID.
+ *
+ * `null` si no viene, que es válido: significa «no soy un reintento». Si viene y no
+ * es un UUID, se rechaza con **400** en lugar de dejar que PostgreSQL lance un error
+ * que saldría como **500**.
+ */
+private fun claveDeIdempotencia(
+    call: io.ktor.server.application.ApplicationCall,
+): String? {
+    val cruda = call.request.headers["Idempotency-Key"]?.trim() ?: return null
+    if (cruda.isEmpty()) return null
+
+    return try {
+        java.util.UUID.fromString(cruda).toString()
+    } catch (_: IllegalArgumentException) {
+        throw dev.axzy.stock.backend.error.BadRequestException(
+            "INVALID_IDEMPOTENCY_KEY",
+            "La cabecera 'Idempotency-Key' debe ser un UUID. Se recibió '$cruda'.",
+            mapOf("header" to "Idempotency-Key"),
+        )
+    }
+}

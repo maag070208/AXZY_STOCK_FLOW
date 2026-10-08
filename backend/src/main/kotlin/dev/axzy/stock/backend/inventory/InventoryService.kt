@@ -436,20 +436,37 @@ class InventoryService(private val dataSource: DataSource) {
     }
 
     /** Conteo total de una consulta, para el sobre de paginación. */
-    fun contarKardex(productCode: String? = null, tipo: String? = null): Long =
-        dataSource.connection.use { conexion ->
-            val sql = buildString {
-                append("SELECT count(*) FROM kardex k JOIN products p ON p.id = k.product_id WHERE 1=1")
-                if (productCode != null) append(" AND p.product_code = ?")
-                if (tipo != null) append(" AND k.move_type = ?::movement_type")
-            }
-            conexion.prepareStatement(sql).use { st ->
-                var i = 1
-                if (productCode != null) st.setString(i++, productCode)
-                if (tipo != null) st.setString(i++, tipo)
-                st.executeQuery().use { rs -> if (rs.next()) rs.getLong(1) else 0L }
-            }
+    /**
+     * Conteo del kardex, para el sobre de paginación.
+     *
+     * **ANTES IGNORABA `from` Y `to`.** Un rango de fechas sin resultados devolvía
+     * `items: []` pero `totalItems: 1064` y `totalPages: 213`, así que el cliente
+     * pintaba «1.064 movimientos» sobre una lista vacía. Es peor que un error: parece
+     * que la lista no cargó. Lo encontró un agente al conectar la pantalla del kardex,
+     * y por eso esa pantalla no muestra el total cuando hay rango de fechas.
+     */
+    fun contarKardex(
+        productCode: String? = null,
+        tipo: String? = null,
+        desde: Instant? = null,
+        hasta: Instant? = null,
+    ): Long = dataSource.connection.use { conexion ->
+        val sql = buildString {
+            append("SELECT count(*) FROM kardex k JOIN products p ON p.id = k.product_id WHERE 1=1")
+            if (productCode != null) append(" AND p.product_code = ?")
+            if (tipo != null) append(" AND k.move_type = ?::movement_type")
+            if (desde != null) append(" AND k.moved_at >= ?")
+            if (hasta != null) append(" AND k.moved_at <= ?")
         }
+        conexion.prepareStatement(sql).use { st ->
+            var i = 1
+            if (productCode != null) st.setString(i++, productCode)
+            if (tipo != null) st.setString(i++, tipo)
+            if (desde != null) st.setTimestamp(i++, Timestamp.from(desde))
+            if (hasta != null) st.setTimestamp(i, Timestamp.from(hasta))
+            st.executeQuery().use { rs -> if (rs.next()) rs.getLong(1) else 0L }
+        }
+    }
 
     /**
      * El reporte de reconciliación.
@@ -609,14 +626,39 @@ class InventoryService(private val dataSource: DataSource) {
 
     data class UbicacionEncontrada(val id: Long, val warehouseId: Long)
 
+    /**
+     * Resuelve una ubicación por su código.
+     *
+     * **LAS UBICACIONES ESPECIALES NO TIENEN CÓDIGO CONCATENADO VÁLIDO, y aquí estaba
+     * el bloqueo que impedía hacer ningún ajuste.**
+     *
+     * `RECEPCION` y `SIN-UBICAR` se crearon con las tres partes iguales
+     * (`hall=code=position='SINUBICAR'`), así que su concatenación son **27
+     * caracteres**. Pero `LocationCode` exige un **máximo de 24**, de modo que la
+     * validación del dominio rechazaba el único valor capaz de encontrarlas: **no
+     * existía ningún `locationCode` con el que un ajuste pudiera completarse**.
+     *
+     * La concatenación es un identificador artificial que solo tiene sentido para un
+     * estante (`04BCA`). Una ubicación especial **se identifica por su nombre
+     * visible**, que es lo que el usuario ve en la pantalla y lo que copia. Por eso
+     * se resuelven por `kind`, con el mismo criterio que usa `existencias`.
+     */
     private fun buscarUbicacion(conexion: Connection, code: LocationCode): UbicacionEncontrada? =
         conexion.prepareStatement(
             """
             SELECT id, warehouse_id FROM locations
-            WHERE (hall || code || "position") = ? AND active
+            WHERE (
+                    (hall || code || "position") = ?
+                 OR (CASE kind
+                        WHEN 'RECEIVING'  THEN 'RECEPCION'
+                        WHEN 'UNASSIGNED' THEN 'SINUBICAR'
+                     END) = UPPER(REPLACE(?, '-', ''))
+                  )
+              AND active
             """.trimIndent(),
         ).use { st ->
             st.setString(1, code.value)
+            st.setString(2, code.value)
             st.executeQuery().use { rs ->
                 if (rs.next()) UbicacionEncontrada(rs.getLong("id"), rs.getLong("warehouse_id")) else null
             }
