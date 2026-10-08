@@ -68,10 +68,18 @@ internal fun ResultSet.toKardexDto(
     productCode = getString("product_code"),
     productName = getString("product_name"),
     moveType = getString("move_type"),
-    // `toPlainString()` y no `toString()`: `"5193.000"` conserva los 3 decimales del
-    // contrato, mientras que `toString()` de un BigDecimal puede dar notación
-    // científica (`5.193E+3`) con números grandes. Con 10,9 millones de unidades en el
-    // inventario, ese caso no es hipotético.
+    // `toPlainString()` y no `toString()`, **y la razón está corregida**: escribí aquí
+    // que `toString()` daría notación científica (`5.193E+3`) con los 10,9 millones de
+    // unidades del inventario, y **es falso** — lo demostró `InventoryMappersTest`. Con
+    // escala 3, `toString()` da `5193000.000`.
+    //
+    // La razón real es más modesta y más útil: **`toPlainString()` garantiza la forma
+    // sin depender de la escala del `BigDecimal`**. `toString()` usa notación científica
+    // cuando la escala es negativa o el exponente muy grande, y eso depende de cómo se
+    // haya construido el número — algo que este mapper no controla.
+    //
+    // Se deja escrito el error en lugar de borrarlo: **una justificación inventada es
+    // peor que no tener ninguna**, porque nadie la revisa.
     units = getBigDecimal("units").toPlainString(),
     quantityAfter = getBigDecimal("quantity_after").toPlainString(),
     fromLocationDisplayName = fromLocationDisplayName,
