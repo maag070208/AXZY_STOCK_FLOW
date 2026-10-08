@@ -530,3 +530,70 @@ Un documento de arquitectura que solo dice lo que va bien no sirve para decidir.
 | **Móvil ↔ API** | Los módulos `stock-network`/`stock-database`/`stock-datastore` (130 tests) **no están conectados a las pantallas** |
 | **Swagger** | No existía; en implementación |
 | **Fases 3, 3-bis, 4** | Surtido, traslados y etiquetas: ~21 rutas del contrato sin implementar |
+
+---
+
+## Refactor pendiente: partir `catalog/`
+
+`catalog/` tiene **2.998 líneas en 12 archivos** y mezcla cuatro cosas distintas.
+**`CatalogRoutes.kt` son 741 líneas con TRES recursos dentro y sin servicio.**
+
+```
+catalog/
+  CatalogRoutes.kt      741  ← products + locations + warehouses en 3 `private fun Route.*`
+  ProductRepository     398
+  CatalogDtos           369
+  LocationRepository    274
+  XlsxReader            260  ← importación de Excel
+  CatalogFileReader     194  ← importación de Excel
+  CatalogTables         188
+  Pagination            181  ← compartido con el resto del backend
+  CatalogImportService  127  ← importación de Excel
+  WarehouseRepository   103
+  CatalogErrors         103
+  UnitOfMeasureRepository 60
+```
+
+### Estructura objetivo
+
+```
+catalog/
+  product/     ProductRoutes · ProductService · ProductRepository · ProductDtos · ProductMappers
+  location/    LocationRoutes · LocationService · LocationRepository · LocationDtos · LocationMappers
+  warehouse/   WarehouseRoutes · WarehouseService · WarehouseRepository · WarehouseDtos
+  importing/   ImportService · FileReader · XlsxReader
+  shared/      Tables · Pagination · Errors · Validation
+```
+
+### Por qué (y no es estética)
+
+1. **`CatalogRoutes.kt` de 741 líneas no lo lee nadie entero.** Tres recursos en un archivo
+   significa que tocar productos obliga a recorrer ubicaciones y bodegas.
+2. **NO HAY `CatalogService`.** Las rutas hablan con **cuatro repositorios** directamente,
+   así que no hay dónde poner una regla de negocio que afecte a más de uno — y la validación
+   acaba repartida por los 7 handlers.
+3. **La importación de Excel vive con el CRUD.** Es un proceso por lotes, con su propio
+   ciclo de vida y sus propios errores; no comparte nada con un `GET /v1/products`.
+4. **`Pagination.kt` y `CatalogTables.kt` los usa el resto del backend.** Están en
+   `catalog/` por accidente histórico, no porque sean del catálogo.
+
+### Trampas que ya me encontré al intentarlo (y hay que resolver)
+
+- **Los 14 helpers de validación son `private` de nivel superior** (`page`, `routeId`,
+  `productCode`, `textRequired`, `locationPart`, `parseLocationKind`…). Al partir el
+  archivo dejan de ser accesibles: hay que pasarlos a `internal` **en su propio archivo**.
+- **`requirePermission` es `private`** y lo usan los tres recursos. Mismo problema.
+- **Cortar por número de línea no funciona**: el primer intento se llevó las tres funciones
+  enteras a `CatalogRoutes.kt` (overloads duplicados) y el segundo cortó los helpers por
+  medio (error de sintaxis en la línea 257). **Hay que cortar por el cierre real de cada
+  función**, no por un rango fijo.
+- **50 imports** en la cabecera. Cada archivo nuevo necesita los suyos; copiarlos todos
+  funciona pero deja imports sin usar (warning, no error).
+
+### Orden recomendado
+
+1. `shared/`: mover `Pagination` y `CatalogTables` fuera de `catalog/` (los usa todo el backend).
+2. Extraer los helpers a `CatalogValidation.kt` con `internal`.
+3. Un archivo por recurso, **cortando por cierre de función**.
+4. Crear `ProductService`, `LocationService`, `WarehouseService` y que las rutas deleguen.
+5. `CatalogMappers.kt` con los DTOs.
