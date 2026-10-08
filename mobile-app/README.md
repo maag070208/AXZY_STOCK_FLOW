@@ -5,6 +5,9 @@ entrada de plataforma. La lógica de negocio **no está aquí**: vive en
 [`../stock-domain`](../stock-domain), que es Kotlin puro y lo consumen también el
 backend y los tests (ver `PLAN_ALMACEN_INTEGRAL.md` §3.2-bis).
 
+> **`mobile-app` es un build de Gradle propio.** Se abre y se compila desde este
+> directorio, no desde la raíz del monorepo. El porqué y el precio están en §5 y §9.
+
 ---
 
 ## 1. Estructura
@@ -15,82 +18,105 @@ factura» está en `feature/invoices/`, no repartido entre una carpeta `ui/` y o
 dejar huérfanos.
 
 ```txt
-mobile-app/
-├── build.gradle.kts                     # KMP: jvm + android + iosArm64/iosSimulatorArm64
-├── README.md                            # este archivo
-├── androidApp/                          # APK Android — BUILD DE GRADLE PROPIO
-│   ├── settings.gradle.kts              #   (ver §5: AGP 9 obliga a separarlo)
-│   ├── build.gradle.kts
-│   ├── gradle.properties
-│   ├── gradlew -> ../../gradlew         #   enlace al wrapper del monorepo
+mobile-app/                                # ← RAÍZ DE UN BUILD DE GRADLE
+├── settings.gradle.kts                    # include(":shared") + include(":androidApp")
+│                                          #   + includeBuild("..") para el dominio
+├── build.gradle.kts                       # los SEIS plugins con `apply false`
+├── gradle.properties                      # heap, metaspace y keystore de depuración
+├── gradlew                                # COPIA del wrapper del monorepo (ver §9)
+├── gradle -> ../gradle                    # enlace: mismo wrapper y MISMO catálogo
+├── local.properties                       # sdk.dir (no se versiona)
+├── README.md                              # este archivo
+├── shared/                                # ← LA BIBLIOTECA KMP (era mobile-app/src)
+│   ├── build.gradle.kts                   #   jvm + android + iosArm64/iosSimulatorArm64
+│   └── src/
+│       ├── commonMain/kotlin/dev/axzy/stock/mobile/
+│       │   ├── App.kt                     # navegación y montaje de pantallas
+│       │   ├── core/
+│       │   │   ├── theme/                 # Color.kt · Shape.kt · InputTokens.kt · Theme.kt
+│       │   │   ├── ui/                    # Components.kt · AppButton.kt · AppTextField.kt
+│       │   │   ├── camera/                # ⭐ el escáner: BarCodeScannerView (expect),
+│       │   │   │                          #    ScanMaskOverlay, ScanSession, ScannerPanel
+│       │   │   ├── data/                  # puertos (interfaces) + modelo de lectura
+│       │   │   │   └── demo/DemoData.kt   #   datos de ejemplo, borrables de una pieza
+│       │   │   └── nav/Navigator.kt
+│       │   └── feature/
+│       │       ├── auth/                  # LoginScreen          (MVVM simple)
+│       │       ├── home/                  # HomeScreen           (MVVM simple)
+│       │       ├── invoices/              # List · Detail · Capture   (MVI en Capture)
+│       │       ├── orders/                # List · Detail        (MVVM simple)
+│       │       ├── locations/             # List · Content       (MVVM simple)
+│       │       ├── inventory/             # Search + move/       (MVI: la máquina de estados)
+│       │       └── labels/                # Labels · PrintJobs   (MVVM simple)
+│       ├── androidMain/kotlin/.../core/camera/BarCodeScannerView.android.kt  # CameraX + ML Kit
+│       ├── iosMain/kotlin/.../core/camera/BarCodeScannerView.ios.kt          # AVFoundation
+│       ├── iosMain/kotlin/dev/axzy/stock/mobile/MainViewController.kt        # puente a SwiftUI
+│       ├── jvmMain/kotlin/.../core/camera/BarCodeScannerView.jvm.kt          # stub: el JVM es para tests
+│       └── jvmTest/kotlin/                    # 30 tests, sin emulador
+│           ├── core/camera/ScanSessionTest.kt
+│           └── feature/inventory/move/MoveStockReducerTest.kt · MoveStockViewModelTest.kt
+├── androidApp/                            # ← EL APK (submódulo normal, SIN settings propio)
+│   ├── build.gradle.kts                   #   com.android.application + project(":shared")
 │   └── src/main/
 │       ├── AndroidManifest.xml
 │       ├── kotlin/dev/axzy/stock/mobile/android/MainActivity.kt
-│       └── res/                          # tema, colores, icono adaptativo
-├── iosApp/                              # Proyecto Xcode (SwiftUI) — aparte, como en el ejemplo real
-│   ├── Configuration/Config.xcconfig
-│   └── iosApp/
-│       ├── iOSApp.swift
-│       ├── ContentView.swift             # puente a MainViewControllerKt
-│       └── Info.plist                    # NSCameraUsageDescription
-└── src/
-    ├── commonMain/kotlin/dev/axzy/stock/mobile/
-    │   ├── App.kt                        # navegación y montaje de pantallas
-    │   ├── core/
-    │   │   ├── theme/                    # Color.kt · Shape.kt · InputTokens.kt · Theme.kt
-    │   │   ├── ui/                       # Components.kt · AppButton.kt · AppTextField.kt
-    │   │   ├── camera/                   # ⭐ el escáner: BarCodeScannerView (expect),
-    │   │   │                             #    ScanMaskOverlay, ScanSession, ScannerPanel
-    │   │   ├── data/                     # puertos (interfaces) + modelo de lectura
-    │   │   │   └── demo/DemoData.kt      #   datos de ejemplo, borrables de una pieza
-    │   │   └── nav/Navigator.kt
-    │   └── feature/
-    │       ├── auth/                     # LoginScreen          (MVVM simple)
-    │       ├── home/                     # HomeScreen           (MVVM simple)
-    │       ├── invoices/                 # List · Detail · Capture   (MVI en Capture)
-    │       ├── orders/                   # List · Detail        (MVVM simple)
-    │       ├── locations/                # List · Content       (MVVM simple)
-    │       ├── inventory/                # Search + move/       (MVI: la máquina de estados)
-    │       └── labels/                   # Labels · PrintJobs   (MVVM simple)
-    ├── androidMain/kotlin/.../core/camera/BarCodeScannerView.android.kt   # CameraX + ML Kit
-    ├── iosMain/kotlin/.../core/camera/BarCodeScannerView.ios.kt           # AVFoundation
-    ├── iosMain/kotlin/dev/axzy/stock/mobile/MainViewController.kt         # puente a SwiftUI
-    ├── jvmMain/kotlin/.../core/camera/BarCodeScannerView.jvm.kt           # stub: el target JVM es para tests
-    └── jvmTest/kotlin/                        # 30 tests, sin emulador
-        ├── core/camera/ScanSessionTest.kt
-        └── feature/inventory/move/MoveStockReducerTest.kt · MoveStockViewModelTest.kt
+│       └── res/                           # tema, colores, icono adaptativo
+└── iosApp/                                # Proyecto Xcode (SwiftUI) — aparte, como en el ejemplo real
+    ├── Configuration/Config.xcconfig
+    └── iosApp/
+        ├── iOSApp.swift
+        ├── ContentView.swift              # puente a MainViewControllerKt
+        └── Info.plist                     # NSCameraUsageDescription
 ```
+
+**El paquete Kotlin no cambió**: sigue siendo `dev.axzy.stock.mobile`. La
+reestructuración movió directorios, no código: ningún archivo `.kt` cambió de
+contenido, y ninguna ruta de `package` ni ningún `import` se tocó.
 
 ---
 
 ## 2. Cómo compilar y probar
 
+**Todo desde `mobile-app/`**, que es la raíz del build:
+
 ```bash
+cd mobile-app
 export GRADLE_USER_HOME=/Users/axzy/DEV/STOCK/.gradle-home   # el sandbox bloquea ~/.gradle
 export KONAN_DATA_DIR=/Users/axzy/DEV/STOCK/.konan-home      # solo para iOS
 
 # 1. Compilar la UI compartida para JVM (segundos)
-./gradlew :mobile-app:compileKotlinJvm --no-daemon --console=plain
+./gradlew :shared:compileKotlinJvm --no-daemon --console=plain
 
 # 2. Los tests de la máquina de estados, SIN emulador
-./gradlew :mobile-app:jvmTest --no-daemon --console=plain
+./gradlew :shared:jvmTest --no-daemon --console=plain
 #    Comprobar SIEMPRE que corrieron de verdad: Gradle dice «BUILD SUCCESSFUL» con
 #    0 tests ejecutados. Los resultados están en
-#    mobile-app/build/test-results/jvmTest/TEST-*.xml
+#    mobile-app/shared/build/test-results/jvmTest/TEST-*.xml
 
 # 3. Compilar el target Android de la biblioteca compartida
-./gradlew :mobile-app:compileAndroidMain --no-daemon --console=plain
+./gradlew :shared:compileAndroidMain --no-daemon --console=plain
 
 # 4. Compilar para iOS (descarga Kotlin/Native la primera vez, ~500 MB)
-./gradlew :mobile-app:compileKotlinIosArm64 -PenableIosTargets=true --no-daemon --console=plain
+./gradlew :shared:compileKotlinIosArm64 -PenableIosTargets=true --no-daemon --console=plain
+#    ⚠️ `-PenableIosTargets=true` NO es opcional y no se puede omitir.
+#    Los targets de iOS son OPT-IN tanto aquí como en `stock-domain`, y con
+#    `includeBuild` los DOS tienen que estar de acuerdo: si `shared` declarara
+#    targets de iOS y `stock-domain` no, Gradle no encontraría variante
+#    («No matching variant of project :STOCK:stock-domain ... 'native'»).
+#    La propiedad se pasa UNA vez y la ven los dos builds. El porqué completo,
+#    y los dos intentos de propagarla automáticamente que NO funcionaron, están
+#    en el comentario del bloque `kotlin {}` de `shared/build.gradle.kts`.
+
+# 5. El APK
+./gradlew :androidApp:assembleDebug --no-daemon --console=plain
+# → mobile-app/androidApp/build/outputs/apk/debug/androidApp-debug.apk
 ```
 
-APK de Android — **desde su propio directorio**, no desde la raíz (§5):
+La tarea del modelo de build que pide IntelliJ también resuelve desde aquí, que es
+lo que hace que el IDE sincronice:
 
 ```bash
-cd mobile-app/androidApp
-./gradlew :assembleDebug --no-daemon --console=plain
-# → mobile-app/androidApp/build/outputs/apk/debug/androidApp-debug.apk
+./gradlew :prepareKotlinBuildScriptModel --no-daemon --console=plain   # BUILD SUCCESSFUL
 ```
 
 iOS: abrir `mobile-app/iosApp/iosApp.xcodeproj` en Xcode. El proyecto tiene una
@@ -223,39 +249,78 @@ Android **antes** de que Compose exista (es el fondo de ventana).
 
 ---
 
-## 5. Por qué `androidApp` es un build de Gradle aparte
+## 5. Por qué `mobile-app` es un build de Gradle propio
 
-**Con AGP 9.0.1, `com.android.application` y `org.jetbrains.kotlin.multiplatform` no
-pueden vivir en el mismo build de Gradle.** En cuanto comparten classpath, Kotlin
-intenta crear su `KotlinAndroidTarget` y el build entero falla con:
+Este módulo tiene su **propio `settings.gradle.kts`**, su propio `build.gradle.kts`
+raíz y sus dos submódulos `:shared` y `:androidApp`. Es la misma forma que el
+proyecto de referencia `PuertoNuevoApp`, y sustituye al esquema anterior —un
+submódulo del monorepo con un segundo build de Gradle anidado dentro— que hacía que
+**IntelliJ no pudiera abrirlo en solitario**:
 
 ```txt
-Could not generate a decorated class for type KotlinAndroidTarget.
-> com/android/build/gradle/api/BaseVariant
+Task 'prepareKotlinBuildScriptModel' not found in project ':mobile-app'
 ```
 
-`com.android.build.gradle.api.BaseVariant` es una clase que **AGP 9 eliminó**. El
-fallo no es del módulo del APK: **tumba la configuración de todo el monorepo**,
-incluidos `stock-domain`, `backend` y los demás módulos. Por eso el APK se compila en
-su propio build (igual que `iosApp` es su propio proyecto de Xcode).
+Ese error salía porque la carpeta que se abría no era la raíz de ningún build de
+Gradle. Ahora sí lo es:
 
-Las cuatro alternativas se probaron y **ninguna funciona** en este repositorio; el
-detalle está en [`androidApp/settings.gradle.kts`](androidApp/settings.gradle.kts):
+```bash
+cd mobile-app && ./gradlew :prepareKotlinBuildScriptModel   # BUILD SUCCESSFUL
+```
 
-| Intento | Resultado real |
-|---|---|
-| `apply false` en el `plugins {}` raíz (lo que pide la guía oficial) | «Unresolved reference 'namespace' / 'compileSdk'» en `stock-database` |
-| Versiones en `pluginManagement` + `id(...)` sin versión | mismo error de `KotlinAndroidTarget` |
-| `android.enableLegacyVariantApi=true` | AGP 9: «the property has no effect, use android.newDsl instead» |
-| `org.jetbrains.kotlin.android` en `androidApp` | Gradle no lo encuentra, y AGP 9 ya integra Kotlin |
+### Por qué `:androidApp` ya NO necesita su propio build
 
-**Deuda a vigilar:** cuando AGP 10 elimine la API heredada (2026) o cuando el plugin de
-KMP soporte `com.android.application`, `androidApp` puede volver a ser un subproyecto
-más y desaparecer el segundo build.
+El esquema anterior separaba el APK en un build aparte porque se creía que
+`com.android.application` y `org.jetbrains.kotlin.multiplatform` no podían convivir.
+**Con AGP 9 sí pueden**, y el detalle importa porque es fácil confundir dos errores
+distintos:
+
+| Plugin | Qué hace | ¿Compatible con KMP? |
+|---|---|---|
+| `com.android.library` / `com.android.application` | DSL clásico, crea un `KotlinAndroidTarget` que referencia `com.android.build.gradle.api.BaseVariant` | ✗ — esa clase la borró AGP 9 |
+| `com.android.kotlin.multiplatform.library` | Declara el target de Android **dentro de `kotlin {}`**; no pasa por `KotlinAndroidTarget` | ✓ — es el plugin que AGP 9 creó para esto |
+
+`shared` aplica el tercero y `androidApp` el primero, y **pueden estar en el mismo
+build** porque el que rompía (`KotlinAndroidTarget`) ya no se instancia. Eso es todo
+lo que hacía falta para que `:shared:jvmTest` y `:androidApp:assembleDebug` se lancen
+desde el mismo `./gradlew`.
+
+### El dominio entra como BUILD INCLUIDO, no como submódulo
+
+`stock-domain` **no se copia ni se duplica**: sería tener dos definiciones de las
+reglas de negocio, que es justo lo que el módulo compartido existe para evitar. Se
+consume con `includeBuild("..")` en `settings.gradle.kts`, que es la forma canónica de
+Gradle de componer dos builds:
+
+```kotlin
+includeBuild("..") {
+    dependencySubstitution {
+        substitute(module("dev.axzy.stock:stock-domain")).using(project(":stock-domain"))
+    }
+}
+```
+
+Dos detalles que costaron un intento cada uno y quedan documentados:
+
+1. **La dependencia se declara por COORDENADA**, no con `project(":stock-domain")`.
+   La composición de builds solo sustituye dependencias de **módulo**; un
+   `project(":...")` se resuelve dentro del build que lo escribe y no cruza la
+   frontera («Project with path ':stock-domain' could not be found»).
+2. **Por eso el build del monorepo fija `group`** para todos sus módulos en
+   `../settings.gradle.kts`. Sin grupo, la coordenada sale como `stock-domain` a
+   secas y Gradle la rechaza («Cannot convert the provided notation to an object of
+   type ComponentSelector»). Es la **única** línea que se tocó fuera de
+   `mobile-app/`.
+
+Y una consecuencia que hay que saber: `mobile-app` **ya no está** en el
+`settings.gradle.kts` del monorepo. Un directorio no puede ser raíz de dos builds, y
+además el monorepo veía `:mobile-app` como un proyecto suelto sin sus submódulos
+(`:mobile-app:shared:jvmTest` → «project 'shared' not found»). Los comandos del móvil
+se lanzan desde `mobile-app/`.
 
 ### Dos rutas absolutas que hay que arreglar al mover el repo
 
-En `androidApp/gradle.properties` y en el `signingConfigs` de
+En `gradle.properties` y en el `signingConfigs` de
 `androidApp/build.gradle.kts` hay rutas **absolutas** a
 `/Users/axzy/DEV/STOCK/.gradle-home`. Están así porque el sandbox de este entorno
 bloquea `~/.android`, donde AGP quiere crear el keystore de depuración. En una máquina
@@ -386,16 +451,18 @@ suspend fun printJobs(status: String? = null): List<PrintJobDto>
 Salida real ejecutada en esta máquina (macOS, JDK 17, Kotlin 2.4.10, AGP 9.0.1,
 Gradle 9.1.0). El resumen está aquí; la transcripción literal está en la entrega.
 
-| Comprobación | Comando | Resultado |
+| Comprobación | Comando (desde `mobile-app/`) | Resultado |
 |---|---|---|
-| UI compartida en JVM | `:mobile-app:compileKotlinJvm` | ✅ `BUILD SUCCESSFUL` |
-| Tests del reducer/ViewModel | `:mobile-app:jvmTest` | ✅ **30 tests, 0 fallos, 0 saltados** (leído del XML, no del «BUILD SUCCESSFUL») |
-| Biblioteca para Android | `:mobile-app:compileAndroidMain` | ✅ `BUILD SUCCESSFUL` |
-| iOS arm64 | `:mobile-app:compileKotlinIosArm64 -PenableIosTargets=true` | ✅ `BUILD SUCCESSFUL` |
-| Framework iOS enlazado | `:mobile-app:linkDebugFrameworkIosSimulatorArm64 -PenableIosTargets=true` | ✅ `MobileApp.framework` generado (3 m 21 s) |
-| APK Android | `androidApp/./gradlew :assembleDebug` | ✅ `androidApp-debug.apk` (42 MB, sin minificar) |
+| UI compartida en JVM | `:shared:compileKotlinJvm` | ✅ `BUILD SUCCESSFUL` |
+| Tests del reducer/ViewModel | `:shared:jvmTest` | ✅ **30 tests, 0 fallos, 0 saltados** (leído del XML, no del «BUILD SUCCESSFUL») |
+| Biblioteca para Android | `:shared:compileAndroidMain` | ✅ `BUILD SUCCESSFUL` |
+| iOS arm64 | `:shared:compileKotlinIosArm64 -PenableIosTargets=true` | ✅ `BUILD SUCCESSFUL` |
+| Framework iOS enlazado | `:shared:linkDebugFrameworkIosSimulatorArm64 -PenableIosTargets=true` | ✅ `MobileApp.framework` generado (3 m 21 s) |
+| APK Android | `:androidApp:assembleDebug` | ✅ `androidApp-debug.apk` (42 MB, sin minificar) |
+| **Sincronización del IDE** | `:prepareKotlinBuildScriptModel` | ✅ `BUILD SUCCESSFUL` — es la tarea que pedía IntelliJ y la que antes fallaba |
 
-Desglose del XML de tests (`mobile-app/build/test-results/jvmTest/TEST-*.xml`):
+Desglose del XML de tests (`mobile-app/shared/build/test-results/jvmTest/TEST-*.xml`
+— la ruta cambió con la reestructuración):
 
 ```txt
 ScanSessionTest            tests= 7 failures=0 errors=0 skipped=0
@@ -429,9 +496,114 @@ TOTAL tests=30 failures=0 errors=0 skipped=0
 | Deuda | Por qué se asumió | Cuándo se paga |
 |---|---|---|
 | Kotlin 2.4.10 en TODO el monorepo (estaba en 2.1.20) | Compose Multiplatform 1.11.1 exige Kotlin ≥ 2.2.0 y Gradle no admite dos versiones del plugin en el mismo build. Verificado que `stock-domain` compila y pasa sus **299 tests** con 2.4.10. | Ya está pagada; era obligatoria para que el móvil compile |
-| `androidApp` con su propio build de Gradle | AGP 9 no admite `com.android.application` y el plugin de KMP en el mismo build. Ver §5. | Cuando AGP 10 (2026) o el plugin de KMP lo permitan |
-| Versiones de los plugins del móvil repetidas en `settings.gradle.kts` (`pluginManagement`) y en `libs.versions.toml` | Un alias del catálogo rompe la resolución de plugins del monorepo. Ver §5. | Si Gradle permite unificar ambas rutas |
-| Rutas absolutas a `/Users/axzy/DEV/STOCK/.gradle-home` en `androidApp/gradle.properties` y en su `signingConfigs` | El sandbox bloquea `~/.android`. Ver §5. | Al mover el repo a otra máquina (borrar y dejar que AGP use el suyo) |
+| Versiones de los plugins del móvil repetidas en `settings.gradle.kts` (`pluginManagement`) y en `libs.versions.toml` | Los alias del catálogo `apply false` en la raíz del build del móvil funcionan, pero la versión sigue declarada en los dos sitios. Se unificó lo que se pudo: `shared` y `androidApp` usan `alias(...)` o `id(...)` sin versión. | Si Gradle permite unificar ambas rutas |
+| `mobile-app` fuera del `settings.gradle.kts` del monorepo | Un directorio no puede ser raíz de dos builds de Gradle, y el monorepo veía `:mobile-app` como un proyecto suelto sin sus submódulos. Ver §5. | No se paga: es la forma correcta de tener un build compuesto |
+| La bandera `-PenableIosTargets=true` sigue haciendo falta para iOS | Los targets de iOS de `stock-domain` son OPT-IN por diseño (no se puede cambiar sin tocar ese módulo). `shared` los tiene por defecto. | Si `stock-domain` cambia su default a ON |
+| Rutas absolutas a `/Users/axzy/DEV/STOCK/.gradle-home` en `gradle.properties` y en el `signingConfigs` de `androidApp` | El sandbox bloquea `~/.android`. Ver §5. | Al mover el repo a otra máquina (borrar y dejar que AGP use el suyo) |
 | `jvmMain` con un stub del escáner | Kotlin exige un `actual` por target, y el JVM es el target de los tests. | Nunca: es el precio de poder probar sin emulador |
 | `Navigator` propio en vez de `androidx.navigation` | Evita una dependencia más que verificar; cubre 16 destinos sin enlaces profundos. | Al necesitar deep links o el «atrás» del sistema |
+
+---
+
+## 9. Por qué `apply false` en la raíz del MONOREPO rompía `stock-domain` y `stock-database`
+
+Ésta era la pieza que no estaba entendida, y ahora está reproducida y medida. La
+guía oficial de migración a AGP 9 pide declarar los plugins en el `plugins {}` de la
+raíz con `apply false`; hacerlo en la raíz del monorepo rompía módulos que nadie
+tocó. En la raíz de `mobile-app` **funciona** (`mobile-app/build.gradle.kts`), y la
+diferencia es lo que explica el misterio.
+
+### El síntoma, literal
+
+Añadiendo a `build.gradle.kts` de la raíz del monorepo:
+
+```kotlin
+alias(libs.plugins.android.kmp.library) apply false
+```
+
+y ejecutando `./gradlew :stock-database:tasks`, la configuración falla **al compilar
+el script** de `stock-database`:
+
+```txt
+e: stock-database/build.gradle.kts:46:5: 'fun android(name: String = ..., configure: KotlinAndroidTarget.() -> Unit = ...): KotlinAndroidTarget'
+                                  is deprecated. Please use androidTarget() instead.
+e: stock-database/build.gradle.kts:47:9: Unresolved reference 'namespace'.
+e: stock-database/build.gradle.kts:48:9: Unresolved reference 'compileSdk'.
+e: stock-database/build.gradle.kts:49:23: Unresolved reference 'release'.
+e: stock-database/build.gradle.kts:51:9: Unresolved reference 'minSdk'.
+```
+
+Es decir: dentro de `kotlin {}`, `android { }` se resuelve como la función
+**`android()` obsoleta que devuelve un `KotlinAndroidTarget`** —y esa clase no tiene
+`namespace` ni `compileSdk`— en lugar de la extensión de AGP 9, que sí los tiene.
+
+### La causa
+
+AGP 9 se distribuye como **UN solo artefacto** (`gradle-9.0.1.jar`) que contiene los
+descriptores de **todos** sus plugins:
+
+```txt
+$ unzip -l gradle-9.0.1.jar | grep META-INF/gradle-plugins
+com.android.application.properties
+com.android.library.properties
+com.android.kotlin.multiplatform.library.properties      ← el que importa
+...
+```
+
+Cuando un plugin se declara en el `plugins {}` de un proyecto —aunque sea con
+`apply false`— **sus clases entran en el classpath de script de ese proyecto y de sus
+subproyectos**. Al declarar `android-kmp-library` (o cualquier otro plugin de AGP) en
+la raíz del monorepo, las clases de AGP 9 quedan visibles para `stock-domain`,
+`stock-database` y el resto. Y en ese classpath hay ahora **dos** `android { }`
+candidatos dentro de `kotlin {}`:
+
+| Candidato | De dónde sale | Qué expone |
+|---|---|---|
+| `android()` sobre `KotlinTargetContainerWithPresetFunctions` | API heredada de KMP (sigue en Kotlin 2.4.10) | `KotlinAndroidTarget`: `namespace` ✗, `compileSdk` ✗ |
+| Extensión de AGP 9 para KMP | Clases de AGP 9 en el classpath | `namespace` ✓, `compileSdk { }` ✓, `minSdk` ✓ |
+
+Kotlin resuelve **el miembro de la clase receptora antes que la extensión externa**,
+así que gana el `android()` heredado. El mensaje «is deprecated. Please use
+`androidTarget()` instead» es la pista: el compilador está usando la API vieja.
+
+Y el fallo no se ve en `mobile-app` porque allí el plugin **se aplica** (crea la
+extensión de AGP 9 en el proyecto) y porque en el esquema anterior `mobile-app`
+resolvía la versión por `pluginManagement`, sin poner las clases en el classpath del
+script.
+
+### La medición que lo aísla
+
+Se probó cada plugin por separado en el `plugins {}` de la raíz del monorepo:
+
+| Declarado en la raíz con `apply false` | Resultado en `:stock-database:tasks` |
+|---|---|
+| Solo `com.android.kotlin.multiplatform.library` | ❌ «Unresolved reference 'namespace'» (el error de arriba) |
+| Solo `com.android.application` | ❌ otro error distinto: «Error resolving plugin [id: 'com.android.kotlin.multiplatform.library', version: '9.0.1'] > The request for this plugin could not be satisfied because the plugin is already on the classpath with an unknown version» |
+| Ninguno de los dos | ✅ `BUILD SUCCESSFUL` |
+
+Los dos fallos confirman el mecanismo: **basta declarar UN plugin de AGP 9 en la raíz
+para que el artefacto entero de AGP 9 entre en el classpath de todos los
+subproyectos.** El segundo error es la prueba directa —Gradle dice literalmente que el
+plugin «ya está en el classpath»— y el primero es la consecuencia de que esté.
+
+### Por qué en `mobile-app` sí funciona
+
+Porque allí el `plugins {}` con `apply false` está en la raíz **del propio build**, y
+los dos módulos que contiene (`shared` y `androidApp`) **aplican** los plugins, así que
+la extensión de AGP 9 existe en sus proyectos. No hay ningún módulo que use el bloque
+`android {}` del plugin de KMP sin aplicar `android-kmp-library`. En el monorepo sí
+los hay: `stock-domain` y `stock-database` aplican el plugin de KMP, y su `android {}`
+depende de que las clases de AGP 9 no estén contaminando el classpath del script.
+
+### La regla que se queda
+
+> Un plugin de AGP 9 declarado con `apply false` contamina el classpath de script de
+> **todos** los subproyectos del build. Si algún submódulo usa el bloque `android {}`
+> del plugin de KMP y **no** aplica ese plugin de AGP, la declaración lo rompe.
+
+Por eso el `pluginManagement` del monorepo fija las versiones del móvil sin meter las
+clases en el classpath, y ahora que `mobile-app` es un build aparte la cuestión ya no
+se cruza: cada build declara lo suyo. `mobile-app` puede usar el patrón idiomático
+(`apply false` en su raíz + `alias`/`id` en sus módulos) y el monorepo conserva el
+suyo.
 

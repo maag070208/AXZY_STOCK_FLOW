@@ -3,22 +3,31 @@
 //
 // QUÉ HACE Y QUÉ NO
 //   · Hace de APLICACIÓN: manifest, tema, icono y una Activity que monta `App()`.
-//   · NO tiene UI propia. Toda la interfaz vive en `mobile-app`, compartida con iOS.
+//   · NO tiene UI propia. Toda la interfaz vive en `../shared`, compartida con iOS.
 //     Una pantalla escrita aquí sería una pantalla que iOS no tiene, y el plan
 //     exige el mismo flujo A y C operable en las dos plataformas (Fase 6).
 //
-// ES UN MÓDULO APARTE Y NO UN TARGET DE `mobile-app` POR UNA RAZÓN CONCRETA:
-// `mobile-app` usa `com.android.kotlin.multiplatform.library` (una BIBLIOTECA KMP,
-// que no genera APK); una aplicación Android necesita `com.android.application`, y
-// ese plugin no se puede aplicar al mismo módulo. Es la misma separación que usa el
-// ejemplo real de PuertoNuevoApp (`shared/` + `androidApp/`).
+// ES UN MÓDULO APARTE Y NO UN TARGET DE `shared` POR UNA RAZÓN CONCRETA:
+// `shared` usa `com.android.kotlin.multiplatform.library` (una BIBLIOTECA KMP,
+// que no genera APK); una aplicación Android necesita `com.android.application`.
+// Es la misma separación que usa el ejemplo real de PuertoNuevoApp
+// (`shared/` + `androidApp/`).
+//
+// ANTES ESTE MÓDULO ERA UN BUILD DE GRADLE INDEPENDIENTE (tenía su propio
+// `settings.gradle.kts` con `includeBuild("../..")`), porque se creía que
+// `com.android.application` y el plugin de KMP no podían convivir en el mismo
+// build. Ya no hace falta: con AGP 9 el target de Android se declara DENTRO del
+// bloque `kotlin {}` del plugin de KMP y no arrastra `KotlinAndroidTarget`, que
+// era la clase incompatible. Los dos plugins viven ahora en el MISMO build
+// (`../settings.gradle.kts`), que es lo que permite lanzar `:shared:jvmTest` y
+// `:androidApp:assembleDebug` desde `mobile-app/`.
 // ============================================================================
 
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-    // Versiones fijadas en `pluginManagement` (settings.gradle.kts). Ver el
-    // comentario largo de ese archivo.
+    // Las versiones las fija el `pluginManagement` de `../settings.gradle.kts` y
+    // la raíz del build las declara con `apply false`. Ver ese archivo.
     id("com.android.application")
     id("org.jetbrains.compose")
     // NO se aplica `org.jetbrains.kotlin.android`: AGP 9 ya trae soporte de Kotlin
@@ -38,7 +47,7 @@ kotlin {
 android {
     namespace = "dev.axzy.stock.mobile.android"
     // Aquí SÍ vale la forma escalar: es el DSL de `com.android.application`, no el
-    // de AGP 9 para KMP. En `mobile-app` (plugin KMP) la forma escalar da
+    // de AGP 9 para KMP. En `shared` (plugin KMP) la forma escalar da
     // «compileSdk version is not set» y hace falta el bloque `compileSdk { }`.
     compileSdk = libs.versions.androidCompileSdk.get().toInt()
 
@@ -96,10 +105,13 @@ android {
 }
 
 dependencies {
-    // El monorepo entra como build INCLUIDO (ver settings.gradle.kts), así que la
-    // dependencia se declara por coordenada: Gradle la sustituye por el proyecto
-    // `:mobile-app` de ese build, sin publicar nada en un repositorio.
-    implementation("dev.axzy.stock:mobile-app")
+    // Dependencia NORMAL entre proyectos del MISMO build. Antes se declaraba por
+    // coordenada (`dev.axzy.stock:mobile-app`) y había que sustituirla a mano,
+    // porque `shared` vivía en otro build de Gradle incluido con `includeBuild`.
+    // Con un solo build, `project(":shared")` es lo correcto: el APK y la
+    // biblioteca se compilan con el MISMO classpath y no hay dos versiones de
+    // nada.
+    implementation(project(":shared"))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)

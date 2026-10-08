@@ -52,29 +52,40 @@ plugins {
 }
 
 // ── TARGETS ────────────────────────────────────────────────────────────────
-// iOS es OPT-OUT: se compila por defecto porque `shared` es un módulo
-// MULTIPLATAFORMA y sus `expect/actual` de iOS solo se validan compilando para
-// iOS. Se puede desactivar —para no descargar el toolchain de Kotlin/Native, que
-// son cientos de MB— con `-PenableIosTargets=false`.
+// iOS es OPT-IN con la propiedad `enableIosTargets`, IGUAL que en
+// `stock-domain`: compilar Kotlin/Native descarga un toolchain de cientos de MB, y
+// eso no puede ser el precio de correr los tests del reducer, que es el caso de
+// uso más frecuente.
 //
-//   ./gradlew :shared:jvmTest                        ← el caso de uso frecuente
-//   ./gradlew :shared:compileKotlinIosArm64          ← compila iOS
-//   ./gradlew :shared:jvmTest -PenableIosTargets=false
+//   ./gradlew :shared:jvmTest                          ← siempre disponible
+//   ./gradlew :shared:compileKotlinIosArm64 -PenableIosTargets=true
 //
-// (Antes era OPT-IN por la misma razón que en `stock-domain` —el toolchain—,
-// pero con el build ya autocontenido el coste de descubrirlo tarde es mayor que
-// el de la descarga: un `expect` sin `actual` no falla hasta que se compila iOS.)
+// LA BANDERA NO ES OPCIONAL, Y EL MOTIVO IMPORTA
+//
+// `shared` consume `stock-domain` desde el build del monorepo (build incluido). Si
+// `shared` declarara sus targets de iOS y `stock-domain` no, Gradle no encontraría
+// variante y fallaría con:
+//
+//   «No matching variant of project :STOCK:stock-domain was found [...] attribute
+//    'org.jetbrains.kotlin.platform.type' with value 'native'»
+//
+// Se intentó propagar la propiedad al build incluido desde `settings.gradle.kts`
+// (con `gradle.rootProject {}` y con `gradle.beforeProject {}`): NO funciona, los
+// ganchos de `settings` solo alcanzan al build que los declara. Y fijarla en el
+// `gradle.properties` del monorepo habría cambiado el default de `stock-domain`,
+// que es de otro módulo. La conclusión es que los dos builds tienen que usar la
+// MISMA propiedad con el MISMO default, y ésa es la razón de que aquí sea OPT-IN
+// en lugar de OPT-OUT.
 //
 // Coordenada Maven explícita. Sigue siendo necesaria aunque el APK viva ahora en
-// el MISMO build: el catálogo la publica como artefacto para quien consuma el
-// móvil desde fuera, y una coordenada sin `group` sale como `shared:` —con el
-// grupo vacío— y no es resoluble.
+// el MISMO build: es la coordenada por la que el build del monorepo sustituye la
+// dependencia, y una coordenada sin `group` no es resoluble.
 group = "dev.axzy.stock"
 version = "0.1.0"
 
 val enableIosTargets = providers.gradleProperty("enableIosTargets")
     .map(String::toBoolean)
-    .getOrElse(true)
+    .getOrElse(false)
 
 kotlin {
     // ── JVM ────────────────────────────────────────────────────────────────

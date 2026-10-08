@@ -34,7 +34,13 @@ rootProject.name = "stock"
 // sitio que cambiar. NO cambia ninguna ruta ni ninguna dependencia interna —
 // todas las dependencias entre módulos del monorepo se declaran con
 // `project(":...")`, que no usa el grupo.
-group = "dev.axzy.stock"
+//
+// Se aplica al proyecto RAÍZ desde aquí y no con un `group = ` suelto porque el
+// script de `settings` no tiene esa propiedad: el grupo pertenece a `Project`, y
+// `gradle.rootProject {}` es la forma de alcanzarlo desde `settings`.
+gradle.rootProject {
+    group = "dev.axzy.stock"
+}
 
 pluginManagement {
     repositories {
@@ -91,31 +97,43 @@ include(":stock-datastore")
 // ── Backend Ktor ───────────────────────────────────────────────────────────
 include(":backend")
 
-// ── Aplicación móvil (KMP + Compose Multiplatform) ─────────────────────────
-// Comparte stock-domain con el backend, así que las decisiones de negocio son
-// IDÉNTICAS en las dos partes por construcción, no por disciplina.
+// ── Aplicación móvil (KMP + Compose Multiplatform): BUILD APARTE ────────────
 //
-// El directorio se crea al incluirlo: si no existe, Gradle falla al configurar.
-include(":mobile-app")
-
-// ── Punto de entrada Android: NO es un subproyecto de este build ───────────
+// YA NO SE INCLUYE AQUÍ, Y ES DELIBERADO.
 //
-// `androidApp` tiene su PROPIO build de Gradle (`mobile-app/androidApp/`), y no por
-// gusto: con AGP 9, `com.android.application` y `org.jetbrains.kotlin.multiplatform`
-// no pueden coexistir en el mismo build. En cuanto comparten classpath, Kotlin
-// intenta crear su `KotlinAndroidTarget` y falla con
+// `mobile-app` es ahora un build de Gradle autocontenido —con su propio
+// `mobile-app/settings.gradle.kts`, su raíz de proyecto y sus dos módulos
+// `:shared` y `:androidApp`—, igual que el proyecto de referencia
+// `PuertoNuevoApp`. Eso es lo que permite abrirlo en solitario en IntelliJ sin el
+// error «Task 'prepareKotlinBuildScriptModel' not found in project ':mobile-app'».
 //
-//   «Could not generate a decorated class for type KotlinAndroidTarget.
-//    > com/android/build/gradle/api/BaseVariant»
+// Los DOS motivos por los que no puede seguir siendo un subproyecto de este build:
 //
-// —una clase que AGP 9 eliminó— y el build ENTERO del monorepo deja de configurar,
-// incluidos los módulos de otros agentes. Por eso se saca de aquí.
+//   1. Una raíz de proyecto de Gradle solo puede tener un `settings.gradle.kts`.
+//      Si el monorepo incluye `mobile-app`, ese directorio deja de ser raíz de su
+//      propio build y vuelve el problema de IntelliJ que se acaba de arreglar.
 //
-// Es la misma decisión que en el ejemplo real: `iosApp` es un proyecto de Xcode
-// aparte, no un módulo de Gradle. Aquí `androidApp` es un build de Gradle aparte.
-// Se compila con `cd mobile-app/androidApp && ./gradlew assembleDebug`.
-// El detalle y las cuatro alternativas probadas están en
-// `mobile-app/androidApp/settings.gradle.kts`.
+//   2. Aunque se incluyera, no serviría de nada: este build vería `:mobile-app`
+//      como UN proyecto y no como el build que es, así que
+//      `./gradlew :mobile-app:shared:jvmTest` falla con
+//      «project 'shared' not found in project ':mobile-app'». Comprobado.
+//
+// EL GRAFO NO CAMBIA: el móvil sigue consumiendo `stock-domain`, y lo hace como
+// BUILD INCLUIDO (`mobile-app/settings.gradle.kts` → `includeBuild("..")`). Es una
+// instancia del mismo módulo, no una copia: las decisiones de negocio siguen siendo
+// IDÉNTICAS en el backend y en el móvil por construcción, no por disciplina.
+//
+// EL PRECIO, DICHO CLARO: los comandos del móvil se lanzan desde `mobile-app/`,
+// no desde la raíz.
+//
+//   cd mobile-app && ./gradlew :shared:jvmTest
+//   cd mobile-app && ./gradlew :androidApp:assembleDebug
+//
+// `mobile-app/gradlew` es una COPIA del wrapper del monorepo (no un enlace: un
+// enlace rompería la resolución de `APP_HOME` y el script acabaría usando el
+// `settings.gradle.kts` de la raíz). `mobile-app/gradle` SÍ es un enlace a
+// `../gradle`, así que el catálogo de versiones y el wrapper son los mismos: no
+// hay dos listas de versiones que se puedan separar.
 
 // ── Web (React JS, proyecto aparte) ────────────────────────────────────────
 // NO es un módulo de Gradle: es un proyecto de pnpm en `web/`. Se deja

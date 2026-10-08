@@ -51,21 +51,22 @@ pluginManagement {
 
     // ── Versiones de los plugins de este build, resueltas AQUÍ ──────────────
     //
-    // Los números están repetidos respecto a `../gradle/libs.versions.toml` a
-    // propósito: la MISMA razón que obligó a hacerlo en el build del monorepo.
-    // Si los plugins se declaran en el `plugins {}` de la raíz con `apply false`,
-    // sus clases entran en el classpath del script y el bloque `android {}` de
-    // OTROS módulos —`stock-database`, `stock-domain`— deja de resolver: el
-    // compilador de Kotlin DSL encuentra antes el `android()` obsoleto de
-    // `KotlinTargetContainerWithPresetFunctions` que la extensión de AGP 9, y
-    // falla con «Unresolved reference 'namespace'». Está reproducido y el
-    // detalle está en el README de `mobile-app/` §9.
+    // Estas cinco líneas son las únicas que repiten los números de
+    // `../gradle/libs.versions.toml`. El motivo es corto: las versiones que se
+    // declaran en el `pluginManagement` NO se pueden tomar del catálogo (el
+    // catálogo no existe todavía cuando se evalúa este bloque), así que hay que
+    // escribirlas. Al subir AGP, Compose o Kotlin hay que tocar LOS DOS sitios.
     //
-    // AQUÍ sí se pueden declarar `com.android.application` y el plugin de KMP
-    // juntos: son el MISMO build, y ese es justo el caso que el esquema anterior
-    // daba por imposible. `apply false` en la raíz de este build hace que las
-    // versiones se resuelvan una sola vez, sin meterlas en el classpath del
-    // script.
+    // Sobre POR QUÉ el build del MONOREPO no puede usar `apply false` en su raíz
+    // —lo que la guía oficial de AGP 9 recomienda— y aquí sí: está reproducido y
+    // explicado en el README de `mobile-app/` §9. En una línea: declarar un plugin
+    // de AGP 9 con `apply false` mete el artefacto ENTERO de AGP en el classpath
+    // de script de todos los subproyectos, y entonces el `android {}` de un módulo
+    // que no aplica `android-kmp-library` resuelve al `android()` obsoleto de KMP
+    // («Unresolved reference 'namespace'»).
+    //
+    // Aquí no pasa porque los DOS módulos de este build aplican su plugin de AGP
+    // (o ninguno, como `androidApp`, que no usa el bloque `android {}` de KMP).
     plugins {
         id("com.android.application") version "9.0.1"
         id("com.android.kotlin.multiplatform.library") version "9.0.1"
@@ -85,7 +86,7 @@ dependencyResolutionManagement {
 // ── El dominio, como build INCLUIDO ────────────────────────────────────────
 //
 // `includeBuild("..")` mete el build del monorepo en este: Gradle CONFIGURA
-// solo los proyectos de los que se declara dependencia, no los nueve módulos, y
+// solo los proyectos de los que se declara dependencia (no los nueve módulos) y
 // sustituye la coordenada por el proyecto real sin publicar nada.
 //
 // La sustitución va por COORDENADA (`dev.axzy.stock:stock-domain`) y no por
