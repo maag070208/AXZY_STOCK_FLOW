@@ -89,6 +89,80 @@ sin relación entre sí. **No era por capas ni por features: lo peor de los dos.
 **El error más común es el contrario:** meter en `security/` algo que solo usa una
 feature «porque es de seguridad». Si solo lo usa inventario, va en `inventory/`.
 
+### 1.4-bis La estructura profesional de una feature
+
+**Esto es lo que el usuario exigió: «verticals, singletons, tests, mappers y todo lo que
+una API profesional debe llevar».** Aquí está el equivalente en un backend, con el
+nombre técnico de cada pieza.
+
+> ⚠️ **Nota sobre MVVM.** El usuario mencionó MVVM. **MVVM es un patrón de UI**
+> (Model-View-ViewModel): su ViewModel existe para sostener el estado de una pantalla y
+> sobrevivir a la rotación. **En una API no hay View ni estado de pantalla**, así que no
+> aplica. Lo que sí aplica —y es lo que falta— es el **patrón de capas** de abajo. Se
+> anota aquí porque la confusión es razonable: en el móvil sí se usa MVVM.
+
+```
+feature/
+├── FeatureRoutes.kt      HTTP: validar entrada, autorizar, delegar, responder
+├── FeatureService.kt     la regla de negocio, la transacción, los errores
+├── FeatureRepository.kt  el SQL
+├── FeatureDtos.kt        la forma de la petición y de la respuesta
+└── FeatureMappers.kt     de fila de base → DTO
+```
+
+**Las cinco piezas son obligatorias.** Si falta una, el trabajo se mete en la de al lado:
+
+| Si falta… | Acaba dentro de… | Y entonces… |
+|---|---|---|
+| **Service** | las rutas | la regla solo se prueba por HTTP |
+| **Mapper** | el servicio | la consulta y el mapeo se entrelazan; no se prueba solo |
+| **Dtos** | el servicio | el JSON se acopla a los nombres de columna |
+| **Repository** | el servicio | el SQL se mezcla con la lógica |
+
+#### Los mappers, y por qué no son burocracia
+
+Un mapper es **una función de extensión sobre `ResultSet`** que construye el DTO:
+
+```kotlin
+internal fun ResultSet.toStockItemDto(): StockItemDto = StockItemDto(
+    productCode = getString("product_code"),
+    quantity = getBigDecimal("quantity").toPlainString(),
+)
+```
+
+**Sin mappers, esto está dentro del bucle de lectura de la consulta:**
+
+```kotlin
+add(KardexDto(id = rs.getLong("id"), movedAt = ..., /* 15 campos más */))
+```
+
+…mezclado con el `WHERE`, el `LIMIT` y el `ORDER BY`. Para saber qué forma tiene la
+respuesta hay que leer el método entero. Y si cambia una columna, **hay que encontrarla en
+todos los sitios donde se mapea**.
+
+**Trampa que el compilador NO detecta:** el mapper lee por **nombre de columna en una
+cadena**. `getString("product_code")` compila igual si el SQL dice `AS productCode`, y
+devuelve `null` en silencio. **Un mapper mal escrito no rompe: miente.** Por eso los
+mappers se prueban con `curl` contra la respuesta real, además de con tests.
+
+#### Singletons: un contenedor, no `object`
+
+Las dependencias viven en `config/AppDependencies.kt`, construidas **una vez**:
+
+```kotlin
+class AppDependencies(private val dataSource: DataSource) {
+    val auditWriter: AuditWriter by lazy { AuditWriter(dataSource) }
+    val inventoryService: InventoryService by lazy { InventoryService(dataSource, auditWriter) }
+}
+```
+
+**`by lazy` y no `val` a secas**, porque si un servicio depende de otro, **el orden de las
+líneas decidiría si la dependencia ya existe**: reordenar dos propiedades rompería la
+aplicación sin tocar la lógica.
+
+**Nunca `object`**: un `object` de Kotlin no se puede sustituir en un test ni acepta un
+`DataSource`.
+
 ### 1.4 Las capas dentro de una feature
 
 ```
