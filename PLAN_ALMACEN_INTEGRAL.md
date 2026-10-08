@@ -4,7 +4,32 @@
 > **backend Ktor (Kotlin) + web React (axzy_ui_system) + mobile KMP (Compose Multiplatform)**,
 > sobre **PostgreSQL 16 en Docker**.
 >
-> Estado: **borrador para aprobación**. No se instalaron dependencias ni se modificó código de los repos origen.
+> Estado: **EN IMPLEMENTACIÓN**. El plan se aprobó y hay código funcionando.
+>
+> **Resumen a fecha de la última actualización:**
+>
+> | Fase | Estado |
+> |---|---|
+> | 0 · Fundamentos y dominio | ✅ completa — 334 tests, guardias de arquitectura |
+> | 1 · Backend núcleo | ✅ completa — identidad, catálogo, ubicaciones |
+> | 2 · Recepción e inventario | ✅ completa — motor, ajustes, kardex, facturas, **regla B1** |
+> | 3 · Surtido + ERP | ⬜ sin empezar |
+> | 3-bis · Traslados | 🔶 motor y esquema listos, sin rutas |
+> | 4 · Etiquetas | 🔶 esquema listo, sin máquina de estados |
+> | 5 · Web | 🔶 en curso — las 18 pantallas existen, se están conectando al API |
+> | 6 · Móvil | 🔶 build KMP + escáner + APK, sin conectar al API |
+> | 7 · Migración | ✅ 1.398 productos y 10.914.130 unidades cargados |
+>
+> **627 tests, 0 fallos.** Backend en 16 rutas, todas respondiendo.
+>
+> Las decisiones que se cerraron durante la implementación están en §7 y en las
+> bitácoras de los commits; las que más cambiaron el diseño fueron: el stock inicial va
+> a una ubicación `SIN-UBICAR` propia, la aprobación de discrepancias es **por factura**
+> (R-86), y el ERP será REST con `Idempotency-Key` (contrato definido por nosotros,
+> porque en el legacy no existía).
+>
+> **Lo que NO está verificado**: el proyecto Xcode de iOS nunca se abrió (el `pbxproj`
+> se escribió a ciegas) y la cámara del móvil no se ha probado en un dispositivo real.
 
 ---
 
@@ -2245,57 +2270,59 @@ exhaustivo con rutas y números de línea. Son la evidencia de este plan:
 
 ---
 
-## §10-bis. Limitación de AGP 9: `androidApp` necesita su propio build
+## §10-bis. RESUELTO — el móvil es su propio build de Gradle
 
-**Hallazgo verificado durante la Fase 0/1, y afecta a la estructura del proyecto.**
+> **Esta sección describía una limitación que ya no aplica, y se conserva por su valor
+> histórico: el diagnóstico era correcto y la conclusión era incompleta.**
 
-Con **AGP 9.0.1**, los plugins `com.android.application` y `org.jetbrains.kotlin.multiplatform` **no
-pueden coexistir en el mismo build de Gradle**. El fallo no es del módulo del APK: **tumba la
-configuración de todo el monorepo**, incluidos `stock-domain` y `backend`:
+**La limitación era real.** Con AGP 9, `com.android.application` y
+`org.jetbrains.kotlin.multiplatform` no pueden coexistir en el mismo build de Gradle:
+en cuanto los dos están en el classpath, Kotlin intenta crear un `KotlinAndroidTarget`
+que referencia `com.android.build.gradle.api.BaseVariant`, eliminada en AGP 9, y el
+build entero falla.
+
+**La conclusión era incompleta.** Se resolvió que `androidApp` necesitaba su *propio*
+`settings.gradle.kts` con `includeBuild("../..")`. Funcionaba, pero tenía dos
+consecuencias malas:
+
+1. **IntelliJ no podía sincronizar `mobile-app`**, porque no era raíz de ningún build
+   de Gradle. Falla con `Task 'prepareKotlinBuildScriptModel' not found`.
+2. Un `include(":mobile-app")` en la raíz **no arregla nada**: un directorio no puede
+   ser raíz de dos builds.
+
+**LA SOLUCIÓN CORRECTA** —la que usa el proyecto de referencia
+`~/DEV/PTNV/RESPONSIVA/PuertoNuevoApp`— es hacer que **todo el móvil sea un build
+autocontenido**:
 
 ```
-Could not generate a decorated class for type KotlinAndroidTarget.
-> com/android/build/gradle/api/BaseVariant
+mobile-app/                      <- raíz de SU PROPIO build de Gradle
+├── settings.gradle.kts          include(":shared") + include(":androidApp")
+├── build.gradle.kts             los plugins con `apply false`
+├── shared/                      la biblioteca KMP
+├── androidApp/                  com.android.application, submódulo NORMAL
+└── iosApp/
 ```
 
-`BaseVariant` es una clase que **AGP 9 eliminó**.
+`mobile-app` **no está incluido en el monorepo**. Consume `stock-domain` por
+`includeBuild("..")`, que es la **misma instancia y no una copia**, así que las
+decisiones de negocio siguen siendo idénticas en backend y móvil por construcción.
 
-### Las cuatro alternativas probadas, y por qué ninguna sirve
+**EL MISTERIO DE `apply false`, resuelto.** En una versión anterior de este documento se
+afirmó que declarar los plugins en la raíz del monorepo con `apply false` «no servía».
+**Era falso.** AGP 9 se distribuye como **un solo artefacto** que contiene los
+descriptores de todos sus plugins, así que declarar cualquiera de ellos con
+`apply false` **mete las clases de AGP en el classpath de script de TODOS los
+subproyectos**. Entonces, dentro de `kotlin {}`, hay dos candidatos para `android {}` y
+Kotlin resuelve el miembro del receptor antes que la extensión externa: gana el
+`android()` heredado de KMP, que devuelve un `KotlinAndroidTarget` sin `namespace` ni
+`compileSdk`.
 
-| Alternativa | Resultado real |
-|---|---|
-| `apply false` en el `plugins {}` raíz (lo que pide la guía oficial de migración) | `Unresolved reference 'namespace' / 'compileSdk'` en `stock-database` |
-| Versiones en `pluginManagement` + `id(...)` sin versión | El mismo error de `KotlinAndroidTarget` |
-| `android.enableLegacyVariantApi=true` | AGP 9: *«the property has no effect, use android.newDsl instead»* |
-| `org.jetbrains.kotlin.android` en `androidApp` | Gradle no lo encuentra, y AGP 9 ya integra Kotlin |
+> **REGLA QUE SE QUEDA:** un plugin de AGP 9 declarado con `apply false` contamina el
+> classpath de script de todos los subproyectos del build. Si algún submódulo usa el
+> bloque `android {}` del plugin de KMP **y no aplica ese plugin de AGP**, la
+> declaración lo rompe. Por eso el móvil tiene que estar en su propio build: así cada
+> build declara lo suyo y la cuestión no se cruza.
 
-### La solución aplicada
-
-`mobile-app/androidApp/` es un **build de Gradle independiente** (`includeBuild("../..")` para consumir
-`:mobile-app` por coordenada), igual que `iosApp` es un proyecto de Xcode aparte:
-
-```bash
-cd mobile-app/androidApp && ./gradlew :assembleDebug
-```
-
-### Deuda a vigilar, con condición de revisión
-
-**Cuando AGP 10 o el plugin de KMP lo permitan, `androidApp` puede volver a ser un subproyecto del
-monorepo.** La condición concreta que hay que comprobar: que la clase
-`com.android.build.gradle.api.BaseVariant` haya vuelto, o que `com.android.application` publique un
-plugin compatible con KMP. Sin esa comprobación no se debe intentar.
-
-**Por qué esto importa y no es un detalle de configuración:** un build separado significa que
-`androidApp` **no participa** en el `./gradlew build` del monorepo, así que **un CI que solo compile la
-raíz no compilará el APK**. Hay que añadir el paso explícito, y esa omisión es silenciosa: todo pasa y
-el APK se queda sin construir.
-
-### Nota sobre la versión de Kotlin
-
-Se subió de **2.1.20 a 2.4.10** y no había alternativa: Compose Multiplatform 1.11.1 aborta con
-*«Minimal supported Kotlin Gradle Plugin version is 2.2.0»*, y Gradle **no admite dos versiones del
-plugin de Kotlin en el mismo build** (*«already on the classpath with a different version»*).
-
-Verificado tras la subida, con recompilación forzada:
-- `stock-domain`: guardias de arquitectura en verde y **299 tests, 0 fallos**
-- `mobile-app`: **30 tests, 0 fallos**
+**Precio, dicho claro:** los comandos del móvil se lanzan desde `mobile-app/`, no desde
+la raíz. Es el mismo precio que en el proyecto de referencia, y ya está en los scripts
+(`scripts/movil-android.sh`, `scripts/ios.sh`).
