@@ -91,10 +91,11 @@ El APK se compila y se instala con:
 ./scripts/movil-android.sh instalar
 ```
 
-**`mobile-app/androidApp` es un build de Gradle independiente y no un submódulo
-del monorepo.** Con AGP 9, `com.android.application` y el plugin de KMP no pueden
-coexistir, y el fallo **tumba la configuración de todo el proyecto**. Por eso el
-script entra en esa carpeta. Ver `PLAN_ALMACEN_INTEGRAL.md` §10-bis.
+**`mobile-app` es un build de Gradle propio**, separado del monorepo, con `shared/`
+y `androidApp/` dentro. El script entra en `mobile-app/` y compila `:androidApp`.
+
+**Consecuencia que hay que tener presente:** el APK **no participa** en
+`./gradlew build` de la raíz. El CI tiene un job aparte para compilarlo, porque
 
 Consecuencia que hay que tener presente: **el APK no participa en
 `./gradlew build` de la raíz.** El CI tiene un job aparte para compilarlo, porque
@@ -161,8 +162,15 @@ respuesta que después habría que deshacer.
 
 ## IntelliJ
 
-Abre **`/Users/axzy/DEV/STOCK`** (la raíz, donde está `settings.gradle.kts`).
-IntelliJ detecta el build de Gradle y carga los 7 módulos de una vez.
+**Dos ventanas, y son dos builds distintos de Gradle:**
+
+| Ventana | Abre | Contiene |
+|---|---|---|
+| 1 | `~/DEV/STOCK` | Backend, dominio, red, base de datos, datastore, web |
+| 2 | `~/DEV/STOCK/mobile-app` | La app móvil: `shared` y `androidApp` |
+
+**Un directorio no puede ser raíz de dos builds de Gradle**, y por eso `mobile-app`
+no está incluido en la raíz. Es la misma estructura que el proyecto de referencia.
 
 Configura **Gradle user home** = `.../STOCK/.gradle-home`, porque el sandbox
 bloquea `~/.gradle` y la sincronización fallaría.
@@ -173,84 +181,46 @@ bloquea `~/.gradle` y la sincronización fallaría.
 |---|---|
 | `web/` | Es un proyecto de pnpm, no de Gradle |
 
-### ⚠️ No abras `mobile-app` suelto
+o que hay que hacer
 
-**`mobile-app` es un submódulo del monorepo, no un proyecto.** Su build depende del
-`settings.gradle.kts` de la raíz. Si lo abres en solitario, IntelliJ intenta
-sincronizarlo como proyecto independiente y falla con:
+**`mobile-app` es un build de KMP autocontenido**, con la misma forma que el proyecto
+de referencia:
+
+```
+mobile-app/
+├── build.gradle.kts      los plugins con apply false
+├── settings.gradle.kts   include(":shared") + include(":androidApp")
+├── shared/               la biblioteca KMP (escáner, features, tema)
+├── androidApp/           el APK, submódulo NORMAL
+└── iosApp/               proyecto Xcode
+```
+
+**`mobile-app` ya NO es submódulo del monorepo.** El `include(":mobile-app")` se
+eliminó de la raíz, y era necesario: **un directorio no puede ser raíz de dos builds
+de Gradle**. Con el include, `mobile-app` dejaba de ser raíz del suyo y el IDE fallaba
+con:
 
 ```
 Task 'prepareKotlinBuildScriptModel' not found in project ':mobile-app'
 ```
 
-**Ese task ya no existe en ningún módulo** del proyecto: lo eliminaron Gradle 9 y
-Kotlin 2.2, y lo sustituyó el soporte de *Proyectos Aislados*. IntelliJ lo sigue
-pidiendo por su versión de plugin.
+**Ese error está resuelto.** Comprobado: `cd mobile-app && ./gradlew
+:prepareKotlinBuildScriptModel` → `BUILD SUCCESSFUL`.
 
-Además, al abrirlo suelto IntelliJ crea un **`.idea` dentro de `mobile-app`** que
-lo trata como proyecto propio. Si eso pasa, **bórralo**: es basura, no
-configuración.
+**El grafo no cambia:** el móvil consume `stock-domain` por `includeBuild("..")`, que
+es **la misma instancia y no una copia**, así que las decisiones de negocio siguen
+siendo idénticas en backend y móvil por construcción.
 
-**Se probó a activar `org.gradle.unsafe.isolated-projects=true` para que el IDE
-sincronice por la vía nueva, y rompe la guardia de arquitectura**: accede a
-`Project.tasks` de subproyectos, y esa API está prohibida en modo aislado. Se
-revirtió: no compensa reescribir la guardia.
+**Precio, dicho claro:** los comandos del móvil se lanzan desde `mobile-app/`, no desde
+la raíz. Es el mismo precio que en el proyecto de referencia.
 
-**Cómo trabajarlo:** abre la raíz `~/DEV/STOCK` (ya incluye `mobile-app` entre sus
-módulos), o usa los scripts del terminal.
+### Dos builds en IntelliJ
 
-### Los avisos de iOS son cosméticos
+| Ventana | Abre | Para qué |
+|---|---|---|
+| 1 | `~/DEV/STOCK` | Backend, dominio, web, módulos compartidos |
+| 2 | `~/DEV/STOCK/mobile-app` | La app móvil, con el botón ▶ y el depurador |
 
-Al sincronizar verás:
+Si el proyecto ya estaba abierto antes de la reestructuración, hay que darle a
+**Sync Project with Gradle Files**.
 
-```
-iOS Source Set Used Without an iOS Target   (×2)
-Unused Kotlin Source Sets                    (×2)
-```
-
-**Los targets de iOS son opt-in a propósito.** Sin el flag, el build funciona **con
-solo un JDK**, sin descargar Kotlin/Native (unos 300 MB). El precio es que
-IntelliJ, que sincroniza sin el flag, ve `iosMain` sin target y avisa.
-
-**Se intentó activarlos por defecto y no se puede**: obliga a descargar
-Kotlin/Native en cada build, y el entorno bloquea `~/.konan`. Se prefirió un build
-que funciona en cualquier máquina a uno que exige 300 MB para compilar el dominio.
-
-Para iOS se usa `./scripts/ios.sh`, que sí define `KONAN_DATA_DIR`.
-
-### Documentos de referencia
-
-| Archivo | Qué contiene |
-|---|---|
-| `CONTRATO_API.md` | **La fuente de verdad del contrato HTTP** |
-| `PLAN_ALMACEN_INTEGRAL.md` | Arquitectura, modelo de datos y las 9 fases |
-| `PLAN_ROLES_PERMISOS_POLITICAS.md` | RBAC + ABAC, los 76 permisos, 12 políticas |
-| `PLAN_AUDITORIA.md` | Las seis dimensiones de auditoría |
-| `PLAN_REFACTOR_MEJORAS.md` | Las 85 correcciones al legacy |
-
----
-
-## Problemas comunes
-
-**`✗ No existe infra/.env`**
-```bash
-cp infra/.env.example infra/.env
-# y ponle secretos de verdad:
-#   openssl rand -base64 32
-```
-
-**La base no responde**
-```bash
-cd infra && docker compose up -d && docker compose ps
-```
-
-**`Address already in use`** — ya hay un backend corriendo:
-```bash
-for P in $(lsof -t -nP -iTCP:8082 -sTCP:LISTEN); do kill -9 "$P"; done
-```
-
-**Los tokens dejaron de servir al reiniciar** — es esperado: el secreto se genera
-nuevo. Define `STOCK_JWT_SECRET` si quieres que sobrevivan.
-
-**El puerto 8080 está ocupado** — el harness de DSH lo usa para un túnel. Por eso
-los scripts usan **8082**.
