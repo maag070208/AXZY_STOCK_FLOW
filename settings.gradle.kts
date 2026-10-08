@@ -16,6 +16,26 @@
 
 rootProject.name = "stock"
 
+// ── Grupo Maven de TODOS los módulos del monorepo ──────────────────────────
+//
+// POR QUÉ ESTA LÍNEA EXISTE (añadida en la reestructuración de `mobile-app`)
+//
+// `mobile-app` es ahora un build de Gradle autocontenido que consume el dominio
+// como BUILD INCLUIDO (`mobile-app/settings.gradle.kts` → `includeBuild("..")`).
+// La composición de builds solo sustituye dependencias declaradas por
+// COORDENADA (`dev.axzy.stock:stock-domain`), y sin un `group` la coordenada de
+// `stock-domain` sale como `stock-domain` a secas, que Gradle rechaza:
+//
+//   «Cannot convert the provided notation to an object of type
+//    ComponentSelector: stock-domain»
+//
+// Se fija aquí y no en cada `build.gradle.kts` porque es una propiedad del
+// monorepo, no de un módulo: los seis módulos comparten grupo y así hay un solo
+// sitio que cambiar. NO cambia ninguna ruta ni ninguna dependencia interna —
+// todas las dependencias entre módulos del monorepo se declaran con
+// `project(":...")`, que no usa el grupo.
+group = "dev.axzy.stock"
+
 pluginManagement {
     repositories {
         gradlePluginPortal()

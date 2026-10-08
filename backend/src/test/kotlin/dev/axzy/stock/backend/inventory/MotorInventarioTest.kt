@@ -13,25 +13,28 @@ import javax.sql.DataSource
  * ═══════════════════════════════════════════════════════════════════════════
  * TESTS DEL MOTOR DE INVENTARIO (migración V5)
  *
- * **ESTADO: INCOMPLETO. El segundo test FALLA y se deja así a propósito.**
+ * **ESTADO: EN VERDE. Los dos tests pasan.**
  *
- * El motor tiene dos bugs ya corregidos —una colisión de nombres con `kind` y una
- * ambigüedad con `quantity` dentro del `ON CONFLICT`— pero **la secuencia de
- * ubicar sigue fallando** y no se ha aislado la causa con el rigor necesario.
+ * **Nota de método, y es la lección que me costó más:** todas las operaciones van
+ * por la MISMA conexión y sobre una base recreada en cada caso. Mis pruebas
+ * manuales con `docker exec` abrían una conexión distinta en cada invocación y
+ * pasaban identificadores que no correspondían a esa base; diagnostiqué varias
+ * iteraciones a partir de salidas que mi propio `grep` recortaba.
  *
- * Se deja el test **en rojo** en lugar de comentado o borrado: un test que falla y
- * describe el problema vale más que una nota que dice «hay algo mal». Quien lo
- * retome empieza leyendo su salida.
+ * **La causa que costó encontrar, y es una regla de PostgreSQL:** la primera
+ * versión del motor usaba `INSERT ... ON CONFLICT DO UPDATE` proponiendo la fila
+ * con el delta. **No se puede**, porque PostgreSQL valida los `CHECK` de la tabla
+ * sobre la fila **propuesta** ANTES de resolver el conflicto. Así que proponer un
+ * valor negativo falla siempre, aunque el conflicto lo fuera a convertir en
+ * positivo (1000 + (−300) = 700 nunca se llegaba a calcular).
  *
- * **Nota de método:** todas las operaciones van por la MISMA conexión. Mis pruebas
- * manuales con `docker exec` fallaban en parte porque cada invocación abría una
- * conexión distinta y los identificadores que pasaba no correspondían a esa base.
- * Ése fue un error de método, no del motor, y por eso el test lo hace bien.
+ * El síntoma era desconcertante: con `+1000` funcionaba y con `−300` no, y el
+ * error señalaba `stock_non_negative`. Parecía un problema del saldo y era de la
+ * mecánica del `ON CONFLICT`. La solución es intentar el `UPDATE` primero y hacer
+ * el `INSERT` solo si no afectó a ninguna fila.
  *
- * **Fallo observable:** al ubicar 300 unidades desde `SIN-UBICAR`, que tiene 1000,
- * el `ON CONFLICT` **no actualiza la fila existente e intenta insertar una nueva
- * con -300**, violando `stock_non_negative`. Con un delta POSITIVO sí actualiza,
- * así que la diferencia entre ambos casos es lo que hay que entender.
+ * El segundo test es el que más importa de este archivo: **ubicar NO cambia el
+ * total**. Si algún día cambia, el modelo se habrá roto y este test lo dice.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 class MotorInventarioTest : DescribeSpec({
@@ -177,7 +180,8 @@ class MotorInventarioTest : DescribeSpec({
                             "NULL,NULL,NULL,NULL,NULL,NULL,NULL)",
                     )
 
-                    // ÉSTE es el caso que falla hoy. Ver el comentario de la clase.
+                    // El caso que más importa: ubicar es un TRASLADO, así que el
+                    // total no debe moverse.
                     c.escalar(
                         "SELECT registrar_movimiento(1,1,'LOCATE',300,$unassigned,$estante," +
                             "NULL,NULL,NULL,NULL,NULL,NULL,NULL)",

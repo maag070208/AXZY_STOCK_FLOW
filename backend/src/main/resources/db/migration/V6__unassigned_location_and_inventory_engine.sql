@@ -1,78 +1,29 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- V5: UBICACIÓN «SIN UBICAR» Y MOTOR DE INVENTARIO
+-- V6: UBICACIÓN «SIN UBICAR» Y MOTOR DE INVENTARIO
 --
--- ⚠️  ESTA MIGRACIÓN **NO SE PUEDE APLICAR CON FLYWAY TODAVÍA**, y está
---     identificada la causa exacta.
+-- Va SEPARADA de V5 por una limitación de PostgreSQL, no por gusto:
+-- **no se puede usar un valor nuevo de un enum en la misma transacción en la que
+-- se añadió**. El `ALTER TYPE ... ADD VALUE 'UNASSIGNED'` está en V5, y aquí ya se
+-- puede usar porque es otra transacción.
 --
--- PostgreSQL **no permite usar un valor nuevo de un enum en la MISMA transacción
--- en la que se añadió** («unsafe use of new value of enum type»). Flyway envuelve
--- cada migración en una transacción, así que el `ALTER TYPE ... ADD VALUE
--- 'UNASSIGNED'` de más abajo no se puede combinar con el `INSERT` que después usa
--- ese valor.
+-- Ver el comentario de V5 para el detalle completo y el porqué del despiste.
 --
--- Se aplicaba sin problema con `psql < archivo` porque `psql` va en autocommit, y
--- **de ahí venía la inconsistencia**: funcionaba a mano y fallaba con Flyway. Ese
--- fue el motivo de dar vueltas durante un buen rato sobre un motor que en
--- realidad funcionaba.
+-- DOS BUGS REALES CORREGIDOS EN ESTE SQL, encontrados ejecutándolo:
 --
--- ESTADO REAL DEL MOTOR: los dos bugs del SQL están corregidos (la colisión de
--- nombres con `kind` y la ambigüedad de `quantity` en el `ON CONFLICT`, que
--- hacía que el saldo nunca se acumulara). El motor **funciona**, comprobado
--- llamando a `registrar_movimiento` con una sola conexión.
+--  1. `SELECT kind INTO tipo_origen FROM locations` — la variable `kind` chocaba
+--     con la columna `kind`. Se eliminó la comprobación: la clave foránea ya
+--     garantiza que la ubicación exista, y su error es mejor que una variable sin
+--     usar.
 --
--- LO QUE FALTA PARA CERRARLO:
---   1. Separar el `ALTER TYPE` a su propia migración (V5) y mover el resto a V6,
---      o marcar esta migración como no transaccional. Lo primero es más limpio.
---   2. Poner los tests de `MotorInventarioTest` en verde: hoy fallan porque la
---      migración no aplica, no porque el motor esté mal.
---   3. Añadir la prueba que falta: que `comprobar_proyecciones()` devuelva CERO
---      filas tras una secuencia de carga, ubicación y movimiento.
---
--- Referencia: PLAN_ALMACEN_INTEGRAL.md §2.4, §2.6 y §2.7.
---
--- Dos cosas que van juntas porque la primera existe para la segunda.
---
--- **1. La ubicación `SIN-UBICAR`.** El archivo de inventario del cliente trae
--- 10.914.130 unidades **sin decir dónde están** (verificado: el Excel solo tiene
--- producto, nombre, unidad y cantidad). La migración tiene que cargar ese stock
--- en algún sitio, y la decisión tomada es una ubicación propia y distinta de
--- recepción.
---
--- **Por qué no la recepción.** «Recepción» significa «acaba de llegar y todavía
--- no está ubicado». Si le metemos 10,9 millones de unidades de stock histórico,
--- deja de significar eso: el flujo de ubicar tendría que distinguir cuáles son
--- nuevas y cuáles son el saldo heredado, y esa distinción no se puede hacer bien
--- a posteriori. `SIN-UBICAR` dice exactamente lo que es —«está en el almacén, no
--- sé en qué estante»— y el conteo físico la va vaciando hacia los estantes.
---
--- **2. El motor de inventario.** Funciones que mantienen las proyecciones
--- (`stock_by_location` y `product_stock`) coherentes con el ledger. Van en la
--- base y no en el código porque **deben ser atómicas**: si el proceso falla a
--- mitad entre escribir el kardex y actualizar la proyección, el inventario queda
--- descuadrado y nadie lo sabe.
+--  2. **El grave:** en `ON CONFLICT DO UPDATE`, un nombre de columna sin
+--     cualificar se resuelve a la fila que se intentaba INSERTAR. Así que
+--     `quantity = quantity + p_delta` calculaba `p_delta + p_delta` y **el saldo
+--     nunca se acumulaba**. El síntoma engañaba: con +500 el saldo quedaba en 1000
+--     en lugar de 1500, y con -300 daba -600 y violaba `stock_non_negative`.
+--     Parecía un problema de la restricción y era de esa línea.
 --
 -- Referencia: PLAN_ALMACEN_INTEGRAL.md §2.4, §2.6 y §2.7.
 -- ═══════════════════════════════════════════════════════════════════════════
-
--- ── 1. El tipo de ubicación para el saldo heredado ─────────────────────────
-
--- Se añade un valor al enum. `IF NOT EXISTS` no existe para los valores de un
--- enum, así que se comprueba a mano para que la migración sea repetible.
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_enum e
-        JOIN pg_type t ON t.oid = e.enumtypid
-        WHERE t.typname = 'location_kind' AND e.enumlabel = 'UNASSIGNED'
-    ) THEN
-        ALTER TYPE location_kind ADD VALUE 'UNASSIGNED';
-    END IF;
-END $$;
-
-COMMENT ON TYPE location_kind IS
-    'SHELF = estante normal. RECEIVING = zona de recepción: lo recién llegado y '
-    'sin ubicar todavia. UNASSIGNED = saldo heredado del sistema anterior, del '
-    'que se sabe que existe pero no donde esta. Se vacia con el conteo fisico.';
 
 -- ── 2. La ubicación, una por bodega ────────────────────────────────────────
 --
@@ -111,31 +62,42 @@ RETURNS NUMERIC AS $$
 DECLARE
     cantidad_resultante NUMERIC;
 BEGIN
-    -- El `INSERT ... ON CONFLICT` resuelve el caso de la primera vez en una
-    -- ubicación sin necesidad de comprobar antes si existe. Comprobar y luego
-    -- insertar tiene una carrera: dos peticiones simultáneas ven que no existe y
-    -- las dos intentan crearla.
-    INSERT INTO stock_by_location (product_id, location_id, warehouse_id, quantity, updated_at)
-    VALUES (p_product_id, p_location_id, p_warehouse_id, p_delta, now())
-    ON CONFLICT (product_id, location_id)
-    DO UPDATE SET
-        -- ── LA CUALIFICACIÓN ES OBLIGATORIA, Y SU AUSENCIA ERA UN BUG REAL ──
-        --
-        -- En `DO UPDATE`, un nombre de columna sin cualificar se resuelve a la
-        -- fila que se está intentando INSERTAR (lo que en un `WHERE` sería
-        -- `EXCLUDED`). Así que `quantity = quantity + p_delta` calculaba
-        -- `p_delta + p_delta`: **el saldo nunca se acumulaba**.
-        --
-        -- El síntoma engañaba. Con un delta de +500 el saldo quedaba en 1000 en
-        -- lugar de 1500, y con -300 daba -600 y violaba la restricción de no
-        -- negativo. Parecía un problema de la restricción y era de esta línea.
-        --
-        -- `stock_by_location.quantity` es la fila EXISTENTE; el valor propuesto
-        -- se referencia con `EXCLUDED` si hiciera falta, pero aquí no hace falta
-        -- porque el delta ya viene en el parámetro.
-        quantity = stock_by_location.quantity + p_delta,
+    -- ══════════════════════════════════════════════════════════════════════
+    -- POR QUÉ NO SE USA `INSERT ... ON CONFLICT` — y costó encontrarlo
+    -- ══════════════════════════════════════════════════════════════════════
+    --
+    -- La versión anterior proponía la fila con el delta y confiaba en
+    -- `ON CONFLICT DO UPDATE` para sumarlo al saldo existente. **No se puede.**
+    --
+    -- PostgreSQL valida los `CHECK` de la tabla sobre la fila **PROPUESTA**
+    -- **antes** de resolver el conflicto. Así que proponer un valor negativo falla
+    -- siempre, aunque el conflicto lo fuera a convertir en positivo
+    -- (1000 + (−300) = 700 pasaría, pero nunca se llega a calcular).
+    --
+    -- El síntoma era desconcertante y me llevó por el camino equivocado: con
+    -- `+1000` funcionaba y con `−300` no, y el error señalaba `stock_non_negative`.
+    -- Parecía un problema del saldo y era de la mecánica del `ON CONFLICT`.
+    --
+    -- La forma correcta: **intentar el UPDATE primero.** Si afecta a una fila, ya
+    -- está; si no afecta a ninguna, es la primera vez en esa ubicación y se hace
+    -- el INSERT con el valor completo.
+    -- ══════════════════════════════════════════════════════════════════════
+
+    UPDATE stock_by_location
+    SET quantity = quantity + p_delta,
         updated_at = now()
+    WHERE product_id = p_product_id
+      AND location_id = p_location_id
     RETURNING quantity INTO cantidad_resultante;
+
+    IF NOT FOUND THEN
+        -- Primera vez en esta ubicación. Aquí el valor propuesto ES el saldo, así
+        -- que un delta negativo solo llega si de verdad se está sacando de una
+        -- ubicación vacía — y entonces el CHECK **debe** fallar. Es correcto.
+        INSERT INTO stock_by_location (product_id, location_id, warehouse_id, quantity, updated_at)
+        VALUES (p_product_id, p_location_id, p_warehouse_id, p_delta, now())
+        RETURNING quantity INTO cantidad_resultante;
+    END IF;
 
     -- El stock negativo se comprueba AQUÍ y no solo con el CHECK.
     --
