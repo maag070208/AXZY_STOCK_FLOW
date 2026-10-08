@@ -35,17 +35,21 @@ import javax.sql.DataSource
  * Referencia: `PLAN_ALMACEN_INTEGRAL.md` §2.4 a §2.7.
  * ═══════════════════════════════════════════════════════════════════════════
  */
-class InventoryService(private val dataSource: DataSource) {
+/**
+ * @param audit el escritor de auditoría. **Se recibe y no se construye aquí**, para que
+ *   haya **una sola instancia** en toda la aplicación (ver [dev.axzy.stock.backend.config.AppDependencies]).
+ *
+ *   El valor por defecto existe para no romper a quien instancia el servicio sin
+ *   contenedor —los tests, sobre todo—, pero **la aplicación siempre pasa el suyo**:
+ *   si cada servicio construyera el suyo, habría tantas instancias como servicios y el
+ *   singleton sería una ilusión.
+ */
+class InventoryService(
+    private val dataSource: DataSource,
+    private val audit: dev.axzy.stock.backend.audit.AuditWriter =
+        dev.axzy.stock.backend.audit.AuditWriter(dataSource),
+) {
 
-    /**
-     * El escritor de auditoría.
-     *
-     * Se construye con el mismo `dataSource` en lugar de recibirlo por constructor
-     * para **no romper a quien ya instancia este servicio** (la aplicación y los
-     * tests). Si algún día hay varias implementaciones de auditoría, se inyecta y se
-     * cambia este punto.
-     */
-    private val audit = dev.axzy.stock.backend.audit.AuditWriter(dataSource)
 
     // ═══════════════════════════════════════════════════════════════════════
     // AJUSTES

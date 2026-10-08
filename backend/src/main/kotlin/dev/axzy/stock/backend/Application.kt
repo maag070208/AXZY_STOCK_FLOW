@@ -1,5 +1,6 @@
 package dev.axzy.stock.backend
 
+import dev.axzy.stock.backend.config.AppDependencies
 import dev.axzy.stock.backend.config.DatabaseConfig
 import dev.axzy.stock.backend.config.buildDataSource
 import dev.axzy.stock.backend.config.logger
@@ -244,12 +245,19 @@ fun Application.module(
         // todo, así que las rutas responden 401 y **nunca 404**. Una ruta sin
         // permiso concedido no debe quedar abierta, pero tampoco debe faltar: un
         // 404 esconde que la funcionalidad existe y solo está sin autorizar.
-        inventoryRoutes(InventoryService(dataSource), permissionChecker)
+        // ── DEPENDENCIAS ────────────────────────────────────────────────────
+        // **Un solo contenedor para toda la aplicación.** Ver `AppDependencies`: es la
+        // lista de lo que este backend necesita para funcionar, y donde se garantiza
+        // que cada cosa existe UNA vez. Antes cada servicio construía su propio
+        // `AuditWriter` y había tantas instancias como servicios.
+        val dependencies = AppDependencies(dataSource)
+
+        inventoryRoutes(dependencies.inventoryService, permissionChecker)
 
         // ── Recepción ───────────────────────────────────────────────────────
         // La regla B1 vive aquí: una línea con discrepancia no se puede ubicar
         // hasta que un supervisor apruebe la factura.
-        receivingRoutes(ReceivingService(dataSource), permissionChecker)
+        receivingRoutes(dependencies.receivingService, permissionChecker)
 
         // ── Administración de identidad ─────────────────────────────────────
         // Personas, roles y catálogo de permisos. Se conecta siempre, como el

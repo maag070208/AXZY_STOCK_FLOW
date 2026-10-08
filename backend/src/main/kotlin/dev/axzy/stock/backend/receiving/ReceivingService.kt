@@ -36,10 +36,21 @@ import javax.sql.DataSource
  * Referencia: `PLAN_ALMACEN_INTEGRAL.md` §5 y las decisiones B1, R-74 y R-86.
  * ═══════════════════════════════════════════════════════════════════════════
  */
-class ReceivingService(private val dataSource: DataSource) {
+/**
+ * @param audit el escritor de auditoría. **Se recibe y no se construye aquí**, para que
+ *   haya **una sola instancia** en toda la aplicación (ver [dev.axzy.stock.backend.config.AppDependencies]).
+ *
+ *   El valor por defecto existe para no romper a quien instancia el servicio sin
+ *   contenedor —los tests, sobre todo—, pero **la aplicación siempre pasa el suyo**:
+ *   si cada servicio construyera el suyo, habría tantas instancias como servicios y el
+ *   singleton sería una ilusión.
+ */
+class ReceivingService(
+    private val dataSource: DataSource,
+    private val audit: dev.axzy.stock.backend.audit.AuditWriter =
+        dev.axzy.stock.backend.audit.AuditWriter(dataSource),
+) {
 
-    /** El escritor de auditoría. Ver `AuditWriter` para la decisión de transacción. */
-    private val audit = dev.axzy.stock.backend.audit.AuditWriter(dataSource)
 
     // ═══════════════════════════════════════════════════════════════════════
     // FACTURAS
