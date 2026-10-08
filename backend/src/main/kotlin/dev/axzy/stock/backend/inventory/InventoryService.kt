@@ -37,6 +37,16 @@ import javax.sql.DataSource
  */
 class InventoryService(private val dataSource: DataSource) {
 
+    /**
+     * El escritor de auditoría.
+     *
+     * Se construye con el mismo `dataSource` en lugar de recibirlo por constructor
+     * para **no romper a quien ya instancia este servicio** (la aplicación y los
+     * tests). Si algún día hay varias implementaciones de auditoría, se inyecta y se
+     * cambia este punto.
+     */
+    private val audit = dev.axzy.stock.backend.audit.AuditWriter(dataSource)
+
     // ═══════════════════════════════════════════════════════════════════════
     // AJUSTES
     // ═══════════════════════════════════════════════════════════════════════
@@ -122,6 +132,83 @@ class InventoryService(private val dataSource: DataSource) {
                     )
 
                     val totalNew = readTotal(connection, productId)
+
+                    val previousTotal = if (request.direction == AdjustmentDirection.INCREASE) {
+                        Quantity.ofScaled(totalNew.value - request.quantity.value)
+                    } else {
+                        Quantity.ofScaled(totalNew.value + request.quantity.value)
+                    }
+
+                    // ── AUDITORÍA, EN LA MISMA TRANSACCIÓN ──────────────────
+                    //
+                    // **Antes del commit, y a propósito.** Es la operación que más
+                    // importa auditar de todo el sistema: mueve inventario. Si el
+                    // movimiento se aplicara y su registro no, **el stock habría
+                    // cambiado sin dejar rastro de quién lo cambió**, y eso no se
+                    // descubre ahora sino un año después, cuando alguien pregunta
+                    // quién autorizó una diferencia.
+                    //
+                    // El `previousState` y el `newState` llevan los DOS totales, no
+                    // solo el nuevo: un registro que dice «quedó en 5188» sin decir
+                    // de dónde venía obliga a reconstruir la historia leyendo los
+                    // movimientos anteriores.
+                    audit.record(
+                        connection = connection,
+                        actorUserId = request.requestedBy,
+                        actorUsername = null,
+                        channel = dev.axzy.stock.backend.audit.AuditWriter.Channel.WEB,
+                        sourceIp = ip,
+                        entityType = "product",
+                        entityId = productId.toString(),
+                        entityLabel = request.productCode.value,
+                        action = "inventory.adjustment",
+
+                        // ── DEBERÍA SER `CRITICAL`, Y NO PUEDE SERLO TODAVÍA ────
+                        //
+                        // Un ajuste mueve inventario y merece el nivel más alto. Pero
+                        // la tabla impone `audit_critical_has_trace`:
+                        //
+                        //   CHECK (action_level <> 'CRITICAL' OR access_trace IS NOT NULL)
+                        //
+                        // Es decir: **un registro crítico tiene que llevar su traza de
+                        // decisión de acceso** (RBAC → ABAC → decisión). Es un buen
+                        // diseño: lo importante tiene que poder justificarse.
+                        //
+                        // **Y la función `audit_log_record` de V7 no acepta
+                        // `access_trace`**, así que hoy es imposible escribir un
+                        // registro CRITICAL desde el código. Se comprobó intentándolo:
+                        // el INSERT falla con «violates check constraint
+                        // audit_critical_has_trace».
+                        //
+                        // Queda en `RELEVANT` para que **la auditoría se escriba ya** en
+                        // lugar de no escribirse nada, que es como estaba. **Subirlo a
+                        // CRITICAL exige primero una migración que añada `access_trace`
+                        // a la función**, y eso está pendiente. Dejarlo aquí sin decirlo
+                        // sería lo peor: parecería una decisión en lugar de una
+                        // limitación.
+                        level = dev.axzy.stock.backend.audit.AuditWriter.Level.RELEVANT,
+                        // El total ANTERIOR se deriva del delta en lugar de leerlo
+                        // antes del movimiento. `readTotal` se llama después (el saldo
+                        // ya está aplicado), y añadir una lectura previa costaría una
+                        // consulta más por ajuste para un dato que es aritmética
+                        // exacta: el movimiento sumó o restó `quantity`.
+                        //
+                        // **La primera versión ponía aquí `totalNew` en los dos
+                        // campos**, así que el registro decía «pasó de 5188 a 5188» y
+                        // no documentaba ningún cambio. Un registro de auditoría que
+                        // no muestra la transición no sirve para reconstruir qué pasó.
+                        previousState = """{"total":"${previousTotal.unitsText()}"}""",
+                        newState = """{"total":"${totalNew.unitsText()}","units":"${request.quantity.unitsText()}","direction":"${request.direction}"}""",
+                        // (el total anterior se calcula unas líneas más arriba)
+                        reason = request.reason.name,
+                        note = request.note,
+                        permissionKey = permissionForAdjustment(request.direction, request.reason),
+                        decision = dev.axzy.stock.backend.audit.AuditWriter.Decision.ALLOWED,
+                        result = dev.axzy.stock.backend.audit.AuditWriter.Result.SUCCESS,
+                        idempotencyKey = request.idempotencyKey,
+                        businessDate = java.time.LocalDate.now(java.time.ZoneOffset.UTC),
+                    )
+
                     connection.commit()
 
                     AdjustmentResult(
@@ -759,3 +846,27 @@ private fun Quantity.toBigDecimal(): java.math.BigDecimal =
  * negar el entero escalado es exacto por definición.
  */
 private fun Quantity.negated(): Quantity = Quantity.ofScaled(-this.value)
+
+/**
+ * El permiso que exigía el ajuste, para dejarlo en el registro de auditoría.
+ *
+ * **Se repite la regla de la ruta a propósito, y conviene saber por qué.** La ruta lo
+ * calcula para autorizar; aquí se calcula para dejarlo escrito. Podría pasarse como
+ * parámetro y sería más limpio, pero entonces el registro dependería de que la ruta
+ * se acuerde de mandarlo — y un registro de auditoría al que le falta el permiso
+ * justo cuando alguien lo consulta es peor que calcularlo dos veces.
+ */
+private fun permissionForAdjustment(
+    direction: dev.axzy.stock.domain.inventory.AdjustmentDirection,
+    reason: dev.axzy.stock.domain.inventory.AdjustmentReason,
+): String = when {
+    direction == dev.axzy.stock.domain.inventory.AdjustmentDirection.INCREASE -> "inventory.adjust_increase"
+    reason == dev.axzy.stock.domain.inventory.AdjustmentReason.THEFT -> "inventory.adjust_theft"
+    reason == dev.axzy.stock.domain.inventory.AdjustmentReason.DAMAGE -> "inventory.adjust_damage"
+    reason == dev.axzy.stock.domain.inventory.AdjustmentReason.SHORTAGE -> "inventory.adjust_shortage"
+    else -> "inventory.adjust_count_error"
+}
+
+/** La cantidad como texto con 3 decimales, que es el formato del contrato. */
+private fun dev.axzy.stock.domain.value.Quantity.unitsText(): String =
+    java.math.BigDecimal.valueOf(this.value).movePointLeft(dev.axzy.stock.domain.value.Quantity.SCALE).toPlainString()
