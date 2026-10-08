@@ -155,10 +155,28 @@ class AuditWriter(private val dataSource: DataSource) {
         // Se descarta en lugar de propagar el fallo.
         val ipValida = sourceIp?.takeIf { pareceIp(it) }
 
+        // ── EL NOMBRE DEL ACTOR SE RESUELVE AQUÍ ───────────────────────────
+        //
+        // La primera versión dejaba `actorUsername` a `null` porque los servicios
+        // solo tienen el ID, y el resultado era que la vista legible mostraba
+        // **«WEB»** en lugar de **«Administrador»**: el `COALESCE(name, username,
+        // channel)` caía hasta el canal. El «quién» no se perdía —`actor_user_id`
+        // estaba y es lo que identifica de verdad— pero un registro de auditoría que
+        // no dice el nombre de la persona obliga a cruzar con `users` para leerlo, y
+        // **una auditoría que hay que interpretar no se lee**.
+        //
+        // Se resuelve AQUÍ y no en cada llamador por una razón concreta: hay cuatro
+        // servicios auditando y cada uno tendría que acordarse de mandarlo. Poniéndolo
+        // en el escritor, **los cuatro lo obtienen sin saber que existe**, y el quinto
+        // que se añada también.
+        //
+        // Sin consulta adicional cuando el llamador ya lo manda.
+        val nombreActor = actorUsername ?: resolverNombreDeActor(connection, actorUserId)
+
         connection.prepareStatement(sql).use { st ->
             var i = 1
             st.setObject(i++, actorUserId, Types.BIGINT)
-            st.setString(i++, actorUsername)
+            st.setString(i++, nombreActor)
             st.setString(i++, actorName)
             st.setArray(i++, actorRoles?.let { connection.createArrayOf("text", it.toTypedArray()) })
             st.setString(i++, channel.name)
@@ -191,6 +209,24 @@ class AuditWriter(private val dataSource: DataSource) {
                 rs.next()
                 return rs.getLong(1)
             }
+        }
+    }
+
+    /**
+     * El nombre de usuario a partir de su id.
+     *
+     * Devuelve `null` si el id es nulo o el usuario no existe — **y no es un error**:
+     * se audita a un usuario borrado, o a un actor anónimo en un intento fallido. La
+     * clave foránea ya garantiza que un id presente existe; esto solo añade la parte
+     * legible.
+     */
+    private fun resolverNombreDeActor(connection: Connection, userId: Long?): String? {
+        if (userId == null) return null
+        return connection.prepareStatement(
+            "SELECT username FROM users WHERE id = ?",
+        ).use { st ->
+            st.setLong(1, userId)
+            st.executeQuery().use { rs -> if (rs.next()) rs.getString(1) else null }
         }
     }
 
