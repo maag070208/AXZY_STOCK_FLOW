@@ -502,6 +502,126 @@ class ReceivingService(private val dataSource: DataSource) {
         }
     }
 
+    /**
+     * ══════════════════════════════════════════════════════════════════════
+     * RECHAZAR UNA DISCREPANCIA — la otra salida de la regla B1
+     *
+     * **Aprobar y rechazar son la misma decisión tomada al revés:**
+     *
+     *  · **Aprobar** = la diferencia se ACEPTA. La mercancía se queda y el motivo
+     *    explica por qué falta o sobra.
+     *  · **Rechazar** = la diferencia NO se acepta. La línea se **cancela**: la
+     *    mercancía no entra al inventario porque no se acepta tal como llegó.
+     *
+     * **Sin esta salida, la única opción ante una discrepancia era aceptarla**, y eso
+     * convierte el control en un trámite: un supervisor que no puede rechazar acaba
+     * aprobando para desbloquear la factura. **El rechazo es lo que da sentido a la
+     * aprobación.**
+     * ══════════════════════════════════════════════════════════════════════
+     */
+    fun rejectDiscrepancy(
+        invoiceId: Long,
+        reason: String,
+        note: String?,
+        rejectedBy: Long,
+    ): InvoiceDetail = dataSource.connection.use { connection ->
+        connection.autoCommit = false
+        try {
+            val pending = pendingDiscrepancyLines(connection, invoiceId)
+
+            if (pending.isEmpty()) {
+                throw ConflictException(
+                    "NO_PENDING_APPROVAL",
+                    "La factura no tiene líneas en discrepancia que rechazar. " +
+                        "Solo se rechazan las líneas con diferencia respecto a lo facturado.",
+                )
+            }
+
+            // La segregación de funciones vale para las DOS salidas (R-74). Si solo
+            // aplicara a aprobar, rechazar sería la puerta de atrás para que alguien se
+            // deshiciera de una discrepancia que él mismo creó.
+            val own = pending.filter { it.second == rejectedBy }.map { it.first }
+            if (own.isNotEmpty()) {
+                throw UnprocessableException(
+                    "SEGREGATION_OF_DUTIES",
+                    "No puedes rechazar una discrepancia que tú mismo capturaste. " +
+                        "Las líneas ${own.joinToString(", ")} las contó el usuario " +
+                        "$rejectedBy, así que tiene que resolverlas otra persona.",
+                    mapOf("lines" to own.joinToString(",")),
+                )
+            }
+
+            if (reason.isBlank()) {
+                throw UnprocessableException(
+                    "REASON_REQUIRED",
+                    "Rechazar una discrepancia exige un motivo: dentro de un año nadie " +
+                        "podrá explicar por qué se canceló la línea.",
+                )
+            }
+
+            connection.prepareStatement(
+                """
+                UPDATE invoice_lines
+                SET status = 'CANCELLED'::invoice_line_status,
+                    approved_by = ?, approved_at = now(),
+                    adjustment_reason = ?::adjustment_reason,
+                    updated_at = now()
+                WHERE invoice_id = ?
+                  AND status = 'DISCREPANCY'::invoice_line_status
+                  AND NOT deleted
+                """.trimIndent(),
+            ).use { st ->
+                st.setLong(1, rejectedBy)
+                st.setString(2, reason.uppercase())
+                st.setLong(3, invoiceId)
+                st.executeUpdate()
+            }
+
+            refreshInvoiceStatus(connection, invoiceId)
+
+            audit.record(
+                connection = connection,
+                actorUserId = rejectedBy,
+                channel = dev.axzy.stock.backend.audit.AuditWriter.Channel.WEB,
+                entityType = "invoice",
+                entityId = invoiceId.toString(),
+                actorUsername = null,
+                action = "invoice.discrepancy.reject",
+                level = dev.axzy.stock.backend.audit.AuditWriter.Level.RELEVANT,
+                previousState = """{"status":"DISCREPANCY","pendingLines":${pending.size}}""",
+                newState = """{"status":"CANCELLED","cancelledLines":${pending.size},"adjustmentReason":"$reason"}""",
+                reason = reason,
+                note = note,
+                permissionKey = "invoice.reject",
+                decision = dev.axzy.stock.backend.audit.AuditWriter.Decision.ALLOWED,
+                result = dev.axzy.stock.backend.audit.AuditWriter.Result.SUCCESS,
+                businessDate = java.time.LocalDate.now(java.time.ZoneOffset.UTC),
+            )
+
+            connection.commit()
+            invoice(invoiceId)
+        } catch (e: Exception) {
+            runCatching { connection.rollback() }
+            throw e
+        }
+    }
+
+    /** Las líneas en discrepancia: id y quién las contó. */
+    private fun pendingDiscrepancyLines(
+        connection: java.sql.Connection,
+        invoiceId: Long,
+    ): List<Pair<Long, Long?>> = connection.prepareStatement(
+        """
+        SELECT id, captured_by FROM invoice_lines
+        WHERE invoice_id = ? AND status = 'DISCREPANCY'::invoice_line_status AND NOT deleted
+        """.trimIndent(),
+    ).use { st ->
+        st.setLong(1, invoiceId)
+        st.executeQuery().use { rs ->
+            buildList { while (rs.next()) add(rs.getLong("id") to rs.getLong("captured_by").takeIf { !rs.wasNull() }) }
+        }
+    }
+
     /** Bandeja de pendientes de aprobación. **Pantalla nueva: el legacy no la tenía.** */
     fun pendingApprovals(): List<PendingApprovalDto> = dataSource.connection.use { connection ->
         connection.createStatement().use { st ->

@@ -57,7 +57,19 @@ data class CaptureLineRequest(
     val physicalBoxQuantity: Double? = null,
 )
 
+/**
+ * Rechazar una discrepancia: la mercancía NO se acepta y la línea se cancela.
+ *
+ * Comparte forma con la aprobación —motivo obligatorio y nota opcional— porque es la
+ * misma decisión tomada al revés. Un motivo que no se exige en una de las dos salidas
+ * acaba sin exigirse en ninguna.
+ */
 @Serializable
+data class RejectDiscrepancyRequest(
+    val adjustmentReason: String,
+    val note: String? = null,
+)
+
 data class ApproveInvoiceRequest(
     val adjustmentReason: String,
     val note: String? = null,
@@ -184,6 +196,33 @@ fun Route.receivingRoutes(
                 reason = body.adjustmentReason,
                 note = body.note,
                 approverId = user(call),
+            )
+
+            call.respond(HttpStatusCode.OK, detail)
+        }
+
+        // ── LA OTRA SALIDA DE LA REGLA B1: rechazar ────────────────────────
+        //
+        // **Sin esta ruta, la única salida ante una discrepancia era aceptarla**, y eso
+        // convierte el control en un trámite: un supervisor que no puede rechazar acaba
+        // aprobando para desbloquear la factura. **El rechazo es lo que da sentido a la
+        // aprobación.**
+        post("/{id}/reject-discrepancy") {
+            // El permiso es `invoice.reject` y **ya existía** en el catálogo de 76. Se
+            // comprobó antes de inventar un nombre: escribir `invoice.reject_discrepancy`
+            // habría dado 403 a todo el mundo para siempre, y es un fallo silencioso que
+            // solo se nota al usarlo con el rol correcto.
+            require(call, "invoice.reject")
+            val invoiceId = call.parameters["id"]?.toLongOrNull()
+                ?: throw BadRequestException("INVALID_ID", "El identificador no es un número.")
+
+            val body = call.receive<RejectDiscrepancyRequest>()
+
+            val detail = service.rejectDiscrepancy(
+                invoiceId = invoiceId,
+                reason = body.adjustmentReason,
+                note = body.note,
+                rejectedBy = user(call),
             )
 
             call.respond(HttpStatusCode.OK, detail)
