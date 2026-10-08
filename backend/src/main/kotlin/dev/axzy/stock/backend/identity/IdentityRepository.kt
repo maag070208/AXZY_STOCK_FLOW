@@ -211,7 +211,10 @@ class IdentityRepository(private val dataSource: DataSource) {
             it[LoginAttemptsTable.userId] = userId
             it[succeeded] = false
             it[LoginAttemptsTable.failureCode] = failureCode
-            it[LoginAttemptsTable.ip] = ip
+            // Igual que en los refresh tokens: la columna es `inet` y un nombre de
+            // host no es válido. Se registra el intento sin la IP en ese caso, en
+            // lugar de perder el registro entero.
+            it[LoginAttemptsTable.ip] = ip?.takeIf { esDireccionIp(it) }
             it[LoginAttemptsTable.userAgent] = userAgent
         }
 
@@ -244,8 +247,33 @@ class IdentityRepository(private val dataSource: DataSource) {
         FailedLoginOutcome(fallos, bloqueo)
     }
 
+    /**
+     * Cambia la contraseña y marca la fecha del cambio.
+     *
+     * `password_changed_at` es lo que invalida las sesiones anteriores: si el
+     * token se emitió **antes** de este instante, deja de servir. Sin actualizar
+     * esta columna, «cambiar la contraseña cierra las demás sesiones» sería una
+     * promesa vacía.
+     *
+     * También se limpia el bloqueo: quien acaba de demostrar que conoce la
+     * contraseña nueva no debe seguir bloqueado por los intentos fallidos con la
+     * vieja.
+     */
+    fun updatePassword(userId: Long, newHash: String, at: Instant = Instant.now()) =
+        transaction(db) {
+            UsersTable.update({ UsersTable.id eq userId }) {
+                it[passwordHash] = newHash
+                it[passwordChangedAt] = at.aOffsetDateTime()
+                it[failedLoginCount] = 0
+                it[lockedUntil] = null
+                it[mustChangePassword] = false
+            }
+            Unit
+        }
+
     /** Cuenta los fallos recientes de una IP. Frena la fuerza bruta distribuida. */
     fun countRecentFailuresByIp(ip: String, since: Instant): Long = transaction(db) {
+        if (!esDireccionIp(ip)) return@transaction 0L
         LoginAttemptsTable.selectAll().where {
             (LoginAttemptsTable.ip eq ip) and
                 (LoginAttemptsTable.succeeded eq false) and
@@ -269,17 +297,57 @@ class IdentityRepository(private val dataSource: DataSource) {
         expiresAt: Instant,
         ip: String?,
         userAgent: String?,
-    ): Long = transaction(db) {
-        RefreshTokensTable.insert {
-            it[RefreshTokensTable.tokenHash] = tokenHash
-            it[RefreshTokensTable.userId] = userId
-            it[RefreshTokensTable.familyId] = familyId
-            it[RefreshTokensTable.generation] = generation
-            it[issuedAt] = Instant.now().aOffsetDateTime()
-            it[RefreshTokensTable.expiresAt] = expiresAt.aOffsetDateTime()
-            it[issuedIp] = ip
-            it[issuedUserAgent] = userAgent
-        } get RefreshTokensTable.id
+    ): Long {
+        // ── POR QUÉ SE USA SQL DIRECTO ──────────────────────────────────────
+        // `refresh_tokens.family_id` es de tipo `uuid` e `issued_ip` es `inet`.
+        // El DSL de Exposed los envía como texto y PostgreSQL rechaza la
+        // escritura con «column "family_id" is of type uuid but expression is of
+        // type character varying».
+        //
+        // El cast explícito `?::uuid` es lo que lo resuelve, y el DSL no lo
+        // expresa. Es el mismo problema que resolvió el módulo de catálogo con
+        // `?::location_kind`.
+        return dataSource.connection.use { conexion ->
+            // ── CONFIRMACIÓN EXPLÍCITA, Y ES OBLIGATORIA ────────────────────
+            // El pool se construye con `autoCommit = false`, que es lo correcto
+            // para las operaciones de la aplicación: cada una declara su
+            // transacción. Una sentencia suelta por una conexión propia NO declara
+            // ninguna, así que al cerrar la conexión PostgreSQL hace **ROLLBACK** y
+            // la fila desaparece sin ningún error.
+            //
+            // Éste fue un defecto real: el inicio de sesión devolvía un refresh
+            // token correcto, la tabla `refresh_tokens` quedaba VACÍA, y el
+            // refresco posterior fallaba con «token no válido». Es el mismo error
+            // que cometí en `IdentitySeeder.insertarPermisoCrudo`.
+            conexion.autoCommit = true
+
+            conexion.prepareStatement(
+                """
+                INSERT INTO refresh_tokens
+                    (token_hash, user_id, family_id, generation, issued_at, expires_at,
+                     issued_ip, issued_user_agent)
+                VALUES (?, ?, ?::uuid, ?, now(), ?, ?::inet, ?)
+                RETURNING id
+                """.trimIndent(),
+            ).use { st ->
+                st.setString(1, tokenHash)
+                st.setLong(2, userId)
+                st.setString(3, familyId)
+                st.setInt(4, generation)
+                st.setTimestamp(5, java.sql.Timestamp.from(expiresAt))
+                // `ip` solo si es una dirección de verdad: la columna es `inet` y
+                // PostgreSQL RECHAZA un nombre de host. Un `"localhost"` hacía
+                // fallar el inicio de sesión con un error interno opaco, que es la
+                // peor forma de fallar: el usuario no puede entrar y el motivo no
+                // se le puede explicar.
+                st.setString(6, ip?.takeIf { esDireccionIp(it) })
+                st.setString(7, userAgent)
+                st.executeQuery().use { rs ->
+                    rs.next()
+                    rs.getLong("id")
+                }
+            }
+        }
     }
 
     /** Busca un refresh token por su hash. */
@@ -330,11 +398,24 @@ class IdentityRepository(private val dataSource: DataSource) {
         Unit
     }
 
-    /** El siguiente número de generación dentro de una familia. */
-    fun nextGeneration(familyId: String): Int = transaction(db) {
-        (RefreshTokensTable.selectAll().where { RefreshTokensTable.familyId eq familyId }
-            .maxOfOrNull { it[RefreshTokensTable.generation] } ?: 0) + 1
-    }
+    /**
+     * El siguiente número de generación dentro de una familia.
+     *
+     * **Se usa SQL directo porque `family_id` es `uuid`.** Comparar la columna con
+     * una cadena da «operator does not exist: uuid = character varying»: los tipos
+     * tienen que coincidir y el DSL no aplica el cast. Es el mismo problema que
+     * con `inet` y con los enums de PostgreSQL.
+     */
+    fun nextGeneration(familyId: String): Int =
+        dataSource.connection.use { conexion ->
+            conexion.prepareStatement(
+                "SELECT COALESCE(MAX(generation), 0) + 1 AS siguiente " +
+                    "FROM refresh_tokens WHERE family_id = ?::uuid",
+            ).use { st ->
+                st.setString(1, familyId)
+                st.executeQuery().use { rs -> if (rs.next()) rs.getInt("siguiente") else 1 }
+            }
+        }
 
     /**
      * Revoca una familia completa llamando a la función SQL.
@@ -346,6 +427,11 @@ class IdentityRepository(private val dataSource: DataSource) {
      */
     fun revokeFamily(familyId: String, reason: String): Int =
         dataSource.connection.use { conexion ->
+            // Misma razón que en `storeRefreshToken`: sin confirmar, la revocación
+            // se pierde y **la sesión comprometida seguiría viva**. Es el peor
+            // sitio donde puede fallar en silencio.
+            conexion.autoCommit = true
+
             conexion.prepareStatement("SELECT revoke_token_family(?::uuid, ?::revocation_reason)").use { st ->
                 st.setString(1, familyId)
                 st.setString(2, reason)
@@ -383,6 +469,7 @@ class IdentityRepository(private val dataSource: DataSource) {
      */
     fun purgeExpiredTokens(olderThan: Instant): Int =
         dataSource.connection.use { conexion ->
+            conexion.autoCommit = true
             conexion.prepareStatement("DELETE FROM refresh_tokens WHERE expires_at < ?").use { st ->
                 st.setObject(1, olderThan.aOffsetDateTime())
                 st.executeUpdate()
@@ -431,3 +518,31 @@ class IdentityRepository(private val dataSource: DataSource) {
  */
 private fun Instant.aOffsetDateTime(): OffsetDateTime =
     OffsetDateTime.ofInstant(this, ZoneOffset.UTC)
+
+/**
+ * Indica si un valor es una dirección IP válida.
+ *
+ * **Existe porque la columna es `inet` y PostgreSQL rechaza nombres de host.** El
+ * valor que llega de `call.request.local.remoteHost` es `"localhost"` en
+ * desarrollo, y guardarlo tal cual hacía fallar el inicio de sesión con un error
+ * interno opaco: el usuario no podía entrar y el motivo no se le podía explicar.
+ *
+ * Se valida aquí y no en la base porque **la decisión es qué hacer**: se guarda
+ * `NULL` en lugar de perder el registro entero. Un intento de inicio de sesión sin
+ * IP sigue siendo información útil; un intento perdido, no.
+ */
+internal fun esDireccionIp(valor: String): Boolean {
+    if (valor.isBlank()) return false
+    // Se acepta IPv4 e IPv6 sin traer una dependencia: `InetAddress` no debe hacer
+    // resolución DNS aquí, y `getByName` con un nombre SÍ la haría.
+    if (valor == "localhost") return false
+    return runCatching {
+        val partes = valor.split('.')
+        if (partes.size == 4) {
+            partes.all { p -> p.toIntOrNull()?.let { it in 0..255 } == true }
+        } else {
+            // IPv6: contiene `:` y solo caracteres hexadecimales.
+            valor.contains(':') && valor.all { it.isDigit() || it in "abcdefABCDEF:" }
+        }
+    }.getOrDefault(false)
+}

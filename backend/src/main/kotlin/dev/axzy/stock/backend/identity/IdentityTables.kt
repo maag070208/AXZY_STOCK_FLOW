@@ -61,6 +61,8 @@ object PermissionsTable : Table("permissions") {
     val name = varchar("name", 160)
     val sensitive = bool("sensitive").default(false)
     val active = bool("active").default(true)
+    /** Los alcances admitidos, como texto de un array de PostgreSQL. */
+    val scopes = text("scopes")
 
     override val primaryKey = PrimaryKey(id)
 }

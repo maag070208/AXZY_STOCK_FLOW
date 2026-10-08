@@ -6,6 +6,9 @@ import dev.axzy.stock.backend.config.logger
 import dev.axzy.stock.backend.config.migrate
 import dev.axzy.stock.backend.error.ErrorResponse
 import dev.axzy.stock.backend.error.StockException
+import dev.axzy.stock.backend.routes.aAccessUser
+import dev.axzy.stock.backend.routes.authRoutes
+import dev.axzy.stock.backend.routes.claimsDeToken
 import dev.axzy.stock.backend.routes.catalogRoutes
 import dev.axzy.stock.backend.security.DenyAllPermissionChecker
 import dev.axzy.stock.backend.security.PermissionChecker
@@ -48,10 +51,65 @@ fun main() {
 
     val puerto = System.getenv("STOCK_PORT")?.toIntOrNull() ?: 8080
 
+    // El servicio de tokens exige STOCK_JWT_SECRET y FALLA si falta: un secreto
+    // por defecto permitiria a cualquiera firmar tokens validos.
+    val tokens = dev.axzy.stock.backend.identity.TokenService(
+        dev.axzy.stock.backend.identity.TokenConfig.fromEnvironment(),
+    )
+    val hasher = dev.axzy.stock.backend.identity.NativeArgon2PasswordHasher()
+
+    // ── Sembrado inicial ────────────────────────────────────────────────────
+    // Se ejecuta si se pide, y es idempotente: crear los roles, los 82 permisos y
+    // el administrador no se repite ni falla si ya existen.
+    //
+    // **Sin esto el backend arranca y no se puede entrar**: la pantalla de acceso
+    // no tiene con qué validar.
+    if (System.getenv("STOCK_SEED")?.toBoolean() == true) {
+        buildDataSource(config).use { pool ->
+            val resultado = dev.axzy.stock.backend.identity.IdentitySeeder(pool).seed(
+                adminUsername = System.getenv("STOCK_ADMIN_USER") ?: "admin",
+                adminPassword = System.getenv("STOCK_ADMIN_PASSWORD"),
+            )
+            logger.info(
+                "Sembrado: {} roles, {} permisos, administrador {}",
+                resultado.rolesCreated,
+                resultado.permissionsCreated,
+                if (resultado.adminCreated) "CREADO" else "ya existía",
+            )
+            // La contraseña se imprime UNA SOLA VEZ, y solo si se acaba de crear.
+            // No queda en ningún registro ni se vuelve a mostrar.
+            resultado.adminPassword?.let { contrasena ->
+                logger.warn(
+                    "════════════════════════════════════════════════════════════\n" +
+                        "  CONTRASEÑA DEL ADMINISTRADOR (se muestra UNA sola vez)\n" +
+                        "    usuario:    {}\n" +
+                        "    contraseña: {}\n" +
+                        "  Cámbiala al entrar. No se guarda en ningún sitio.\n" +
+                        "════════════════════════════════════════════════════════════",
+                    resultado.adminUsername,
+                    contrasena,
+                )
+            }
+        }
+    }
+
     logger.info("Arrancando el backend en el puerto {}", puerto)
 
+    // ── El verificador de permisos, conectado a la identidad ────────────────
+    // Lee el token de la cabecera, lo traduce al `AccessUser` del dominio y deja
+    // que el MOTOR de acceso decida. El motor tiene 43 tests y es el mismo que
+    // usa el móvil: aquí no se reimplementa la autorización.
+    val pool = buildDataSource(config)
+    val verificador = dev.axzy.stock.backend.security.AccessEnginePermissionChecker(
+        engine = dev.axzy.stock.domain.access.AccessEngine(),
+        usuarioActual = { call ->
+            val claims = call.claimsDeToken(tokens)
+            claims?.let { it.aAccessUser() }
+        },
+    )
+
     embeddedServer(Netty, port = puerto, host = "0.0.0.0") {
-        module(buildDataSource(config))
+        module(pool, tokens, hasher, verificador)
     }.start(wait = true)
 }
 
@@ -64,6 +122,8 @@ fun main() {
  */
 fun Application.module(
     dataSource: DataSource,
+    tokenService: dev.axzy.stock.backend.identity.TokenService? = null,
+    passwordHasher: dev.axzy.stock.domain.identity.PasswordHasher? = null,
     /**
      * El verificador de permisos.
      *
@@ -79,6 +139,13 @@ fun Application.module(
      * configuración que se despliega**. Ahora el módulo recibe el verificador, se
      * registra una sola vez, y un test puede ejercitar el camino real con un
      * verificador de prueba.
+     */
+    /**
+     * El verificador de permisos.
+     *
+     * En producción se pasa uno conectado a la identidad; el valor por defecto
+     * **deniega todo**, que es la postura correcta: una ruta sin permiso concedido
+     * no debe quedar abierta.
      */
     permissionChecker: PermissionChecker = DenyAllPermissionChecker,
 ) {
@@ -164,6 +231,19 @@ fun Application.module(
         // 401 hasta que se conecte la identidad. Es la postura correcta: una
         // ruta sin permiso concedido no debe quedar abierta mientras tanto.
         catalogRoutes(dataSource, permissionChecker)
+
+        // ── Autenticación ───────────────────────────────────────────────────
+        // Solo se monta si hay servicio de tokens. Sin él, el módulo sigue
+        // arrancando y las rutas de auth no existen —que es lo que quieren los
+        // tests del catálogo, que no necesitan identidad—.
+        if (tokenService != null && passwordHasher != null) {
+            authRoutes(
+                repositorio = dev.axzy.stock.backend.identity.IdentityRepository(dataSource),
+                tokens = tokenService,
+                hasher = passwordHasher,
+                permissionChecker = permissionChecker,
+            )
+        }
     }
 }
 
