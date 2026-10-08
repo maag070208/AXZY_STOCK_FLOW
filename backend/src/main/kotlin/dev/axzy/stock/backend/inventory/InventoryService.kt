@@ -469,23 +469,12 @@ class InventoryService(
                         }
 
                         add(
-                            KardexDto(
-                                id = rs.getLong("id"),
-                                movedAt = rs.getTimestamp("moved_at").toInstant().toString(),
-                                productCode = rs.getString("product_code"),
-                                productName = rs.getString("product_name"),
-                                moveType = rs.getString("move_type"),
-                                units = rs.getBigDecimal("units").toPlainString(),
-                                quantityAfter = rs.getBigDecimal("quantity_after").toPlainString(),
+                            // El mapeo vive en `InventoryMappers.kt`: así la consulta se
+                            // lee como lo que es —filtros, orden y paginación— sin 15
+                            // campos de conversión en medio.
+                            rs.toKardexDto(
                                 fromLocationDisplayName = from,
                                 toLocationDisplayName = towards,
-                                container = rs.getString("container"),
-                                orderNumber = rs.getString("order_number"),
-                                adjustmentReason = rs.getString("adjustment_reason"),
-                                adjustmentOrigin = rs.getString("adjustment_origin"),
-                                userId = rs.getLong("user_id").takeIf { !rs.wasNull() },
-                                userName = rs.getString("user_name"),
-                                note = rs.getString("note"),
                             ),
                         )
                     }
