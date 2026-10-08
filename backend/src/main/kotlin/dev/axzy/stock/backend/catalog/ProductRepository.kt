@@ -36,9 +36,9 @@ class ProductRepository(private val db: Database) {
 
     companion object {
         /** Campos de `sort` admitidos, tal como los documenta el contrato (§3). */
-        val CAMPOS_ORDENABLES: Set<String> = setOf("productCode", "name", "createdAt")
+        val SORTABLE_FIELDS: Set<String> = setOf("productCode", "name", "createdAt")
 
-        const val ORDEN_POR_DEFECTO = "productCode"
+        const val DEFAULT_ORDER = "productCode"
     }
 
     /**
@@ -50,15 +50,15 @@ class ProductRepository(private val db: Database) {
      *   muestra como inactivo. Ocultarlo haría pensar que nunca existió y quien
      *   lo busca para reactivarlo no lo encontraría.
      */
-    fun listar(pagina: PageRequest, busqueda: String?, activo: Boolean?): Page<ProductRecord> =
+    fun list(page: PageRequest, search: String?, active: Boolean?): Page<ProductRecord> =
         transaction(db) {
-            val filtro = filtroDe(busqueda, activo)
+            val filter = filterOf(search, active)
 
             // El total se cuenta en la base, no contando la lista devuelta: es
             // lo que permite decir «1.398 productos, 28 páginas».
-            val total = Products.selectAll().conFiltro(filtro).count()
+            val total = Products.selectAll().withFilter(filter).count()
 
-            val filas = Products
+            val rows = Products
                 .join(UnitsOfMeasure, JoinType.INNER, Products.unitMeasureId, UnitsOfMeasure.id)
                 .select(
                     Products.id,
@@ -69,19 +69,19 @@ class ProductRepository(private val db: Database) {
                     Products.active,
                     UnitsOfMeasure.code,
                 )
-                .conFiltro(filtro)
-                .orderBy(columnaDeOrden(pagina) to ordenDe(pagina), Products.id to ordenDe(pagina))
-                .limit(pagina.size)
-                .offset(pagina.offset)
-                .map { fila ->
+                .withFilter(filter)
+                .orderBy(sortColumn(page) to orderOf(page), Products.id to orderOf(page))
+                .limit(page.size)
+                .offset(page.offset)
+                .map { row ->
                     ProductRecord(
-                        id = fila[Products.id],
-                        productCode = fila[Products.productCode],
-                        name = fila[Products.name],
-                        description = fila[Products.description],
-                        unitMeasure = fila[UnitsOfMeasure.code],
-                        externalId = fila[Products.externalId],
-                        active = fila[Products.active],
+                        id = row[Products.id],
+                        productCode = row[Products.productCode],
+                        name = row[Products.name],
+                        description = row[Products.description],
+                        unitMeasure = row[UnitsOfMeasure.code],
+                        externalId = row[Products.externalId],
+                        active = row[Products.active],
                         stock = BigDecimal.ZERO,
                     )
                 }
@@ -89,18 +89,18 @@ class ProductRepository(private val db: Database) {
             // El stock de la página se resuelve con DOS consultas agregadas para
             // todos los ids, no con una por producto: sería el N+1 que el
             // listado no se puede permitir.
-            val stocks = totalesDeStock(filas.map { it.id })
+            val stocks = stockTotals(rows.map { it.id })
             Page(
-                items = filas.map { it.copy(stock = stocks[it.id] ?: BigDecimal.ZERO) },
-                page = pagina.page,
-                size = pagina.size,
+                items = rows.map { it.copy(stock = stocks[it.id] ?: BigDecimal.ZERO) },
+                page = page.page,
+                size = page.size,
                 totalItems = total,
             )
         }
 
     /** Un producto por su id, con su stock derivado. `null` si no existe. */
-    fun porId(id: Long): ProductRecord? = transaction(db) {
-        val fila = Products
+    fun byId(id: Long): ProductRecord? = transaction(db) {
+        val row = Products
             .join(UnitsOfMeasure, JoinType.INNER, Products.unitMeasureId, UnitsOfMeasure.id)
             .select(
                 Products.id,
@@ -116,20 +116,20 @@ class ProductRepository(private val db: Database) {
             ?: return@transaction null
 
         ProductRecord(
-            id = fila[Products.id],
-            productCode = fila[Products.productCode],
-            name = fila[Products.name],
-            description = fila[Products.description],
-            unitMeasure = fila[UnitsOfMeasure.code],
-            externalId = fila[Products.externalId],
-            active = fila[Products.active],
-            stock = totalDeStockDe(id),
+            id = row[Products.id],
+            productCode = row[Products.productCode],
+            name = row[Products.name],
+            description = row[Products.description],
+            unitMeasure = row[UnitsOfMeasure.code],
+            externalId = row[Products.externalId],
+            active = row[Products.active],
+            stock = totalStockOf(id),
         )
     }
 
     /** `true` si ya existe un producto con ese código. */
-    fun existeCodigo(codigo: String): Boolean = transaction(db) {
-        Products.selectAll().where { Products.productCode eq codigo }.limit(1).any()
+    fun existsCode(code: String): Boolean = transaction(db) {
+        Products.selectAll().where { Products.productCode eq code }.limit(1).any()
     }
 
     /**
@@ -140,28 +140,28 @@ class ProductRepository(private val db: Database) {
      * prechequeo del servicio existe solo para dar un 409 legible en el caso
      * normal; el que manda es el de la base.
      */
-    fun crear(datos: NuevoProducto, unidadDeMedidaId: Long): ProductRecord = transaction(db) {
-        val ahora = OffsetDateTime.now()
+    fun create(data: NewProduct, unitOfMeasureId: Long): ProductRecord = transaction(db) {
+        val now = OffsetDateTime.now()
 
         val id = Products.insert {
-            it[productCode] = datos.codigo
-            it[name] = datos.nombre
-            it[description] = datos.descripcion
-            it[unitMeasureId] = unidadDeMedidaId
+            it[productCode] = data.code
+            it[name] = data.name
+            it[description] = data.description
+            it[unitMeasureId] = unitOfMeasureId
             // Un producto creado por la API no tiene id en el ERP. Se deja nulo
             // en lugar de inventarlo: la referencia cruzada o es real o no es.
             it[externalId] = null
             it[active] = true
-            it[createdAt] = ahora
-            it[updatedAt] = ahora
+            it[createdAt] = now
+            it[updatedAt] = now
         } get Products.id
 
         ProductRecord(
             id = id,
-            productCode = datos.codigo,
-            name = datos.nombre,
-            description = datos.descripcion,
-            unitMeasure = datos.codigoUnidadMedida,
+            productCode = data.code,
+            name = data.name,
+            description = data.description,
+            unitMeasure = data.unitMeasureCode,
             externalId = null,
             active = true,
             stock = BigDecimal.ZERO,
@@ -176,19 +176,19 @@ class ProductRepository(private val db: Database) {
      * El catálogo de permisos tiene una acción aparte para eso
      * (`product.sync_barcode`), así que no puede colarse por un `PUT` normal.
      */
-    fun actualizar(id: Long, cambios: CambiosProducto, unidadDeMedidaId: Long?): ProductRecord? =
+    fun update(id: Long, changes: ProductChanges, unitOfMeasureId: Long?): ProductRecord? =
         transaction(db) {
-            val filas = Products.update({ Products.id eq id }) {
-                cambios.nombre?.let { valor -> it[name] = valor }
+            val rows = Products.update({ Products.id eq id }) {
+                changes.name?.let { value -> it[name] = value }
                 // La descripción viaja siempre: en un `PUT` el cuerpo reemplaza
                 // al recurso, así que omitirla significa «sin descripción» y es
                 // la única forma de borrarla.
-                it[description] = cambios.descripcion
-                unidadDeMedidaId?.let { valor -> it[unitMeasureId] = valor }
+                it[description] = changes.description
+                unitOfMeasureId?.let { value -> it[unitMeasureId] = value }
                 it[updatedAt] = OffsetDateTime.now()
             }
 
-            if (filas == 0) null else porId(id)
+            if (rows == 0) null else byId(id)
         }
 
     /**
@@ -199,7 +199,7 @@ class ProductRepository(private val db: Database) {
      * dos peticiones simultáneas podrían desactivar dos veces y la segunda
      * pisaría el motivo de la primera.
      */
-    fun desactivar(id: Long): Boolean = transaction(db) {
+    fun disable(id: Long): Boolean = transaction(db) {
         Products.update({ (Products.id eq id) and (Products.active eq true) }) {
             it[active] = false
             it[updatedAt] = OffsetDateTime.now()
@@ -215,20 +215,20 @@ class ProductRepository(private val db: Database) {
      * suma de las dos fuentes reales. Leerlas aquí hace que el listado sea
      * correcto aunque la proyección esté desfasada, en lugar de mentir con ella.
      */
-    fun totalDeStockDe(productId: Long): BigDecimal = transaction(db) {
-        val sumaUbicaciones = StockByLocation.quantity.sum()
-        val enUbicaciones = StockByLocation
-            .select(sumaUbicaciones)
+    fun totalStockOf(productId: Long): BigDecimal = transaction(db) {
+        val sumLocations = StockByLocation.quantity.sum()
+        val atLocations = StockByLocation
+            .select(sumLocations)
             .where { StockByLocation.productId eq productId }
-            .first()[sumaUbicaciones] ?: BigDecimal.ZERO
+            .first()[sumLocations] ?: BigDecimal.ZERO
 
-        val sumaTransito = StockInTransit.quantity.sum()
-        val enTransito = StockInTransit
-            .select(sumaTransito)
+        val sumTransit = StockInTransit.quantity.sum()
+        val inTransit = StockInTransit
+            .select(sumTransit)
             .where { (StockInTransit.productId eq productId) and (StockInTransit.receivedAt.isNull()) }
-            .first()[sumaTransito] ?: BigDecimal.ZERO
+            .first()[sumTransit] ?: BigDecimal.ZERO
 
-        enUbicaciones + enTransito
+        atLocations + inTransit
     }
 
     /**
@@ -245,13 +245,13 @@ class ProductRepository(private val db: Database) {
      * los valores generados: serían 1.398 filas de `RETURNING` que nadie lee, y
      * la respuesta del import solo necesita el recuento.
      */
-    fun upsertMasivo(filas: List<FilaDeImportacion>, codigosDeUnidad: Map<String, Long>): Int =
+    fun bulkUpsert(rows: List<ImportRow>, unitCodes: Map<String, Long>): Int =
         transaction(db) {
-            if (filas.isEmpty()) return@transaction 0
+            if (rows.isEmpty()) return@transaction 0
 
-            val ahora = OffsetDateTime.now()
+            val now = OffsetDateTime.now()
             Products.batchUpsert(
-                data = filas,
+                data = rows,
                 keys = arrayOf(Products.productCode),
                 // `onUpdateExclude` deja escrito, en la propia llamada, qué NO se
                 // actualiza al chocar con un código existente: `active` (un
@@ -259,18 +259,18 @@ class ProductRepository(private val db: Database) {
                 // y `created_at` (la fecha de alta original se conserva).
                 onUpdateExclude = listOf(Products.active, Products.createdAt),
                 shouldReturnGeneratedValues = false,
-            ) { fila ->
-                this[Products.productCode] = fila.codigo
-                this[Products.name] = fila.nombre
+            ) { row ->
+                this[Products.productCode] = row.code
+                this[Products.name] = row.name
                 this[Products.description] = null
-                this[Products.unitMeasureId] = codigosDeUnidad.getValue(fila.unidadDeMedida)
-                this[Products.externalId] = fila.idExterno
+                this[Products.unitMeasureId] = unitCodes.getValue(row.unitOfMeasure)
+                this[Products.externalId] = row.idExternal
                 this[Products.active] = true
-                this[Products.createdAt] = ahora
-                this[Products.updatedAt] = ahora
+                this[Products.createdAt] = now
+                this[Products.updatedAt] = now
             }
 
-            filas.size
+            rows.size
         }
 
     // ── Interno ─────────────────────────────────────────────────────────────
@@ -279,41 +279,41 @@ class ProductRepository(private val db: Database) {
      * Filtro compartido por el listado. Se compone con `AND` y se resuelve en
      * la base: `q` no se aplica en memoria.
      */
-    private fun filtroDe(busqueda: String?, activo: Boolean?): Op<Boolean>? {
+    private fun filterOf(search: String?, active: Boolean?): Op<Boolean>? {
         // `Op.build` da el receptor `SqlExpressionBuilder`, que es donde viven
         // `eq`, `like` y `lowerCase`. Sin él habría que importarlos uno a uno.
-        var filtro: Op<Boolean>? = null
-        fun acumular(condicion: Op<Boolean>) {
-            filtro = filtro?.let { it and condicion } ?: condicion
+        var filter: Op<Boolean>? = null
+        fun accumulate(condition: Op<Boolean>) {
+            filter = filter?.let { it and condition } ?: condition
         }
 
-        activo?.let { valor -> acumular(Op.build { Products.active eq valor }) }
+        active?.let { value -> accumulate(Op.build { Products.active eq value }) }
 
-        busqueda?.trim()?.takeIf { it.isNotEmpty() }?.let { texto ->
+        search?.trim()?.takeIf { it.isNotEmpty() }?.let { text ->
             // El patrón LIKE viaja como parámetro (nunca concatenado en el SQL).
             // Un `%` escrito por el usuario actúa como comodín: es una búsqueda
             // libre, no una comparación exacta.
-            val patron = "%${texto.lowercase()}%"
-            acumular(
+            val pattern = "%${text.lowercase()}%"
+            accumulate(
                 Op.build {
-                    (Products.productCode.lowerCase() like patron) or
-                        (Products.name.lowerCase() like patron)
+                    (Products.productCode.lowerCase() like pattern) or
+                        (Products.name.lowerCase() like pattern)
                 }
             )
         }
 
-        return filtro
+        return filter
     }
 
     /** Traduce el campo de orden validado a su columna. */
-    private fun columnaDeOrden(pagina: PageRequest) = when (pagina.campoOrden) {
+    private fun sortColumn(page: PageRequest) = when (page.fieldOrder) {
         "name" -> Products.name
         "createdAt" -> Products.createdAt
         else -> Products.productCode
     }
 
-    private fun ordenDe(pagina: PageRequest): SortOrder =
-        if (pagina.ascendente) SortOrder.ASC else SortOrder.DESC
+    private fun orderOf(page: PageRequest): SortOrder =
+        if (page.ascending) SortOrder.ASC else SortOrder.DESC
 
     /**
      * Stock derivado de varios productos, en dos consultas agregadas.
@@ -321,34 +321,34 @@ class ProductRepository(private val db: Database) {
      * Devuelve solo los productos que aparecen en alguna de las dos tablas; el
      * que no aparece tiene 0 y el llamador lo resuelve con un valor por defecto.
      */
-    private fun totalesDeStock(ids: Collection<Long>): Map<Long, BigDecimal> {
+    private fun stockTotals(ids: Collection<Long>): Map<Long, BigDecimal> {
         if (ids.isEmpty()) return emptyMap()
 
-        val acumulado = mutableMapOf<Long, BigDecimal>()
+        val accumulated = mutableMapOf<Long, BigDecimal>()
 
-        val sumaUbicaciones = StockByLocation.quantity.sum()
+        val sumLocations = StockByLocation.quantity.sum()
         StockByLocation
-            .select(StockByLocation.productId, sumaUbicaciones)
+            .select(StockByLocation.productId, sumLocations)
             .where { StockByLocation.productId inList ids }
             .groupBy(StockByLocation.productId)
-            .forEach { fila ->
-                acumulado[fila[StockByLocation.productId]] = fila[sumaUbicaciones] ?: BigDecimal.ZERO
+            .forEach { row ->
+                accumulated[row[StockByLocation.productId]] = row[sumLocations] ?: BigDecimal.ZERO
             }
 
-        val sumaTransito = StockInTransit.quantity.sum()
+        val sumTransit = StockInTransit.quantity.sum()
         StockInTransit
-            .select(StockInTransit.productId, sumaTransito)
+            .select(StockInTransit.productId, sumTransit)
             .where {
                 (StockInTransit.productId inList ids) and (StockInTransit.receivedAt.isNull())
             }
             .groupBy(StockInTransit.productId)
-            .forEach { fila ->
-                val producto = fila[StockInTransit.productId]
-                acumulado[producto] = (acumulado[producto] ?: BigDecimal.ZERO) +
-                    (fila[sumaTransito] ?: BigDecimal.ZERO)
+            .forEach { row ->
+                val product = row[StockInTransit.productId]
+                accumulated[product] = (accumulated[product] ?: BigDecimal.ZERO) +
+                    (row[sumTransit] ?: BigDecimal.ZERO)
             }
 
-        return acumulado
+        return accumulated
     }
 }
 
@@ -365,11 +365,11 @@ data class ProductRecord(
 )
 
 /** Datos de alta de un producto. Sin `id`: lo genera la base. */
-data class NuevoProducto(
-    val codigo: String,
-    val nombre: String,
-    val descripcion: String?,
-    val codigoUnidadMedida: String,
+data class NewProduct(
+    val code: String,
+    val name: String,
+    val description: String?,
+    val unitMeasureCode: String,
 )
 
 /**
@@ -378,10 +378,10 @@ data class NuevoProducto(
  * `nombre` es nulo solo cuando el servicio no lo validó; en la práctica el
  * `PUT` es un reemplazo y siempre trae nombre y unidad.
  */
-data class CambiosProducto(
-    val nombre: String?,
-    val descripcion: String?,
-    val unidadDeMedida: String?,
+data class ProductChanges(
+    val name: String?,
+    val description: String?,
+    val unitOfMeasure: String?,
 )
 
 /**
@@ -390,9 +390,9 @@ data class CambiosProducto(
  * Es una traducción de `ValidatedProduct` a tipos de la capa de persistencia:
  * la capa HTTP y la de base no comparten los objetos del dominio.
  */
-data class FilaDeImportacion(
-    val codigo: String,
-    val nombre: String,
-    val idExterno: Long?,
-    val unidadDeMedida: String,
+data class ImportRow(
+    val code: String,
+    val name: String,
+    val idExternal: Long?,
+    val unitOfMeasure: String,
 )

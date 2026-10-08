@@ -17,9 +17,9 @@ import io.kotest.matchers.types.shouldBeInstanceOf
  */
 class PasswordPolicyTest : DescribeSpec({
 
-    fun motivos(password: String, username: String? = null): List<PasswordRejection> {
-        val resultado = PasswordPolicy.validate(password, username)
-        return (resultado as? PasswordValidation.Invalid)?.rejections ?: emptyList()
+    fun reasons(password: String, username: String? = null): List<PasswordRejection> {
+        val result = PasswordPolicy.validate(password, username)
+        return (result as? PasswordValidation.Invalid)?.rejections ?: emptyList()
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -28,11 +28,11 @@ class PasswordPolicyTest : DescribeSpec({
         it("rechaza la contraseña que tenía el usuario admin del legacy") {
             // Verificado en el seed del legacy: `admin` con contraseña
             // `admin12345`. Estos tests son la garantía de que no vuelve.
-            val motivos = motivos("admin12345", username = "admin")
+            val reasons = reasons("admin12345", username = "admin")
 
             withClue("Debe rechazarse, y por más de un motivo") {
-                (motivos.isNotEmpty()) shouldBe true
-                (PasswordRejection.COMMON in motivos) shouldBe true
+                (reasons.isNotEmpty()) shouldBe true
+                (PasswordRejection.COMMON in reasons) shouldBe true
             }
         }
 
@@ -40,13 +40,13 @@ class PasswordPolicyTest : DescribeSpec({
             // La contraseña está en la lista, así que se rechaza aunque no se
             // sepa el nombre de usuario. Es la defensa contra la reutilización
             // entre sistemas.
-            (PasswordRejection.COMMON in motivos("admin12345")) shouldBe true
+            (PasswordRejection.COMMON in reasons("admin12345")) shouldBe true
         }
 
         it("rechaza las variantes obvias de admin") {
-            listOf("admin123456", "administrador", "administrator").forEach { variante ->
-                withClue("La variante '$variante' debe rechazarse") {
-                    (PasswordRejection.COMMON in motivos(variante)) shouldBe true
+            listOf("admin123456", "administrador", "administrator").forEach { variant ->
+                withClue("La variante '$variant' debe rechazarse") {
+                    (PasswordRejection.COMMON in reasons(variant)) shouldBe true
                 }
             }
         }
@@ -56,18 +56,18 @@ class PasswordPolicyTest : DescribeSpec({
     describe("longitud: lo único que de verdad importa") {
 
         it("rechaza menos de 12 caracteres") {
-            listOf("corta", "abc", "Stock2026!", "A1b2C3d4E5f").forEach { corta ->
-                withClue("'$corta' tiene ${corta.length} caracteres y debe rechazarse") {
-                    (PasswordRejection.TOO_SHORT in motivos(corta)) shouldBe true
+            listOf("corta", "abc", "Stock2026!", "A1b2C3d4E5f").forEach { short ->
+                withClue("'$short' tiene ${short.length} caracteres y debe rechazarse") {
+                    (PasswordRejection.TOO_SHORT in reasons(short)) shouldBe true
                 }
             }
         }
 
         it("acepta exactamente 12 caracteres si no es una contraseña común") {
-            val doce = "Bodega2026xy"
-            withClue("12 caracteres es el mínimo: '$doce' debe aceptarse") {
-                doce.length shouldBe 12
-                PasswordPolicy.validate(doce).isValid shouldBe true
+            val twelve = "Bodega2026xy"
+            withClue("12 caracteres es el mínimo: '$twelve' debe aceptarse") {
+                twelve.length shouldBe 12
+                PasswordPolicy.validate(twelve).isValid shouldBe true
             }
         }
 
@@ -75,14 +75,14 @@ class PasswordPolicyTest : DescribeSpec({
             // El límite existe porque Argon2 con entradas enormes es un vector de
             // denegación de servicio: se puede hacer que el servidor consuma CPU
             // hasheando megabytes.
-            val enorme = "a1".repeat(70)
-            (PasswordRejection.TOO_LONG in motivos(enorme)) shouldBe true
+            val huge = "a1".repeat(70)
+            (PasswordRejection.TOO_LONG in reasons(huge)) shouldBe true
         }
 
         it("rechaza una contraseña de solo espacios, aunque sea larga") {
             // Sin esta comprobación, 20 espacios pasaría la regla de longitud.
-            val espacios = " ".repeat(20)
-            (PasswordRejection.ONLY_WHITESPACE in motivos(espacios)) shouldBe true
+            val spaces = " ".repeat(20)
+            (PasswordRejection.ONLY_WHITESPACE in reasons(spaces)) shouldBe true
         }
     }
 
@@ -105,13 +105,13 @@ class PasswordPolicyTest : DescribeSpec({
 
         it("rechaza un solo carácter repetido aunque sea largo") {
             // Malo incluso siendo largo: `aaaaaaaaaaaa` no tiene entropía.
-            (PasswordRejection.TOO_SIMPLE in motivos("aaaaaaaaaaaa")) shouldBe true
+            (PasswordRejection.TOO_SIMPLE in reasons("aaaaaaaaaaaa")) shouldBe true
         }
 
         it("rechaza solo dígitos seguidos") {
             // `123456789012` no está en la lista de comunes, pero es una
             // secuencia y no tiene letras.
-            (PasswordRejection.TOO_SIMPLE in motivos("123456789012")) shouldBe true
+            (PasswordRejection.TOO_SIMPLE in reasons("123456789012")) shouldBe true
         }
     }
 
@@ -120,27 +120,27 @@ class PasswordPolicyTest : DescribeSpec({
 
         it("rechaza una contraseña que contiene el usuario") {
             // `jperez` con `jperez2026seguro` es de lo primero que se prueba.
-            val motivos = motivos("jperez2026seguro", username = "jperez")
+            val reasons = reasons("jperez2026seguro", username = "jperez")
 
             withClue("Debe detectarse que contiene el nombre de usuario") {
-                (PasswordRejection.CONTAINS_USERNAME in motivos) shouldBe true
+                (PasswordRejection.CONTAINS_USERNAME in reasons) shouldBe true
             }
         }
 
         it("lo detecta sin importar mayúsculas ni espacios") {
             // `JPEREZ` y `jperez ` son el mismo usuario para quien intenta entrar.
-            (PasswordRejection.CONTAINS_USERNAME in motivos("MiJPEREZ2026x", "jperez")) shouldBe true
-            (PasswordRejection.CONTAINS_USERNAME in motivos("Jperez2026xyz", "jperez")) shouldBe true
+            (PasswordRejection.CONTAINS_USERNAME in reasons("MiJPEREZ2026x", "jperez")) shouldBe true
+            (PasswordRejection.CONTAINS_USERNAME in reasons("Jperez2026xyz", "jperez")) shouldBe true
         }
 
         it("no rechaza si el usuario es muy corto") {
             // Un usuario de 3 letras aparecería por casualidad en cualquier
             // contraseña. La comprobación exige 4 caracteres para evitar falsos
             // positivos molestos.
-            val motivos = motivos("Bodega2026xyz", username = "abc")
+            val reasons = reasons("Bodega2026xyz", username = "abc")
 
             withClue("Un usuario de 3 letras no debe provocar un rechazo") {
-                (PasswordRejection.CONTAINS_USERNAME in motivos) shouldBe false
+                (PasswordRejection.CONTAINS_USERNAME in reasons) shouldBe false
             }
         }
 
@@ -155,17 +155,17 @@ class PasswordPolicyTest : DescribeSpec({
         it("rechaza una contraseña común con espacios alrededor") {
             // ` Password123 ` es la misma contraseña para quien la escribe, y
             // `password123` para quien la adivina.
-            (PasswordRejection.COMMON in motivos(" Password123 ")) shouldBe true
+            (PasswordRejection.COMMON in reasons(" Password123 ")) shouldBe true
         }
 
         it("rechaza una contraseña común en mayúsculas") {
-            (PasswordRejection.COMMON in motivos("PASSWORD123")) shouldBe true
+            (PasswordRejection.COMMON in reasons("PASSWORD123")) shouldBe true
         }
 
         it("rechaza el nombre del sistema como contraseña") {
             // `puertonuevo` y `almacen12345` son las que alguien pondría por
             // comodidad. Son las primeras que probaría un atacante.
-            (PasswordRejection.COMMON in motivos("puertonuevo")) shouldBe true
+            (PasswordRejection.COMMON in reasons("puertonuevo")) shouldBe true
         }
     }
 
@@ -173,11 +173,11 @@ class PasswordPolicyTest : DescribeSpec({
     describe("el resultado y su explicación") {
 
         it("una contraseña válida devuelve Valid y un mensaje positivo") {
-            val resultado = PasswordPolicy.validate("Bodega2026xyz")
+            val result = PasswordPolicy.validate("Bodega2026xyz")
 
-            resultado.shouldBeInstanceOf<PasswordValidation.Valid>()
+            result.shouldBeInstanceOf<PasswordValidation.Valid>()
             withClue("El mensaje de una válida confirma, no advierte") {
-                PasswordPolicy.explain(resultado) shouldBe "La contraseña cumple los requisitos"
+                PasswordPolicy.explain(result) shouldBe "La contraseña cumple los requisitos"
             }
         }
 
@@ -188,22 +188,22 @@ class PasswordPolicyTest : DescribeSpec({
             // Se usa `password`: es corta Y está en la lista de filtradas, así que
             // dispara dos motivos. Con `admin` solo saltaba uno —es corta, pero no
             // está en la lista— y el test comprobaba algo que la política no hace.
-            val resultado = PasswordPolicy.validate("password", username = "admin")
+            val result = PasswordPolicy.validate("password", username = "admin")
 
-            val explicacion = PasswordPolicy.explain(resultado)
+            val explanation = PasswordPolicy.explain(result)
 
             withClue("Debe mencionar la longitud y que es una contraseña común") {
-                (explicacion.contains("12 caracteres")) shouldBe true
-                (explicacion.contains("filtradas")) shouldBe true
+                (explanation.contains("12 caracteres")) shouldBe true
+                (explanation.contains("filtradas")) shouldBe true
             }
         }
 
         it("los motivos no se repiten aunque se detecten por dos vías") {
-            val resultado = PasswordPolicy.validate(" ", username = " ")
+            val result = PasswordPolicy.validate(" ", username = " ")
 
-            val rechazos = (resultado as PasswordValidation.Invalid).rejections
-            withClue("Cada motivo debe aparecer una sola vez: $rechazos") {
-                rechazos.size shouldBe rechazos.distinct().size
+            val rejections = (result as PasswordValidation.Invalid).rejections
+            withClue("Cada motivo debe aparecer una sola vez: $rejections") {
+                rejections.size shouldBe rejections.distinct().size
             }
         }
     }
@@ -227,8 +227,8 @@ class PasswordPolicyTest : DescribeSpec({
             "1111111111111111" to false,
             "                " to false,
             "puertonuevo" to false,
-        ) { (contrasena, esperadaValida) ->
-            PasswordPolicy.validate(contrasena).isValid shouldBe esperadaValida
+        ) { (password, expectedValid) ->
+            PasswordPolicy.validate(password).isValid shouldBe expectedValid
         }
     }
 })

@@ -28,7 +28,7 @@ import io.ktor.server.application.ApplicationCall
 sealed interface PermissionDecision {
 
     /** El permiso está concedido para esta petición. */
-    data object Permitido : PermissionDecision
+    data object Permitted : PermissionDecision
 
     /**
      * Denegado, con el código del contrato (§1.3).
@@ -38,7 +38,7 @@ sealed interface PermissionDecision {
      * `SCOPE_INSUFFICIENT`, a pedir acceso a esa bodega; `POLICY_DENIED`, a
      * cambiar cuándo o cómo se hace la operación.
      */
-    data class Denegado(val code: String, val message: String) : PermissionDecision
+    data class Denied(val code: String, val message: String) : PermissionDecision
 }
 
 /**
@@ -49,7 +49,7 @@ sealed interface PermissionDecision {
  */
 interface PermissionChecker {
 
-    suspend fun comprobar(call: ApplicationCall, permiso: String): PermissionDecision
+    suspend fun check(call: ApplicationCall, permission: String): PermissionDecision
 }
 
 /**
@@ -62,11 +62,11 @@ interface PermissionChecker {
  */
 object DenyAllPermissionChecker : PermissionChecker {
 
-    override suspend fun comprobar(call: ApplicationCall, permiso: String): PermissionDecision =
-        PermissionDecision.Denegado(
+    override suspend fun check(call: ApplicationCall, permission: String): PermissionDecision =
+        PermissionDecision.Denied(
             code = "UNAUTHENTICATED",
             message = "La identidad todavía no está conectada en este despliegue, " +
-                "así que ninguna petición está autorizada. Permiso exigido: '$permiso'.",
+                "así que ninguna petición está autorizada. Permiso exigido: '$permission'.",
         )
 }
 
@@ -79,8 +79,8 @@ object DenyAllPermissionChecker : PermissionChecker {
  */
 object AllowAllPermissionChecker : PermissionChecker {
 
-    override suspend fun comprobar(call: ApplicationCall, permiso: String): PermissionDecision =
-        PermissionDecision.Permitido
+    override suspend fun check(call: ApplicationCall, permission: String): PermissionDecision =
+        PermissionDecision.Permitted
 }
 
 /**
@@ -97,33 +97,33 @@ object AllowAllPermissionChecker : PermissionChecker {
  */
 class AccessEnginePermissionChecker(
     private val engine: AccessEngine,
-    private val usuarioActual: suspend (ApplicationCall) -> AccessUser?,
-    private val contextoDePeticion: (ApplicationCall) -> RequestContext = { RequestContext() },
+    private val currentUser: suspend (ApplicationCall) -> AccessUser?,
+    private val requestContext: (ApplicationCall) -> RequestContext = { RequestContext() },
 ) : PermissionChecker {
 
-    override suspend fun comprobar(call: ApplicationCall, permiso: String): PermissionDecision {
-        val usuario = usuarioActual(call)
+    override suspend fun check(call: ApplicationCall, permission: String): PermissionDecision {
+        val user = currentUser(call)
 
         // El recurso va vacío: los permisos del catálogo y de las ubicaciones
         // son de alcance `ALL` (§11), así que no hay bodega concreta que
         // comprobar aquí. Cuando una ruta necesite alcance por bodega, se pasa
         // su `ResourceContext` y el motor resuelve la escalera.
         val decision = engine.decide(
-            user = usuario,
-            permissionKey = permiso,
+            user = user,
+            permissionKey = permission,
             resource = ResourceContext(),
-            context = contextoDePeticion(call),
+            context = requestContext(call),
         )
 
-        return decision.aDecisionDePermiso()
+        return decision.toPermissionDecision()
     }
 }
 
 /** Traduce la decisión del dominio al contrato de error de la API (§1.3). */
-private fun AccessDecision.aDecisionDePermiso(): PermissionDecision = when (this) {
-    is AccessDecision.Allowed -> PermissionDecision.Permitido
+private fun AccessDecision.toPermissionDecision(): PermissionDecision = when (this) {
+    is AccessDecision.Allowed -> PermissionDecision.Permitted
 
-    is AccessDecision.NotAuthenticated -> PermissionDecision.Denegado(
+    is AccessDecision.NotAuthenticated -> PermissionDecision.Denied(
         code = "UNAUTHENTICATED",
         message = reason,
     )
@@ -131,25 +131,25 @@ private fun AccessDecision.aDecisionDePermiso(): PermissionDecision = when (this
     // `ScopeDenied` ya distingue los dos casos en su `code`: sin el permiso
     // (`PERMISSION_DENIED`) o con el permiso pero sin alcance sobre el recurso
     // (`SCOPE_INSUFFICIENT`). Colapsarlos es el defecto del legacy.
-    is AccessDecision.ScopeDenied -> PermissionDecision.Denegado(
+    is AccessDecision.ScopeDenied -> PermissionDecision.Denied(
         code = code,
         message = "No tienes el permiso '$permission' con el alcance necesario " +
             "(tienes ${effectiveScope.name}, se exige ${requiredScope.name}).",
     )
 
-    is AccessDecision.PolicyDenied -> PermissionDecision.Denegado(
+    is AccessDecision.PolicyDenied -> PermissionDecision.Denied(
         code = "POLICY_DENIED",
         message = "Una política impide '$permission': ${decidedBy.policyName}.",
     )
 
     // Hay políticas vigentes sobre la acción y ninguna permitió: la acción queda
     // denegada por política, no por falta de permiso.
-    is AccessDecision.PolicyRequired -> PermissionDecision.Denegado(
+    is AccessDecision.PolicyRequired -> PermissionDecision.Denied(
         code = "POLICY_DENIED",
         message = "La acción '$permission' requiere una condición de política que no se cumple.",
     )
 
-    is AccessDecision.SegregationOfDuties -> PermissionDecision.Denegado(
+    is AccessDecision.SegregationOfDuties -> PermissionDecision.Denied(
         code = "SEGREGATION_OF_DUTIES",
         message = "No puedes autorizar tu propio trabajo: debe hacerlo otra persona.",
     )

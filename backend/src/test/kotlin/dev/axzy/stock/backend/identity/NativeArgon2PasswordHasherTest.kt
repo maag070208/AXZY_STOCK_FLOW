@@ -60,15 +60,15 @@ class NativeArgon2PasswordHasherTest : DescribeSpec({
         it("dos hashes de la misma contraseña son distintos: hay sal aleatoria") {
             // Sin sal, dos usuarios con la misma contraseña tendrían el mismo
             // hash: romper uno rompería los dos.
-            val primero = hasher.hash("Bodega2026xyz")
-            val segundo = hasher.hash("Bodega2026xyz")
+            val first = hasher.hash("Bodega2026xyz")
+            val second = hasher.hash("Bodega2026xyz")
 
             withClue("La sal debe hacer que difieran") {
-                (primero != segundo) shouldBe true
+                (first != second) shouldBe true
             }
             withClue("Y los dos deben verificar la misma contraseña") {
-                hasher.verify("Bodega2026xyz", primero) shouldBe true
-                hasher.verify("Bodega2026xyz", segundo) shouldBe true
+                hasher.verify("Bodega2026xyz", first) shouldBe true
+                hasher.verify("Bodega2026xyz", second) shouldBe true
             }
         }
 
@@ -77,9 +77,9 @@ class NativeArgon2PasswordHasherTest : DescribeSpec({
             // caracteres. Verificarlo detecta un cambio accidental de longitud.
             val hash = hasher.hash("Bodega2026xyz")
 
-            val sal = hash.split('$')[4]
-            withClue("Una sal de 16 bytes son 22 caracteres base64, y son ${sal.length}") {
-                sal.length shouldBe 22
+            val salt = hash.split('$')[4]
+            withClue("Una sal de 16 bytes son 22 caracteres base64, y son ${salt.length}") {
+                salt.length shouldBe 22
             }
         }
     }
@@ -114,10 +114,10 @@ class NativeArgon2PasswordHasherTest : DescribeSpec({
             // La contraseña se pasa como UTF-8. Si se usara la codificación por
             // defecto de la plataforma, una contraseña con acentos o emoji
             // funcionaría en una máquina y no en otra.
-            listOf("contraseña2026x", "bodega-ñ-2026", "clave con emoji 🔐 x").forEach { contrasena ->
-                val hash = hasher.hash(contrasena)
-                withClue("'$contrasena' debe verificar correctamente") {
-                    hasher.verify(contrasena, hash) shouldBe true
+            listOf("contraseña2026x", "bodega-ñ-2026", "clave con emoji 🔐 x").forEach { password ->
+                val hash = hasher.hash(password)
+                withClue("'$password' debe verificar correctamente") {
+                    hasher.verify(password, hash) shouldBe true
                 }
             }
         }
@@ -133,9 +133,9 @@ class NativeArgon2PasswordHasherTest : DescribeSpec({
                 "\$argon2id\$v=19\$m=65536,t=3,p=1\$solesal\$",
                 "\$argon2id\$v=19\$malformado\$corta",
                 "a".repeat(1000),
-            ).forEach { invalido ->
-                withClue("Un hash inválido debe devolver false: '${invalido.take(40)}'") {
-                    hasher.verify("Bodega2026xyz", invalido) shouldBe false
+            ).forEach { invalid ->
+                withClue("Un hash inválido debe devolver false: '${invalid.take(40)}'") {
+                    hasher.verify("Bodega2026xyz", invalid) shouldBe false
                 }
             }
         }
@@ -144,16 +144,16 @@ class NativeArgon2PasswordHasherTest : DescribeSpec({
             // Propiedad clave: los hashes antiguos siguen siendo válidos aunque
             // los parámetros de coste hayan cambiado, porque `argon2_verify` lee
             // los parámetros del propio hash.
-            val hashDebil = NativeArgon2PasswordHasher(
+            val hashWeak = NativeArgon2PasswordHasher(
                 NativeArgon2Config(iterations = 1, memoryKib = 8, parallelism = 1)
             ).hash("Bodega2026xyz")
 
-            val hasherFuerte = NativeArgon2PasswordHasher(
+            val hasherStrong = NativeArgon2PasswordHasher(
                 NativeArgon2Config(iterations = 2, memoryKib = 16, parallelism = 1)
             )
 
             withClue("El hash antiguo debe verificar con parámetros nuevos") {
-                hasherFuerte.verify("Bodega2026xyz", hashDebil) shouldBe true
+                hasherStrong.verify("Bodega2026xyz", hashWeak) shouldBe true
             }
         }
     }
@@ -161,14 +161,14 @@ class NativeArgon2PasswordHasherTest : DescribeSpec({
     describe("needsRehash: endurecer el coste sin invalidar nada") {
 
         it("detecta un hash con parámetros más débiles") {
-            val hashDebil = NativeArgon2PasswordHasher(
+            val hashWeak = NativeArgon2PasswordHasher(
                 NativeArgon2Config(iterations = 1, memoryKib = 8, parallelism = 1)
             ).hash("Bodega2026xyz")
 
-            val hasherFuerte = NativeArgon2PasswordHasher(NativeArgon2Config.DEFAULT)
+            val hasherStrong = NativeArgon2PasswordHasher(NativeArgon2Config.DEFAULT)
 
             withClue("Debe detectar que el hash usa menos coste del actual") {
-                hasherFuerte.needsRehash(hashDebil) shouldBe true
+                hasherStrong.needsRehash(hashWeak) shouldBe true
             }
         }
 
@@ -187,22 +187,22 @@ class NativeArgon2PasswordHasherTest : DescribeSpec({
         it("pide rehash si la variante no es Argon2id") {
             // Cubre el caso de una migración desde Argon2i o Argon2d: esos
             // hashes no deben quedarse como están.
-            val hasherQueDice = hasher
+            val hasherThatSays = hasher
             withClue("Un hash de otra variante debe pedir rehash") {
-                hasherQueDice.needsRehash(
+                hasherThatSays.needsRehash(
                     "\$argon2i\$v=19\$m=8,t=1,p=1\$c2FsYWRlcHJ1ZWJhMTIzNDU2\$aGFzaGRlcHJ1ZWJh"
                 ) shouldBe true
             }
         }
 
         it("lee correctamente los parámetros de un hash PHC") {
-            val parametros = hasher.parsearParametros(
+            val parameters = hasher.parseParameters(
                 "\$argon2id\$v=19\$m=65536,t=3,p=2\$c2Fs\$aGFzaA"
             )
 
             withClue("Debe extraer tipo, versión y los tres parámetros") {
-                parametros shouldBe NativeArgon2PasswordHasher.ParametrosPhc(
-                    tipo = "argon2id",
+                parameters shouldBe NativeArgon2PasswordHasher.PhcParameters(
+                    type = "argon2id",
                     version = 19,
                     memoryKib = 65536,
                     iterations = 3,
@@ -218,9 +218,9 @@ class NativeArgon2PasswordHasherTest : DescribeSpec({
                 "\$argon2id\$v=19",
                 "\$argon2id\$v=19\$m=abc,t=3,p=1\$sal\$hash",
                 "\$argon2id\$sin-version\$m=8,t=1,p=1\$sal\$hash",
-            ).forEach { raro ->
-                withClue("'$raro' no debe parsearse") {
-                    hasher.parsearParametros(raro) shouldBe null
+            ).forEach { odd ->
+                withClue("'$odd' no debe parsearse") {
+                    hasher.parseParameters(odd) shouldBe null
                 }
             }
         }
@@ -228,24 +228,24 @@ class NativeArgon2PasswordHasherTest : DescribeSpec({
         it("permite el ciclo completo de endurecimiento de parámetros") {
             // Es el flujo real: el usuario entra, se verifica con el hash viejo y
             // se re-hashea con los parámetros nuevos.
-            val hasherViejo = NativeArgon2PasswordHasher(
+            val hasherOld = NativeArgon2PasswordHasher(
                 NativeArgon2Config(iterations = 1, memoryKib = 8, parallelism = 1)
             )
-            val hasherNuevo = NativeArgon2PasswordHasher(
+            val hasherNew = NativeArgon2PasswordHasher(
                 NativeArgon2Config(iterations = 3, memoryKib = 64, parallelism = 1)
             )
 
-            val hashViejo = hasherViejo.hash("Bodega2026xyz")
+            val hashOld = hasherOld.hash("Bodega2026xyz")
 
             // 1. Verificar con el hash viejo.
-            hasherNuevo.verify("Bodega2026xyz", hashViejo) shouldBe true
+            hasherNew.verify("Bodega2026xyz", hashOld) shouldBe true
             // 2. Detectar que hay que regenerar.
-            hasherNuevo.needsRehash(hashViejo) shouldBe true
+            hasherNew.needsRehash(hashOld) shouldBe true
             // 3. Re-hashear.
-            val hashNuevo = hasherNuevo.hash("Bodega2026xyz")
+            val hashNew = hasherNew.hash("Bodega2026xyz")
             // 4. El nuevo no pide rehash y verifica.
-            hasherNuevo.needsRehash(hashNuevo) shouldBe false
-            hasherNuevo.verify("Bodega2026xyz", hashNuevo) shouldBe true
+            hasherNew.needsRehash(hashNew) shouldBe false
+            hasherNew.verify("Bodega2026xyz", hashNew) shouldBe true
         }
     }
 
@@ -255,16 +255,16 @@ class NativeArgon2PasswordHasherTest : DescribeSpec({
             // Este test existe para que nadie baje los parámetros de producción
             // por accidente: los tests usan FOR_TESTS, así que sin esta
             // comprobación una reducción en DEFAULT no se notaría.
-            val produccion = NativeArgon2Config.DEFAULT
+            val production = NativeArgon2Config.DEFAULT
 
             withClue("La memoria es lo que encarece el ataque con GPU") {
-                produccion.memoryKib shouldBe 64 * 1024
+                production.memoryKib shouldBe 64 * 1024
             }
             withClue("Las iteraciones siguen la RFC 9106") {
-                produccion.iterations shouldBe 3
+                production.iterations shouldBe 3
             }
             withClue("Paralelismo 1: el coste debe ser predecible en el servidor") {
-                produccion.parallelism shouldBe 1
+                production.parallelism shouldBe 1
             }
         }
 
@@ -272,11 +272,11 @@ class NativeArgon2PasswordHasherTest : DescribeSpec({
             // Un hash que tarda 0 ms significa que los parámetros no se están
             // aplicando. No se fija un umbral estricto porque depende de la
             // máquina, pero sí que no sea instantáneo.
-            val produccion = NativeArgon2PasswordHasher(NativeArgon2Config.DEFAULT)
+            val production = NativeArgon2PasswordHasher(NativeArgon2Config.DEFAULT)
 
-            val inicio = System.nanoTime()
-            produccion.hash("Bodega2026xyz")
-            val ms = (System.nanoTime() - inicio) / 1_000_000
+            val start = System.nanoTime()
+            production.hash("Bodega2026xyz")
+            val ms = (System.nanoTime() - start) / 1_000_000
 
             withClue("El hash de producción tardó ${ms}ms; debe ser al menos 10ms") {
                 (ms >= 10) shouldBe true

@@ -48,61 +48,61 @@ class ReceivingService(private val dataSource: DataSource) {
      * Se hace en UNA transacción: una factura sin líneas es un documento que no
      * sirve para nada y que bloquea el flujo de recepción.
      */
-    fun crearFactura(
-        numero: String,
-        fecha: LocalDate,
-        tipo: String,
-        lineas: List<NuevaLinea>,
-        usuarioId: Long,
-    ): Long = dataSource.connection.use { conexion ->
-        conexion.autoCommit = false
+    fun createInvoice(
+        number: String,
+        date: LocalDate,
+        type: String,
+        lines: List<NewInvoiceLine>,
+        userId: Long,
+    ): Long = dataSource.connection.use { connection ->
+        connection.autoCommit = false
         try {
-            val existente = conexion.prepareStatement(
+            val existing = connection.prepareStatement(
                 "SELECT id FROM invoices WHERE invoice_number = ?",
             ).use { st ->
-                st.setString(1, numero)
+                st.setString(1, number)
                 st.executeQuery().use { rs -> if (rs.next()) rs.getLong("id") else null }
             }
 
-            if (existente != null) {
+            if (existing != null) {
                 throw ConflictException(
                     "DUPLICATE_INVOICE_NUMBER",
-                    "Ya existe una factura con el número '$numero'.",
-                    mapOf("invoiceId" to existente.toString()),
+                    "Ya existe una factura con el número '$number'.",
+                    mapOf("invoiceId" to existing.toString()),
                 )
             }
 
-            val facturaId = conexion.prepareStatement(
+            val invoiceId = connection.prepareStatement(
                 """
                 INSERT INTO invoices (invoice_number, receipt_date, invoice_type, status, concept)
                 VALUES (?, ?, ?::invoice_type, 'PENDING'::invoice_status, ?)
                 RETURNING id
                 """.trimIndent(),
             ).use { st ->
-                st.setString(1, numero)
-                st.setDate(2, java.sql.Date.valueOf(fecha))
-                st.setString(3, tipo)
+                st.setString(1, number)
+                st.setDate(2, java.sql.Date.valueOf(date))
+                st.setString(3, type)
                 st.setString(4, null)
                 st.executeQuery().use { rs -> rs.next(); rs.getLong("id") }
             }
 
-            lineas.forEach { linea ->
-                val productoId = conexion.prepareStatement(
+            lines.forEach { line ->
+                val productId = connection.prepareStatement(
                     "SELECT id FROM products WHERE product_code = ? AND active",
                 ).use { st ->
-                    st.setString(1, linea.productCode)
+                    st.setString(1, line.productCode)
                     st.executeQuery().use { rs ->
                         if (!rs.next()) {
                             throw UnprocessableException(
                                 "PRODUCT_NOT_FOUND",
-                                "El producto '${linea.productCode}' no existe en el catálogo.",
+                                "El producto '${line.productCode}' no existe en el catálogo.",
                             )
                         }
                         rs.getLong("id")
                     }
                 }
 
-                conexion.prepareStatement(
+                connection.prepareStatement(
                     """
                     INSERT INTO invoice_lines (
                         invoice_id, product_id, container, unit_measure_id,
@@ -112,28 +112,28 @@ class ReceivingService(private val dataSource: DataSource) {
                     FROM units_of_measure u WHERE u.code = ?
                     """.trimIndent(),
                 ).use { st ->
-                    st.setLong(1, facturaId)
-                    st.setLong(2, productoId)
-                    st.setString(3, linea.container)
-                    st.setBigDecimal(4, linea.quantity.aBigDecimal())
-                    st.setBigDecimal(5, linea.boxQuantity.aBigDecimal())
-                    st.setBigDecimal(6, linea.unitsPerBox?.aBigDecimal())
-                    st.setString(7, linea.unitMeasure)
+                    st.setLong(1, invoiceId)
+                    st.setLong(2, productId)
+                    st.setString(3, line.container)
+                    st.setBigDecimal(4, line.quantity.toBigDecimal())
+                    st.setBigDecimal(5, line.boxQuantity.toBigDecimal())
+                    st.setBigDecimal(6, line.unitsPerBox?.toBigDecimal())
+                    st.setString(7, line.unitMeasure)
                     st.executeUpdate()
                 }
             }
 
-            conexion.commit()
-            facturaId
+            connection.commit()
+            invoiceId
         } catch (e: Exception) {
-            runCatching { conexion.rollback() }
+            runCatching { connection.rollback() }
             throw e
         }
     }
 
     /** Lee una factura con sus líneas. */
-    fun factura(id: Long): FacturaDetalle = dataSource.connection.use { conexion ->
-        val cabecera = conexion.prepareStatement(
+    fun invoice(id: Long): InvoiceDetail = dataSource.connection.use { connection ->
+        val header = connection.prepareStatement(
             """
             SELECT i.id, i.invoice_number, i.receipt_date, i.invoice_type, i.status,
                    i.customer_code, i.concept, i.created_at
@@ -145,7 +145,7 @@ class ReceivingService(private val dataSource: DataSource) {
                 if (!rs.next()) {
                     throw NotFoundException("La factura $id no existe.", "INVOICE_NOT_FOUND")
                 }
-                FacturaDetalle(
+                InvoiceDetail(
                     id = rs.getLong("id"),
                     invoiceNumber = rs.getString("invoice_number"),
                     receiptDate = rs.getDate("receipt_date").toLocalDate().toString(),
@@ -155,21 +155,21 @@ class ReceivingService(private val dataSource: DataSource) {
                     concept = rs.getString("concept"),
                     totalLines = 0,
                     pendingApprovalLines = 0,
-                    lines = leerLineas(conexion, id),
+                    lines = readLines(connection, id),
                 )
             }
         }
 
-        cabecera.copy(
-            totalLines = cabecera.lines.size,
-            pendingApprovalLines = cabecera.lines.count {
+        header.copy(
+            totalLines = header.lines.size,
+            pendingApprovalLines = header.lines.count {
                 it.status == InvoiceLineStatus.DISCREPANCY.name
             },
         )
     }
 
-    private fun leerLineas(conexion: Connection, facturaId: Long): List<LineaDto> =
-        conexion.prepareStatement(
+    private fun readLines(connection: Connection, invoiceId: Long): List<InvoiceLineDto> =
+        connection.prepareStatement(
             """
             SELECT l.id, l.product_id, p.product_code, p.name AS product_name,
                    l.container, l.quantity, l.box_quantity, l.units_per_box,
@@ -187,12 +187,12 @@ class ReceivingService(private val dataSource: DataSource) {
             ORDER BY l.id
             """.trimIndent(),
         ).use { st ->
-            st.setLong(1, facturaId)
+            st.setLong(1, invoiceId)
             st.executeQuery().use { rs ->
                 buildList {
                     while (rs.next()) {
                         add(
-                            LineaDto(
+                            InvoiceLineDto(
                                 id = rs.getLong("id"),
                                 productId = rs.getLong("product_id"),
                                 productCode = rs.getString("product_code"),
@@ -217,7 +217,7 @@ class ReceivingService(private val dataSource: DataSource) {
                                 approvedAt = rs.getTimestamp("approved_at")?.toInstant()?.toString(),
                                 adjustmentReason = rs.getString("adjustment_reason"),
                                 locationDisplayName = rs.getString("hall")?.let {
-                                    cuandoNombre(it, rs.getString("code"), rs.getString("position"), rs.getString("kind"))
+                                    displayNameFor(it, rs.getString("code"), rs.getString("position"), rs.getString("kind"))
                                 },
                             ),
                         )
@@ -236,39 +236,39 @@ class ReceivingService(private val dataSource: DataSource) {
      * La `difference` la calcula **la base**, con su columna generada, así que no
      * puede desincronizarse. Aquí solo se decide el estado a partir de ella.
      */
-    fun capturarLinea(
-        facturaId: Long,
-        lineaId: Long,
-        cantidadFisica: Quantity,
-        cajasFisicas: Quantity?,
-        usuarioId: Long,
-    ): LineaDto = dataSource.connection.use { conexion ->
-        conexion.autoCommit = false
+    fun captureLine(
+        invoiceId: Long,
+        lineId: Long,
+        quantityPhysical: Quantity,
+        boxesPhysical: Quantity?,
+        userId: Long,
+    ): InvoiceLineDto = dataSource.connection.use { connection ->
+        connection.autoCommit = false
         try {
-            val linea = leerLineaPara(conexion, facturaId, lineaId)
+            val line = readLineFor(connection, invoiceId, lineId)
 
-            if (linea.status == InvoiceLineStatus.APPROVED.name ||
-                linea.status == InvoiceLineStatus.LOCATED.name
+            if (line.status == InvoiceLineStatus.APPROVED.name ||
+                line.status == InvoiceLineStatus.LOCATED.name
             ) {
                 throw ConflictException(
                     "LINE_ALREADY_RESOLVED",
-                    "La línea ya está ${linea.status.lowercase()} y no se puede volver a capturar.",
+                    "La línea ya está ${line.status.lowercase()} y no se puede volver a capturar.",
                 )
             }
 
-            val cantidadFacturada = BigDecimal(linea.quantity)
-            val fisica = cantidadFisica.aBigDecimal()
+            val quantityInvoiced = BigDecimal(line.quantity)
+            val physical = quantityPhysical.toBigDecimal()
 
             // El estado lo decide la DIFERENCIA, y se lee de la base después de
             // escribir: calcularla aquí sería duplicar la regla y las dos versiones
             // se separarían.
-            val nuevoEstado = if (fisica.compareTo(cantidadFacturada) == 0) {
+            val newStatus = if (physical.compareTo(quantityInvoiced) == 0) {
                 InvoiceLineStatus.CAPTURED.name
             } else {
                 InvoiceLineStatus.DISCREPANCY.name
             }
 
-            conexion.prepareStatement(
+            connection.prepareStatement(
                 """
                 UPDATE invoice_lines
                 SET physical_quantity = ?, physical_box_quantity = ?,
@@ -277,28 +277,28 @@ class ReceivingService(private val dataSource: DataSource) {
                 WHERE id = ? AND invoice_id = ?
                 """.trimIndent(),
             ).use { st ->
-                st.setBigDecimal(1, fisica)
-                st.setBigDecimal(2, cajasFisicas?.aBigDecimal())
-                st.setString(3, nuevoEstado)
-                st.setLong(4, usuarioId)
-                st.setLong(5, lineaId)
-                st.setLong(6, facturaId)
+                st.setBigDecimal(1, physical)
+                st.setBigDecimal(2, boxesPhysical?.toBigDecimal())
+                st.setString(3, newStatus)
+                st.setLong(4, userId)
+                st.setLong(5, lineId)
+                st.setLong(6, invoiceId)
                 st.executeUpdate()
             }
 
             // El estado de la factura se deriva del de sus líneas, no se mantiene a
             // mano: una factura con una línea en discrepancia está IN_PROGRESS, no
             // COMPLETED.
-            refrescarEstadoFactura(conexion, facturaId)
+            refreshInvoiceStatus(connection, invoiceId)
 
-            conexion.commit()
+            connection.commit()
 
             // Se responde con la línea COMPLETA leída de `leerLineas`, no con el
             // resumen interno: el cliente necesita ver la `difference` que calculó
             // la base para saber si tiene que aprobar algo.
-            leerLineas(conexion, facturaId).first { it.id == lineaId }
+            readLines(connection, invoiceId).first { it.id == lineId }
         } catch (e: Exception) {
-            runCatching { conexion.rollback() }
+            runCatching { connection.rollback() }
             throw e
         }
     }
@@ -318,15 +318,15 @@ class ReceivingService(private val dataSource: DataSource) {
      *    pendientes** (R-74). El error dice CUÁLES, para que el supervisor sepa qué
      *    reasignar.
      */
-    fun aprobarFactura(
-        facturaId: Long,
-        motivo: String,
-        nota: String?,
-        aprobadorId: Long,
-    ): FacturaDetalle = dataSource.connection.use { conexion ->
-        conexion.autoCommit = false
+    fun approveInvoice(
+        invoiceId: Long,
+        reason: String,
+        note: String?,
+        approverId: Long,
+    ): InvoiceDetail = dataSource.connection.use { connection ->
+        connection.autoCommit = false
         try {
-            val pendientes = conexion.prepareStatement(
+            val pending = connection.prepareStatement(
                 """
                 SELECT l.id, l.captured_by
                 FROM invoice_lines l
@@ -335,7 +335,7 @@ class ReceivingService(private val dataSource: DataSource) {
                   AND NOT l.deleted
                 """.trimIndent(),
             ).use { st ->
-                st.setLong(1, facturaId)
+                st.setLong(1, invoiceId)
                 st.executeQuery().use { rs ->
                     buildList {
                         while (rs.next()) {
@@ -345,7 +345,7 @@ class ReceivingService(private val dataSource: DataSource) {
                 }
             }
 
-            if (pendientes.isEmpty()) {
+            if (pending.isEmpty()) {
                 throw ConflictException(
                     "NO_PENDING_APPROVAL",
                     "La factura no tiene líneas en discrepancia que aprobar. " +
@@ -354,18 +354,18 @@ class ReceivingService(private val dataSource: DataSource) {
             }
 
             // ── Segregación de funciones ────────────────────────────────────
-            val propias = pendientes.filter { it.second == aprobadorId }.map { it.first }
-            if (propias.isNotEmpty()) {
+            val own = pending.filter { it.second == approverId }.map { it.first }
+            if (own.isNotEmpty()) {
                 throw UnprocessableException(
                     "SEGREGATION_OF_DUTIES",
                     "No puedes aprobar una discrepancia que tú mismo capturaste. " +
-                        "Las líneas ${propias.joinToString(", ")} las contó el usuario " +
-                        "$aprobadorId, así que tiene que aprobarlas otra persona.",
-                    mapOf("lines" to propias.joinToString(",")),
+                        "Las líneas ${own.joinToString(", ")} las contó el usuario " +
+                        "$approverId, así que tiene que aprobarlas otra persona.",
+                    mapOf("lines" to own.joinToString(",")),
                 )
             }
 
-            if (motivo.isBlank()) {
+            if (reason.isBlank()) {
                 throw UnprocessableException(
                     "REASON_REQUIRED",
                     "Aprobar una discrepancia exige un motivo: dentro de un año nadie " +
@@ -373,7 +373,7 @@ class ReceivingService(private val dataSource: DataSource) {
                 )
             }
 
-            conexion.prepareStatement(
+            connection.prepareStatement(
                 """
                 UPDATE invoice_lines
                 SET status = 'APPROVED'::invoice_line_status,
@@ -385,17 +385,17 @@ class ReceivingService(private val dataSource: DataSource) {
                   AND NOT deleted
                 """.trimIndent(),
             ).use { st ->
-                st.setLong(1, aprobadorId)
-                st.setString(2, motivo.uppercase())
-                st.setLong(3, facturaId)
+                st.setLong(1, approverId)
+                st.setString(2, reason.uppercase())
+                st.setLong(3, invoiceId)
                 st.executeUpdate()
             }
 
-            refrescarEstadoFactura(conexion, facturaId)
-            conexion.commit()
-            factura(facturaId)
+            refreshInvoiceStatus(connection, invoiceId)
+            connection.commit()
+            invoice(invoiceId)
         } catch (e: Exception) {
-            runCatching { conexion.rollback() }
+            runCatching { connection.rollback() }
             throw e
         }
     }
@@ -408,13 +408,13 @@ class ReceivingService(private val dataSource: DataSource) {
      *
      * @throws ConflictException con `DISCREPANCY_NOT_APPROVED` si está bloqueada.
      */
-    fun exigirUbicable(conexion: Connection, lineaId: Long) {
-        val estado = conexion.prepareStatement(
+    fun requireLocatable(connection: Connection, lineId: Long) {
+        val status = connection.prepareStatement(
             "SELECT status FROM invoice_lines WHERE id = ? AND NOT deleted",
         ).use { st ->
-            st.setLong(1, lineaId)
+            st.setLong(1, lineId)
             st.executeQuery().use { rs ->
-                if (!rs.next()) throw NotFoundException("La línea $lineaId no existe.", "LINE_NOT_FOUND")
+                if (!rs.next()) throw NotFoundException("La línea $lineId no existe.", "LINE_NOT_FOUND")
                 rs.getString("status")
             }
         }
@@ -422,7 +422,7 @@ class ReceivingService(private val dataSource: DataSource) {
         // El estado del dominio es DISCREPANCY: es el mismo concepto que
         // PENDING_APPROVAL del contrato HTTP. El contrato usa un nombre y el
         // dominio otro, y tenerlo claro evita inventar un estado que no existe.
-        if (estado == InvoiceLineStatus.DISCREPANCY.name) {
+        if (status == InvoiceLineStatus.DISCREPANCY.name) {
             throw ConflictException(
                 "DISCREPANCY_NOT_APPROVED",
                 "La línea tiene una discrepancia sin aprobar y no se puede ubicar. " +
@@ -434,8 +434,8 @@ class ReceivingService(private val dataSource: DataSource) {
     }
 
     /** Bandeja de pendientes de aprobación. **Pantalla nueva: el legacy no la tenía.** */
-    fun pendientesDeAprobacion(): List<PendienteDto> = dataSource.connection.use { conexion ->
-        conexion.createStatement().use { st ->
+    fun pendingApprovals(): List<PendingApprovalDto> = dataSource.connection.use { connection ->
+        connection.createStatement().use { st ->
             st.executeQuery(
                 """
                 SELECT i.id, i.invoice_number, i.receipt_date, i.status,
@@ -452,7 +452,7 @@ class ReceivingService(private val dataSource: DataSource) {
                 buildList {
                     while (rs.next()) {
                         add(
-                            PendienteDto(
+                            PendingApprovalDto(
                                 invoiceId = rs.getLong("id"),
                                 invoiceNumber = rs.getString("invoice_number"),
                                 receiptDate = rs.getDate("receipt_date").toLocalDate().toString(),
@@ -480,29 +480,29 @@ class ReceivingService(private val dataSource: DataSource) {
      * nada. La respuesta se lee de [`leerLineas`], que es la única consulta que tiene
      * todos los campos.
      */
-    private data class LineaCruda(
+    private data class RawLine(
         val id: Long,
         val quantity: String,
         val status: String,
     )
 
-    private fun leerLineaPara(conexion: Connection, facturaId: Long, lineaId: Long): LineaCruda =
-        conexion.prepareStatement(
+    private fun readLineFor(connection: Connection, invoiceId: Long, lineId: Long): RawLine =
+        connection.prepareStatement(
             """
             SELECT id, quantity, status FROM invoice_lines
             WHERE id = ? AND invoice_id = ? AND NOT deleted
             """.trimIndent(),
         ).use { st ->
-            st.setLong(1, lineaId)
-            st.setLong(2, facturaId)
+            st.setLong(1, lineId)
+            st.setLong(2, invoiceId)
             st.executeQuery().use { rs ->
                 if (!rs.next()) {
                     throw NotFoundException(
-                        "La línea $lineaId no existe en la factura $facturaId.",
+                        "La línea $lineId no existe en la factura $invoiceId.",
                         "LINE_NOT_FOUND",
                     )
                 }
-                LineaCruda(
+                RawLine(
                     id = rs.getLong("id"),
                     quantity = rs.getBigDecimal("quantity").toPlainString(),
                     status = rs.getString("status"),
@@ -518,34 +518,34 @@ class ReceivingService(private val dataSource: DataSource) {
      * desincronizaban. Aquí se recalcula siempre desde las líneas, que son el dato
      * real.
      */
-    private fun refrescarEstadoFactura(conexion: Connection, facturaId: Long) {
-        val estados = conexion.prepareStatement(
+    private fun refreshInvoiceStatus(connection: Connection, invoiceId: Long) {
+        val statuses = connection.prepareStatement(
             "SELECT status FROM invoice_lines WHERE invoice_id = ? AND NOT deleted",
         ).use { st ->
-            st.setLong(1, facturaId)
+            st.setLong(1, invoiceId)
             st.executeQuery().use { rs ->
                 buildList { while (rs.next()) add(rs.getString("status")) }
             }
         }
 
-        val nuevo = when {
-            estados.isEmpty() -> "PENDING"
-            estados.any { it == "DISCREPANCY" } -> "PENDING_TO_LOCATE"
-            estados.all { it == "LOCATED" } -> "COMPLETED"
-            estados.all { it == "CANCELLED" } -> "CANCELLED"
+        val new = when {
+            statuses.isEmpty() -> "PENDING"
+            statuses.any { it == "DISCREPANCY" } -> "PENDING_TO_LOCATE"
+            statuses.all { it == "LOCATED" } -> "COMPLETED"
+            statuses.all { it == "CANCELLED" } -> "CANCELLED"
             else -> "IN_PROGRESS"
         }
 
-        conexion.prepareStatement(
+        connection.prepareStatement(
             "UPDATE invoices SET status = ?::invoice_status, updated_at = now() WHERE id = ?",
         ).use { st ->
-            st.setString(1, nuevo)
-            st.setLong(2, facturaId)
+            st.setString(1, new)
+            st.setLong(2, invoiceId)
             st.executeUpdate()
         }
     }
 
-    private fun cuandoNombre(hall: String, code: String, position: String, kind: String): String =
+    private fun displayNameFor(hall: String, code: String, position: String, kind: String): String =
         when (kind) {
             "RECEIVING" -> "RECEPCION"
             "UNASSIGNED" -> "SIN-UBICAR"
@@ -554,13 +554,13 @@ class ReceivingService(private val dataSource: DataSource) {
 }
 
 /** Convierte a `BigDecimal` con 3 decimales, sin pasar por `Double`. */
-private fun Quantity.aBigDecimal(): BigDecimal =
+private fun Quantity.toBigDecimal(): BigDecimal =
     BigDecimal.valueOf(this.value).movePointLeft(Quantity.SCALE)
 
 // ── DTOs ────────────────────────────────────────────────────────────────────
 
 /** Una línea nueva, tal como llega para crear la factura. */
-data class NuevaLinea(
+data class NewInvoiceLine(
     val productCode: String,
     val container: String?,
     val unitMeasure: String,
@@ -570,7 +570,7 @@ data class NuevaLinea(
 )
 
 @Serializable
-data class FacturaDetalle(
+data class InvoiceDetail(
     val id: Long,
     val invoiceNumber: String,
     val receiptDate: String,
@@ -580,11 +580,11 @@ data class FacturaDetalle(
     val concept: String? = null,
     val totalLines: Int = 0,
     val pendingApprovalLines: Int = 0,
-    val lines: List<LineaDto> = emptyList(),
+    val lines: List<InvoiceLineDto> = emptyList(),
 )
 
 @Serializable
-data class LineaDto(
+data class InvoiceLineDto(
     val id: Long,
     val productId: Long,
     val productCode: String,
@@ -610,7 +610,7 @@ data class LineaDto(
 )
 
 @Serializable
-data class PendienteDto(
+data class PendingApprovalDto(
     val invoiceId: Long,
     val invoiceNumber: String,
     val receiptDate: String,

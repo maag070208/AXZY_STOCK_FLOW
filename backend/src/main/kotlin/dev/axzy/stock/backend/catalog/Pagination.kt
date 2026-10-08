@@ -23,18 +23,18 @@ data class PageRequest(
     val page: Int,
     val size: Int,
     /** Campo de orden tal como lo nombró el cliente, ya verificado. */
-    val campoOrden: String,
-    val ascendente: Boolean,
+    val fieldOrder: String,
+    val ascending: Boolean,
 ) {
     /** Desplazamiento real que se pasa al `OFFSET` de la base. */
     val offset: Long get() = page.toLong() * size
 
     companion object {
         /** Tamaño por defecto del contrato. */
-        const val TAMANO_POR_DEFECTO = 50
+        const val DEFAULT_PAGE_SIZE = 50
 
         /** Tope del contrato. Un valor mayor se rechaza. */
-        const val TAMANO_MAXIMO = 200
+        const val SIZE_MAXIMUM = 200
 
         /**
          * Valida y construye la paginación a partir de los parámetros crudos.
@@ -48,62 +48,62 @@ data class PageRequest(
          *   global: `stock` no se puede ordenar aunque se devuelva.
          * @param ordenPorDefecto campo que se usa cuando no se pide `sort`.
          */
-        fun analizar(
+        fun analyze(
             page: String?,
             size: String?,
             sort: String?,
-            camposOrdenables: Set<String>,
-            ordenPorDefecto: String,
+            fieldsSortable: Set<String>,
+            defaultOrder: String,
         ): PageRequest {
-            val crudoPage = page?.trim()
-            val numeroPagina = if (crudoPage.isNullOrEmpty()) {
+            val rawPage = page?.trim()
+            val numberPage = if (rawPage.isNullOrEmpty()) {
                 0
             } else {
-                crudoPage.toIntOrNull() ?: throw BadRequestException(
+                rawPage.toIntOrNull() ?: throw BadRequestException(
                     code = "INVALID_PAGINATION",
-                    message = "El parámetro 'page' debe ser un número entero. Se recibió '$crudoPage'.",
-                    details = mapOf("page" to crudoPage),
+                    message = "El parámetro 'page' debe ser un número entero. Se recibió '$rawPage'.",
+                    details = mapOf("page" to rawPage),
                 )
             }
-            if (numeroPagina < 0) {
+            if (numberPage < 0) {
                 throw BadRequestException(
                     code = "INVALID_PAGINATION",
                     message = "El parámetro 'page' empieza en 0 y no admite negativos. " +
-                        "Se recibió $numeroPagina.",
-                    details = mapOf("page" to numeroPagina.toString()),
+                        "Se recibió $numberPage.",
+                    details = mapOf("page" to numberPage.toString()),
                 )
             }
 
-            val crudoSize = size?.trim()
-            val numeroTamano = if (crudoSize.isNullOrEmpty()) {
-                TAMANO_POR_DEFECTO
+            val rawSize = size?.trim()
+            val numberSize = if (rawSize.isNullOrEmpty()) {
+                DEFAULT_PAGE_SIZE
             } else {
-                crudoSize.toIntOrNull() ?: throw BadRequestException(
+                rawSize.toIntOrNull() ?: throw BadRequestException(
                     code = "INVALID_PAGINATION",
-                    message = "El parámetro 'size' debe ser un número entero. Se recibió '$crudoSize'.",
-                    details = mapOf("size" to crudoSize),
+                    message = "El parámetro 'size' debe ser un número entero. Se recibió '$rawSize'.",
+                    details = mapOf("size" to rawSize),
                 )
             }
             // Se rechaza en lugar de recortar: 0 no tiene sentido (no hay página
             // posible) y por encima del tope el cliente se expone a descargar la
             // tabla entera, que es justo lo que se corrige.
-            if (numeroTamano < 1 || numeroTamano > TAMANO_MAXIMO) {
+            if (numberSize < 1 || numberSize > SIZE_MAXIMUM) {
                 throw BadRequestException(
                     code = "INVALID_PAGINATION",
-                    message = "El parámetro 'size' debe estar entre 1 y $TAMANO_MAXIMO. " +
-                        "Se recibió $numeroTamano. No se recorta en silencio: un tamaño recortado " +
+                    message = "El parámetro 'size' debe estar entre 1 y $SIZE_MAXIMUM. " +
+                        "Se recibió $numberSize. No se recorta en silencio: un tamaño recortado " +
                         "haría creer al cliente que tiene todos los datos.",
-                    details = mapOf("size" to numeroTamano.toString()),
+                    details = mapOf("size" to numberSize.toString()),
                 )
             }
 
-            val (campo, ascendente) = analizarOrden(sort, camposOrdenables, ordenPorDefecto)
+            val (field, ascending) = analyzeSort(sort, fieldsSortable, defaultOrder)
 
             return PageRequest(
-                page = numeroPagina,
-                size = numeroTamano,
-                campoOrden = campo,
-                ascendente = ascendente,
+                page = numberPage,
+                size = numberSize,
+                fieldOrder = field,
+                ascending = ascending,
             )
         }
 
@@ -112,45 +112,45 @@ data class PageRequest(
          * ascendente, que es lo que espera un cliente que solo escribe
          * `sort=productCode`.
          */
-        private fun analizarOrden(
+        private fun analyzeSort(
             sort: String?,
-            camposOrdenables: Set<String>,
-            ordenPorDefecto: String,
+            fieldsSortable: Set<String>,
+            defaultOrder: String,
         ): Pair<String, Boolean> {
-            val crudo = sort?.trim()
-            if (crudo.isNullOrEmpty()) return ordenPorDefecto to true
+            val raw = sort?.trim()
+            if (raw.isNullOrEmpty()) return defaultOrder to true
 
-            val partes = crudo.split(',')
-            if (partes.size > 2) {
+            val parts = raw.split(',')
+            if (parts.size > 2) {
                 throw BadRequestException(
                     code = "INVALID_SORT",
-                    message = "El parámetro 'sort' es 'campo,direccion'. Se recibió '$crudo'.",
-                    details = mapOf("sort" to crudo),
+                    message = "El parámetro 'sort' es 'campo,direccion'. Se recibió '$raw'.",
+                    details = mapOf("sort" to raw),
                 )
             }
 
-            val campo = partes[0].trim()
-            if (campo !in camposOrdenables) {
+            val field = parts[0].trim()
+            if (field !in fieldsSortable) {
                 throw BadRequestException(
                     code = "INVALID_SORT",
-                    message = "No se puede ordenar por '$campo'. Campos admitidos en este " +
-                        "endpoint: ${camposOrdenables.sorted().joinToString(", ")}.",
-                    details = mapOf("sort" to campo),
+                    message = "No se puede ordenar por '$field'. Campos admitidos en este " +
+                        "endpoint: ${fieldsSortable.sorted().joinToString(", ")}.",
+                    details = mapOf("sort" to field),
                 )
             }
 
-            val direccion = partes.getOrNull(1)?.trim()?.lowercase()
-            val ascendente = when (direccion) {
+            val direction = parts.getOrNull(1)?.trim()?.lowercase()
+            val ascending = when (direction) {
                 null, "", "asc" -> true
                 "desc" -> false
                 else -> throw BadRequestException(
                     code = "INVALID_SORT",
-                    message = "La dirección de orden debe ser 'asc' o 'desc'. Se recibió '$direccion'.",
-                    details = mapOf("sort" to crudo),
+                    message = "La dirección de orden debe ser 'asc' o 'desc'. Se recibió '$direction'.",
+                    details = mapOf("sort" to raw),
                 )
             }
 
-            return campo to ascendente
+            return field to ascending
         }
     }
 }
@@ -176,6 +176,6 @@ data class Page<T>(
     val totalPages: Int
         get() = if (totalItems <= 0L) 0 else ((totalItems + size - 1) / size).toInt()
 
-    fun <R> map(transformacion: (T) -> R): Page<R> =
-        Page(items.map(transformacion), page, size, totalItems)
+    fun <R> map(transformation: (T) -> R): Page<R> =
+        Page(items.map(transformation), page, size, totalItems)
 }

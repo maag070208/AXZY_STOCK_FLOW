@@ -99,25 +99,25 @@ class IdentityRepository(private val dataSource: DataSource) {
      * se toma sobre un estado a medias.
      */
     fun findByUsername(username: String): IdentityUser? = transaction(db) {
-        val fila = UsersTable.selectAll().where { UsersTable.username eq username }
+        val row = UsersTable.selectAll().where { UsersTable.username eq username }
             .singleOrNull()
             ?: return@transaction null
 
-        completar(fila)
+        complete(row)
     }
 
     /** Busca un usuario por su identificador. */
     fun findById(id: Long): IdentityUser? = transaction(db) {
-        val fila = UsersTable.selectAll().where { UsersTable.id eq id }
+        val row = UsersTable.selectAll().where { UsersTable.id eq id }
             .singleOrNull()
             ?: return@transaction null
 
-        completar(fila)
+        complete(row)
     }
 
     /** Completa la fila con roles, permisos y bodegas. */
-    private fun completar(fila: ResultRow): IdentityUser {
-        val userId = fila[UsersTable.id]
+    private fun complete(row: ResultRow): IdentityUser {
+        val userId = row[UsersTable.id]
 
         // ── Paso 1: los identificadores de los roles ─────────────────────────
         val roleIds = UserRolesTable.selectAll().where { UserRolesTable.userId eq userId }
@@ -132,44 +132,44 @@ class IdentityRepository(private val dataSource: DataSource) {
         }
 
         // ── Paso 3: los permisos con su alcance ──────────────────────────────
-        val permisos = mutableMapOf<String, String>()
+        val permissions = mutableMapOf<String, String>()
         if (roleIds.isNotEmpty()) {
-            val permisosDeRoles = RolePermissionsTable.selectAll().where { RolePermissionsTable.roleId inList roleIds }
+            val rolePermissions = RolePermissionsTable.selectAll().where { RolePermissionsTable.roleId inList roleIds }
                 .map { it[RolePermissionsTable.permissionId] to it[RolePermissionsTable.scope] }
 
-            if (permisosDeRoles.isNotEmpty()) {
-                val idsDePermiso = permisosDeRoles.map { it.first }
-                val clavePorId = PermissionsTable.selectAll().where { (PermissionsTable.id inList idsDePermiso) and (PermissionsTable.active eq true) }
+            if (rolePermissions.isNotEmpty()) {
+                val permissionIds = rolePermissions.map { it.first }
+                val keyById = PermissionsTable.selectAll().where { (PermissionsTable.id inList permissionIds) and (PermissionsTable.active eq true) }
                     .associate { it[PermissionsTable.id] to it[PermissionsTable.key] }
 
-                permisosDeRoles.forEach { (permissionId, alcance) ->
-                    val clave = clavePorId[permissionId] ?: return@forEach
+                rolePermissions.forEach { (permissionId, scope) ->
+                    val key = keyById[permissionId] ?: return@forEach
                     // Se toma el alcance MÁS AMPLIO cuando el mismo permiso llega
                     // por dos roles: un usuario con JEFE_BODEGA (AREA) y AUDITOR
                     // (ALL) sobre el mismo permiso tiene ALL.
-                    permisos[clave] = alcanceMasAmplio(permisos[clave], alcance)
+                    permissions[key] = scopeMoreBroad(permissions[key], scope)
                 }
             }
         }
 
         // ── Paso 4: las bodegas del alcance AREA ─────────────────────────────
-        val bodegas = UserWarehouseScopesTable.selectAll().where { UserWarehouseScopesTable.userId eq userId }
+        val warehouses = UserWarehouseScopesTable.selectAll().where { UserWarehouseScopesTable.userId eq userId }
             .map { it[UserWarehouseScopesTable.warehouseId] }
 
         return IdentityUser(
             id = userId,
-            username = fila[UsersTable.username],
-            name = fila[UsersTable.name],
-            passwordHash = fila[UsersTable.passwordHash],
-            disabled = fila[UsersTable.disabled],
+            username = row[UsersTable.username],
+            name = row[UsersTable.name],
+            passwordHash = row[UsersTable.passwordHash],
+            disabled = row[UsersTable.disabled],
             roles = roles,
-            permissions = permisos,
-            warehouses = bodegas,
-            mustChangePassword = fila[UsersTable.mustChangePassword],
-            passwordChangedAt = fila[UsersTable.passwordChangedAt]?.toInstant(),
-            lockedUntil = fila[UsersTable.lockedUntil]?.toInstant(),
-            failedLoginCount = fila[UsersTable.failedLoginCount],
-            lastLoginAt = fila[UsersTable.lastLoginAt]?.toInstant(),
+            permissions = permissions,
+            warehouses = warehouses,
+            mustChangePassword = row[UsersTable.mustChangePassword],
+            passwordChangedAt = row[UsersTable.passwordChangedAt]?.toInstant(),
+            lockedUntil = row[UsersTable.lockedUntil]?.toInstant(),
+            failedLoginCount = row[UsersTable.failedLoginCount],
+            lastLoginAt = row[UsersTable.lastLoginAt]?.toInstant(),
         )
     }
 
@@ -214,7 +214,7 @@ class IdentityRepository(private val dataSource: DataSource) {
             // Igual que en los refresh tokens: la columna es `inet` y un nombre de
             // host no es válido. Se registra el intento sin la IP en ese caso, en
             // lugar de perder el registro entero.
-            it[LoginAttemptsTable.ip] = ip?.takeIf { esDireccionIp(it) }
+            it[LoginAttemptsTable.ip] = ip?.takeIf { isDirectionIp(it) }
             it[LoginAttemptsTable.userAgent] = userAgent
         }
 
@@ -222,29 +222,29 @@ class IdentityRepository(private val dataSource: DataSource) {
         // registra igual, para poder detectar el ataque contra nombres válidos.
         if (userId == null) return@transaction FailedLoginOutcome(0, null)
 
-        val fila = UsersTable.selectAll().where { UsersTable.id eq userId }.singleOrNull()
+        val row = UsersTable.selectAll().where { UsersTable.id eq userId }.singleOrNull()
             ?: return@transaction FailedLoginOutcome(0, null)
 
-        val fallos = fila[UsersTable.failedLoginCount] + 1
-        val bloqueo = if (fallos >= MAX_FAILED_ATTEMPTS) now.plusSeconds(LOCKOUT_SECONDS) else null
+        val failures = row[UsersTable.failedLoginCount] + 1
+        val lock = if (failures >= MAX_FAILED_ATTEMPTS) now.plusSeconds(LOCKOUT_SECONDS) else null
 
         UsersTable.update({ UsersTable.id eq userId }) {
-            it[failedLoginCount] = fallos
-            it[lockedUntil] = bloqueo?.aOffsetDateTime()
+            it[failedLoginCount] = failures
+            it[lockedUntil] = lock?.aOffsetDateTime()
         }
 
         // Se registra el bloqueo: un bloqueo sin traza es indistinguible de un
         // fallo del sistema.
-        if (bloqueo != null) {
+        if (lock != null) {
             logger.warn(
                 "Cuenta '{}' bloqueada {} segundos tras {} intentos fallidos",
                 username,
                 LOCKOUT_SECONDS,
-                fallos,
+                failures,
             )
         }
 
-        FailedLoginOutcome(fallos, bloqueo)
+        FailedLoginOutcome(failures, lock)
     }
 
     /**
@@ -273,7 +273,7 @@ class IdentityRepository(private val dataSource: DataSource) {
 
     /** Cuenta los fallos recientes de una IP. Frena la fuerza bruta distribuida. */
     fun countRecentFailuresByIp(ip: String, since: Instant): Long = transaction(db) {
-        if (!esDireccionIp(ip)) return@transaction 0L
+        if (!isDirectionIp(ip)) return@transaction 0L
         LoginAttemptsTable.selectAll().where {
             (LoginAttemptsTable.ip eq ip) and
                 (LoginAttemptsTable.succeeded eq false) and
@@ -307,7 +307,7 @@ class IdentityRepository(private val dataSource: DataSource) {
         // El cast explícito `?::uuid` es lo que lo resuelve, y el DSL no lo
         // expresa. Es el mismo problema que resolvió el módulo de catálogo con
         // `?::location_kind`.
-        return dataSource.connection.use { conexion ->
+        return dataSource.connection.use { connection ->
             // ── CONFIRMACIÓN EXPLÍCITA, Y ES OBLIGATORIA ────────────────────
             // El pool se construye con `autoCommit = false`, que es lo correcto
             // para las operaciones de la aplicación: cada una declara su
@@ -319,9 +319,9 @@ class IdentityRepository(private val dataSource: DataSource) {
             // token correcto, la tabla `refresh_tokens` quedaba VACÍA, y el
             // refresco posterior fallaba con «token no válido». Es el mismo error
             // que cometí en `IdentitySeeder.insertarPermisoCrudo`.
-            conexion.autoCommit = true
+            connection.autoCommit = true
 
-            conexion.prepareStatement(
+            connection.prepareStatement(
                 """
                 INSERT INTO refresh_tokens
                     (token_hash, user_id, family_id, generation, issued_at, expires_at,
@@ -340,7 +340,7 @@ class IdentityRepository(private val dataSource: DataSource) {
                 // fallar el inicio de sesión con un error interno opaco, que es la
                 // peor forma de fallar: el usuario no puede entrar y el motivo no
                 // se le puede explicar.
-                st.setString(6, ip?.takeIf { esDireccionIp(it) })
+                st.setString(6, ip?.takeIf { isDirectionIp(it) })
                 st.setString(7, userAgent)
                 st.executeQuery().use { rs ->
                     rs.next()
@@ -354,19 +354,19 @@ class IdentityRepository(private val dataSource: DataSource) {
     fun findRefreshToken(tokenHash: String): StoredRefreshToken? = transaction(db) {
         RefreshTokensTable.selectAll().where { RefreshTokensTable.tokenHash eq tokenHash }
             .singleOrNull()
-            ?.let { fila ->
+            ?.let { row ->
                 StoredRefreshToken(
-                    id = fila[RefreshTokensTable.id],
-                    tokenHash = fila[RefreshTokensTable.tokenHash],
-                    userId = fila[RefreshTokensTable.userId],
-                    familyId = fila[RefreshTokensTable.familyId],
-                    generation = fila[RefreshTokensTable.generation],
-                    issuedAt = fila[RefreshTokensTable.issuedAt].toInstant(),
-                    expiresAt = fila[RefreshTokensTable.expiresAt].toInstant(),
-                    rotatedAt = fila[RefreshTokensTable.rotatedAt]?.toInstant(),
-                    replacedByHash = fila[RefreshTokensTable.replacedByHash],
-                    revokedAt = fila[RefreshTokensTable.revokedAt]?.toInstant(),
-                    revocationReason = fila[RefreshTokensTable.revocationReason],
+                    id = row[RefreshTokensTable.id],
+                    tokenHash = row[RefreshTokensTable.tokenHash],
+                    userId = row[RefreshTokensTable.userId],
+                    familyId = row[RefreshTokensTable.familyId],
+                    generation = row[RefreshTokensTable.generation],
+                    issuedAt = row[RefreshTokensTable.issuedAt].toInstant(),
+                    expiresAt = row[RefreshTokensTable.expiresAt].toInstant(),
+                    rotatedAt = row[RefreshTokensTable.rotatedAt]?.toInstant(),
+                    replacedByHash = row[RefreshTokensTable.replacedByHash],
+                    revokedAt = row[RefreshTokensTable.revokedAt]?.toInstant(),
+                    revocationReason = row[RefreshTokensTable.revocationReason],
                 )
             }
     }
@@ -385,15 +385,15 @@ class IdentityRepository(private val dataSource: DataSource) {
         replacedByHash: String,
         at: Instant = Instant.now(),
     ) = transaction(db) {
-        val filas = RefreshTokensTable.update({ RefreshTokensTable.tokenHash eq tokenHash }) {
+        val rows = RefreshTokensTable.update({ RefreshTokensTable.tokenHash eq tokenHash }) {
             it[rotatedAt] = at.aOffsetDateTime()
             it[RefreshTokensTable.replacedByHash] = replacedByHash
         }
-        if (filas != 1) {
+        if (rows != 1) {
             // No debería ocurrir: el token se acaba de leer y se rota dentro de la
             // misma operación. Si pasa, hay una carrera entre dos refrescos
             // simultáneos y conviene saberlo.
-            logger.warn("Se esperaba rotar 1 token y se rotaron {}", filas)
+            logger.warn("Se esperaba rotar 1 token y se rotaron {}", rows)
         }
         Unit
     }
@@ -407,8 +407,8 @@ class IdentityRepository(private val dataSource: DataSource) {
      * con `inet` y con los enums de PostgreSQL.
      */
     fun nextGeneration(familyId: String): Int =
-        dataSource.connection.use { conexion ->
-            conexion.prepareStatement(
+        dataSource.connection.use { connection ->
+            connection.prepareStatement(
                 "SELECT COALESCE(MAX(generation), 0) + 1 AS siguiente " +
                     "FROM refresh_tokens WHERE family_id = ?::uuid",
             ).use { st ->
@@ -426,13 +426,13 @@ class IdentityRepository(private val dataSource: DataSource) {
      * vive en la base y es una sola sentencia.
      */
     fun revokeFamily(familyId: String, reason: String): Int =
-        dataSource.connection.use { conexion ->
+        dataSource.connection.use { connection ->
             // Misma razón que en `storeRefreshToken`: sin confirmar, la revocación
             // se pierde y **la sesión comprometida seguiría viva**. Es el peor
             // sitio donde puede fallar en silencio.
-            conexion.autoCommit = true
+            connection.autoCommit = true
 
-            conexion.prepareStatement("SELECT revoke_token_family(?::uuid, ?::revocation_reason)").use { st ->
+            connection.prepareStatement("SELECT revoke_token_family(?::uuid, ?::revocation_reason)").use { st ->
                 st.setString(1, familyId)
                 st.setString(2, reason)
                 st.executeQuery().use { rs -> if (rs.next()) rs.getInt(1) else 0 }
@@ -451,11 +451,11 @@ class IdentityRepository(private val dataSource: DataSource) {
 
     /** Revoca todas las familias de un usuario. Se usa al cambiar la contraseña. */
     fun revokeAllForUser(userId: Long, reason: String): Int = transaction(db) {
-        val familias = RefreshTokensTable.selectAll().where { (RefreshTokensTable.userId eq userId) and (RefreshTokensTable.revokedAt.isNull()) }
+        val families = RefreshTokensTable.selectAll().where { (RefreshTokensTable.userId eq userId) and (RefreshTokensTable.revokedAt.isNull()) }
             .map { it[RefreshTokensTable.familyId] }
             .distinct()
 
-        familias.sumOf { revokeFamily(it, reason) }
+        families.sumOf { revokeFamily(it, reason) }
     }
 
     /**
@@ -468,9 +468,9 @@ class IdentityRepository(private val dataSource: DataSource) {
      * y no depende del alcance que decida abrir el DSL.
      */
     fun purgeExpiredTokens(olderThan: Instant): Int =
-        dataSource.connection.use { conexion ->
-            conexion.autoCommit = true
-            conexion.prepareStatement("DELETE FROM refresh_tokens WHERE expires_at < ?").use { st ->
+        dataSource.connection.use { connection ->
+            connection.autoCommit = true
+            connection.prepareStatement("DELETE FROM refresh_tokens WHERE expires_at < ?").use { st ->
                 st.setObject(1, olderThan.aOffsetDateTime())
                 st.executeUpdate()
             }
@@ -497,14 +497,14 @@ class IdentityRepository(private val dataSource: DataSource) {
         const val LOCKOUT_SECONDS = 15L * 60
 
         /** Compara dos alcances y devuelve el más amplio. */
-        fun alcanceMasAmplio(actual: String?, nuevo: String): String {
-            if (actual == null) return nuevo
-            val orden = listOf("NONE", "OWN", "AREA", "ALL")
-            val posicionActual = orden.indexOf(actual)
-            val posicionNueva = orden.indexOf(nuevo)
-            if (posicionNueva < 0) return actual
-            if (posicionActual < 0) return nuevo
-            return if (posicionNueva > posicionActual) nuevo else actual
+        fun scopeMoreBroad(current: String?, new: String): String {
+            if (current == null) return new
+            val order = listOf("NONE", "OWN", "AREA", "ALL")
+            val positionCurrent = order.indexOf(current)
+            val positionNew = order.indexOf(new)
+            if (positionNew < 0) return current
+            if (positionCurrent < 0) return new
+            return if (positionNew > positionCurrent) new else current
         }
     }
 }
@@ -531,18 +531,18 @@ private fun Instant.aOffsetDateTime(): OffsetDateTime =
  * `NULL` en lugar de perder el registro entero. Un intento de inicio de sesión sin
  * IP sigue siendo información útil; un intento perdido, no.
  */
-internal fun esDireccionIp(valor: String): Boolean {
-    if (valor.isBlank()) return false
+internal fun isDirectionIp(value: String): Boolean {
+    if (value.isBlank()) return false
     // Se acepta IPv4 e IPv6 sin traer una dependencia: `InetAddress` no debe hacer
     // resolución DNS aquí, y `getByName` con un nombre SÍ la haría.
-    if (valor == "localhost") return false
+    if (value == "localhost") return false
     return runCatching {
-        val partes = valor.split('.')
-        if (partes.size == 4) {
-            partes.all { p -> p.toIntOrNull()?.let { it in 0..255 } == true }
+        val parts = value.split('.')
+        if (parts.size == 4) {
+            parts.all { p -> p.toIntOrNull()?.let { it in 0..255 } == true }
         } else {
             // IPv6: contiene `:` y solo caracteres hexadecimales.
-            valor.contains(':') && valor.all { it.isDigit() || it in "abcdefABCDEF:" }
+            value.contains(':') && value.all { it.isDigit() || it in "abcdefABCDEF:" }
         }
     }.getOrDefault(false)
 }

@@ -112,13 +112,13 @@ class InventoryLedger {
      * almacenado que haya que mantener sincronizado: se deriva.
      */
     fun totalOf(productCode: String): Quantity {
-        val enUbicaciones = balances.values.sumOf { porProducto ->
-            (porProducto[productCode] ?: Quantity.ZERO).value
+        val atLocations = balances.values.sumOf { byProduct ->
+            (byProduct[productCode] ?: Quantity.ZERO).value
         }
-        val enTransito = _inTransit
+        val inTransit = _inTransit
             .filter { it.productCode == productCode }
             .sumOf { it.quantity.value }
-        return ofScaled(enUbicaciones + enTransito)
+        return ofScaled(atLocations + inTransit)
     }
 
     /** Total del producto sumando **solo** las ubicaciones, sin el tránsito. */
@@ -154,8 +154,8 @@ class InventoryLedger {
 
     /** Todos los saldos, para recálculos (I5). */
     fun allBalances(): List<LocationBalance> =
-        balances.flatMap { (location, porProducto) ->
-            porProducto.map { (productCode, quantity) ->
+        balances.flatMap { (location, byProduct) ->
+            byProduct.map { (productCode, quantity) ->
                 LocationBalance(productCode, location, quantity)
             }
         }
@@ -175,11 +175,11 @@ class InventoryLedger {
                 "La carga inicial debe ser mayor que cero (se recibió $quantity)"
             ).asLeft()
         }
-        val resultado = record(productCode, MovementType.INITIAL, quantity, from = null, to = location)
-        if (resultado is Either.Left<*>) return resultado
+        val result = record(productCode, MovementType.INITIAL, quantity, from = null, to = location)
+        if (result is Either.Left<*>) return result
 
         addToLocation(productCode, location, quantity)
-        return resultado
+        return result
     }
 
     /** Recepción de factura: entra mercancía nueva. Es uno de los dos que suman. */
@@ -204,13 +204,13 @@ class InventoryLedger {
             ).asLeft()
         }
 
-        val resultado = record(
+        val result = record(
             productCode, MovementType.RECEIPT_IN, quantity,
             from = null, to = receivingLocation, clientUuid = clientUuid,
         )
-        if (resultado is Either.Left<*>) return resultado
+        if (result is Either.Left<*>) return result
         addToLocation(productCode, receivingLocation, quantity)
-        return resultado
+        return result
     }
 
     /**
@@ -233,23 +233,23 @@ class InventoryLedger {
             return DomainError.SameSourceAndDestination(fromReceiving.value).asLeft()
         }
 
-        val disponible = quantityAt(productCode, fromReceiving)
-        if (quantity > disponible) {
+        val available = quantityAt(productCode, fromReceiving)
+        if (quantity > available) {
             return DomainError.InsufficientStock(
-                available = disponible.value,
+                available = available.value,
                 requested = quantity.value,
                 location = fromReceiving.value,
             ).asLeft()
         }
 
-        val resultado = record(
+        val result = record(
             productCode, MovementType.LOCATE, quantity,
             from = fromReceiving, to = toShelf,
         )
-        if (resultado is Either.Left<*>) return resultado
+        if (result is Either.Left<*>) return result
         addToLocation(productCode, fromReceiving, ofScaled(-quantity.value))
         addToLocation(productCode, toShelf, quantity)
-        return resultado
+        return result
     }
 
     /** Traslado entre estantes de la misma bodega. Total invariante. */
@@ -270,19 +270,19 @@ class InventoryLedger {
             return DomainError.Duplicate("movimiento", clientUuid, "Movimiento ya registrado").asLeft()
         }
 
-        val disponible = quantityAt(productCode, from)
-        if (quantity > disponible) {
-            return DomainError.InsufficientStock(disponible.value, quantity.value, from.value).asLeft()
+        val available = quantityAt(productCode, from)
+        if (quantity > available) {
+            return DomainError.InsufficientStock(available.value, quantity.value, from.value).asLeft()
         }
 
-        val resultado = record(
+        val result = record(
             productCode, MovementType.MOVE_WITHIN_WAREHOUSE, quantity,
             from = from, to = to, clientUuid = clientUuid,
         )
-        if (resultado is Either.Left<*>) return resultado
+        if (result is Either.Left<*>) return result
         addToLocation(productCode, from, ofScaled(-quantity.value))
         addToLocation(productCode, to, quantity)
-        return resultado
+        return result
     }
 
     /** Salida de una bodega hacia otra: la mercancía entra en tránsito. */
@@ -296,24 +296,24 @@ class InventoryLedger {
             return DomainError.InvalidQuantity("La cantidad a transferir debe ser mayor que cero").asLeft()
         }
 
-        val disponible = quantityAt(productCode, fromLocation)
-        if (quantity > disponible) {
+        val available = quantityAt(productCode, fromLocation)
+        if (quantity > available) {
             return DomainError.InsufficientStock(
-                disponible.value, quantity.value, fromLocation.value,
+                available.value, quantity.value, fromLocation.value,
             ).asLeft()
         }
 
-        val resultado = record(
+        val result = record(
             productCode, MovementType.TRANSFER_OUT, quantity,
             from = fromLocation, to = null,
         )
-        if (resultado is Either.Left<*>) return resultado
+        if (result is Either.Left<*>) return result
         addToLocation(productCode, fromLocation, ofScaled(-quantity.value))
         // Entra en tránsito: sigue contando en el total.
         _inTransit.add(
             InTransitBalance(productCode, fromLocation, toWarehouseId, quantity)
         )
-        return resultado
+        return result
     }
 
     /** Llegada desde el tránsito: entra al estante destino y sale del tránsito. */
@@ -327,12 +327,12 @@ class InventoryLedger {
             return DomainError.InvalidQuantity("La cantidad a recibir debe ser mayor que cero").asLeft()
         }
 
-        val indice = _inTransit.indexOfFirst {
+        val index = _inTransit.indexOfFirst {
             it.productCode == productCode &&
                 it.toWarehouseId == toLocation.warehouseHint &&
                 it.quantity >= quantity
         }
-        if (indice < 0) {
+        if (index < 0) {
             return DomainError.InsufficientStock(
                 available = 0L,
                 requested = quantity.value,
@@ -341,16 +341,16 @@ class InventoryLedger {
             ).asLeft()
         }
 
-        val resultado = record(
+        val result = record(
             productCode, MovementType.TRANSFER_IN, quantity,
             from = null, to = toLocation,
         )
-        if (resultado is Either.Left<*>) return resultado
-        val actual = _inTransit[indice]
-        _inTransit[indice] = actual.copy(quantity = actual.quantity - quantity)
-        if (_inTransit[indice].quantity.isZero) _inTransit.removeAt(indice)
+        if (result is Either.Left<*>) return result
+        val current = _inTransit[index]
+        _inTransit[index] = current.copy(quantity = current.quantity - quantity)
+        if (_inTransit[index].quantity.isZero) _inTransit.removeAt(index)
         addToLocation(productCode, toLocation, quantity)
-        return resultado
+        return result
     }
 
     /** Ajuste positivo autorizado. Requiere motivo (I6). */
@@ -366,13 +366,13 @@ class InventoryLedger {
         if (!quantity.isPositive) {
             return DomainError.InvalidQuantity("El ajuste debe ser mayor que cero").asLeft()
         }
-        val resultado = record(
+        val result = record(
             productCode, MovementType.ADJUSTMENT_IN, quantity,
             from = null, to = location, reason = reason,
         )
-        if (resultado is Either.Left<*>) return resultado
+        if (result is Either.Left<*>) return result
         addToLocation(productCode, location, quantity)
-        return resultado
+        return result
     }
 
     /** Merma: sale mercancía de forma definitiva. Es el otro que resta. */
@@ -389,20 +389,20 @@ class InventoryLedger {
             return DomainError.InvalidQuantity("La merma debe ser mayor que cero").asLeft()
         }
 
-        val disponible = quantityAt(productCode, location)
-        if (quantity > disponible) {
+        val available = quantityAt(productCode, location)
+        if (quantity > available) {
             return DomainError.InsufficientStock(
-                disponible.value, quantity.value, location.value,
+                available.value, quantity.value, location.value,
             ).asLeft()
         }
 
-        val resultado = record(
+        val result = record(
             productCode, MovementType.ADJUSTMENT_OUT, quantity,
             from = location, to = null, reason = reason,
         )
-        if (resultado is Either.Left<*>) return resultado
+        if (result is Either.Left<*>) return result
         addToLocation(productCode, location, ofScaled(-quantity.value))
-        return resultado
+        return result
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -420,11 +420,11 @@ class InventoryLedger {
     ): DomainResult<LedgerEntry> {
         // `quantityAfter` se calcula con la suma de ubicaciones más tránsito
         // ANTES de aplicar el efecto, para que el ledger sea auto-auditable (I4).
-        val antes = totalOf(productCode)
-        val despues = when (type) {
-            MovementType.RECEIPT_IN, MovementType.ADJUSTMENT_IN, MovementType.INITIAL -> antes + quantity
-            MovementType.ADJUSTMENT_OUT -> antes - quantity
-            else -> antes
+        val before = totalOf(productCode)
+        val after = when (type) {
+            MovementType.RECEIPT_IN, MovementType.ADJUSTMENT_IN, MovementType.INITIAL -> before + quantity
+            MovementType.ADJUSTMENT_OUT -> before - quantity
+            else -> before
         }
 
         val entry = LedgerEntry(
@@ -434,7 +434,7 @@ class InventoryLedger {
             quantity = quantity,
             from = from,
             to = to,
-            quantityAfter = despues,
+            quantityAfter = after,
             reason = reason,
             clientUuid = clientUuid,
         )
@@ -443,9 +443,9 @@ class InventoryLedger {
     }
 
     private fun addToLocation(productCode: String, location: LocationCode, delta: Quantity) {
-        val porProducto = balances.getOrPut(location) { mutableMapOf() }
-        val actual = porProducto[productCode] ?: Quantity.ZERO
-        porProducto[productCode] = actual + delta
+        val byProduct = balances.getOrPut(location) { mutableMapOf() }
+        val current = byProduct[productCode] ?: Quantity.ZERO
+        byProduct[productCode] = current + delta
     }
 }
 

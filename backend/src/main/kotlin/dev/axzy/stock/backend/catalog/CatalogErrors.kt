@@ -23,7 +23,7 @@ import java.sql.SQLException
  */
 
 /** `unique_violation` de PostgreSQL. */
-private const val SQLSTATE_UNICIDAD = "23505"
+private const val SQLSTATE_UNIQUENESS = "23505"
 
 /**
  * Una violación de unicidad traducida al contrato, o `null` si el error es otro.
@@ -33,38 +33,38 @@ private const val SQLSTATE_UNICIDAD = "23505"
  * `locations_warehouse_id_hall_code_position_key`…) y depender del nombre exacto
  * ataría el código al esquema. El fragmento sí es estable: habla de la columna.
  */
-internal fun traducirViolacionDeUnicidad(error: Throwable): StockException? {
-    if (error.sqlState() != SQLSTATE_UNICIDAD) return null
+internal fun translateUniqueViolation(error: Throwable): StockException? {
+    if (error.sqlState() != SQLSTATE_UNIQUENESS) return null
 
-    val restriccion = error.restriccionViolada().orEmpty()
+    val constraint = error.constraintViolated().orEmpty()
 
     return when {
-        restriccion.contains("external_id") -> ConflictException(
+        constraint.contains("external_id") -> ConflictException(
             code = "DUPLICATE_EXTERNAL_ID",
             message = "Ya existe un producto con ese identificador del ERP. " +
                 "El identificador externo es único para que la referencia cruzada " +
                 "no apunte a dos productos.",
         )
 
-        restriccion.contains("product_code") -> ConflictException(
+        constraint.contains("product_code") -> ConflictException(
             code = "DUPLICATE_PRODUCT_CODE",
             message = "Ya existe un producto con ese código.",
         )
 
-        restriccion.contains("hall") || restriccion.contains("locations") -> ConflictException(
+        constraint.contains("hall") || constraint.contains("locations") -> ConflictException(
             code = "DUPLICATE_LOCATION",
             message = "Ya existe una ubicación con ese pasillo, localidad y posición " +
                 "en esa bodega.",
         )
 
-        restriccion.contains("warehouses") -> ConflictException(
+        constraint.contains("warehouses") -> ConflictException(
             code = "DUPLICATE_WAREHOUSE_CODE",
             message = "Ya existe una bodega con ese código.",
         )
 
         else -> ConflictException(
             code = "DUPLICATE_KEY",
-            message = "Ya existe un registro con esos datos (restricción '$restriccion').",
+            message = "Ya existe un registro con esos datos (restricción '$constraint').",
         )
     }
 }
@@ -77,11 +77,11 @@ internal fun traducirViolacionDeUnicidad(error: Throwable): StockException? {
  * detalle interno. Convertirlo en un 409 «por si acaso» escondería un fallo real
  * detrás de un mensaje que invita a repetir la operación.
  */
-internal inline fun <T> traduciendoErroresDeBase(bloque: () -> T): T =
+internal inline fun <T> translatingDbErrors(block: () -> T): T =
     try {
-        bloque()
+        block()
     } catch (error: ExposedSQLException) {
-        throw traducirViolacionDeUnicidad(error) ?: error
+        throw translateUniqueViolation(error) ?: error
     }
 
 /** Recorre la cadena de causas buscando el `SQLSTATE` de JDBC. */
@@ -96,7 +96,7 @@ private fun Throwable.sqlState(): String? =
  * `ExposedSQLException` envuelve la `PSQLException` del driver, así que hay que
  * bajar por la cadena de causas para encontrarla.
  */
-private fun Throwable.restriccionViolada(): String? =
+private fun Throwable.constraintViolated(): String? =
     generateSequence(this as Throwable?) { it.cause }
         .filterIsInstance<PSQLException>()
         .mapNotNull { it.serverErrorMessage?.constraint }

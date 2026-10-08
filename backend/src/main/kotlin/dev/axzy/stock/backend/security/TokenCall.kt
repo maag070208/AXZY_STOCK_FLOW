@@ -21,15 +21,15 @@ import java.util.Base64
  * formado. Quien llama decide qué hacer: las rutas lanzan 401.
  * ═══════════════════════════════════════════════════════════════════════════
  */
-internal fun ApplicationCall.usuarioDelToken(): Long? {
-    val cabecera = request.headers["Authorization"] ?: return null
-    if (!cabecera.startsWith("Bearer ", ignoreCase = true)) return null
+internal fun ApplicationCall.userFromToken(): Long? {
+    val header = request.headers["Authorization"] ?: return null
+    if (!header.startsWith("Bearer ", ignoreCase = true)) return null
 
-    val partes = cabecera.substring(7).trim().split('.')
-    if (partes.size != 3) return null
+    val parts = header.substring(7).trim().split('.')
+    if (parts.size != 3) return null
 
     return runCatching {
-        val payload = String(Base64.getUrlDecoder().decode(partes[1]))
+        val payload = String(Base64.getUrlDecoder().decode(parts[1]))
         // `sub` es una cadena en el JWT aunque su contenido sea numérico: el RFC lo
         // define como StringOrURI. Por eso se busca con comillas.
         Regex("\"sub\":\"(\\d+)\"").find(payload)?.groupValues?.get(1)?.toLong()

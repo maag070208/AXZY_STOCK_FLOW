@@ -283,12 +283,12 @@ fun decideRefresh(
     // también revocado —la rotación lo marca— y lo que importa comunicar es el
     // reuso, que es la señal de compromiso.
     if (record.isRotated) {
-        val rotadoHace = now - (record.rotatedAt ?: 0)
+        val rotatedDoes = now - (record.rotatedAt ?: 0)
 
         // Margen de gracia: un reintento por fallo de red dentro de la ventana.
         // Se devuelve el token que ya se generó, así que el cliente recibe uno
         // válido y no se revoca nada.
-        if (rotadoHace in 0..policy.rotationGraceMs) {
+        if (rotatedDoes in 0..policy.rotationGraceMs) {
             return RefreshDecision.Rotate(record)
         }
 

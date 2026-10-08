@@ -37,96 +37,96 @@ class LocationRepository(private val db: Database) {
          * la terna. Ordenar por un campo derivado obligaría a ordenar en
          * memoria, que es justo lo que no se hace.
          */
-        val CAMPOS_ORDENABLES: Set<String> = setOf("hall", "code", "position", "createdAt")
+        val SORTABLE_FIELDS: Set<String> = setOf("hall", "code", "position", "createdAt")
 
-        const val ORDEN_POR_DEFECTO = "hall"
+        const val DEFAULT_ORDER = "hall"
     }
 
     /** Lista paginada, con los filtros que usa la pantalla de ubicaciones. */
-    fun listar(
-        pagina: PageRequest,
-        busqueda: String?,
+    fun list(
+        page: PageRequest,
+        search: String?,
         warehouseId: Long?,
         kind: String?,
-        activo: Boolean?,
+        active: Boolean?,
     ): Page<LocationRecord> = transaction(db) {
-        val filtro = filtroDe(busqueda, warehouseId, kind, activo)
-        val total = Locations.selectAll().conFiltro(filtro).count()
+        val filter = filterOf(search, warehouseId, kind, active)
+        val total = Locations.selectAll().withFilter(filter).count()
 
-        val filas = consultaBase()
-            .conFiltro(filtro)
-            .orderBy(columnaDeOrden(pagina) to ordenDe(pagina), Locations.id to ordenDe(pagina))
-            .limit(pagina.size)
-            .offset(pagina.offset)
-            .map(::aRegistro)
+        val rows = queryBase()
+            .withFilter(filter)
+            .orderBy(sortColumn(page) to orderOf(page), Locations.id to orderOf(page))
+            .limit(page.size)
+            .offset(page.offset)
+            .map(::aRecord)
 
-        Page(items = filas, page = pagina.page, size = pagina.size, totalItems = total)
+        Page(items = rows, page = page.page, size = page.size, totalItems = total)
     }
 
-    fun porId(id: Long): LocationRecord? = transaction(db) {
-        consultaBase().where { Locations.id eq id }.singleOrNull()?.let(::aRegistro)
+    fun byId(id: Long): LocationRecord? = transaction(db) {
+        queryBase().where { Locations.id eq id }.singleOrNull()?.let(::aRecord)
     }
 
     /** ¿Existe ya la terna en esa bodega? `excluyendoId` sirve para el `PUT`. */
-    fun existeTerna(
+    fun tripleExists(
         warehouseId: Long,
         hall: String,
         code: String,
         position: String,
-        excluyendoId: Long?,
+        excludingId: Long?,
     ): Boolean = transaction(db) {
         Locations.selectAll()
             .where {
-                var condicion = (Locations.warehouseId eq warehouseId) and
+                var condition = (Locations.warehouseId eq warehouseId) and
                     (Locations.hall eq hall) and
                     (Locations.code eq code) and
                     (Locations.position eq position)
                 // En un `PUT` la propia ubicación no cuenta como duplicado.
-                excluyendoId?.let { condicion = condicion and (Locations.id neq it) }
-                condicion
+                excludingId?.let { condition = condition and (Locations.id neq it) }
+                condition
             }
             .limit(1)
             .any()
     }
 
-    fun crear(datos: NuevaUbicacion): LocationRecord = transaction(db) {
-        val ahora = OffsetDateTime.now()
+    fun create(data: NewLocation): LocationRecord = transaction(db) {
+        val now = OffsetDateTime.now()
 
         val id = Locations.insert {
-            it[warehouseId] = datos.warehouseId
-            it[hall] = datos.hall
-            it[code] = datos.code
-            it[position] = datos.position
-            it[levels] = datos.levels
+            it[warehouseId] = data.warehouseId
+            it[hall] = data.hall
+            it[code] = data.code
+            it[position] = data.position
+            it[levels] = data.levels
             // El cast explícito a `location_kind` se explica en CatalogTables.
-            it[kind] = castAKindDeUbicacion(datos.kind)
+            it[kind] = castToLocationKind(data.kind)
             it[active] = true
-            it[createdAt] = ahora
-            it[updatedAt] = ahora
+            it[createdAt] = now
+            it[updatedAt] = now
         } get Locations.id
 
-        porId(id) ?: error("La ubicación $id no se pudo releer después de crearla")
+        byId(id) ?: error("La ubicación $id no se pudo releer después de crearla")
     }
 
     /** Devuelve `null` si la ubicación no existe. */
-    fun actualizar(id: Long, cambios: CambiosUbicacion): LocationRecord? = transaction(db) {
-        val filas = Locations.update({ Locations.id eq id }) {
-            cambios.hall?.let { valor -> it[hall] = valor }
-            cambios.code?.let { valor -> it[code] = valor }
-            cambios.position?.let { valor -> it[position] = valor }
-            cambios.levels?.let { valor -> it[levels] = valor }
-            cambios.kind?.let { valor -> it[kind] = castAKindDeUbicacion(valor) }
+    fun update(id: Long, changes: ChangesLocation): LocationRecord? = transaction(db) {
+        val rows = Locations.update({ Locations.id eq id }) {
+            changes.hall?.let { value -> it[hall] = value }
+            changes.code?.let { value -> it[code] = value }
+            changes.position?.let { value -> it[position] = value }
+            changes.levels?.let { value -> it[levels] = value }
+            changes.kind?.let { value -> it[kind] = castToLocationKind(value) }
             // `active` se puede volver a poner en true por aquí: sin esto, una
             // ubicación desactivada por error solo se recuperaría por SQL.
-            cambios.activo?.let { valor -> it[active] = valor }
+            changes.active?.let { value -> it[active] = value }
             it[updatedAt] = OffsetDateTime.now()
         }
 
-        if (filas == 0) null else porId(id)
+        if (rows == 0) null else byId(id)
     }
 
     /** Borrado lógico de la ubicación. `false` si ya estaba inactiva o no existe. */
-    fun desactivar(id: Long): Boolean = transaction(db) {
+    fun disable(id: Long): Boolean = transaction(db) {
         Locations.update({ (Locations.id eq id) and (Locations.active eq true) }) {
             it[active] = false
             it[updatedAt] = OffsetDateTime.now()
@@ -140,17 +140,17 @@ class LocationRepository(private val db: Database) {
      * apagar, porque el inventario quedaría en un sitio invisible desde la
      * pantalla de ubicaciones y el descuadre aparecería en el conteo siguiente.
      */
-    fun totalDeStockDe(locationId: Long): BigDecimal = transaction(db) {
-        val suma = StockByLocation.quantity.sum()
+    fun totalStockOf(locationId: Long): BigDecimal = transaction(db) {
+        val sum = StockByLocation.quantity.sum()
         StockByLocation
-            .select(suma)
+            .select(sum)
             .where { StockByLocation.locationId eq locationId }
-            .first()[suma] ?: BigDecimal.ZERO
+            .first()[sum] ?: BigDecimal.ZERO
     }
 
     // ── Interno ─────────────────────────────────────────────────────────────
 
-    private fun consultaBase() = Locations
+    private fun queryBase() = Locations
         .join(Warehouses, JoinType.INNER, Locations.warehouseId, Warehouses.id)
         .select(
             Locations.id,
@@ -164,64 +164,64 @@ class LocationRepository(private val db: Database) {
             Warehouses.code,
         )
 
-    private fun aRegistro(fila: org.jetbrains.exposed.sql.ResultRow) = LocationRecord(
-        id = fila[Locations.id],
-        warehouseId = fila[Locations.warehouseId],
-        warehouseCode = fila[Warehouses.code],
-        hall = fila[Locations.hall],
-        code = fila[Locations.code],
-        position = fila[Locations.position],
-        levels = fila[Locations.levels],
-        kind = fila[Locations.kind],
-        active = fila[Locations.active],
+    private fun aRecord(row: org.jetbrains.exposed.sql.ResultRow) = LocationRecord(
+        id = row[Locations.id],
+        warehouseId = row[Locations.warehouseId],
+        warehouseCode = row[Warehouses.code],
+        hall = row[Locations.hall],
+        code = row[Locations.code],
+        position = row[Locations.position],
+        levels = row[Locations.levels],
+        kind = row[Locations.kind],
+        active = row[Locations.active],
     )
 
-    private fun filtroDe(
-        busqueda: String?,
+    private fun filterOf(
+        search: String?,
         warehouseId: Long?,
         kind: String?,
-        activo: Boolean?,
+        active: Boolean?,
     ): Op<Boolean>? {
-        var filtro: Op<Boolean>? = null
-        fun acumular(condicion: Op<Boolean>) {
-            filtro = filtro?.let { it and condicion } ?: condicion
+        var filter: Op<Boolean>? = null
+        fun accumulate(condition: Op<Boolean>) {
+            filter = filter?.let { it and condition } ?: condition
         }
 
-        warehouseId?.let { valor -> acumular(Op.build { Locations.warehouseId eq valor }) }
+        warehouseId?.let { value -> accumulate(Op.build { Locations.warehouseId eq value }) }
         // El cast a `location_kind` es obligatorio también en el filtro: el
         // operador `=` de PostgreSQL está definido entre el ENUM y el ENUM.
-        kind?.let { valor ->
-            acumular(Op.build { Locations.kind eq castAKindDeUbicacion(valor) })
+        kind?.let { value ->
+            accumulate(Op.build { Locations.kind eq castToLocationKind(value) })
         }
-        activo?.let { valor -> acumular(Op.build { Locations.active eq valor }) }
+        active?.let { value -> accumulate(Op.build { Locations.active eq value }) }
 
-        busqueda?.trim()?.takeIf { it.isNotEmpty() }?.let { texto ->
-            val patron = "%${texto.lowercase()}%"
-            acumular(
+        search?.trim()?.takeIf { it.isNotEmpty() }?.let { text ->
+            val pattern = "%${text.lowercase()}%"
+            accumulate(
                 Op.build {
-                    (Locations.hall.lowerCase() like patron) or
-                        (Locations.code.lowerCase() like patron) or
-                        (Locations.position.lowerCase() like patron)
+                    (Locations.hall.lowerCase() like pattern) or
+                        (Locations.code.lowerCase() like pattern) or
+                        (Locations.position.lowerCase() like pattern)
                 }
             )
         }
 
-        return filtro
+        return filter
     }
 
-    private fun columnaDeOrden(pagina: PageRequest) = when (pagina.campoOrden) {
+    private fun sortColumn(page: PageRequest) = when (page.fieldOrder) {
         "code" -> Locations.code
         "position" -> Locations.position
         "createdAt" -> Locations.createdAt
         else -> Locations.hall
     }
 
-    private fun ordenDe(pagina: PageRequest): SortOrder =
-        if (pagina.ascendente) SortOrder.ASC else SortOrder.DESC
+    private fun orderOf(page: PageRequest): SortOrder =
+        if (page.ascending) SortOrder.ASC else SortOrder.DESC
 }
 
 /** Los dos tipos de ubicación del esquema (`location_kind`). */
-enum class TipoDeUbicacion {
+enum class LocationKind {
     /** Estante normal. */
     SHELF,
 
@@ -254,7 +254,7 @@ data class LocationRecord(
 }
 
 /** Datos de alta de una ubicación, ya normalizados por el servicio. */
-data class NuevaUbicacion(
+data class NewLocation(
     val warehouseId: Long,
     val hall: String,
     val code: String,
@@ -264,11 +264,11 @@ data class NuevaUbicacion(
 )
 
 /** Campos que un `PUT` puede cambiar. `null` significa «no lo toques». */
-data class CambiosUbicacion(
+data class ChangesLocation(
     val hall: String?,
     val code: String?,
     val position: String?,
     val levels: Int?,
     val kind: String?,
-    val activo: Boolean?,
+    val active: Boolean?,
 )

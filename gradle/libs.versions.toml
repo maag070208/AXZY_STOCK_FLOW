@@ -132,6 +132,21 @@ ktor-server-cors = { module = "io.ktor:ktor-server-cors", version.ref = "ktor" }
 ktor-server-request-validation = { module = "io.ktor:ktor-server-request-validation", version.ref = "ktor" }
 ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
 ktor-server-config-yaml = { module = "io.ktor:ktor-server-config-yaml", version.ref = "ktor" }
+# ── Backend: documentación de la API (OpenAPI + Swagger UI) ────────────────
+# Los dos artefactos son de la PROPIA distribucion de Ktor, asi que van con
+# `version.ref = "ktor"` (3.1.1): mezclar la version del plugin con la del
+# servidor rompe el classpath, y no hay artefacto independiente que actualizar.
+#
+# POR QUE NO SE GENERA DESDE EL ARBOL DE RUTAS: la generacion en tiempo de
+# ejecucion (`OpenApiDocSource.Routing`, `.describe {}`, el plugin de compilador
+# del Ktor Gradle plugin) llego en Ktor 3.2/3.3. En 3.1.1 `ktor-server-openapi`
+# solo trae `OpenAPIConfig` + `openAPI(path, swaggerFile)`, es decir servir un
+# documento YA EXISTENTE (recurso o archivo). Requeriria subir todo Ktor —y el
+# plugin de compilador exige Kotlin 2.2.20, no 2.4.10—. Por eso el documento se
+# construye en codigo (docs/OpenApiDocumentation.kt) y se materializa al
+# arrancar. Verificado contra el jar real de 3.1.1 (javap) y no supuesto.
+ktor-server-openapi = { module = "io.ktor:ktor-server-openapi", version.ref = "ktor" }
+ktor-server-swagger = { module = "io.ktor:ktor-server-swagger", version.ref = "ktor" }
 
 # ── Backend: Exposed y persistencia ────────────────────────────────────────
 exposed-core = { module = "org.jetbrains.exposed:exposed-core", version.ref = "exposed" }

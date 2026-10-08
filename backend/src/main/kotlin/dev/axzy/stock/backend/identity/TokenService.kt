@@ -98,7 +98,7 @@ data class TokenConfig(
          *   arrancar que arrancar con un secreto conocido.
          */
         fun fromEnvironment(): TokenConfig {
-            val secreto = System.getenv("STOCK_JWT_SECRET")?.takeIf { it.isNotBlank() }
+            val secret = System.getenv("STOCK_JWT_SECRET")?.takeIf { it.isNotBlank() }
                 ?: error(
                     "Falta STOCK_JWT_SECRET. Genéralo con:\n" +
                         "  openssl rand -base64 48\n" +
@@ -108,7 +108,7 @@ data class TokenConfig(
                 )
 
             return TokenConfig(
-                secret = secreto,
+                secret = secret,
                 issuer = System.getenv("STOCK_JWT_ISSUER") ?: "stock-almacen",
                 audience = System.getenv("STOCK_JWT_AUDIENCE") ?: "stock-api",
                 accessTokenTtlSeconds = System.getenv("STOCK_JWT_TTL_SECONDS")?.toLongOrNull()
@@ -173,16 +173,16 @@ class TokenService(private val config: TokenConfig) {
     fun issueAccessToken(
         claims: TokenSubject,
     ): Pair<String, Instant> {
-        val ahora = Instant.now()
-        val expira = ahora.plusSeconds(config.accessTokenTtlSeconds)
+        val now = Instant.now()
+        val expires = now.plusSeconds(config.accessTokenTtlSeconds)
 
         val token = JWT.create()
             .withIssuer(config.issuer)
             .withAudience(config.audience)
             .withSubject(claims.userId.toString())
             .withJWTId(claims.tokenId)
-            .withIssuedAt(Date.from(ahora))
-            .withExpiresAt(Date.from(expira))
+            .withIssuedAt(Date.from(now))
+            .withExpiresAt(Date.from(expires))
             // Se usa `withClaim` con tipos simples: un `Map` anidado se
             // serializaría de forma implícita y el contrato quedaría sin
             // documentar.
@@ -194,7 +194,7 @@ class TokenService(private val config: TokenConfig) {
             .withClaim(CLAIM_WAREHOUSES, claims.warehouses)
             .sign(algorithm)
 
-        return token to expira
+        return token to expires
     }
 
     /**

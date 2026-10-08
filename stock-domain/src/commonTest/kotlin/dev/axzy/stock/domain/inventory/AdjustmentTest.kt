@@ -27,27 +27,27 @@ import io.kotest.matchers.types.shouldBeInstanceOf
  */
 class AdjustmentTest : DescribeSpec({
 
-    val producto = ProductCode.of("ABRAA1B")
-    val ubicacion = LocationCode.of("04BCA")
+    val product = ProductCode.of("ABRAA1B")
+    val location = LocationCode.of("04BCA")
 
-    fun crear(
-        cantidad: Long = 10,
-        direccion: AdjustmentDirection = AdjustmentDirection.DECREASE,
-        motivo: AdjustmentReason = AdjustmentReason.SHORTAGE,
-        origen: AdjustmentOrigin = AdjustmentOrigin.MANUAL_COUNT,
-        nota: String? = null,
-        solicitante: Long = 7,
-        clave: String? = null,
+    fun create(
+        quantity: Long = 10,
+        direction: AdjustmentDirection = AdjustmentDirection.DECREASE,
+        reason: AdjustmentReason = AdjustmentReason.SHORTAGE,
+        origin: AdjustmentOrigin = AdjustmentOrigin.MANUAL_COUNT,
+        note: String? = null,
+        requester: Long = 7,
+        key: String? = null,
     ): DomainResult<AdjustmentRequest> = AdjustmentRequest.create(
-        productCode = producto,
-        locationCode = ubicacion,
-        quantity = Quantity.of(cantidad),
-        direction = direccion,
-        reason = motivo,
-        origin = origen,
-        note = nota,
-        requestedBy = solicitante,
-        idempotencyKey = clave,
+        productCode = product,
+        locationCode = location,
+        quantity = Quantity.of(quantity),
+        direction = direction,
+        reason = reason,
+        origin = origin,
+        note = note,
+        requestedBy = requester,
+        idempotencyKey = key,
     )
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -57,11 +57,11 @@ class AdjustmentTest : DescribeSpec({
             // El legacy guardaba el motivo como texto libre, así que convivían
             // «merma», «Merma» y «producto dañado» como tres motivos distintos y
             // ningún reporte podía sumarlos.
-            val motivos = AdjustmentReason.entries.map { it.displayName }
+            val reasons = AdjustmentReason.entries.map { it.displayName }
 
             withClue("Ocho motivos, todos con nombre para mostrar") {
-                motivos.size shouldBe 8
-                (motivos.all { it.isNotBlank() }) shouldBe true
+                reasons.size shouldBe 8
+                (reasons.all { it.isNotBlank() }) shouldBe true
             }
         }
 
@@ -75,9 +75,9 @@ class AdjustmentTest : DescribeSpec({
         }
 
         it("ROBO sin explicación se rechaza con REASON_REQUIRED") {
-            val resultado = crear(motivo = AdjustmentReason.THEFT, nota = null)
+            val result = create(reason = AdjustmentReason.THEFT, note = null)
 
-            val error = resultado.leftOrNull().shouldBeInstanceOf<DomainError.ReasonRequired>()
+            val error = result.leftOrNull().shouldBeInstanceOf<DomainError.ReasonRequired>()
             withClue("El mensaje debe decir POR QUÉ se exige, no solo que falta") {
                 (error.message.contains("auditar")) shouldBe true
             }
@@ -86,20 +86,20 @@ class AdjustmentTest : DescribeSpec({
         it("OTRO con una nota muy corta también se rechaza") {
             // «no sé» no es una explicación. El mínimo existe para que la nota
             // sirva dentro de un año.
-            crear(motivo = AdjustmentReason.OTHER, nota = "no sé")
+            create(reason = AdjustmentReason.OTHER, note = "no sé")
                 .leftOrNull()
                 .shouldBeInstanceOf<DomainError.ReasonRequired>()
         }
 
         it("OTRO con una explicación suficiente se acepta") {
-            crear(
-                motivo = AdjustmentReason.OTHER,
-                nota = "Se rompió el empaque durante el traslado interno",
+            create(
+                reason = AdjustmentReason.OTHER,
+                note = "Se rompió el empaque durante el traslado interno",
             ).rightOrNull().shouldBeInstanceOf<AdjustmentRequest>()
         }
 
         it("una nota en blanco no cuenta como explicación") {
-            crear(motivo = AdjustmentReason.THEFT, nota = "      ")
+            create(reason = AdjustmentReason.THEFT, note = "      ")
                 .leftOrNull()
                 .shouldBeInstanceOf<DomainError.ReasonRequired>()
         }
@@ -107,7 +107,7 @@ class AdjustmentTest : DescribeSpec({
         it("un motivo normal NO exige nota") {
             // Exigirla siempre haría que la gente escribiera «ok» en todas, y una
             // nota que siempre dice «ok» no informa de nada.
-            crear(motivo = AdjustmentReason.SHORTAGE, nota = null)
+            create(reason = AdjustmentReason.SHORTAGE, note = null)
                 .rightOrNull()
                 .shouldBeInstanceOf<AdjustmentRequest>()
         }
@@ -117,7 +117,7 @@ class AdjustmentTest : DescribeSpec({
     describe("la cantidad es positiva: la dirección dice el signo") {
 
         it("una cantidad de cero se rechaza") {
-            val error = crear(cantidad = 0).leftOrNull()
+            val error = create(quantity = 0).leftOrNull()
                 .shouldBeInstanceOf<DomainError.InvalidQuantity>()
 
             withClue("El mensaje debe explicar que la dirección ya lleva el signo") {
@@ -135,9 +135,9 @@ class AdjustmentTest : DescribeSpec({
             //
             // El test que había solo cubría el CERO. `Quantity.ofScaled` no valida el
             // signo, así que el negativo llegaba hasta aquí.
-            val resultado = crear(cantidad = -500, direccion = AdjustmentDirection.DECREASE)
+            val result = create(quantity = -500, direction = AdjustmentDirection.DECREASE)
 
-            val error = resultado.leftOrNull().shouldBeInstanceOf<DomainError.InvalidQuantity>()
+            val error = result.leftOrNull().shouldBeInstanceOf<DomainError.InvalidQuantity>()
 
             withClue("El mensaje debe explicar que invertiría el movimiento") {
                 (error.message.contains("invertiría")) shouldBe true
@@ -148,14 +148,14 @@ class AdjustmentTest : DescribeSpec({
             // El caso completo del agujero: motivo que no exige nota, dirección que
             // no pide aprobación, y cantidad negativa. Los tres juntos sumaban
             // inventario sin que nadie aprobara nada.
-            val solicitud = crear(
-                cantidad = -1000,
-                direccion = AdjustmentDirection.DECREASE,
-                motivo = AdjustmentReason.SHORTAGE,
+            val request = create(
+                quantity = -1000,
+                direction = AdjustmentDirection.DECREASE,
+                reason = AdjustmentReason.SHORTAGE,
             )
 
             withClue("No debe construirse la solicitud") {
-                (solicitud.rightOrNull() == null) shouldBe true
+                (request.rightOrNull() == null) shouldBe true
             }
         }
 
@@ -177,7 +177,7 @@ class AdjustmentTest : DescribeSpec({
         it("sin usuario se rechaza") {
             // Sin él no hay segregación de funciones ni auditoría: es el requisito
             // «quién» del sistema.
-            crear(solicitante = 0)
+            create(requester = 0)
                 .leftOrNull()
                 .shouldBeInstanceOf<DomainError.PermissionDenied>()
         }
@@ -190,43 +190,43 @@ class AdjustmentTest : DescribeSpec({
             // Una merma se detecta sola en el siguiente conteo. Un aumento sin
             // justificar es la forma más sencilla de tapar un robo, así que
             // necesita que otra persona lo firme.
-            val solicitud = crear(
-                direccion = AdjustmentDirection.INCREASE,
-                motivo = AdjustmentReason.COUNT_ERROR,
+            val request = create(
+                direction = AdjustmentDirection.INCREASE,
+                reason = AdjustmentReason.COUNT_ERROR,
             ).rightOrNull()!!
 
-            solicitud.requiresApproval shouldBe true
+            request.requiresApproval shouldBe true
         }
 
         it("una MERMA no requiere aprobación, y es deliberado") {
             // Bloquear la corrección de un error evidente solo hace que la gente
             // deje de corregirlos, y entonces el inventario se queda mal.
-            val solicitud = crear(
-                direccion = AdjustmentDirection.DECREASE,
-                motivo = AdjustmentReason.SHORTAGE,
+            val request = create(
+                direction = AdjustmentDirection.DECREASE,
+                reason = AdjustmentReason.SHORTAGE,
             ).rightOrNull()!!
 
-            solicitud.requiresApproval shouldBe false
+            request.requiresApproval shouldBe false
         }
 
         it("un aumento SIN aprobador queda PENDIENTE, no se aplica") {
-            val solicitud = crear(
-                direccion = AdjustmentDirection.INCREASE,
-                motivo = AdjustmentReason.COUNT_ERROR,
+            val request = create(
+                direction = AdjustmentDirection.INCREASE,
+                reason = AdjustmentReason.COUNT_ERROR,
             ).rightOrNull()!!
 
-            val decision = AdjustmentPolicy.decide(solicitud, approverId = null)
+            val decision = AdjustmentPolicy.decide(request, approverId = null)
 
-            val pendiente = decision.shouldBeInstanceOf<AdjustmentPolicy.Decision.PendingApproval>()
+            val pending = decision.shouldBeInstanceOf<AdjustmentPolicy.Decision.PendingApproval>()
             withClue("El motivo debe explicar el porqué de la aprobación, no solo pedirla") {
-                (pendiente.reason.contains("tapar un robo")) shouldBe true
+                (pending.reason.contains("tapar un robo")) shouldBe true
             }
         }
 
         it("una merma se aplica sin aprobador") {
-            val solicitud = crear(direccion = AdjustmentDirection.DECREASE).rightOrNull()!!
+            val request = create(direction = AdjustmentDirection.DECREASE).rightOrNull()!!
 
-            AdjustmentPolicy.decide(solicitud, approverId = null) shouldBe
+            AdjustmentPolicy.decide(request, approverId = null) shouldBe
                 AdjustmentPolicy.Decision.Apply
         }
     }
@@ -237,41 +237,41 @@ class AdjustmentTest : DescribeSpec({
         it("el mismo usuario no puede aprobar su propio ajuste") {
             // Decisión R-74. Es el control que impide que alguien cubra su propio
             // error sin que nadie lo revise.
-            val solicitud = crear(
-                direccion = AdjustmentDirection.INCREASE,
-                motivo = AdjustmentReason.COUNT_ERROR,
-                solicitante = 7,
+            val request = create(
+                direction = AdjustmentDirection.INCREASE,
+                reason = AdjustmentReason.COUNT_ERROR,
+                requester = 7,
             ).rightOrNull()!!
 
-            val decision = AdjustmentPolicy.decide(solicitud, approverId = 7)
+            val decision = AdjustmentPolicy.decide(request, approverId = 7)
 
-            val rechazo = decision.shouldBeInstanceOf<AdjustmentPolicy.Decision.Reject>()
-            rechazo.error.shouldBeInstanceOf<DomainError.SegregationOfDuties>()
+            val rejection = decision.shouldBeInstanceOf<AdjustmentPolicy.Decision.Reject>()
+            rejection.error.shouldBeInstanceOf<DomainError.SegregationOfDuties>()
         }
 
         it("otra persona SÍ puede aprobarlo") {
-            val solicitud = crear(
-                direccion = AdjustmentDirection.INCREASE,
-                motivo = AdjustmentReason.COUNT_ERROR,
-                solicitante = 7,
+            val request = create(
+                direction = AdjustmentDirection.INCREASE,
+                reason = AdjustmentReason.COUNT_ERROR,
+                requester = 7,
             ).rightOrNull()!!
 
-            AdjustmentPolicy.decide(solicitud, approverId = 20) shouldBe
+            AdjustmentPolicy.decide(request, approverId = 20) shouldBe
                 AdjustmentPolicy.Decision.Apply
         }
 
         it("el rechazo nombra al usuario que intentó aprobarse") {
             // Un mensaje que solo diga «no permitido» obliga a adivinar por qué.
-            val solicitud = crear(
-                direccion = AdjustmentDirection.INCREASE,
-                solicitante = 42,
+            val request = create(
+                direction = AdjustmentDirection.INCREASE,
+                requester = 42,
             ).rightOrNull()!!
 
-            val rechazo = AdjustmentPolicy.decide(solicitud, approverId = 42)
+            val rejection = AdjustmentPolicy.decide(request, approverId = 42)
                 .shouldBeInstanceOf<AdjustmentPolicy.Decision.Reject>()
 
-            withClue("El mensaje debe incluir el id del usuario: ${rechazo.error.message}") {
-                (rechazo.error.message.contains("42")) shouldBe true
+            withClue("El mensaje debe incluir el id del usuario: ${rejection.error.message}") {
+                (rejection.error.message.contains("42")) shouldBe true
             }
         }
     }
@@ -280,18 +280,18 @@ class AdjustmentTest : DescribeSpec({
     describe("no se puede dejar el saldo en negativo") {
 
         it("una merma mayor que el saldo se rechaza con los NÚMEROS") {
-            val solicitud = crear(
-                cantidad = 500,
-                direccion = AdjustmentDirection.DECREASE,
+            val request = create(
+                quantity = 500,
+                direction = AdjustmentDirection.DECREASE,
             ).rightOrNull()!!
 
             val decision = AdjustmentPolicy.decide(
-                solicitud,
+                request,
                 available = Quantity.of(100),
             )
 
-            val rechazo = decision.shouldBeInstanceOf<AdjustmentPolicy.Decision.Reject>()
-            val error = rechazo.error.shouldBeInstanceOf<DomainError.InsufficientStock>()
+            val rejection = decision.shouldBeInstanceOf<AdjustmentPolicy.Decision.Reject>()
+            val error = rejection.error.shouldBeInstanceOf<DomainError.InsufficientStock>()
 
             withClue("El error lleva las cantidades y la ubicación, no solo un texto") {
                 error.available shouldBe 100L
@@ -301,33 +301,33 @@ class AdjustmentTest : DescribeSpec({
         }
 
         it("una merma igual al saldo se acepta: deja la ubicación en cero") {
-            val solicitud = crear(
-                cantidad = 100,
-                direccion = AdjustmentDirection.DECREASE,
+            val request = create(
+                quantity = 100,
+                direction = AdjustmentDirection.DECREASE,
             ).rightOrNull()!!
 
-            AdjustmentPolicy.decide(solicitud, available = Quantity.of(100)) shouldBe
+            AdjustmentPolicy.decide(request, available = Quantity.of(100)) shouldBe
                 AdjustmentPolicy.Decision.Apply
         }
 
         it("sin conocer el saldo no se rechaza por cantidad") {
             // La comprobación real la hace la base con su CHECK. Aquí se comprueba
             // solo si se conoce el saldo, para dar un mensaje mejor.
-            val solicitud = crear(cantidad = 500).rightOrNull()!!
+            val request = create(quantity = 500).rightOrNull()!!
 
-            AdjustmentPolicy.decide(solicitud, available = null) shouldBe
+            AdjustmentPolicy.decide(request, available = null) shouldBe
                 AdjustmentPolicy.Decision.Apply
         }
 
         it("la comprobación de saldo NO aplica a un aumento") {
             // Un aumento no puede dejar el saldo en negativo: suma.
-            val solicitud = crear(
-                cantidad = 500,
-                direccion = AdjustmentDirection.INCREASE,
-                motivo = AdjustmentReason.COUNT_ERROR,
+            val request = create(
+                quantity = 500,
+                direction = AdjustmentDirection.INCREASE,
+                reason = AdjustmentReason.COUNT_ERROR,
             ).rightOrNull()!!
 
-            AdjustmentPolicy.decide(solicitud, approverId = 20, available = Quantity.of(0)) shouldBe
+            AdjustmentPolicy.decide(request, approverId = 20, available = Quantity.of(0)) shouldBe
                 AdjustmentPolicy.Decision.Apply
         }
     }
@@ -350,11 +350,11 @@ class AdjustmentTest : DescribeSpec({
             // **Ésta es la propiedad que unifica los cuatro flujos.** En el legacy
             // cada uno tenía su código, así que arreglar un motivo en la
             // discrepancia no arreglaba nada en el conteo.
-            AdjustmentOrigin.entries.forEach { origen ->
-                withClue("Un faltante desde «${origen.displayName}» debe ser válido") {
-                    crear(
-                        motivo = AdjustmentReason.SHORTAGE,
-                        origen = origen,
+            AdjustmentOrigin.entries.forEach { origin ->
+                withClue("Un faltante desde «${origin.displayName}» debe ser válido") {
+                    create(
+                        reason = AdjustmentReason.SHORTAGE,
+                        origin = origin,
                     ).rightOrNull().shouldBeInstanceOf<AdjustmentRequest>()
                 }
             }
@@ -367,13 +367,13 @@ class AdjustmentTest : DescribeSpec({
         it("una clave vacía se guarda como nula, no como cadena vacía") {
             // El móvil sin señal reintenta; una cadena vacía como clave haría que
             // todos los reintentos parecieran el mismo movimiento.
-            val solicitud = crear(clave = "   ").rightOrNull()!!
+            val request = create(key = "   ").rightOrNull()!!
 
-            solicitud.idempotencyKey shouldBe null
+            request.idempotencyKey shouldBe null
         }
 
         it("una clave con espacios alrededor se recorta") {
-            crear(clave = "  abc-123  ").rightOrNull()!!.idempotencyKey shouldBe "abc-123"
+            create(key = "  abc-123  ").rightOrNull()!!.idempotencyKey shouldBe "abc-123"
         }
     }
 
@@ -386,37 +386,37 @@ class AdjustmentTest : DescribeSpec({
         // `AdjustmentReason`, `AdjustmentDirection`, `String` y `Boolean`, y el
         // resultado no se puede desestructurar sin anotaciones por todas partes.
         // Con nombres, además, el test se lee sin contar posiciones.
-        data class Caso(
-            val motivo: AdjustmentReason,
-            val direccion: AdjustmentDirection,
-            val nota: String?,
-            val valido: Boolean,
+        data class Case(
+            val reason: AdjustmentReason,
+            val direction: AdjustmentDirection,
+            val note: String?,
+            val valid: Boolean,
         )
 
         withData(
             nameFn = { c ->
-                "${c.motivo.displayName} / ${c.direccion} / nota=${c.nota ?: "—"} → " +
-                    if (c.valido) "válido" else "rechazado"
+                "${c.reason.displayName} / ${c.direction} / nota=${c.note ?: "—"} → " +
+                    if (c.valid) "válido" else "rechazado"
             },
-            Caso(AdjustmentReason.SHORTAGE, AdjustmentDirection.DECREASE, null, true),
-            Caso(AdjustmentReason.DAMAGE, AdjustmentDirection.DECREASE, null, true),
-            Caso(AdjustmentReason.COUNT_ERROR, AdjustmentDirection.INCREASE, null, true),
-            Caso(AdjustmentReason.SUPPLIER_ERROR, AdjustmentDirection.DECREASE, null, true),
-            Caso(AdjustmentReason.EXPIRED, AdjustmentDirection.DECREASE, null, true),
-            Caso(AdjustmentReason.RETURN_TO_SUPPLIER, AdjustmentDirection.DECREASE, null, true),
-            Caso(AdjustmentReason.THEFT, AdjustmentDirection.DECREASE, null, false),
-            Caso(AdjustmentReason.THEFT, AdjustmentDirection.DECREASE, "Robo del estante 4", true),
-            Caso(AdjustmentReason.OTHER, AdjustmentDirection.DECREASE, null, false),
-            Caso(AdjustmentReason.OTHER, AdjustmentDirection.INCREASE, "Error de captura del conteo", true),
-        ) { caso ->
-            val resultado = crear(
-                motivo = caso.motivo,
-                direccion = caso.direccion,
-                nota = caso.nota,
+            Case(AdjustmentReason.SHORTAGE, AdjustmentDirection.DECREASE, null, true),
+            Case(AdjustmentReason.DAMAGE, AdjustmentDirection.DECREASE, null, true),
+            Case(AdjustmentReason.COUNT_ERROR, AdjustmentDirection.INCREASE, null, true),
+            Case(AdjustmentReason.SUPPLIER_ERROR, AdjustmentDirection.DECREASE, null, true),
+            Case(AdjustmentReason.EXPIRED, AdjustmentDirection.DECREASE, null, true),
+            Case(AdjustmentReason.RETURN_TO_SUPPLIER, AdjustmentDirection.DECREASE, null, true),
+            Case(AdjustmentReason.THEFT, AdjustmentDirection.DECREASE, null, false),
+            Case(AdjustmentReason.THEFT, AdjustmentDirection.DECREASE, "Robo del estante 4", true),
+            Case(AdjustmentReason.OTHER, AdjustmentDirection.DECREASE, null, false),
+            Case(AdjustmentReason.OTHER, AdjustmentDirection.INCREASE, "Error de captura del conteo", true),
+        ) { case ->
+            val result = create(
+                reason = case.reason,
+                direction = case.direction,
+                note = case.note,
             )
 
-            withClue("«${caso.motivo.displayName}» con nota=${caso.nota}") {
-                (resultado.rightOrNull() != null) shouldBe caso.valido
+            withClue("«${case.reason.displayName}» con nota=${case.note}") {
+                (result.rightOrNull() != null) shouldBe case.valid
             }
         }
     }

@@ -41,16 +41,16 @@ import javax.sql.DataSource
 class RoutesWiringTest : DescribeSpec({
 
     /** Localiza el fuente de la aplicación subiendo desde el directorio de trabajo. */
-    fun fuenteDeAplicacion(): File {
-        val candidatos = listOf(
+    fun applicationSource(): File {
+        val candidates = listOf(
             File("src/main/kotlin/dev/axzy/stock/backend/Application.kt"),
             File("backend/src/main/kotlin/dev/axzy/stock/backend/Application.kt"),
             File("../backend/src/main/kotlin/dev/axzy/stock/backend/Application.kt"),
         )
-        return candidatos.firstOrNull { it.exists() }
+        return candidates.firstOrNull { it.exists() }
             ?: error(
                 "No se encontró Application.kt. Buscado en: " +
-                    candidatos.joinToString { it.absolutePath },
+                    candidates.joinToString { it.absolutePath },
             )
     }
 
@@ -63,29 +63,45 @@ class RoutesWiringTest : DescribeSpec({
      * El test sigue comprobando exactamente lo mismo —que ninguna función de
      * rutas se quede sin conectar— sin atarse a dónde esté el archivo.
      */
-    fun directorioDeRutas(): File {
-        val candidatos = listOf(
+    fun routesDir(): File {
+        val candidates = listOf(
             File("src/main/kotlin/dev/axzy/stock/backend"),
             File("backend/src/main/kotlin/dev/axzy/stock/backend"),
             File("../backend/src/main/kotlin/dev/axzy/stock/backend"),
         )
-        return candidatos.firstOrNull { it.isDirectory }
+        return candidates.firstOrNull { it.isDirectory }
             ?: error("No se encontró el código de producción del backend")
     }
 
     describe("todas las funciones de rutas están conectadas en Application.kt") {
 
         it("cada `Route.algoRoutes` que existe está invocada en el routing") {
-            val fuente = fuenteDeAplicacion().readText()
+            val source = applicationSource().readText()
 
             // Se buscan las funciones de extensión sobre `Route` que declaran
             // rutas, por su convención de nombre.
-            val funcionesDeRutas = directorioDeRutas()
+            val routeFunctions = routesDir()
                 .walkTopDown()
                 .filter { f -> f.isFile && f.extension == "kt" }
-                .flatMap { archivo ->
-                    Regex("""fun\s+Route\.(\w+Routes)\s*\(""")
-                        .findAll(archivo.readText())
+                .flatMap { file ->
+                    // ── SOLO las funciones PÚBLICAS ────────────────────────
+                    //
+                    // `private fun Route.algoRoutes(...)` es IMPLEMENTACIÓN
+                    // INTERNA: la llama otra función de rutas del mismo archivo,
+                    // no `Application.kt`, y eso es correcto. Exigirle un
+                    // `Application.kt` sería un falso positivo.
+                    //
+                    // Se descubrió porque el renombrado extrajo `productRoutes`,
+                    // `locationRoutes` y `warehouseRoutes` como privadas dentro de
+                    // `catalogRoutes`, y este test las denunció como «no
+                    // conectadas» cuando SÍ lo estaban. **El test tenía razón en
+                    // avisar y se equivocaba en el diagnóstico**: la distinción que
+                    // le faltaba era la visibilidad.
+                    //
+                    // Sigue vigilando lo que importa: una función PÚBLICA de rutas
+                    // que nadie invoca da 404 en producción con los tests en verde.
+                    Regex("""(?<!private\s)fun\s+Route\.(\w+Routes)\s*\(""")
+                        .findAll(file.readText())
                         .map { it.groupValues[1] }
                         .toList()
                 }
@@ -93,43 +109,43 @@ class RoutesWiringTest : DescribeSpec({
                 .toList()
 
             withClue("Debe haber al menos una función de rutas que verificar") {
-                (funcionesDeRutas.isNotEmpty()) shouldBe true
+                (routeFunctions.isNotEmpty()) shouldBe true
             }
 
-            val desconectadas = funcionesDeRutas.filterNot { nombre ->
+            val disconnected = routeFunctions.filterNot { name ->
                 // Se busca la INVOCACIÓN, no la declaración: `nombre(` dentro del
                 // fuente de la aplicación, con la indentación de una llamada.
-                Regex("""^\s+$nombre\(""", RegexOption.MULTILINE).containsMatchIn(fuente)
+                Regex("""^\s+$name\(""", RegexOption.MULTILINE).containsMatchIn(source)
             }
 
             withClue(
                 "Estas funciones de rutas existen pero NO están invocadas en " +
-                    "Application.kt: $desconectadas. Sus endpoints devolverían 404 " +
+                    "Application.kt: $disconnected. Sus endpoints devolverían 404 " +
                     "en producción con todos los tests en verde, porque los tests " +
                     "de cada módulo llaman a la función directamente.",
             ) {
-                desconectadas shouldBe emptyList()
+                disconnected shouldBe emptyList()
             }
         }
 
         it("el catálogo está conectado explícitamente") {
             // Se comprueba por nombre además del bucle anterior: si alguien
             // renombra la función, el bucle la deja de ver y este test lo nota.
-            val fuente = fuenteDeAplicacion().readText()
+            val source = applicationSource().readText()
 
             withClue("`catalogRoutes` debe estar invocada en Application.kt") {
                 Regex("""^\s+catalogRoutes\(""", RegexOption.MULTILINE)
-                    .containsMatchIn(fuente) shouldBe true
+                    .containsMatchIn(source) shouldBe true
             }
         }
     }
 
     describe("las rutas conectadas responden, y no con 404") {
 
-        fun contrasenaLocal(): String {
-            val archivo: File? = listOf(File("infra/.env"), File("../infra/.env"))
+        fun passwordLocal(): String {
+            val file: File? = listOf(File("infra/.env"), File("../infra/.env"))
                 .firstOrNull { it.exists() }
-            return archivo?.readLines()
+            return file?.readLines()
                 ?.firstOrNull { it.startsWith("POSTGRES_PASSWORD=") }
                 ?.substringAfter("=")?.trim() ?: ""
         }
@@ -138,22 +154,22 @@ class RoutesWiringTest : DescribeSpec({
             jdbcUrl = System.getenv("STOCK_TEST_DB_URL")
                 ?: "jdbc:postgresql://127.0.0.1:5432/stock_test",
             username = System.getenv("STOCK_TEST_DB_USER") ?: "stock_app",
-            password = System.getenv("STOCK_TEST_DB_PASSWORD") ?: contrasenaLocal(),
+            password = System.getenv("STOCK_TEST_DB_PASSWORD") ?: passwordLocal(),
             maxPoolSize = 2,
             runMigrations = false,
         )
 
-        fun <T> conPool(bloque: (DataSource) -> T): T {
+        fun <T> withPool(block: (DataSource) -> T): T {
             val pool = buildDataSource(config)
             return try {
-                bloque(pool)
+                block(pool)
             } finally {
                 (pool as? AutoCloseable)?.close()
             }
         }
 
-        val hayBase: Boolean = try {
-            conPool { pool ->
+        val thereIsBase: Boolean = try {
+            withPool { pool ->
                 pool.connection.use { c ->
                     c.createStatement().use { st ->
                         st.executeQuery("SELECT 1").use { it.next() }
@@ -169,37 +185,37 @@ class RoutesWiringTest : DescribeSpec({
             // Es la comprobación que habría detectado el hueco. Sin identidad
             // conectada el verificador deniega todo, así que se espera 401 —
             // **nunca 404**. Un 404 significaría que la ruta no existe.
-            if (!hayBase) return@it
+            if (!thereIsBase) return@it
 
-            conPool { pool ->
+            withPool { pool ->
                 testApplication {
                     application { module(pool) }
 
-                    val respuesta = client.get("/v1/products")
+                    val response = client.get("/v1/products")
 
                     withClue(
                         "Se esperaba 401 (el verificador por defecto deniega todo) " +
-                            "y se obtuvo ${respuesta.status}. Un 404 significa que la " +
+                            "y se obtuvo ${response.status}. Un 404 significa que la " +
                             "ruta NO está conectada en Application.kt.",
                     ) {
-                        (respuesta.status == HttpStatusCode.NotFound) shouldBe false
+                        (response.status == HttpStatusCode.NotFound) shouldBe false
                     }
-                    respuesta.status shouldBe HttpStatusCode.Unauthorized
+                    response.status shouldBe HttpStatusCode.Unauthorized
                 }
             }
         }
 
         it("`/v1/locations` y `/v1/warehouses` tampoco devuelven 404") {
-            if (!hayBase) return@it
+            if (!thereIsBase) return@it
 
-            conPool { pool ->
+            withPool { pool ->
                 testApplication {
                     application { module(pool) }
 
-                    listOf("/v1/locations", "/v1/warehouses").forEach { ruta ->
-                        val respuesta = client.get(ruta)
-                        withClue("'$ruta' no debe devolver 404") {
-                            (respuesta.status == HttpStatusCode.NotFound) shouldBe false
+                    listOf("/v1/locations", "/v1/warehouses").forEach { route ->
+                        val response = client.get(route)
+                        withClue("'$route' no debe devolver 404") {
+                            (response.status == HttpStatusCode.NotFound) shouldBe false
                         }
                     }
                 }
@@ -210,19 +226,19 @@ class RoutesWiringTest : DescribeSpec({
             // Las rutas de inventario son las últimas en llegar y las que más
             // fácil es olvidar conectar: su servicio existe, compila y tiene
             // lógica, así que nada falla hasta que alguien las llama.
-            if (!hayBase) return@it
+            if (!thereIsBase) return@it
 
-            conPool { pool ->
+            withPool { pool ->
                 testApplication {
                     application { module(pool) }
 
-                    listOf("/v1/inventory/stock", "/v1/inventory/kardex").forEach { ruta ->
-                        val respuesta = client.get(ruta)
+                    listOf("/v1/inventory/stock", "/v1/inventory/kardex").forEach { route ->
+                        val response = client.get(route)
                         withClue(
-                            "'$ruta' no debe devolver 404 (se obtuvo ${respuesta.status}). " +
+                            "'$route' no debe devolver 404 (se obtuvo ${response.status}). " +
                                 "Un 404 significa que la ruta NO está conectada en Application.kt.",
                         ) {
-                            (respuesta.status == HttpStatusCode.NotFound) shouldBe false
+                            (response.status == HttpStatusCode.NotFound) shouldBe false
                         }
                     }
                 }
@@ -233,14 +249,14 @@ class RoutesWiringTest : DescribeSpec({
             // Es el reporte de reconciliación. Sin conectar, el descuadre de un
             // inventario seguiría descubriéndose con un conteo físico, que es
             // exactamente lo que este endpoint existe para evitar.
-            if (!hayBase) return@it
+            if (!thereIsBase) return@it
 
-            conPool { pool ->
+            withPool { pool ->
                 testApplication {
                     application { module(pool) }
-                    val respuesta = client.get("/v1/reports/kardex-vs-projection")
+                    val response = client.get("/v1/reports/kardex-vs-projection")
                     withClue("No debe devolver 404") {
-                        (respuesta.status == HttpStatusCode.NotFound) shouldBe false
+                        (response.status == HttpStatusCode.NotFound) shouldBe false
                     }
                 }
             }
@@ -250,9 +266,9 @@ class RoutesWiringTest : DescribeSpec({
             // `POST` a estas rutas debe dar 401 (falta token), NO 404 ni 405.
             // Un 405 significaría que la ruta existe pero con otro verbo, que es
             // un error silencioso muy fácil de cometer.
-            if (!hayBase) return@it
+            if (!thereIsBase) return@it
 
-            conPool { pool ->
+            withPool { pool ->
                 testApplication {
                     application { module(pool) }
 
@@ -260,14 +276,14 @@ class RoutesWiringTest : DescribeSpec({
                         "/v1/inventory/adjustments",
                         "/v1/inventory/locate",
                         "/v1/inventory/move",
-                    ).forEach { ruta ->
-                        val respuesta = client.post(ruta) {
+                    ).forEach { route ->
+                        val response = client.post(route) {
                             header(io.ktor.http.HttpHeaders.ContentType, "application/json")
                             setBody("{}")
                         }
-                        withClue("POST '$ruta' debe dar 401, no ${respuesta.status}") {
-                            (respuesta.status == HttpStatusCode.NotFound) shouldBe false
-                            (respuesta.status == HttpStatusCode.MethodNotAllowed) shouldBe false
+                        withClue("POST '$route' debe dar 401, no ${response.status}") {
+                            (response.status == HttpStatusCode.NotFound) shouldBe false
+                            (response.status == HttpStatusCode.MethodNotAllowed) shouldBe false
                         }
                     }
                 }
@@ -278,22 +294,22 @@ class RoutesWiringTest : DescribeSpec({
             // El flujo de recepción es el que la regla B1 protege. Si sus rutas no
             // están conectadas, una discrepancia se queda bloqueada sin que exista
             // la pantalla para aprobarla, y el inventario se atasca en silencio.
-            if (!hayBase) return@it
+            if (!thereIsBase) return@it
 
-            conPool { pool ->
+            withPool { pool ->
                 testApplication {
                     application { module(pool) }
 
                     listOf(
                         "/v1/invoices/999999",
                         "/v1/invoices/pending-approval",
-                    ).forEach { ruta ->
-                        val respuesta = client.get(ruta)
+                    ).forEach { route ->
+                        val response = client.get(route)
                         withClue(
-                            "GET '$ruta' no debe dar 404 (se obtuvo ${respuesta.status}). " +
+                            "GET '$route' no debe dar 404 (se obtuvo ${response.status}). " +
                                 "Comprueba que receivingRoutes está invocada en Application.kt.",
                         ) {
-                            (respuesta.status == HttpStatusCode.NotFound && ruta.contains("pending")) shouldBe false
+                            (response.status == HttpStatusCode.NotFound && route.contains("pending")) shouldBe false
                         }
                     }
                 }
@@ -307,46 +323,46 @@ class RoutesWiringTest : DescribeSpec({
             //
             // Y tiene que ser POR FACTURA y no por línea (R-86): la variante por línea
             // se eliminó del contrato a propósito.
-            if (!hayBase) return@it
+            if (!thereIsBase) return@it
 
-            conPool { pool ->
+            withPool { pool ->
                 testApplication {
                     application { module(pool) }
-                    val respuesta = client.post("/v1/invoices/999999/approve") {
+                    val response = client.post("/v1/invoices/999999/approve") {
                         header(io.ktor.http.HttpHeaders.ContentType, "application/json")
                         setBody("{}")
                     }
-                    withClue("Debe dar 401 (falta token), no 404 ni 405 — se obtuvo ${respuesta.status}") {
-                        (respuesta.status == HttpStatusCode.NotFound) shouldBe false
-                        (respuesta.status == HttpStatusCode.MethodNotAllowed) shouldBe false
+                    withClue("Debe dar 401 (falta token), no 404 ni 405 — se obtuvo ${response.status}") {
+                        (response.status == HttpStatusCode.NotFound) shouldBe false
+                        (response.status == HttpStatusCode.MethodNotAllowed) shouldBe false
                     }
                 }
             }
         }
 
         it("`POST /v1/invoices` se puede crear y `capture` existe") {
-            if (!hayBase) return@it
+            if (!thereIsBase) return@it
 
-            conPool { pool ->
+            withPool { pool ->
                 testApplication {
                     application { module(pool) }
 
-                    val crear = client.post("/v1/invoices") {
+                    val create = client.post("/v1/invoices") {
                         header(io.ktor.http.HttpHeaders.ContentType, "application/json")
                         setBody("{}")
                     }
                     withClue("POST /v1/invoices debe existir") {
-                        (crear.status == HttpStatusCode.NotFound) shouldBe false
-                        (crear.status == HttpStatusCode.MethodNotAllowed) shouldBe false
+                        (create.status == HttpStatusCode.NotFound) shouldBe false
+                        (create.status == HttpStatusCode.MethodNotAllowed) shouldBe false
                     }
 
-                    val capturar = client.post("/v1/invoices/1/lines/1/capture") {
+                    val capture = client.post("/v1/invoices/1/lines/1/capture") {
                         header(io.ktor.http.HttpHeaders.ContentType, "application/json")
                         setBody("{}")
                     }
                     withClue("POST .../capture debe existir") {
-                        (capturar.status == HttpStatusCode.NotFound) shouldBe false
-                        (capturar.status == HttpStatusCode.MethodNotAllowed) shouldBe false
+                        (capture.status == HttpStatusCode.NotFound) shouldBe false
+                        (capture.status == HttpStatusCode.MethodNotAllowed) shouldBe false
                     }
                 }
             }
@@ -355,9 +371,9 @@ class RoutesWiringTest : DescribeSpec({
         it("`/v1/health` sigue respondiendo y es público") {
             // La única ruta que debe funcionar sin identidad. Si esto falla, algo
             // se rompió al conectar el catálogo.
-            if (!hayBase) return@it
+            if (!thereIsBase) return@it
 
-            conPool { pool ->
+            withPool { pool ->
                 testApplication {
                     application { module(pool) }
                     client.get("/v1/health").status shouldBe HttpStatusCode.OK

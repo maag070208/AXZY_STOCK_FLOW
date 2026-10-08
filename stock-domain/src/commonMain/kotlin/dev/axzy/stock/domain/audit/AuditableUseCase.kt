@@ -123,7 +123,7 @@ data class AuditDeclaration(
 object CriticalUseCases {
 
     /** Recepción: carga inicial y alta de factura. */
-    val recepcion: List<AuditDeclaration> = listOf(
+    val receiving: List<AuditDeclaration> = listOf(
         AuditDeclaration(
             useCase = "initialLoadCatalog",
             action = "CATALOG_INITIAL_LOAD",
@@ -205,7 +205,7 @@ object CriticalUseCases {
     )
 
     /** Surtido y exportación al ERP. */
-    val surtido: List<AuditDeclaration> = listOf(
+    val fulfillment: List<AuditDeclaration> = listOf(
         AuditDeclaration(
             useCase = "createOrder",
             action = "ORDER_CREATED",
@@ -258,7 +258,7 @@ object CriticalUseCases {
     )
 
     /** Inventario: el corazón del sistema. Cada movimiento del ledger. */
-    val inventario: List<AuditDeclaration> = listOf(
+    val inventory: List<AuditDeclaration> = listOf(
         AuditDeclaration(
             useCase = "moveWithinWarehouse",
             action = "STOCK_MOVED_WITHIN_WAREHOUSE",
@@ -342,7 +342,7 @@ object CriticalUseCases {
     )
 
     /** Transferencias entre bodegas. */
-    val transferencias: List<AuditDeclaration> = listOf(
+    val transfers: List<AuditDeclaration> = listOf(
         AuditDeclaration(
             useCase = "createTransfer",
             action = "TRANSFER_CREATED",
@@ -379,7 +379,7 @@ object CriticalUseCases {
     )
 
     /** Control de acceso: cada cambio de rol, permiso o política. */
-    val controlDeAcceso: List<AuditDeclaration> = listOf(
+    val accessControl: List<AuditDeclaration> = listOf(
         AuditDeclaration(
             useCase = "createRole",
             action = "ROLE_CREATED",
@@ -486,7 +486,7 @@ object CriticalUseCases {
     )
 
     /** Catálogo y etiquetado. */
-    val catalogoYEtiquetas: List<AuditDeclaration> = listOf(
+    val catalogAndLabels: List<AuditDeclaration> = listOf(
         AuditDeclaration(
             useCase = "createProduct",
             action = "PRODUCT_CREATED",
@@ -557,12 +557,12 @@ object CriticalUseCases {
 
     /** Todas las declaraciones, para los tests y la verificación de cobertura. */
     val all: List<AuditDeclaration> = buildList {
-        addAll(recepcion)
-        addAll(surtido)
-        addAll(inventario)
-        addAll(transferencias)
-        addAll(controlDeAcceso)
-        addAll(catalogoYEtiquetas)
+        addAll(receiving)
+        addAll(fulfillment)
+        addAll(inventory)
+        addAll(transfers)
+        addAll(accessControl)
+        addAll(catalogAndLabels)
     }
 
     /** Índice por acción, para resolver un evento a su declaración. */

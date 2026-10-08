@@ -37,16 +37,16 @@ import io.kotest.property.checkAll
  */
 class InventoryInvariantsPropertyTest : DescribeSpec({
 
-    val recepcion = LocationCode.of("RECEPCION")
-    val estanteA = LocationCode.of("04BCA")
-    val estanteB = LocationCode.of("04BCB")
-    val estanteNorte = LocationCode.of("NORTE01")
-    val estanteSur = LocationCode.of("SUR01")
+    val receiving = LocationCode.of("RECEPCION")
+    val shelfA = LocationCode.of("04BCA")
+    val shelfB = LocationCode.of("04BCB")
+    val shelfNorth = LocationCode.of("NORTE01")
+    val shelfSouth = LocationCode.of("SUR01")
 
-    val productoA = "ABRAA1B"
-    val productoB = "ABRAA1E"
-    val productos = listOf(productoA, productoB)
-    val ubicaciones = listOf(estanteA, estanteB, estanteNorte, estanteSur)
+    val productA = "ABRAA1B"
+    val productB = "ABRAA1E"
+    val products = listOf(productA, productB)
+    val locations = listOf(shelfA, shelfB, shelfNorth, shelfSouth)
 
     /**
      * Genera una secuencia de operaciones válidas contra un ledger concreto.
@@ -56,47 +56,47 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
      * avanza y ninguna operación se rechaza por falta de stock, que es lo que
      * haría fallar la propiedad por una razón que no es la que se está probando.
      */
-    fun secuenciaDeOperaciones(
+    fun operationSequence(
         ledger: InventoryLedger,
-        pasos: Int,
-        usarIdempotencia: Boolean = false,
+        steps: Int,
+        useIdempotency: Boolean = false,
     ): List<Pair<String, () -> Unit>> {
-        val operaciones = mutableListOf<Pair<String, () -> Unit>>()
+        val operations = mutableListOf<Pair<String, () -> Unit>>()
         // Semilla determinista por ejecución: el generador de kotest da la
         // variabilidad; aquí solo se decide QUÉ operación es válida en cada paso.
-        val rng = kotlin.random.Random(pasos * 7919L + ledger.entries.size)
+        val rng = kotlin.random.Random(steps * 7919L + ledger.entries.size)
 
-        repeat(pasos) { indice ->
-            val producto = productos.random(rng)
-            val eleccion = rng.nextInt(7)
+        repeat(steps) { index ->
+            val product = products.random(rng)
+            val choice = rng.nextInt(7)
 
-            val operacion: Pair<String, () -> Unit> = when (eleccion) {
+            val operation: Pair<String, () -> Unit> = when (choice) {
                 0 -> "receipt" to {
-                    ledger.receipt(producto, recepcion, Quantity.of(rng.nextLong(1, 50).toLong()))
+                    ledger.receipt(product, receiving, Quantity.of(rng.nextLong(1, 50).toLong()))
                 }
 
                 1 -> {
                     // Solo se ubica si hay stock en recepción.
-                    val disponible = ledger.quantityAt(producto, recepcion)
-                    if (disponible.isPositive) {
-                        val cantidad = Quantity.of(
-                            rng.nextLong(1, disponible.units.coerceAtLeast(1) + 1)
+                    val available = ledger.quantityAt(product, receiving)
+                    if (available.isPositive) {
+                        val quantity = Quantity.of(
+                            rng.nextLong(1, available.units.coerceAtLeast(1) + 1)
                         )
-                        val destino = listOf(estanteA, estanteB).random(rng)
-                        "locate($destino)" to { ledger.locate(producto, recepcion, destino, cantidad) }
+                        val destination = listOf(shelfA, shelfB).random(rng)
+                        "locate($destination)" to { ledger.locate(product, receiving, destination, quantity) }
                     } else {
                         "noop" to { }
                     }
                 }
 
                 2 -> {
-                    val origen = ubicaciones.random(rng)
-                    val disponible = ledger.quantityAt(producto, origen)
-                    val otro = ubicaciones.filter { it != origen }.random(rng)
-                    if (disponible.isPositive) {
-                        val cantidad = Quantity.of(rng.nextLong(1, disponible.units.coerceAtLeast(1) + 1))
-                        "move($origen→$otro)" to {
-                            ledger.moveWithinWarehouse(producto, origen, otro, cantidad)
+                    val origin = locations.random(rng)
+                    val available = ledger.quantityAt(product, origin)
+                    val other = locations.filter { it != origin }.random(rng)
+                    if (available.isPositive) {
+                        val quantity = Quantity.of(rng.nextLong(1, available.units.coerceAtLeast(1) + 1))
+                        "move($origin→$other)" to {
+                            ledger.moveWithinWarehouse(product, origin, other, quantity)
                         }
                     } else {
                         "noop" to { }
@@ -104,24 +104,24 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
                 }
 
                 3 -> {
-                    val disponible = ledger.quantityAt(producto, estanteNorte)
-                    if (disponible.isPositive) {
-                        val cantidad = Quantity.of(rng.nextLong(1, disponible.units.coerceAtLeast(1) + 1))
-                        "transferOut" to { ledger.transferOut(producto, estanteNorte, 2L, cantidad) }
+                    val available = ledger.quantityAt(product, shelfNorth)
+                    if (available.isPositive) {
+                        val quantity = Quantity.of(rng.nextLong(1, available.units.coerceAtLeast(1) + 1))
+                        "transferOut" to { ledger.transferOut(product, shelfNorth, 2L, quantity) }
                     } else {
                         "noop" to { }
                     }
                 }
 
                 4 -> {
-                    val enTransito = ledger.inTransit.filter { it.productCode == producto }
-                    if (enTransito.isNotEmpty()) {
-                        val lote = enTransito.random(rng)
-                        val cantidad = Quantity.of(
-                            rng.nextLong(1, lote.quantity.units.coerceAtLeast(1) + 1)
+                    val inTransit = ledger.inTransit.filter { it.productCode == product }
+                    if (inTransit.isNotEmpty()) {
+                        val batch = inTransit.random(rng)
+                        val quantity = Quantity.of(
+                            rng.nextLong(1, batch.quantity.units.coerceAtLeast(1) + 1)
                         )
                         "transferIn" to {
-                            ledger.transferIn(producto, estanteSur, 1L, cantidad)
+                            ledger.transferIn(product, shelfSouth, 1L, quantity)
                         }
                     } else {
                         "noop" to { }
@@ -129,12 +129,12 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
                 }
 
                 5 -> {
-                    val ubicacion = ubicaciones.random(rng)
-                    val disponible = ledger.quantityAt(producto, ubicacion)
-                    if (disponible.isPositive) {
-                        val cantidad = Quantity.of(rng.nextLong(1, disponible.units.coerceAtLeast(1) + 1))
+                    val location = locations.random(rng)
+                    val available = ledger.quantityAt(product, location)
+                    if (available.isPositive) {
+                        val quantity = Quantity.of(rng.nextLong(1, available.units.coerceAtLeast(1) + 1))
                         "adjustmentOut" to {
-                            ledger.adjustmentOut(producto, ubicacion, cantidad, "merma por daño")
+                            ledger.adjustmentOut(product, location, quantity, "merma por daño")
                         }
                     } else {
                         "noop" to { }
@@ -143,21 +143,21 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
 
                 else -> "adjustmentIn" to {
                     ledger.adjustmentIn(
-                        producto,
-                        ubicaciones.random(rng),
+                        product,
+                        locations.random(rng),
                         Quantity.of(rng.nextLong(1, 20).toLong()),
                         "corrección de conteo",
                     )
                 }
             }
-            operaciones.add(operacion)
+            operations.add(operation)
         }
-        return operaciones
+        return operations
     }
 
     /** Aplica la secuencia y devuelve los tipos aplicados, para depurar. */
-    fun aplicar(ledger: InventoryLedger, operaciones: List<Pair<String, () -> Unit>>): List<String> =
-        operaciones.map { (nombre, accion) -> accion(); nombre }
+    fun apply(ledger: InventoryLedger, operations: List<Pair<String, () -> Unit>>): List<String> =
+        operations.map { (name, action) -> action(); name }
 
     // ═════════════════════════════════════════════════════════════════════════
     // I1 — CONSERVACIÓN TOTAL
@@ -166,23 +166,23 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
     describe("I1 — conservación total") {
 
         it("el total es siempre igual al neto del ledger, tras cualquier secuencia") {
-            checkAll(PropTestConfig(iterations = 200), Arb.int(1..60)) { pasos ->
+            checkAll(PropTestConfig(iterations = 200), Arb.int(1..60)) { steps ->
                 val ledger = InventoryLedger()
                 // Carga inicial para tener stock con el que operar.
-                productos.forEach { p ->
-                    ledger.initialLoad(p, recepcion, Quantity.of(1000))
+                products.forEach { p ->
+                    ledger.initialLoad(p, receiving, Quantity.of(1000))
                 }
 
-                aplicar(ledger, secuenciaDeOperaciones(ledger, pasos))
+                apply(ledger, operationSequence(ledger, steps))
 
-                productos.forEach { producto ->
+                products.forEach { product ->
                     with(ledger) {
-                        val total = totalOf(producto)
-                        val netoLedger = ledgerNetOf(producto)
-                        if (total != netoLedger) {
+                        val total = totalOf(product)
+                        val netLedger = ledgerNetOf(product)
+                        if (total != netLedger) {
                             throw AssertionError(
-                                "I1 violada para $producto tras $pasos pasos: " +
-                                    "total=$total pero el ledger suma $netoLedger"
+                                "I1 violada para $product tras $steps pasos: " +
+                                    "total=$total pero el ledger suma $netLedger"
                             )
                         }
                     }
@@ -191,21 +191,21 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
         }
 
         it("el total es la suma de ubicaciones más el tránsito, siempre") {
-            checkAll(PropTestConfig(iterations = 200), Arb.int(1..60)) { pasos ->
+            checkAll(PropTestConfig(iterations = 200), Arb.int(1..60)) { steps ->
                 val ledger = InventoryLedger()
-                productos.forEach { p -> ledger.initialLoad(p, recepcion, Quantity.of(500)) }
+                products.forEach { p -> ledger.initialLoad(p, receiving, Quantity.of(500)) }
 
-                aplicar(ledger, secuenciaDeOperaciones(ledger, pasos))
+                apply(ledger, operationSequence(ledger, steps))
 
-                productos.forEach { producto ->
-                    val enUbicaciones = ledger.totalAtLocationsOf(producto)
-                    val enTransito = ledger.totalInTransitOf(producto)
-                    val total = ledger.totalOf(producto)
+                products.forEach { product ->
+                    val atLocations = ledger.totalAtLocationsOf(product)
+                    val inTransit = ledger.totalInTransitOf(product)
+                    val total = ledger.totalOf(product)
 
-                    if (total != enUbicaciones + enTransito) {
+                    if (total != atLocations + inTransit) {
                         throw AssertionError(
-                            "I1 violada para $producto: total=$total pero " +
-                                "ubicaciones=$enUbicaciones + tránsito=$enTransito"
+                            "I1 violada para $product: total=$total pero " +
+                                "ubicaciones=$atLocations + tránsito=$inTransit"
                         )
                     }
                 }
@@ -220,17 +220,17 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
     describe("I2 — ninguna ubicación puede tener stock negativo") {
 
         it("tras cualquier secuencia, todos los saldos son >= 0") {
-            checkAll(PropTestConfig(iterations = 300), Arb.int(1..80)) { pasos ->
+            checkAll(PropTestConfig(iterations = 300), Arb.int(1..80)) { steps ->
                 val ledger = InventoryLedger()
-                productos.forEach { p -> ledger.initialLoad(p, recepcion, Quantity.of(800)) }
+                products.forEach { p -> ledger.initialLoad(p, receiving, Quantity.of(800)) }
 
-                aplicar(ledger, secuenciaDeOperaciones(ledger, pasos))
+                apply(ledger, operationSequence(ledger, steps))
 
-                ledger.allBalances().forEach { saldo ->
-                    if (saldo.quantity.isNegative) {
+                ledger.allBalances().forEach { balance ->
+                    if (balance.quantity.isNegative) {
                         throw AssertionError(
-                            "I2 violada: ${saldo.productCode} en ${saldo.location} " +
-                                "quedó con ${saldo.quantity} (negativo). " +
+                            "I2 violada: ${balance.productCode} en ${balance.location} " +
+                                "quedó con ${balance.quantity} (negativo). " +
                                 "Una ubicación física no puede tener stock negativo."
                         )
                     }
@@ -247,43 +247,43 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
 
         it("el número de entradas solo crece y cada una conserva sus datos") {
             val ledger = InventoryLedger()
-            ledger.initialLoad(productoA, recepcion, Quantity.of(100))
+            ledger.initialLoad(productA, receiving, Quantity.of(100))
 
-            val entradaOriginal = ledger.entries.first()
-            val cantidadOriginal = entradaOriginal.quantity
+            val entryOriginal = ledger.entries.first()
+            val quantityOriginal = entryOriginal.quantity
 
             // Se aplican operaciones que en el legacy MUTABAN la entrada de
             // recepción: `removeUnitsFromKardex` hacía `kardex.update` y bajaba
             // sus `units`. Aquí eso no puede pasar.
-            ledger.locate(productoA, recepcion, estanteA, Quantity.of(60))
-            ledger.moveWithinWarehouse(productoA, estanteA, estanteB, Quantity.of(20))
-            ledger.adjustmentOut(productoA, estanteB, Quantity.of(5), "merma")
+            ledger.locate(productA, receiving, shelfA, Quantity.of(60))
+            ledger.moveWithinWarehouse(productA, shelfA, shelfB, Quantity.of(20))
+            ledger.adjustmentOut(productA, shelfB, Quantity.of(5), "merma")
 
-            val entradaTrasOperar = ledger.entries.first()
-            with(entradaTrasOperar) {
-                if (quantity != cantidadOriginal) {
+            val entryAfterOperation = ledger.entries.first()
+            with(entryAfterOperation) {
+                if (quantity != quantityOriginal) {
                     throw AssertionError(
                         "I3 violada: la entrada histórica de recepción cambió de " +
-                            "$cantidadOriginal a $quantity. Un ledger que se puede " +
+                            "$quantityOriginal a $quantity. Un ledger que se puede " +
                             "editar no es un ledger."
                     )
                 }
-                sequence shouldBeExactly entradaOriginal.sequence
+                sequence shouldBeExactly entryOriginal.sequence
             }
         }
 
         it("la secuencia es estrictamente creciente y sin huecos") {
-            checkAll(PropTestConfig(iterations = 100), Arb.int(1..40)) { pasos ->
+            checkAll(PropTestConfig(iterations = 100), Arb.int(1..40)) { steps ->
                 val ledger = InventoryLedger()
-                productos.forEach { p -> ledger.initialLoad(p, recepcion, Quantity.of(300)) }
-                aplicar(ledger, secuenciaDeOperaciones(ledger, pasos))
+                products.forEach { p -> ledger.initialLoad(p, receiving, Quantity.of(300)) }
+                apply(ledger, operationSequence(ledger, steps))
 
-                val secuencias = ledger.entries.map { it.sequence }
-                val esperadas = (1L..secuencias.size.toLong()).toList()
-                if (secuencias != esperadas) {
+                val sequences = ledger.entries.map { it.sequence }
+                val expected = (1L..sequences.size.toLong()).toList()
+                if (sequences != expected) {
                     throw AssertionError(
                         "I3 violada: la secuencia debe ser 1..N sin huecos. " +
-                            "Se encontró: ${secuencias.take(10)}…"
+                            "Se encontró: ${sequences.take(10)}…"
                     )
                 }
             }
@@ -297,19 +297,19 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
     describe("I4 — quantityAfter permite reconstruir el total") {
 
         it("el quantityAfter de la última entrada coincide con el total actual") {
-            checkAll(PropTestConfig(iterations = 200), Arb.int(1..60)) { pasos ->
+            checkAll(PropTestConfig(iterations = 200), Arb.int(1..60)) { steps ->
                 val ledger = InventoryLedger()
-                productos.forEach { p -> ledger.initialLoad(p, recepcion, Quantity.of(400)) }
-                aplicar(ledger, secuenciaDeOperaciones(ledger, pasos))
+                products.forEach { p -> ledger.initialLoad(p, receiving, Quantity.of(400)) }
+                apply(ledger, operationSequence(ledger, steps))
 
-                productos.forEach { producto ->
-                    val ultima = ledger.entries.lastOrNull { it.productCode == producto }
-                    if (ultima != null) {
-                        val actual = ledger.totalOf(producto)
-                        if (ultima.quantityAfter != actual) {
+                products.forEach { product ->
+                    val last = ledger.entries.lastOrNull { it.productCode == product }
+                    if (last != null) {
+                        val current = ledger.totalOf(product)
+                        if (last.quantityAfter != current) {
                             throw AssertionError(
-                                "I4 violada para $producto: la última entrada dice " +
-                                    "${ultima.quantityAfter} pero el total real es $actual"
+                                "I4 violada para $product: la última entrada dice " +
+                                    "${last.quantityAfter} pero el total real es $current"
                             )
                         }
                     }
@@ -318,31 +318,31 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
         }
 
         it("recorrer el ledger en orden reproduce el total final") {
-            checkAll(PropTestConfig(iterations = 150), Arb.int(1..50)) { pasos ->
+            checkAll(PropTestConfig(iterations = 150), Arb.int(1..50)) { steps ->
                 val ledger = InventoryLedger()
-                productos.forEach { p -> ledger.initialLoad(p, recepcion, Quantity.of(300)) }
-                aplicar(ledger, secuenciaDeOperaciones(ledger, pasos))
+                products.forEach { p -> ledger.initialLoad(p, receiving, Quantity.of(300)) }
+                apply(ledger, operationSequence(ledger, steps))
 
-                productos.forEach { producto ->
+                products.forEach { product ->
                     // Reproducción desde cero: solo con el ledger.
-                    val reproducido = ledger.entries
-                        .filter { it.productCode == producto }
-                        .fold(Quantity.ZERO) { acumulado, entry ->
+                    val reproduced = ledger.entries
+                        .filter { it.productCode == product }
+                        .fold(Quantity.ZERO) { accumulated, entry ->
                             when (entry.type) {
                                 MovementType.INITIAL,
                                 MovementType.RECEIPT_IN,
                                 MovementType.ADJUSTMENT_IN,
-                                -> acumulado + entry.quantity
+                                -> accumulated + entry.quantity
 
-                                MovementType.ADJUSTMENT_OUT -> acumulado - entry.quantity
-                                else -> acumulado
+                                MovementType.ADJUSTMENT_OUT -> accumulated - entry.quantity
+                                else -> accumulated
                             }
                         }
 
-                    val real = ledger.totalOf(producto)
-                    if (reproducido != real) {
+                    val real = ledger.totalOf(product)
+                    if (reproduced != real) {
                         throw AssertionError(
-                            "I4 violada: reproducir el ledger da $reproducido " +
+                            "I4 violada: reproducir el ledger da $reproduced " +
                                 "pero el total del modelo es $real"
                         )
                     }
@@ -358,17 +358,17 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
     describe("I5 — los saldos concuerdan con el ledger") {
 
         it("recalcular los saldos desde el ledger da lo mismo que la proyección") {
-            checkAll(PropTestConfig(iterations = 150), Arb.int(1..60)) { pasos ->
+            checkAll(PropTestConfig(iterations = 150), Arb.int(1..60)) { steps ->
                 val ledger = InventoryLedger()
-                productos.forEach { p -> ledger.initialLoad(p, recepcion, Quantity.of(600)) }
-                aplicar(ledger, secuenciaDeOperaciones(ledger, pasos))
+                products.forEach { p -> ledger.initialLoad(p, receiving, Quantity.of(600)) }
+                apply(ledger, operationSequence(ledger, steps))
 
                 // Recalcular cada ubicación desde cero, solo con el ledger.
-                val recalculado = mutableMapOf<Pair<String, LocationCode>, Quantity>()
+                val recalculated = mutableMapOf<Pair<String, LocationCode>, Quantity>()
                 ledger.entries.forEach { entry ->
-                    entry.from?.let { desde ->
-                        val clave = entry.productCode to desde
-                        val quitar = when (entry.type) {
+                    entry.from?.let { from ->
+                        val key = entry.productCode to from
+                        val remove = when (entry.type) {
                             MovementType.ADJUSTMENT_OUT,
                             MovementType.LOCATE,
                             MovementType.MOVE_WITHIN_WAREHOUSE,
@@ -377,11 +377,11 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
 
                             else -> Quantity.ZERO
                         }
-                        recalculado[clave] = (recalculado[clave] ?: Quantity.ZERO) - quitar
+                        recalculated[key] = (recalculated[key] ?: Quantity.ZERO) - remove
                     }
-                    entry.to?.let { hacia ->
-                        val clave = entry.productCode to hacia
-                        val sumar = when (entry.type) {
+                    entry.to?.let { towards ->
+                        val key = entry.productCode to towards
+                        val add = when (entry.type) {
                             MovementType.INITIAL,
                             MovementType.RECEIPT_IN,
                             MovementType.ADJUSTMENT_IN,
@@ -392,17 +392,17 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
 
                             else -> Quantity.ZERO
                         }
-                        recalculado[clave] = (recalculado[clave] ?: Quantity.ZERO) + sumar
+                        recalculated[key] = (recalculated[key] ?: Quantity.ZERO) + add
                     }
                 }
 
-                ledger.allBalances().forEach { saldo ->
-                    val clave = saldo.productCode to saldo.location
-                    val esperado = recalculado[clave] ?: Quantity.ZERO
-                    if (saldo.quantity != esperado) {
+                ledger.allBalances().forEach { balance ->
+                    val key = balance.productCode to balance.location
+                    val expected = recalculated[key] ?: Quantity.ZERO
+                    if (balance.quantity != expected) {
                         throw AssertionError(
-                            "I5 violada: el saldo de ${saldo.productCode} en ${saldo.location} " +
-                                "es ${saldo.quantity} pero el ledger dice $esperado"
+                            "I5 violada: el saldo de ${balance.productCode} en ${balance.location} " +
+                                "es ${balance.quantity} pero el ledger dice $expected"
                         )
                     }
                 }
@@ -417,21 +417,21 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
     describe("I6 — ningún ajuste sin motivo") {
 
         it("todos los ajustes del ledger tienen motivo no vacío") {
-            checkAll(PropTestConfig(iterations = 200), Arb.int(1..60)) { pasos ->
+            checkAll(PropTestConfig(iterations = 200), Arb.int(1..60)) { steps ->
                 val ledger = InventoryLedger()
-                productos.forEach { p -> ledger.initialLoad(p, recepcion, Quantity.of(400)) }
-                aplicar(ledger, secuenciaDeOperaciones(ledger, pasos))
+                products.forEach { p -> ledger.initialLoad(p, receiving, Quantity.of(400)) }
+                apply(ledger, operationSequence(ledger, steps))
 
                 ledger.entries
                     .filter {
                         it.type == MovementType.ADJUSTMENT_IN ||
                             it.type == MovementType.ADJUSTMENT_OUT
                     }
-                    .forEach { ajuste ->
-                        if (ajuste.reason.isNullOrBlank()) {
+                    .forEach { adjustment ->
+                        if (adjustment.reason.isNullOrBlank()) {
                             throw AssertionError(
-                                "I6 violada: el ajuste #${ajuste.sequence} " +
-                                    "(${ajuste.type}) no tiene motivo"
+                                "I6 violada: el ajuste #${adjustment.sequence} " +
+                                    "(${adjustment.type}) no tiene motivo"
                             )
                         }
                     }
@@ -440,14 +440,14 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
 
         it("un ajuste con motivo en blanco es rechazado") {
             val ledger = InventoryLedger()
-            ledger.initialLoad(productoA, recepcion, Quantity.of(100))
+            ledger.initialLoad(productA, receiving, Quantity.of(100))
 
-            ledger.adjustmentOut(productoA, recepcion, Quantity.of(10), "").isLeft shouldBe true
-            ledger.adjustmentOut(productoA, recepcion, Quantity.of(10), "   ").isLeft shouldBe true
-            ledger.adjustmentIn(productoA, recepcion, Quantity.of(10), "").isLeft shouldBe true
+            ledger.adjustmentOut(productA, receiving, Quantity.of(10), "").isLeft shouldBe true
+            ledger.adjustmentOut(productA, receiving, Quantity.of(10), "   ").isLeft shouldBe true
+            ledger.adjustmentIn(productA, receiving, Quantity.of(10), "").isLeft shouldBe true
 
             // Y con motivo sí pasa.
-            ledger.adjustmentOut(productoA, recepcion, Quantity.of(10), "merma").isRight shouldBe true
+            ledger.adjustmentOut(productA, receiving, Quantity.of(10), "merma").isRight shouldBe true
         }
     }
 
@@ -461,28 +461,28 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
             val ledger = InventoryLedger()
             val uuid = "captura-movil-001"
 
-            ledger.receipt(productoA, recepcion, Quantity.of(100), clientUuid = uuid)
-            val totalTrasPrimero = ledger.totalOf(productoA)
+            ledger.receipt(productA, receiving, Quantity.of(100), clientUuid = uuid)
+            val totalAfterFirst = ledger.totalOf(productA)
 
             // El móvil reintenta porque no recibió confirmación.
-            val segundo = ledger.receipt(productoA, recepcion, Quantity.of(100), clientUuid = uuid)
+            val second = ledger.receipt(productA, receiving, Quantity.of(100), clientUuid = uuid)
 
-            segundo.isLeft shouldBe true
+            second.isLeft shouldBe true
             with(ledger) {
-                totalOf(productoA) shouldBe totalTrasPrimero
+                totalOf(productA) shouldBe totalAfterFirst
             }
             // El ledger arranca vacío: solo debe haber la primera recepción.
             // El reintento del móvil no puede añadir una segunda entrada.
             ledger.entries.size shouldBe 1
-            ledger.totalOf(productoA) shouldBe Quantity.of(100)
+            ledger.totalOf(productA) shouldBe Quantity.of(100)
         }
 
         it("un clientUuid distinto sí registra un movimiento nuevo") {
             val ledger = InventoryLedger()
-            ledger.receipt(productoA, recepcion, Quantity.of(100), clientUuid = "uuid-1")
-            ledger.receipt(productoA, recepcion, Quantity.of(100), clientUuid = "uuid-2")
+            ledger.receipt(productA, receiving, Quantity.of(100), clientUuid = "uuid-1")
+            ledger.receipt(productA, receiving, Quantity.of(100), clientUuid = "uuid-2")
 
-            ledger.totalOf(productoA) shouldBe Quantity.of(200)
+            ledger.totalOf(productA) shouldBe Quantity.of(200)
         }
     }
 
@@ -493,35 +493,35 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
     describe("I9 — una operación rechazada no deja rastro") {
 
         it("una operación sin stock suficiente no modifica el ledger ni el total") {
-            checkAll(PropTestConfig(iterations = 200), Arb.int(1..60)) { pasos ->
+            checkAll(PropTestConfig(iterations = 200), Arb.int(1..60)) { steps ->
                 val ledger = InventoryLedger()
-                productos.forEach { p -> ledger.initialLoad(p, recepcion, Quantity.of(500)) }
-                aplicar(ledger, secuenciaDeOperaciones(ledger, pasos))
+                products.forEach { p -> ledger.initialLoad(p, receiving, Quantity.of(500)) }
+                apply(ledger, operationSequence(ledger, steps))
 
-                val entradasAntes = ledger.entries.size
-                val totalesAntes = productos.associateWith { ledger.totalOf(it) }
-                val saldosAntes = ledger.allBalances().associate { (it.productCode to it.location) to it.quantity }
+                val entriesBefore = ledger.entries.size
+                val totalsBefore = products.associateWith { ledger.totalOf(it) }
+                val balancesBefore = ledger.allBalances().associate { (it.productCode to it.location) to it.quantity }
 
                 // Se intenta una operación imposible: mover 100.000 unidades.
-                val imposible = Quantity.of(100_000)
-                ledger.locate(productoA, recepcion, estanteA, imposible)
-                ledger.moveWithinWarehouse(productoA, estanteA, estanteB, imposible)
-                ledger.adjustmentOut(productoA, estanteA, imposible, "merma")
-                ledger.transferOut(productoA, estanteA, 2L, imposible)
+                val impossible = Quantity.of(100_000)
+                ledger.locate(productA, receiving, shelfA, impossible)
+                ledger.moveWithinWarehouse(productA, shelfA, shelfB, impossible)
+                ledger.adjustmentOut(productA, shelfA, impossible, "merma")
+                ledger.transferOut(productA, shelfA, 2L, impossible)
 
-                if (ledger.entries.size != entradasAntes) {
+                if (ledger.entries.size != entriesBefore) {
                     throw AssertionError(
                         "I9 violada: las operaciones rechazadas dejaron " +
-                            "${ledger.entries.size - entradasAntes} entradas en el ledger"
+                            "${ledger.entries.size - entriesBefore} entradas en el ledger"
                     )
                 }
-                productos.forEach { p ->
-                    if (ledger.totalOf(p) != totalesAntes[p]) {
+                products.forEach { p ->
+                    if (ledger.totalOf(p) != totalsBefore[p]) {
                         throw AssertionError("I9 violada: el total de $p cambió tras una operación rechazada")
                     }
                 }
-                val saldosDespues = ledger.allBalances().associate { (it.productCode to it.location) to it.quantity }
-                if (saldosDespues != saldosAntes) {
+                val balancesAfter = ledger.allBalances().associate { (it.productCode to it.location) to it.quantity }
+                if (balancesAfter != balancesBefore) {
                     throw AssertionError("I9 violada: los saldos cambiaron tras operaciones rechazadas")
                 }
             }
@@ -536,16 +536,16 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
 
         it("despachar resta de la ubicación pero NO del total: entra en tránsito") {
             val ledger = InventoryLedger()
-            ledger.initialLoad(productoA, estanteNorte, Quantity.of(100))
+            ledger.initialLoad(productA, shelfNorth, Quantity.of(100))
 
-            val totalAntes = ledger.totalOf(productoA)
-            ledger.transferOut(productoA, estanteNorte, toWarehouseId = 2L, Quantity.of(40))
+            val totalBefore = ledger.totalOf(productA)
+            ledger.transferOut(productA, shelfNorth, toWarehouseId = 2L, Quantity.of(40))
 
             with(ledger) {
-                quantityAt(productoA, estanteNorte) shouldBe Quantity.of(60)
-                totalInTransitOf(productoA) shouldBe Quantity.of(40)
+                quantityAt(productA, shelfNorth) shouldBe Quantity.of(60)
+                totalInTransitOf(productA) shouldBe Quantity.of(40)
 
-                if (totalOf(productoA) != totalAntes) {
+                if (totalOf(productA) != totalBefore) {
                     throw AssertionError(
                         "I10 violada: el total cambió al despachar. La mercancía sigue " +
                             "en el inventario, en tránsito. Si el total bajara, el " +
@@ -557,32 +557,32 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
 
         it("recibir libera el tránsito y suma al destino, conservando el total") {
             val ledger = InventoryLedger()
-            ledger.initialLoad(productoA, estanteNorte, Quantity.of(100))
-            val totalAntes = ledger.totalOf(productoA)
+            ledger.initialLoad(productA, shelfNorth, Quantity.of(100))
+            val totalBefore = ledger.totalOf(productA)
 
-            ledger.transferOut(productoA, estanteNorte, 2L, Quantity.of(40))
-            ledger.transferIn(productoA, estanteSur, fromWarehouseId = 1L, Quantity.of(40))
+            ledger.transferOut(productA, shelfNorth, 2L, Quantity.of(40))
+            ledger.transferIn(productA, shelfSouth, fromWarehouseId = 1L, Quantity.of(40))
 
             with(ledger) {
-                totalInTransitOf(productoA) shouldBe Quantity.ZERO
-                quantityAt(productoA, estanteSur) shouldBe Quantity.of(40)
-                totalOf(productoA) shouldBe totalAntes
+                totalInTransitOf(productA) shouldBe Quantity.ZERO
+                quantityAt(productA, shelfSouth) shouldBe Quantity.of(40)
+                totalOf(productA) shouldBe totalBefore
             }
         }
 
         it("un traslado a medio camino deja el tránsito visible, no perdido") {
-            checkAll(PropTestConfig(iterations = 100), Arb.int(1..40)) { pasos ->
+            checkAll(PropTestConfig(iterations = 100), Arb.int(1..40)) { steps ->
                 val ledger = InventoryLedger()
-                ledger.initialLoad(productoA, estanteNorte, Quantity.of(1000))
-                aplicar(ledger, secuenciaDeOperaciones(ledger, pasos))
+                ledger.initialLoad(productA, shelfNorth, Quantity.of(1000))
+                apply(ledger, operationSequence(ledger, steps))
 
                 // El total siempre incluye lo que está en tránsito.
-                val enUbicaciones = ledger.totalAtLocationsOf(productoA)
-                val enTransito = ledger.totalInTransitOf(productoA)
-                val total = ledger.totalOf(productoA)
+                val atLocations = ledger.totalAtLocationsOf(productA)
+                val inTransit = ledger.totalInTransitOf(productA)
+                val total = ledger.totalOf(productA)
 
-                total shouldBe enUbicaciones + enTransito
-                if (enTransito.isNegative) {
+                total shouldBe atLocations + inTransit
+                if (inTransit.isNegative) {
                     throw AssertionError("I10 violada: el tránsito no puede ser negativo")
                 }
             }
@@ -596,21 +596,21 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
     describe("el bug de doble descuento al ubicar no puede reproducirse") {
 
         it("ubicar N unidades nunca cambia el total, para cualquier N") {
-            checkAll(PropTestConfig(iterations = 300), Arb.int(1..500)) { cantidad ->
+            checkAll(PropTestConfig(iterations = 300), Arb.int(1..500)) { quantity ->
                 val ledger = InventoryLedger()
-                ledger.initialLoad(productoA, recepcion, Quantity.of(1000))
+                ledger.initialLoad(productA, receiving, Quantity.of(1000))
 
-                val totalAntes = ledger.totalOf(productoA)
-                val resultado = ledger.locate(
-                    productoA, recepcion, estanteA, Quantity.of(cantidad.toLong()),
+                val totalBefore = ledger.totalOf(productA)
+                val result = ledger.locate(
+                    productA, receiving, shelfA, Quantity.of(quantity.toLong()),
                 )
 
-                if (resultado.isRight) {
-                    val totalDespues = ledger.totalOf(productoA)
-                    if (totalDespues != totalAntes) {
+                if (result.isRight) {
+                    val totalAfter = ledger.totalOf(productA)
+                    if (totalAfter != totalBefore) {
                         throw AssertionError(
-                            "BUG DEL LEGACY REPRODUCIDO: ubicar $cantidad unidades cambió el " +
-                                "total de $totalAntes a $totalDespues. En el legacy, " +
+                            "BUG DEL LEGACY REPRODUCIDO: ubicar $quantity unidades cambió el " +
+                                "total de $totalBefore a $totalAfter. En el legacy, " +
                                 "addKardexLocation restaba dos veces y el inventario " +
                                 "bajaba en cada ubicación (hallazgo R-01)."
                         )
@@ -623,22 +623,22 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
             // La secuencia exacta que en el legacy dejaba el stock 100 unidades
             // por debajo del real.
             val ledger = InventoryLedger()
-            ledger.receipt(productoA, recepcion, Quantity.of(100))
+            ledger.receipt(productA, receiving, Quantity.of(100))
 
-            val totalTrasRecebir = ledger.totalOf(productoA)
-            ledger.locate(productoA, recepcion, estanteA, Quantity.of(100))
+            val totalAfterReceiving = ledger.totalOf(productA)
+            ledger.locate(productA, receiving, shelfA, Quantity.of(100))
 
             with(ledger) {
-                val totalFinal = totalOf(productoA)
+                val totalFinal = totalOf(productA)
                 if (totalFinal != Quantity.of(100)) {
                     throw AssertionError(
                         "El legacy habría dejado el total en 0 en lugar de 100. " +
                             "Total actual: $totalFinal"
                     )
                 }
-                totalFinal shouldBe totalTrasRecebir
-                quantityAt(productoA, estanteA) shouldBe Quantity.of(100)
-                quantityAt(productoA, recepcion) shouldBe Quantity.ZERO
+                totalFinal shouldBe totalAfterReceiving
+                quantityAt(productA, shelfA) shouldBe Quantity.of(100)
+                quantityAt(productA, receiving) shouldBe Quantity.ZERO
             }
         }
     }

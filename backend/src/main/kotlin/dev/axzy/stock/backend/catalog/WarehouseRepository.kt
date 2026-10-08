@@ -40,56 +40,56 @@ class WarehouseRepository(private val db: Database) {
      * @param activo filtro opcional; por defecto se devuelven también las
      *   inactivas, porque una bodega desactivada no desaparece.
      */
-    fun listarTodas(busqueda: String?, activo: Boolean?): List<WarehouseRecord> = transaction(db) {
+    fun listAll(search: String?, active: Boolean?): List<WarehouseRecord> = transaction(db) {
         Warehouses
             .selectAll()
-            .conFiltro(filtroDe(busqueda, activo))
+            .withFilter(filterOf(search, active))
             // El orden es fijo por código: sin paginación no hay `sort` que
             // interpretar, y un orden estable evita que el desplegable cambie
             // de orden entre recargas.
             .orderBy(Warehouses.code to SortOrder.ASC, Warehouses.id to SortOrder.ASC)
-            .map { fila ->
+            .map { row ->
                 WarehouseRecord(
-                    id = fila[Warehouses.id],
-                    code = fila[Warehouses.code],
-                    name = fila[Warehouses.name],
-                    isDefault = fila[Warehouses.isDefault],
-                    active = fila[Warehouses.active],
+                    id = row[Warehouses.id],
+                    code = row[Warehouses.code],
+                    name = row[Warehouses.name],
+                    isDefault = row[Warehouses.isDefault],
+                    active = row[Warehouses.active],
                 )
             }
     }
 
-    fun porId(id: Long): WarehouseRecord? = transaction(db) {
-        Warehouses.selectAll().where { Warehouses.id eq id }.singleOrNull()?.let { fila ->
+    fun byId(id: Long): WarehouseRecord? = transaction(db) {
+        Warehouses.selectAll().where { Warehouses.id eq id }.singleOrNull()?.let { row ->
             WarehouseRecord(
-                id = fila[Warehouses.id],
-                code = fila[Warehouses.code],
-                name = fila[Warehouses.name],
-                isDefault = fila[Warehouses.isDefault],
-                active = fila[Warehouses.active],
+                id = row[Warehouses.id],
+                code = row[Warehouses.code],
+                name = row[Warehouses.name],
+                isDefault = row[Warehouses.isDefault],
+                active = row[Warehouses.active],
             )
         }
     }
 
-    private fun filtroDe(busqueda: String?, activo: Boolean?): Op<Boolean>? {
-        var filtro: Op<Boolean>? = null
-        fun acumular(condicion: Op<Boolean>) {
-            filtro = filtro?.let { it and condicion } ?: condicion
+    private fun filterOf(search: String?, active: Boolean?): Op<Boolean>? {
+        var filter: Op<Boolean>? = null
+        fun accumulate(condition: Op<Boolean>) {
+            filter = filter?.let { it and condition } ?: condition
         }
 
-        activo?.let { valor -> acumular(Op.build { Warehouses.active eq valor }) }
+        active?.let { value -> accumulate(Op.build { Warehouses.active eq value }) }
 
-        busqueda?.trim()?.takeIf { it.isNotEmpty() }?.let { texto ->
-            val patron = "%${texto.lowercase()}%"
-            acumular(
+        search?.trim()?.takeIf { it.isNotEmpty() }?.let { text ->
+            val pattern = "%${text.lowercase()}%"
+            accumulate(
                 Op.build {
-                    (Warehouses.code.lowerCase() like patron) or
-                        (Warehouses.name.lowerCase() like patron)
+                    (Warehouses.code.lowerCase() like pattern) or
+                        (Warehouses.name.lowerCase() like pattern)
                 }
             )
         }
 
-        return filtro
+        return filter
     }
 }
 

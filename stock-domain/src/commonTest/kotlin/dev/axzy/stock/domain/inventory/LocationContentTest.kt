@@ -21,53 +21,53 @@ import io.kotest.matchers.string.shouldContain
  */
 class LocationContentTest : DescribeSpec({
 
-    val recepcion = LocationCode.of("RECEPCION")
-    val estante = LocationCode.of("04BCA")
-    val estanteB = LocationCode.of("04BCB")
-    val producto = "ABRAA1B"
+    val receiving = LocationCode.of("RECEPCION")
+    val shelf = LocationCode.of("04BCA")
+    val shelfB = LocationCode.of("04BCB")
+    val product = "ABRAA1B"
 
     describe("el método directo: el contenido es el saldo, no un cálculo") {
 
         it("una ubicación sin movimientos tiene contenido cero") {
             val ledger = InventoryLedger()
-            LocationContent.direct(ledger, producto, estante) shouldBe Quantity.ZERO
+            LocationContent.direct(ledger, product, shelf) shouldBe Quantity.ZERO
         }
 
         it("recibir y ubicar deja el contenido en el estante") {
             val ledger = InventoryLedger()
-            ledger.receipt(producto, recepcion, Quantity.of(100))
-            ledger.locate(producto, recepcion, estante, Quantity.of(100))
+            ledger.receipt(product, receiving, Quantity.of(100))
+            ledger.locate(product, receiving, shelf, Quantity.of(100))
 
             with(ledger) {
-                LocationContent.direct(this, producto, estante) shouldBe Quantity.of(100)
+                LocationContent.direct(this, product, shelf) shouldBe Quantity.of(100)
                 // Y la recepción queda vacía: la mercancía se movió, no se copió.
-                LocationContent.direct(this, producto, recepcion) shouldBe Quantity.ZERO
+                LocationContent.direct(this, product, receiving) shouldBe Quantity.ZERO
             }
         }
 
         it("trasladar entre estantes mueve el contenido sin duplicarlo") {
             val ledger = InventoryLedger()
-            ledger.initialLoad(producto, estante, Quantity.of(100))
-            ledger.moveWithinWarehouse(producto, estante, estanteB, Quantity.of(40))
+            ledger.initialLoad(product, shelf, Quantity.of(100))
+            ledger.moveWithinWarehouse(product, shelf, shelfB, Quantity.of(40))
 
             with(ledger) {
-                LocationContent.direct(this, producto, estante) shouldBe Quantity.of(60)
-                LocationContent.direct(this, producto, estanteB) shouldBe Quantity.of(40)
+                LocationContent.direct(this, product, shelf) shouldBe Quantity.of(60)
+                LocationContent.direct(this, product, shelfB) shouldBe Quantity.of(40)
                 // La suma se conserva: no se creó ni se destruyó mercancía.
-                val suma = LocationContent.direct(this, producto, estante) +
-                    LocationContent.direct(this, producto, estanteB)
-                suma shouldBe Quantity.of(100)
+                val sum = LocationContent.direct(this, product, shelf) +
+                    LocationContent.direct(this, product, shelfB)
+                sum shouldBe Quantity.of(100)
             }
         }
 
         it("el método directo coincide siempre con el saldo del libro") {
             val ledger = InventoryLedger()
-            ledger.initialLoad(producto, estante, Quantity.of(500))
-            ledger.moveWithinWarehouse(producto, estante, estanteB, Quantity.of(120))
-            ledger.adjustmentOut(producto, estante, Quantity.of(30), "merma")
+            ledger.initialLoad(product, shelf, Quantity.of(500))
+            ledger.moveWithinWarehouse(product, shelf, shelfB, Quantity.of(120))
+            ledger.adjustmentOut(product, shelf, Quantity.of(30), "merma")
 
-            ledger.allBalances().forEach { saldo ->
-                LocationContent.direct(ledger, saldo.productCode, saldo.location) shouldBe saldo.quantity
+            ledger.allBalances().forEach { balance ->
+                LocationContent.direct(ledger, balance.productCode, balance.location) shouldBe balance.quantity
             }
         }
     }
@@ -76,13 +76,13 @@ class LocationContentTest : DescribeSpec({
 
         it("reproduce la regla del ajuste: si el último movimiento es un ajuste, el total es ese ajuste") {
             val ledger = InventoryLedger()
-            ledger.initialLoad(producto, estante, Quantity.of(1000))
+            ledger.initialLoad(product, shelf, Quantity.of(1000))
             // Un ajuste deja el saldo en 1000 - 950 = 50.
-            ledger.adjustmentOut(producto, estante, Quantity.of(950), "conteo físico")
+            ledger.adjustmentOut(product, shelf, Quantity.of(950), "conteo físico")
 
             // El método nuevo lee el saldo real: 1000 cargadas menos 950 mermadas.
             with(ledger) {
-                LocationContent.direct(this, producto, estante) shouldBe Quantity.of(50)
+                LocationContent.direct(this, product, shelf) shouldBe Quantity.of(50)
             }
 
             // El algoritmo del legacy, en cambio, interpreta un `ADJUSTMENT_OUT`
@@ -93,30 +93,30 @@ class LocationContentTest : DescribeSpec({
             // el legacy reporta 0 donde hay 50 unidades. No es el bug del doble
             // descuento, es la semántica histórica del ajuste, y por eso se
             // caracteriza aquí en lugar de asumirse.
-            val legado = LocationContent.legacyAlgorithm(ledger, producto, estante)
-            legado shouldBe Quantity.ZERO
+            val legacy = LocationContent.legacyAlgorithm(ledger, product, shelf)
+            legacy shouldBe Quantity.ZERO
 
-            val divergencia = ContentDivergence(
-                productCode = producto,
-                location = estante,
+            val divergence = ContentDivergence(
+                productCode = product,
+                location = shelf,
                 modelSays = Quantity.of(50),
-                legacySays = legado,
+                legacySays = legacy,
             )
             // Divergencia positiva: el modelo ve MÁS. Se clasifica como revisable.
-            divergencia.explainedByKnownBug shouldBe true
+            divergence.explainedByKnownBug shouldBe true
         }
 
         it("sin movimientos devuelve cero, igual que el método directo") {
             val ledger = InventoryLedger()
-            LocationContent.legacyAlgorithm(ledger, producto, estante) shouldBe Quantity.ZERO
+            LocationContent.legacyAlgorithm(ledger, product, shelf) shouldBe Quantity.ZERO
         }
 
         it("nunca devuelve un valor negativo (descarta totales <= 0)") {
             val ledger = InventoryLedger()
-            ledger.initialLoad(producto, estante, Quantity.of(100))
-            ledger.adjustmentOut(producto, estante, Quantity.of(100), "merma total")
+            ledger.initialLoad(product, shelf, Quantity.of(100))
+            ledger.adjustmentOut(product, shelf, Quantity.of(100), "merma total")
 
-            val legacy = LocationContent.legacyAlgorithm(ledger, producto, estante)
+            val legacy = LocationContent.legacyAlgorithm(ledger, product, shelf)
 
             with(ledger) {
                 if (legacy.isNegative) {
@@ -124,7 +124,7 @@ class LocationContentTest : DescribeSpec({
                         "El algoritmo del legacy no puede devolver negativo: devolvió $legacy"
                     )
                 }
-                LocationContent.direct(this, producto, estante) shouldBe Quantity.ZERO
+                LocationContent.direct(this, product, shelf) shouldBe Quantity.ZERO
             }
         }
     }
@@ -133,45 +133,45 @@ class LocationContentTest : DescribeSpec({
 
         it("sin operaciones no hay divergencias") {
             val ledger = InventoryLedger()
-            ledger.initialLoad(producto, estante, Quantity.of(100))
+            ledger.initialLoad(product, shelf, Quantity.of(100))
 
-            val divergencias = LocationContentComparison.onlyDivergent(ledger)
+            val divergences = LocationContentComparison.onlyDivergent(ledger)
 
             with(ledger) {
                 // Un solo movimiento: los dos métodos ven lo mismo.
-                LocationContent.direct(this, producto, estante) shouldBe Quantity.of(100)
+                LocationContent.direct(this, product, shelf) shouldBe Quantity.of(100)
             }
-            divergencias.size shouldBe 0
+            divergences.size shouldBe 0
         }
 
         it("el informe es legible y explica las divergencias encontradas") {
             val ledger = InventoryLedger()
-            ledger.receipt(producto, recepcion, Quantity.of(100))
-            ledger.locate(producto, recepcion, estante, Quantity.of(100))
-            ledger.moveWithinWarehouse(producto, estante, estanteB, Quantity.of(30))
+            ledger.receipt(product, receiving, Quantity.of(100))
+            ledger.locate(product, receiving, shelf, Quantity.of(100))
+            ledger.moveWithinWarehouse(product, shelf, shelfB, Quantity.of(30))
 
-            val informe = LocationContentComparison.report(ledger)
+            val report = LocationContentComparison.report(ledger)
 
             // El informe debe existir y ser legible por alguien de negocio.
-            informe shouldContain "Informe de divergencias"
-            informe shouldContain "Ubicaciones con discrepancia"
+            report shouldContain "Informe de divergencias"
+            report shouldContain "Ubicaciones con discrepancia"
         }
 
         it("toda divergencia se clasifica como explicada o como pendiente de revisión") {
             val ledger = InventoryLedger()
-            ledger.initialLoad(producto, estante, Quantity.of(200))
-            ledger.receipt(producto, recepcion, Quantity.of(50))
-            ledger.locate(producto, recepcion, estante, Quantity.of(50))
-            ledger.moveWithinWarehouse(producto, estante, estanteB, Quantity.of(80))
+            ledger.initialLoad(product, shelf, Quantity.of(200))
+            ledger.receipt(product, receiving, Quantity.of(50))
+            ledger.locate(product, receiving, shelf, Quantity.of(50))
+            ledger.moveWithinWarehouse(product, shelf, shelfB, Quantity.of(80))
 
-            val divergencias = LocationContentComparison.onlyDivergent(ledger)
+            val divergences = LocationContentComparison.onlyDivergent(ledger)
 
-            divergencias.forEach { divergencia ->
+            divergences.forEach { divergence ->
                 // Cada divergencia debe caer en uno de los dos grupos, sin ambigüedad.
-                val clasificada = divergencia.explainedByKnownBug ||
-                    !divergencia.explainedByKnownBug
-                if (!clasificada) {
-                    throw AssertionError("Divergencia sin clasificar: $divergencia")
+                val classified = divergence.explainedByKnownBug ||
+                    !divergence.explainedByKnownBug
+                if (!classified) {
+                    throw AssertionError("Divergencia sin clasificar: $divergence")
                 }
             }
         }
@@ -180,15 +180,15 @@ class LocationContentTest : DescribeSpec({
             // El bug del legacy hacía que el total bajara, así que el sistema
             // viejo reportaba MENOS. Una divergencia al revés (el modelo ve
             // menos) apunta a otra causa y hay que investigarla.
-            val divergencia = ContentDivergence(
-                productCode = producto,
-                location = estante,
+            val divergence = ContentDivergence(
+                productCode = product,
+                location = shelf,
                 modelSays = Quantity.of(50),
                 legacySays = Quantity.of(100),
             )
 
-            divergencia.difference shouldBe Quantity.of(-50)
-            with(divergencia) {
+            divergence.difference shouldBe Quantity.of(-50)
+            with(divergence) {
                 if (explainedByKnownBug) {
                     throw AssertionError(
                         "Una divergencia negativa NO puede clasificarse como explicada " +
@@ -199,15 +199,15 @@ class LocationContentTest : DescribeSpec({
         }
 
         it("una divergencia donde el modelo ve MÁS sí se explica: es el descuadre acumulado") {
-            val divergencia = ContentDivergence(
-                productCode = producto,
-                location = estante,
+            val divergence = ContentDivergence(
+                productCode = product,
+                location = shelf,
                 modelSays = Quantity.of(150),
                 legacySays = Quantity.of(100),
             )
 
-            divergencia.difference shouldBe Quantity.of(50)
-            divergencia.explainedByKnownBug shouldBe true
+            divergence.difference shouldBe Quantity.of(50)
+            divergence.explainedByKnownBug shouldBe true
         }
     }
 
@@ -217,27 +217,27 @@ class LocationContentTest : DescribeSpec({
             val ledger = InventoryLedger()
 
             // Secuencia completa de una recepción real.
-            ledger.receipt(producto, recepcion, Quantity.of(100))
-            val totalTrasRecebir = ledger.totalOf(producto)
+            ledger.receipt(product, receiving, Quantity.of(100))
+            val totalAfterReceiving = ledger.totalOf(product)
 
-            ledger.locate(producto, recepcion, estante, Quantity.of(100))
-            val totalTrasUbicar = ledger.totalOf(producto)
+            ledger.locate(product, receiving, shelf, Quantity.of(100))
+            val totalAfterLocate = ledger.totalOf(product)
 
             with(ledger) {
                 // El total no cambia al ubicar: es la corrección del bug (R-65).
-                totalTrasUbicar shouldBe totalTrasRecebir
-                totalTrasUbicar shouldBe Quantity.of(100)
+                totalAfterLocate shouldBe totalAfterReceiving
+                totalAfterLocate shouldBe Quantity.of(100)
 
                 // Y el contenido del estante es lo que se ubicó.
-                LocationContent.direct(this, producto, estante) shouldBe Quantity.of(100)
+                LocationContent.direct(this, product, shelf) shouldBe Quantity.of(100)
 
                 // Mientras que en el legacy, `addKardexLocation` restaba DOS veces:
                 // una al mutar la entrada de recepción y otra al crear el LOCATION.
                 // Con esa aritmética el total habría quedado en 0.
-                val totalQueHabriaQuedadoEnElLegacy = Quantity.of(100) - Quantity.of(100)
-                if (totalQueHabriaQuedadoEnElLegacy.isZero) {
+                val totalThatWouldHaveRemainedInLegacy = Quantity.of(100) - Quantity.of(100)
+                if (totalThatWouldHaveRemainedInLegacy.isZero) {
                     // Documentado: el legacy habría reportado 0 unidades donde hay 100.
-                    totalTrasUbicar shouldBe Quantity.of(100)
+                    totalAfterLocate shouldBe Quantity.of(100)
                 }
             }
         }

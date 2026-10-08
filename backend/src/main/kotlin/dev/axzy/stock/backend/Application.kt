@@ -8,7 +8,7 @@ import dev.axzy.stock.backend.error.ErrorResponse
 import dev.axzy.stock.backend.error.StockException
 import dev.axzy.stock.backend.identity.aAccessUser
 import dev.axzy.stock.backend.identity.authRoutes
-import dev.axzy.stock.backend.identity.claimsDeToken
+import dev.axzy.stock.backend.identity.tokenClaims
 import dev.axzy.stock.backend.audit.AuditQueryService
 import dev.axzy.stock.backend.inventory.InventoryService
 import dev.axzy.stock.backend.audit.auditRoutes
@@ -56,7 +56,7 @@ fun main() {
         }
     }
 
-    val puerto = System.getenv("STOCK_PORT")?.toIntOrNull() ?: 8080
+    val port = System.getenv("STOCK_PORT")?.toIntOrNull() ?: 8080
 
     // El servicio de tokens exige STOCK_JWT_SECRET y FALLA si falta: un secreto
     // por defecto permitiria a cualquiera firmar tokens validos.
@@ -73,19 +73,19 @@ fun main() {
     // no tiene con qué validar.
     if (System.getenv("STOCK_SEED")?.toBoolean() == true) {
         buildDataSource(config).use { pool ->
-            val resultado = dev.axzy.stock.backend.identity.IdentitySeeder(pool).seed(
+            val result = dev.axzy.stock.backend.identity.IdentitySeeder(pool).seed(
                 adminUsername = System.getenv("STOCK_ADMIN_USER") ?: "admin",
                 adminPassword = System.getenv("STOCK_ADMIN_PASSWORD"),
             )
             logger.info(
                 "Sembrado: {} roles, {} permisos, administrador {}",
-                resultado.rolesCreated,
-                resultado.permissionsCreated,
-                if (resultado.adminCreated) "CREADO" else "ya existía",
+                result.rolesCreated,
+                result.permissionsCreated,
+                if (result.adminCreated) "CREADO" else "ya existía",
             )
             // La contraseña se imprime UNA SOLA VEZ, y solo si se acaba de crear.
             // No queda en ningún registro ni se vuelve a mostrar.
-            resultado.adminPassword?.let { contrasena ->
+            result.adminPassword?.let { password ->
                 logger.warn(
                     "════════════════════════════════════════════════════════════\n" +
                         "  CONTRASEÑA DEL ADMINISTRADOR (se muestra UNA sola vez)\n" +
@@ -93,30 +93,30 @@ fun main() {
                         "    contraseña: {}\n" +
                         "  Cámbiala al entrar. No se guarda en ningún sitio.\n" +
                         "════════════════════════════════════════════════════════════",
-                    resultado.adminUsername,
-                    contrasena,
+                    result.adminUsername,
+                    password,
                 )
             }
         }
     }
 
-    logger.info("Arrancando el backend en el puerto {}", puerto)
+    logger.info("Arrancando el backend en el puerto {}", port)
 
     // ── El verificador de permisos, conectado a la identidad ────────────────
     // Lee el token de la cabecera, lo traduce al `AccessUser` del dominio y deja
     // que el MOTOR de acceso decida. El motor tiene 43 tests y es el mismo que
     // usa el móvil: aquí no se reimplementa la autorización.
     val pool = buildDataSource(config)
-    val verificador = dev.axzy.stock.backend.security.AccessEnginePermissionChecker(
+    val verifier = dev.axzy.stock.backend.security.AccessEnginePermissionChecker(
         engine = dev.axzy.stock.domain.access.AccessEngine(),
-        usuarioActual = { call ->
-            val claims = call.claimsDeToken(tokens)
+        currentUser = { call ->
+            val claims = call.tokenClaims(tokens)
             claims?.let { it.aAccessUser() }
         },
     )
 
-    embeddedServer(Netty, port = puerto, host = "0.0.0.0") {
-        module(pool, tokens, hasher, verificador)
+    embeddedServer(Netty, port = port, host = "0.0.0.0") {
+        module(pool, tokens, hasher, verifier)
     }.start(wait = true)
 }
 
@@ -181,35 +181,35 @@ fun Application.module(
         // El formato incluye el método, la ruta y el estado. El `requestId` se
         // añadirá en la Fase 2, cuando exista correlación de auditoría.
         format { call ->
-            val estado = call.response.status()?.value ?: "-"
-            "${call.request.httpMethod.value} ${call.request.path()} → $estado"
+            val status = call.response.status()?.value ?: "-"
+            "${call.request.httpMethod.value} ${call.request.path()} → $status"
         }
     }
 
     // ── Manejo de errores ───────────────────────────────────────────────────
     install(StatusPages) {
-        exception<StockException> { call, causa ->
+        exception<StockException> { call, cause ->
             // Un error de dominio tiene su propio código HTTP y su propio
             // código de error. Se responde con un contrato estable para que el
             // cliente pueda reaccionar sin interpretar el texto.
             call.respond(
-                HttpStatusCode.fromValue(causa.httpStatus),
+                HttpStatusCode.fromValue(cause.httpStatus),
                 ErrorResponse(
-                    code = causa.code,
-                    message = causa.message,
-                    details = causa.details,
+                    code = cause.code,
+                    message = cause.message,
+                    details = cause.details,
                 ),
             )
         }
 
-        exception<Throwable> { call, causa ->
+        exception<Throwable> { call, cause ->
             // Un error inesperado NO se filtra al cliente: el mensaje interno
             // puede contener detalles de esquema o de conexión. Se registra
             // completo y se responde genérico.
             //
             // En el legacy los errores de Prisma llegaban al cliente con el SQL
             // y los nombres de tabla. Eso es información para un atacante.
-            logger.error("Error no controlado en ${call.request.path()}", causa)
+            logger.error("Error no controlado en ${call.request.path()}", cause)
             call.respond(
                 HttpStatusCode.InternalServerError,
                 ErrorResponse(
@@ -275,19 +275,39 @@ fun Application.module(
         // tests del catálogo, que no necesitan identidad—.
         if (tokenService != null && passwordHasher != null) {
             authRoutes(
-                repositorio = dev.axzy.stock.backend.identity.IdentityRepository(dataSource),
+                repository = dev.axzy.stock.backend.identity.IdentityRepository(dataSource),
                 tokens = tokenService,
                 hasher = passwordHasher,
                 permissionChecker = permissionChecker,
             )
         }
     }
+
+    // ── Documentación OpenAPI: DESACTIVADA A PROPÓSITO ────────────────────
+    //
+    // `installOpenApiDocumentation()` compila y sirve, pero **rompe dos
+    // comportamiento existentes** al conectarla:
+    //
+    //   1. `ApplicationTest > una ruta inexistente devuelve el contrato de error
+    //      en JSON, no HTML` — el 404 empezaba a devolver el HTML del Swagger en
+    //      lugar del JSON del catálogo de errores.
+    //   2. `RoutesWiringTest > /v1/products NO devuelve 404` — la ruta dejaba de
+    //      resolver.
+    //
+    // Es un problema de ORDEN de instalación: sus `routing {}` y su manejo de
+    // errores se están registrando de forma que capturan peticiones antes que los
+    // de negocio. **No se conecta hasta resolverlo**, porque un Swagger que hace
+    // que la API deje de responder no es documentación: es una avería.
+    //
+    // El código de `docs/OpenApiDocumentation.kt` se queda: compila y su test
+    // propio pasa. Lo que falta es encontrar dónde debe instalarse para no
+    // interceptar el 404 ni las rutas de negocio.
 }
 
 /** Cierra el pool al apagar, para no dejar conexiones colgadas. */
-private fun DataSource.use(bloque: (DataSource) -> Unit) {
+private fun DataSource.use(block: (DataSource) -> Unit) {
     try {
-        bloque(this)
+        block(this)
     } finally {
         (this as? AutoCloseable)?.close()
     }

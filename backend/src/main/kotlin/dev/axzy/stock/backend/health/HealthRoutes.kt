@@ -68,10 +68,10 @@ private fun checkDatabase(dataSource: DataSource): DatabaseCheck {
     // Una consulta real y trivial. Si esto falla, la base está caída o el pool
     // no tiene conexiones: es un `DOWN` de verdad.
     try {
-        dataSource.connection.use { conexion ->
-            conexion.createStatement().use { sentencia ->
-                sentencia.executeQuery("SELECT 1").use { filas ->
-                    if (!filas.next()) return DatabaseCheck(false, null, "La base no respondió a la consulta")
+        dataSource.connection.use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeQuery("SELECT 1").use { rows ->
+                    if (!rows.next()) return DatabaseCheck(false, null, "La base no respondió a la consulta")
                 }
             }
         }
@@ -83,13 +83,13 @@ private fun checkDatabase(dataSource: DataSource): DatabaseCheck {
     // La base YA respondió, así que un fallo aquí NO es una caída. Se informa
     // del motivo para que un despliegue a medias se diagnostique rápido.
     val version = try {
-        dataSource.connection.use { conexion ->
-            conexion.createStatement().use { sentencia ->
-                sentencia.executeQuery(
+        dataSource.connection.use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeQuery(
                     "SELECT version FROM flyway_schema_history " +
                         "WHERE version IS NOT NULL ORDER BY installed_rank DESC LIMIT 1"
-                ).use { filas ->
-                    if (filas.next()) filas.getString("version") else null
+                ).use { rows ->
+                    if (rows.next()) rows.getString("version") else null
                 }
             }
         }
@@ -97,41 +97,41 @@ private fun checkDatabase(dataSource: DataSource): DatabaseCheck {
         null
     }
 
-    val nota = if (version == null) {
+    val note = if (version == null) {
         "La base responde pero no se pudo leer la versión del esquema " +
             "(¿faltan las migraciones de Flyway?)"
     } else {
         null
     }
 
-    return DatabaseCheck(reachable = true, schemaVersion = version, note = nota)
+    return DatabaseCheck(reachable = true, schemaVersion = version, note = note)
 }
 
 fun Route.healthRoutes(dataSource: DataSource) {
 
     get("/v1/health") {
-        val inicio = System.nanoTime()
-        val comprobacion = checkDatabase(dataSource)
-        val latencia = (System.nanoTime() - inicio) / 1_000_000
+        val start = System.nanoTime()
+        val check = checkDatabase(dataSource)
+        val latency = (System.nanoTime() - start) / 1_000_000
 
-        val estado = if (comprobacion.reachable) STATE_UP else STATE_DOWN
+        val status = if (check.reachable) STATE_UP else STATE_DOWN
 
-        val respuesta = HealthResponse(
-            status = estado,
-            schemaVersion = comprobacion.schemaVersion,
+        val response = HealthResponse(
+            status = status,
+            schemaVersion = check.schemaVersion,
             database = ComponentHealth(
-                status = estado,
-                latencyMs = latencia,
+                status = status,
+                latencyMs = latency,
                 // El motivo se informa siempre que haya algo que decir, sea una
                 // caída o una versión ilegible.
-                error = comprobacion.note,
+                error = check.note,
             ),
             version = System.getenv("STOCK_VERSION") ?: "dev",
         )
 
         // 503 SOLO si la base no responde: así el orquestador saca de rotación
         // únicamente las instancias que de verdad no pueden servir.
-        val codigo = if (comprobacion.reachable) HttpStatusCode.OK else HttpStatusCode.ServiceUnavailable
-        call.respond(codigo, respuesta)
+        val code = if (check.reachable) HttpStatusCode.OK else HttpStatusCode.ServiceUnavailable
+        call.respond(code, response)
     }
 }

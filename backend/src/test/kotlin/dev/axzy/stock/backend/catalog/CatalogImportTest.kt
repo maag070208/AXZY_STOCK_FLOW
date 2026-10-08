@@ -46,16 +46,16 @@ import javax.sql.DataSource
  */
 class CatalogImportTest : DescribeSpec({
 
-    val nombreBase = "stock_import_test"
-    val problemaDeConexion = CatalogoTestDb.problemaDeConexion()
-    val hayBase = problemaDeConexion == null
+    val nameBase = "stock_import_test"
+    val connectionProblem = CatalogTestDb.connectionProblem()
+    val thereIsBase = connectionProblem == null
 
-    if (!hayBase) {
+    if (!thereIsBase) {
         println(
             """
             |
             |  ⚠️  TESTS DE IMPORTACIÓN SALTADOS: no se pudo consultar PostgreSQL
-            |      Motivo: $problemaDeConexion
+            |      Motivo: $connectionProblem
             |      Levántalo con:  cd infra && docker compose up -d
             |
             """.trimMargin()
@@ -63,27 +63,27 @@ class CatalogImportTest : DescribeSpec({
     }
 
     beforeSpec {
-        if (hayBase) CatalogoTestDb.recrear(nombreBase)
+        if (thereIsBase) CatalogTestDb.recreate(nameBase)
     }
 
     beforeTest {
-        if (hayBase) CatalogoTestDb.conPool(nombreBase) { pool -> CatalogoTestDb.limpiar(pool) }
+        if (thereIsBase) CatalogTestDb.withPool(nameBase) { pool -> CatalogTestDb.clean(pool) }
     }
 
     // ── Utilidades ──────────────────────────────────────────────────────────
 
-    fun ApplicationTestBuilder.montar(pool: DataSource) {
+    fun ApplicationTestBuilder.build(pool: DataSource) {
         application {
             module(dataSource = pool, permissionChecker = AllowAllPermissionChecker)
         }
     }
 
-    fun conApi(bloque: suspend ApplicationTestBuilder.(DataSource) -> Unit) {
-        if (!hayBase) return
-        CatalogoTestDb.conPool(nombreBase) { pool ->
+    fun withApi(block: suspend ApplicationTestBuilder.(DataSource) -> Unit) {
+        if (!thereIsBase) return
+        CatalogTestDb.withPool(nameBase) { pool ->
             testApplication {
-                montar(pool)
-                bloque(pool)
+                build(pool)
+                block(pool)
             }
         }
     }
@@ -94,10 +94,10 @@ class CatalogImportTest : DescribeSpec({
      * `dryRun` se omite cuando es `null`, que es como se prueba que el valor por
      * defecto es simular.
      */
-    suspend fun ApplicationTestBuilder.importar(
-        contenido: ByteArray,
-        nombreArchivo: String = "catalogo.csv",
-        tipo: String = "text/csv",
+    suspend fun ApplicationTestBuilder.importCatalog(
+        content: ByteArray,
+        nameFile: String = "catalogo.csv",
+        type: String = "text/csv",
         dryRun: Boolean? = null,
     ): HttpResponse = client.submitFormWithBinaryData(
         url = "/v1/products/import",
@@ -105,29 +105,29 @@ class CatalogImportTest : DescribeSpec({
             dryRun?.let { append("dryRun", it.toString()) }
             append(
                 "file",
-                contenido,
+                content,
                 Headers.build {
-                    append(HttpHeaders.ContentType, tipo)
-                    append(HttpHeaders.ContentDisposition, "filename=\"$nombreArchivo\"")
+                    append(HttpHeaders.ContentType, type)
+                    append(HttpHeaders.ContentDisposition, "filename=\"$nameFile\"")
                 },
             )
         },
     )
 
-    suspend fun HttpResponse.cuerpo() = Json.parseToJsonElement(bodyAsText()).jsonObject
+    suspend fun HttpResponse.body() = Json.parseToJsonElement(bodyAsText()).jsonObject
 
     /** El CSV que produce el importador del dominio, el mismo del archivo real. */
     fun csvReal(): ByteArray {
-        val archivo = CatalogoTestDb.archivoCsvReal()
+        val file = CatalogTestDb.fileCsvReal()
             ?: error(
                 "No se encontró 'catalogo_real.csv' (el extracto del Excel real). " +
                     "Es el insumo del test de cuadre."
             )
-        return archivo.readBytes()
+        return file.readBytes()
     }
 
-    fun csv(vararg filas: String): ByteArray =
-        (listOf("product_id,product_code,name,unit_measure,stock") + filas)
+    fun csv(vararg rows: String): ByteArray =
+        (listOf("product_id,product_code,name,unit_measure,stock") + rows)
             .joinToString("\n")
             .toByteArray()
 
@@ -135,83 +135,83 @@ class CatalogImportTest : DescribeSpec({
     describe("dry-run con el archivo real: el cuadre y cero escrituras") {
 
         it("reproduce las cifras del Excel y NO escribe nada") {
-            conApi { pool ->
-                val respuesta = importar(csvReal(), dryRun = true)
+            withApi { pool ->
+                val response = importCatalog(csvReal(), dryRun = true)
 
-                respuesta.status shouldBe HttpStatusCode.OK
-                val informe = respuesta.cuerpo()
+                response.status shouldBe HttpStatusCode.OK
+                val report = response.body()
 
-                informe["dryRun"]!!.jsonPrimitive.content.toBoolean() shouldBe true
-                informe["totalRows"]!!.jsonPrimitive.int shouldBe 1398
-                informe["accepted"]!!.jsonPrimitive.int shouldBe 1398
-                informe["rejected"]!!.jsonPrimitive.int shouldBe 0
-                informe["zeroStockCount"]!!.jsonPrimitive.int shouldBe 334
-                informe["unitMeasures"]!!.jsonArray.single().jsonPrimitive.content shouldBe "PZA"
+                report["dryRun"]!!.jsonPrimitive.content.toBoolean() shouldBe true
+                report["totalRows"]!!.jsonPrimitive.int shouldBe 1398
+                report["accepted"]!!.jsonPrimitive.int shouldBe 1398
+                report["rejected"]!!.jsonPrimitive.int shouldBe 0
+                report["zeroStockCount"]!!.jsonPrimitive.int shouldBe 334
+                report["unitMeasures"]!!.jsonArray.single().jsonPrimitive.content shouldBe "PZA"
                 withClue("La suma de existencias debe ser exactamente la del Excel") {
-                    respuesta.bodyAsText() shouldContain "\"totalStock\":10914130.000"
+                    response.bodyAsText() shouldContain "\"totalStock\":10914130.000"
                 }
                 withClue("Una simulación no persiste: `persisted` lo dice explícitamente") {
-                    informe["persisted"]!!.jsonPrimitive.int shouldBe 0
+                    report["persisted"]!!.jsonPrimitive.int shouldBe 0
                 }
                 withClue(
                     "El stock del archivo NO se escribe al inventario: el archivo no dice " +
                         "en qué estantería está cada pieza (§3.5.1)"
                 ) {
-                    informe["stockPersisted"]!!.jsonPrimitive.content.toBoolean() shouldBe false
-                    CatalogoTestDb.consultarUnLong(pool, "SELECT count(*) FROM stock_by_location") shouldBe 0L
+                    report["stockPersisted"]!!.jsonPrimitive.content.toBoolean() shouldBe false
+                    CatalogTestDb.querySingleLong(pool, "SELECT count(*) FROM stock_by_location") shouldBe 0L
                 }
 
                 withClue("El dry-run no puede dejar ni un producto escrito") {
-                    CatalogoTestDb.contarProductos(pool) shouldBe 0L
+                    CatalogTestDb.countProducts(pool) shouldBe 0L
                 }
             }
         }
 
         it("rechaza las filas malas indicando su número de fila") {
-            conApi { _ ->
-                val contenido = csv(
+            withApi { _ ->
+                val content = csv(
                     "1,GOOD0001,PRODUCTO BUENO,PZA,10",
                     "2,mal,PRODUCTO CON CÓDIGO MALO,PZA,20",
                     "3,GOOD0003,PRODUCTO BUENO 3,PZA,30",
                 )
 
-                val informe = importar(contenido, dryRun = true).cuerpo()
+                val report = importCatalog(content, dryRun = true).body()
 
-                informe["totalRows"]!!.jsonPrimitive.int shouldBe 3
-                informe["accepted"]!!.jsonPrimitive.int shouldBe 2
-                informe["rejected"]!!.jsonPrimitive.int shouldBe 1
+                report["totalRows"]!!.jsonPrimitive.int shouldBe 3
+                report["accepted"]!!.jsonPrimitive.int shouldBe 2
+                report["rejected"]!!.jsonPrimitive.int shouldBe 1
 
-                val rechazo = informe["rejections"]!!.jsonArray.single().jsonObject
+                val rejection = report["rejections"]!!.jsonArray.single().jsonObject
                 withClue("Sin el número de fila el usuario no puede corregir el archivo") {
-                    rechazo["rowNumber"]!!.jsonPrimitive.int shouldBe 3
+                    rejection["rowNumber"]!!.jsonPrimitive.int shouldBe 3
                 }
-                rechazo["productCode"]!!.jsonPrimitive.content shouldBe "mal"
-                rechazo["reason"]!!.jsonPrimitive.content shouldContain "inválido"
+                rejection["productCode"]!!.jsonPrimitive.content shouldBe "mal"
+                rejection["reason"]!!.jsonPrimitive.content shouldContain "inválido"
             }
         }
 
         it("sin el campo dryRun simula: el olvido no puede escribir 1.398 productos") {
-            conApi { pool ->
-                val respuesta = importar(csv("1,SIN00001,PRODUCTO,PZA,5"))
+            withApi { pool ->
+                val response = importCatalog(csv("1,SIN00001,PRODUCTO,PZA,5"))
 
-                respuesta.cuerpo()["dryRun"]!!.jsonPrimitive.content.toBoolean() shouldBe true
-                CatalogoTestDb.contarProductos(pool) shouldBe 0L
+                response.body()["dryRun"]!!.jsonPrimitive.content.toBoolean() shouldBe true
+                CatalogTestDb.countProducts(pool) shouldBe 0L
             }
         }
 
         it("rechaza un CSV con cabeceras del ERP en lugar de adivinar las columnas") {
-            conApi { _ ->
-                val contenido = (
+            withApi { _ ->
+                val content = (
                     "CIDPRODUCTO,CCODIGOPRODUCTO,CNOMBREPRODUCTO,CDESCRIPCIONPRODUCTO," +
                         "CUNIDADMEDIDA,CEXISTENCIAS\n" +
                         "1,ABRAA1B,ABRAZADERA,ABRAZADERA,PZA,10\n"
                     ).toByteArray()
 
-                val respuesta = importar(contenido, dryRun = true)
+                val response = importCatalog(content, dryRun = true)
 
                 withClue("Mapear por posición un archivo ajeno pone datos en el campo equivocado") {
-                    respuesta.status shouldBe HttpStatusCode.BadRequest
-                    respuesta.cuerpo()["code"]!!.jsonPrimitive.content shouldBe "IMPORT_FILE_FORMAT"
+                    response.status shouldBe HttpStatusCode.BadRequest
+                    response.body()["code"]!!.jsonPrimitive.content shouldBe "IMPORT_FILE_FORMAT"
                 }
             }
         }
@@ -221,89 +221,89 @@ class CatalogImportTest : DescribeSpec({
     describe("import real: una sola transacción") {
 
         it("persiste las 1.398 filas del archivo real") {
-            conApi { pool ->
-                val respuesta = importar(csvReal(), dryRun = false)
+            withApi { pool ->
+                val response = importCatalog(csvReal(), dryRun = false)
 
-                respuesta.status shouldBe HttpStatusCode.OK
-                val informe = respuesta.cuerpo()
+                response.status shouldBe HttpStatusCode.OK
+                val report = response.body()
 
-                informe["dryRun"]!!.jsonPrimitive.content.toBoolean() shouldBe false
-                informe["persisted"]!!.jsonPrimitive.int shouldBe 1398
-                informe["accepted"]!!.jsonPrimitive.int shouldBe 1398
-                CatalogoTestDb.contarProductos(pool) shouldBe 1398L
-                CatalogoTestDb.contarProductosActivos(pool) shouldBe 1398L
+                report["dryRun"]!!.jsonPrimitive.content.toBoolean() shouldBe false
+                report["persisted"]!!.jsonPrimitive.int shouldBe 1398
+                report["accepted"]!!.jsonPrimitive.int shouldBe 1398
+                CatalogTestDb.countProducts(pool) shouldBe 1398L
+                CatalogTestDb.countActiveProducts(pool) shouldBe 1398L
                 withClue("El id del ERP se conserva para la referencia cruzada") {
-                    CatalogoTestDb.consultarUnLong(
+                    CatalogTestDb.querySingleLong(
                         pool,
                         "SELECT count(*) FROM products WHERE external_id IS NOT NULL",
                     ) shouldBe 1398L
                 }
                 withClue("La carga inicial de stock por ubicación es otra decisión (§3.5.1)") {
-                    CatalogoTestDb.consultarUnLong(pool, "SELECT count(*) FROM stock_by_location") shouldBe 0L
+                    CatalogTestDb.querySingleLong(pool, "SELECT count(*) FROM stock_by_location") shouldBe 0L
                 }
             }
         }
 
         it("reimportar actualiza por código en lugar de duplicar") {
-            conApi { pool ->
-                importar(csvReal(), dryRun = false).status shouldBe HttpStatusCode.OK
-                val segunda = importar(csvReal(), dryRun = false)
+            withApi { pool ->
+                importCatalog(csvReal(), dryRun = false).status shouldBe HttpStatusCode.OK
+                val second = importCatalog(csvReal(), dryRun = false)
 
-                segunda.status shouldBe HttpStatusCode.OK
-                segunda.cuerpo()["persisted"]!!.jsonPrimitive.int shouldBe 1398
+                second.status shouldBe HttpStatusCode.OK
+                second.body()["persisted"]!!.jsonPrimitive.int shouldBe 1398
                 withClue("product_code es la clave de identidad del upsert: no puede duplicar") {
-                    CatalogoTestDb.contarProductos(pool) shouldBe 1398L
+                    CatalogTestDb.countProducts(pool) shouldBe 1398L
                 }
             }
         }
 
         it("no reactiva un producto que se desactivó a propósito") {
-            conApi { pool ->
-                importar(csvReal(), dryRun = false).status shouldBe HttpStatusCode.OK
+            withApi { pool ->
+                importCatalog(csvReal(), dryRun = false).status shouldBe HttpStatusCode.OK
 
-                val codigo = "ABRAA1B"
-                val id = CatalogoTestDb.idDeProducto(pool, codigo)
-                CatalogoTestDb.ejecutar(pool, "UPDATE products SET active = false WHERE id = ?", id)
+                val code = "ABRAA1B"
+                val id = CatalogTestDb.productId(pool, code)
+                CatalogTestDb.execute(pool, "UPDATE products SET active = false WHERE id = ?", id)
 
-                importar(csvReal(), dryRun = false).status shouldBe HttpStatusCode.OK
+                importCatalog(csvReal(), dryRun = false).status shouldBe HttpStatusCode.OK
 
                 withClue("Reimportar el catálogo no puede resucitar lo que alguien desactivó") {
-                    CatalogoTestDb.contarProductosActivos(pool) shouldBe 1397L
+                    CatalogTestDb.countActiveProducts(pool) shouldBe 1397L
                 }
             }
         }
 
         it("UNA transacción fallida no deja productos a medias") {
-            conApi { pool ->
+            withApi { pool ->
                 // Ya existe un producto con external_id 999999: la tercera fila
                 // del archivo chocará contra su índice único DESPUÉS de que las
                 // dos primeras se hayan insertado.
-                CatalogoTestDb.insertarProducto(
+                CatalogTestDb.insertProduct(
                     pool = pool,
-                    codigo = "PREEXIST",
-                    nombre = "PRODUCTO QUE YA ESTABA",
+                    code = "PREEXIST",
+                    name = "PRODUCTO QUE YA ESTABA",
                     externalId = 999999L,
                 )
 
-                val contenido = csv(
+                val content = csv(
                     "900001,ZTEST001,PRIMERO,PZA,10",
                     "900002,ZTEST002,SEGUNDO,PZA,20",
                     "999999,ZTEST003,CHOCA CON EL ID EXTERNO,PZA,30",
                     "900004,ZTEST004,CUARTO,PZA,40",
                 )
 
-                val respuesta = importar(contenido, dryRun = false)
+                val response = importCatalog(content, dryRun = false)
 
-                respuesta.status shouldBe HttpStatusCode.Conflict
-                respuesta.cuerpo()["code"]!!.jsonPrimitive.content shouldBe "DUPLICATE_EXTERNAL_ID"
+                response.status shouldBe HttpStatusCode.Conflict
+                response.body()["code"]!!.jsonPrimitive.content shouldBe "DUPLICATE_EXTERNAL_ID"
 
                 withClue(
                     "Un import a medias con 1.398 productos es peor que un import fallido: " +
                         "solo debe quedar el producto que ya existía. Productos: " +
-                        CatalogoTestDb.contarProductos(pool)
+                        CatalogTestDb.countProducts(pool)
                 ) {
-                    CatalogoTestDb.contarProductos(pool) shouldBe 1L
-                    CatalogoTestDb.consultarUnLong(
+                    CatalogTestDb.countProducts(pool) shouldBe 1L
+                    CatalogTestDb.querySingleLong(
                         pool,
                         "SELECT count(*) FROM products WHERE product_code LIKE 'ZTEST%'",
                     ) shouldBe 0L
@@ -312,31 +312,31 @@ class CatalogImportTest : DescribeSpec({
         }
 
         it("con filas rechazadas no importa NINGUNA: 422 y cero escrituras") {
-            conApi { pool ->
-                val contenido = csv(
+            withApi { pool ->
+                val content = csv(
                     "1,MIX00001,PRODUCTO BUENO,PZA,10",
                     "2,mal,PRODUCTO MALO,PZA,20",
                 )
 
-                val respuesta = importar(contenido, dryRun = false)
+                val response = importCatalog(content, dryRun = false)
 
-                respuesta.status shouldBe HttpStatusCode.UnprocessableEntity
-                respuesta.cuerpo()["code"]!!.jsonPrimitive.content shouldBe "IMPORT_HAS_REJECTIONS"
+                response.status shouldBe HttpStatusCode.UnprocessableEntity
+                response.body()["code"]!!.jsonPrimitive.content shouldBe "IMPORT_HAS_REJECTIONS"
                 withClue("Persistir «las buenas de momento» es el import a medias que se evita") {
-                    CatalogoTestDb.contarProductos(pool) shouldBe 0L
+                    CatalogTestDb.countProducts(pool) shouldBe 0L
                 }
             }
         }
 
         it("rechaza un identificador de ERP que no cabe en la columna, en lugar de perderlo") {
-            conApi { pool ->
-                val contenido = csv("ABC,ZEXT0001,PRODUCTO CON ID NO NUMÉRICO,PZA,10")
+            withApi { pool ->
+                val content = csv("ABC,ZEXT0001,PRODUCTO CON ID NO NUMÉRICO,PZA,10")
 
-                val respuesta = importar(contenido, dryRun = true)
+                val response = importCatalog(content, dryRun = true)
 
-                respuesta.status shouldBe HttpStatusCode.UnprocessableEntity
-                respuesta.cuerpo()["code"]!!.jsonPrimitive.content shouldBe "IMPORT_INVALID_EXTERNAL_ID"
-                CatalogoTestDb.contarProductos(pool) shouldBe 0L
+                response.status shouldBe HttpStatusCode.UnprocessableEntity
+                response.body()["code"]!!.jsonPrimitive.content shouldBe "IMPORT_INVALID_EXTERNAL_ID"
+                CatalogTestDb.countProducts(pool) shouldBe 0L
             }
         }
     }
@@ -345,8 +345,8 @@ class CatalogImportTest : DescribeSpec({
     describe("XLSX del ERP: las columnas se leen por nombre, nunca por posición") {
 
         it("lee una hoja con cabeceras del ERP y conserva el número de fila") {
-            conApi { _ ->
-                val contenido = xlsxDeEjemplo(
+            withApi { _ ->
+                val content = sampleXlsx(
                     listOf(
                         listOf("CIDPRODUCTO", "CCODIGOPRODUCTO", "CNOMBREPRODUCTO", "CUNIDADMEDIDA", "CEXISTENCIAS"),
                         listOf("1", "ABRAA1B", "ABRAZADERA 1-5/8\" & TUERCA", "PZA", "5193"),
@@ -355,56 +355,56 @@ class CatalogImportTest : DescribeSpec({
                     )
                 )
 
-                val respuesta = importar(
-                    contenido = contenido,
-                    nombreArchivo = "inventario.xlsx",
-                    tipo = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                val response = importCatalog(
+                    content = content,
+                    nameFile = "inventario.xlsx",
+                    type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     dryRun = true,
                 )
 
-                respuesta.status shouldBe HttpStatusCode.OK
-                val informe = respuesta.cuerpo()
+                response.status shouldBe HttpStatusCode.OK
+                val report = response.body()
 
                 withClue("La cabecera está en la fila 1, así que los datos empiezan en la 2") {
-                    informe["totalRows"]!!.jsonPrimitive.int shouldBe 3
+                    report["totalRows"]!!.jsonPrimitive.int shouldBe 3
                 }
-                informe["accepted"]!!.jsonPrimitive.int shouldBe 2
-                informe["rejected"]!!.jsonPrimitive.int shouldBe 1
-                informe["zeroStockCount"]!!.jsonPrimitive.int shouldBe 1
+                report["accepted"]!!.jsonPrimitive.int shouldBe 2
+                report["rejected"]!!.jsonPrimitive.int shouldBe 1
+                report["zeroStockCount"]!!.jsonPrimitive.int shouldBe 1
                 withClue("5193 + 0, leído del valor numérico de la celda") {
-                    respuesta.bodyAsText() shouldContain "\"totalStock\":5193.000"
+                    response.bodyAsText() shouldContain "\"totalStock\":5193.000"
                 }
                 withClue("El rechazo señala la fila FÍSICA del archivo (la 4)") {
-                    informe["rejections"]!!.jsonArray.single().jsonObject["rowNumber"]!!
+                    report["rejections"]!!.jsonArray.single().jsonObject["rowNumber"]!!
                         .jsonPrimitive.int shouldBe 4
                 }
             }
         }
 
         it("rechaza un XLSX al que le faltan columnas obligatorias") {
-            conApi { _ ->
-                val contenido = xlsxDeEjemplo(
+            withApi { _ ->
+                val content = sampleXlsx(
                     listOf(
                         listOf("CIDPRODUCTO", "CNOMBREPRODUCTO"),
                         listOf("1", "PRODUCTO SIN CÓDIGO NI STOCK"),
                     )
                 )
 
-                val respuesta = importar(
-                    contenido = contenido,
-                    nombreArchivo = "incompleto.xlsx",
-                    tipo = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                val response = importCatalog(
+                    content = content,
+                    nameFile = "incompleto.xlsx",
+                    type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     dryRun = true,
                 )
 
-                respuesta.status shouldBe HttpStatusCode.BadRequest
-                respuesta.cuerpo()["code"]!!.jsonPrimitive.content shouldBe "IMPORT_FILE_FORMAT"
+                response.status shouldBe HttpStatusCode.BadRequest
+                response.body()["code"]!!.jsonPrimitive.content shouldBe "IMPORT_FILE_FORMAT"
             }
         }
 
         it("descarta las filas vacías del final, como el archivo real") {
-            conApi { _ ->
-                val contenido = xlsxDeEjemplo(
+            withApi { _ ->
+                val content = sampleXlsx(
                     listOf(
                         listOf("CIDPRODUCTO", "CCODIGOPRODUCTO", "CNOMBREPRODUCTO", "CUNIDADMEDIDA", "CEXISTENCIAS"),
                         listOf("1", "ABRAA1B", "PRODUCTO", "PZA", "100"),
@@ -413,16 +413,16 @@ class CatalogImportTest : DescribeSpec({
                     )
                 )
 
-                val informe = importar(
-                    contenido,
-                    nombreArchivo = "catalogo.xlsx",
-                    tipo = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                val report = importCatalog(
+                    content,
+                    nameFile = "catalogo.xlsx",
+                    type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     dryRun = true,
-                ).cuerpo()
+                ).body()
 
                 withClue("El perfil del archivo real habla de 1.398 filas útiles, no de 1.400") {
-                    informe["totalRows"]!!.jsonPrimitive.int shouldBe 1
-                    informe["rejected"]!!.jsonPrimitive.int shouldBe 0
+                    report["totalRows"]!!.jsonPrimitive.int shouldBe 1
+                    report["rejected"]!!.jsonPrimitive.int shouldBe 0
                 }
             }
         }
@@ -437,28 +437,28 @@ class CatalogImportTest : DescribeSpec({
  * el camino real (índices de cadena, valores numéricos, referencias de celda)
  * sin depender de un archivo binario en el repositorio.
  */
-private fun xlsxDeEjemplo(filas: List<List<String>>): ByteArray {
-    val cadenas = mutableListOf<String>()
-    fun indiceDe(texto: String): Int {
-        val existente = cadenas.indexOf(texto)
-        if (existente >= 0) return existente
-        cadenas += texto
-        return cadenas.lastIndex
+private fun sampleXlsx(rows: List<List<String>>): ByteArray {
+    val strings = mutableListOf<String>()
+    fun indexOf(text: String): Int {
+        val existing = strings.indexOf(text)
+        if (existing >= 0) return existing
+        strings += text
+        return strings.lastIndex
     }
 
-    val hoja = buildString {
+    val sheet = buildString {
         append("""<?xml version="1.0" encoding="UTF-8"?>""")
         append("""<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>""")
-        filas.forEachIndexed { indiceFila, celdas ->
-            val numeroDeFila = indiceFila + 1
-            append("""<row r="$numeroDeFila">""")
-            celdas.forEachIndexed { indiceColumna, valor ->
-                if (valor.isEmpty()) return@forEachIndexed
-                val referencia = "${letraDeColumna(indiceColumna)}$numeroDeFila"
-                if (NUMERO.matches(valor)) {
-                    append("""<c r="$referencia"><v>$valor</v></c>""")
+        rows.forEachIndexed { indexRow, cells ->
+            val rowNumber = indexRow + 1
+            append("""<row r="$rowNumber">""")
+            cells.forEachIndexed { indexColumn, value ->
+                if (value.isEmpty()) return@forEachIndexed
+                val reference = "${columnLetter(indexColumn)}$rowNumber"
+                if (NUMBER.matches(value)) {
+                    append("""<c r="$reference"><v>$value</v></c>""")
                 } else {
-                    append("""<c r="$referencia" t="s"><v>${indiceDe(valor)}</v></c>""")
+                    append("""<c r="$reference" t="s"><v>${indexOf(value)}</v></c>""")
                 }
             }
             append("</row>")
@@ -466,35 +466,35 @@ private fun xlsxDeEjemplo(filas: List<List<String>>): ByteArray {
         append("</sheetData></worksheet>")
     }
 
-    val compartidas = buildString {
+    val shared = buildString {
         append("""<?xml version="1.0" encoding="UTF-8"?>""")
-        append("""<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${cadenas.size}" uniqueCount="${cadenas.size}">""")
-        cadenas.forEach { append("<si><t>${escaparXml(it)}</t></si>") }
+        append("""<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${strings.size}" uniqueCount="${strings.size}">""")
+        strings.forEach { append("<si><t>${escapeXml(it)}</t></si>") }
         append("</sst>")
     }
 
-    val salida = ByteArrayOutputStream()
-    ZipOutputStream(salida).use { zip ->
-        fun agregar(nombre: String, contenido: String) {
-            zip.putNextEntry(ZipEntry(nombre))
-            zip.write(contenido.toByteArray())
+    val output = ByteArrayOutputStream()
+    ZipOutputStream(output).use { zip ->
+        fun add(name: String, content: String) {
+            zip.putNextEntry(ZipEntry(name))
+            zip.write(content.toByteArray())
             zip.closeEntry()
         }
 
-        agregar(
+        add(
             "[Content_Types].xml",
             """<?xml version="1.0" encoding="UTF-8"?>""" +
                 """<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">""" +
                 """<Default Extension="xml" ContentType="application/xml"/></Types>""",
         )
-        agregar(
+        add(
             "xl/workbook.xml",
             """<?xml version="1.0" encoding="UTF-8"?>""" +
                 """<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" """ +
                 """xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">""" +
                 """<sheets><sheet name="Hoja1" sheetId="1" r:id="rId1"/></sheets></workbook>""",
         )
-        agregar(
+        add(
             "xl/_rels/workbook.xml.rels",
             """<?xml version="1.0" encoding="UTF-8"?>""" +
                 """<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">""" +
@@ -502,27 +502,27 @@ private fun xlsxDeEjemplo(filas: List<List<String>>): ByteArray {
                 """Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" """ +
                 """Target="worksheets/sheet1.xml"/></Relationships>""",
         )
-        agregar("xl/sharedStrings.xml", compartidas)
-        agregar("xl/worksheets/sheet1.xml", hoja)
+        add("xl/sharedStrings.xml", shared)
+        add("xl/worksheets/sheet1.xml", sheet)
     }
 
-    return salida.toByteArray()
+    return output.toByteArray()
 }
 
-private val NUMERO = Regex("^-?\\d+(\\.\\d+)?$")
+private val NUMBER = Regex("^-?\\d+(\\.\\d+)?$")
 
-private fun letraDeColumna(indice: Int): String {
-    var restante = indice
-    val letras = StringBuilder()
+private fun columnLetter(index: Int): String {
+    var remaining = index
+    val letters = StringBuilder()
     while (true) {
-        letras.insert(0, ('A' + restante % 26))
-        restante = restante / 26 - 1
-        if (restante < 0) break
+        letters.insert(0, ('A' + remaining % 26))
+        remaining = remaining / 26 - 1
+        if (remaining < 0) break
     }
-    return letras.toString()
+    return letters.toString()
 }
 
-private fun escaparXml(texto: String): String = texto
+private fun escapeXml(text: String): String = text
     .replace("&", "&amp;")
     .replace("<", "&lt;")
     .replace(">", "&gt;")

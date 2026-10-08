@@ -259,31 +259,31 @@ data class AuditEvent(
         get() {
             // QUIÉN: si el canal es humano, debe haber una persona identificada.
             // Si es de servicio o sistema, debe estar identificado el origen.
-            val tieneActor = when {
+            val hasActor = when {
                 source.channel.isHuman -> actor.userId != null
                 else -> actor.username != null
             }
             // CUÁNDO: instante y fecha operativa.
-            val tieneCuando = timing.occurredAt > 0 && timing.businessDate.isNotBlank()
+            val hasWhen = timing.occurredAt > 0 && timing.businessDate.isNotBlank()
             // DÓNDE: sobre qué entidad.
-            val tieneDonde = entity.type.isNotBlank()
+            val hasWhere = entity.type.isNotBlank()
             // A QUÉ HORA, en el sentido de si fue diferido: si llegó por
             // sincronización, debe constar cuándo se capturó.
-            val tieneTiemposCoherentes = !timing.isDeferred || timing.offlineCreatedAt != null
+            val hasTimesCoherent = !timing.isDeferred || timing.offlineCreatedAt != null
             // QUÉ y CON QUÉ PERMISO: la acción siempre; el permiso si es crítica.
-            val tieneQue = action.isNotBlank()
-            val tienePermiso = level != AuditLevel.CRITICAL || permissionKey != null
+            val hasThat = action.isNotBlank()
+            val hasPermission = level != AuditLevel.CRITICAL || permissionKey != null
 
-            return tieneActor && tieneCuando && tieneDonde &&
-                tieneTiemposCoherentes && tieneQue && tienePermiso
+            return hasActor && hasWhen && hasWhere &&
+                hasTimesCoherent && hasThat && hasPermission
         }
 
     /** Los campos que difieren entre el estado anterior y el nuevo. */
     fun computeChangedFields(): List<String> {
-        val antes = previousState ?: return emptyList()
-        val despues = newState ?: return emptyList()
-        return (antes.keys + despues.keys).distinct()
-            .filter { antes[it] != despues[it] }
+        val before = previousState ?: return emptyList()
+        val after = newState ?: return emptyList()
+        return (before.keys + after.keys).distinct()
+            .filter { before[it] != after[it] }
             .sorted()
     }
 }
@@ -351,11 +351,11 @@ object DefaultAuditHashChain : AuditHashChain {
     }
 
     override fun verify(events: List<AuditEvent>): Int? {
-        var anterior: String? = null
-        events.forEachIndexed { indice, evento ->
-            val esperado = hash(anterior, evento)
-            if (evento.recordHash != esperado) return indice
-            anterior = esperado
+        var previous: String? = null
+        events.forEachIndexed { index, event ->
+            val expected = hash(previous, event)
+            if (event.recordHash != expected) return index
+            previous = expected
         }
         return null
     }

@@ -89,44 +89,44 @@ object PasswordPolicy {
      *   contengan.
      */
     fun validate(password: String, username: String? = null): PasswordValidation {
-        val rechazos = mutableListOf<PasswordRejection>()
+        val rejections = mutableListOf<PasswordRejection>()
 
         // ── Longitud ────────────────────────────────────────────────────────
-        if (password.length < MIN_LENGTH) rechazos += PasswordRejection.TOO_SHORT
-        if (password.length > MAX_LENGTH) rechazos += PasswordRejection.TOO_LONG
+        if (password.length < MIN_LENGTH) rejections += PasswordRejection.TOO_SHORT
+        if (password.length > MAX_LENGTH) rejections += PasswordRejection.TOO_LONG
 
         if (password.isBlank()) {
-            rechazos += PasswordRejection.ONLY_WHITESPACE
+            rejections += PasswordRejection.ONLY_WHITESPACE
             // Sin esto, una contraseña de solo espacios larga pasaría la longitud.
-            return PasswordValidation.Invalid(rechazos.distinct())
+            return PasswordValidation.Invalid(rejections.distinct())
         }
 
         // ── Contra la lista de filtradas ────────────────────────────────────
         // Se compara en minúsculas y sin espacios de los extremos, porque
         // `Password123 ` es la misma contraseña que `password123` para quien la
         // escribe, y `PASSWORD123` para quien la adivina.
-        val normalizada = password.trim().lowercase()
-        if (normalizada in COMMON) rechazos += PasswordRejection.COMMON
+        val normalized = password.trim().lowercase()
+        if (normalized in COMMON) rejections += PasswordRejection.COMMON
 
         // ── Que no contenga el usuario ──────────────────────────────────────
         // `jperez` con la contraseña `jperez2026!` es de lo primero que se prueba.
-        val usuario = username?.trim()?.lowercase()
-        if (!usuario.isNullOrBlank() && usuario.length >= 4 && normalizada.contains(usuario)) {
-            rechazos += PasswordRejection.CONTAINS_USERNAME
+        val user = username?.trim()?.lowercase()
+        if (!user.isNullOrBlank() && user.length >= 4 && normalized.contains(user)) {
+            rejections += PasswordRejection.CONTAINS_USERNAME
         }
 
         // ── Complejidad: laxa, y solo contra lo trivial ─────────────────────
         // NO se exige mayúscula, símbolo ni número por separado. Solo se rechaza
         // lo que es literalmente una sola clase de carácter repetida, que es
         // malo incluso siendo largo.
-        if (password.length >= MIN_LENGTH && esUnaSolaClaseDeCaracter(password)) {
-            rechazos += PasswordRejection.TOO_SIMPLE
+        if (password.length >= MIN_LENGTH && isSingleCharacterClass(password)) {
+            rejections += PasswordRejection.TOO_SIMPLE
         }
 
-        return if (rechazos.isEmpty()) {
+        return if (rejections.isEmpty()) {
             PasswordValidation.Valid
         } else {
-            PasswordValidation.Invalid(rechazos.distinct())
+            PasswordValidation.Invalid(rejections.distinct())
         }
     }
 
@@ -137,11 +137,11 @@ object PasswordPolicy {
      * regla débil a propósito: con 12 caracteres, exigir más clases molesta sin
      * aportar seguridad real.
      */
-    private fun esUnaSolaClaseDeCaracter(password: String): Boolean {
-        val tieneLetra = password.any { it.isLetter() }
-        val tieneDigito = password.any { it.isDigit() }
+    private fun isSingleCharacterClass(password: String): Boolean {
+        val hasLetter = password.any { it.isLetter() }
+        val hasDigit = password.any { it.isDigit() }
         // Si no tiene ni letras ni dígitos, es solo símbolos: también se rechaza.
-        return !(tieneLetra && tieneDigito) && !(tieneLetra && password.any { !it.isLetterOrDigit() })
+        return !(hasLetter && hasDigit) && !(hasLetter && password.any { !it.isLetterOrDigit() })
     }
 
     /** Mensaje legible con todos los motivos del rechazo. */

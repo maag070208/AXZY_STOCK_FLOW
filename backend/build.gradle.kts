@@ -35,6 +35,14 @@ dependencies {
     implementation(libs.ktor.server.request.validation)
     implementation(libs.ktor.server.config.yaml)
 
+    // ── Documentación de la API (OpenAPI 3.0.3 + Swagger UI) ────────────────
+    // Solo dependencias: no hay plugin de Gradle que aplicar. El plugin de
+    // compilador que genera metadatos desde el arbol de rutas NO existe para
+    // Ktor 3.1.1 (llego en 3.2/3.3 y exige Kotlin 2.2.20). El documento se
+    // construye en codigo en docs/OpenApiDocumentation.kt.
+    implementation(libs.ktor.server.openapi)
+    implementation(libs.ktor.server.swagger)
+
     implementation(libs.exposed.core)
     implementation(libs.exposed.jdbc)
     implementation(libs.exposed.java.time)

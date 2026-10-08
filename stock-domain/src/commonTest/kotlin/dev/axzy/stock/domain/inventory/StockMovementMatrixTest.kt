@@ -24,9 +24,9 @@ import io.kotest.matchers.types.shouldBeInstanceOf
  */
 class StockMovementMatrixTest : DescribeSpec({
 
-    val recepcion = LocationCode.of("RECEPCION")
-    val estante = LocationCode.of("04BCA")
-    val estanteB = LocationCode.of("04BCB")
+    val receiving = LocationCode.of("RECEPCION")
+    val shelf = LocationCode.of("04BCA")
+    val shelfB = LocationCode.of("04BCB")
 
     describe("efecto declarado por cada tipo de movimiento") {
 
@@ -35,23 +35,23 @@ class StockMovementMatrixTest : DescribeSpec({
         withData(
             nameFn = { "%-22s → %s" },
             // (movimiento, efecto esperado, cambia el total)
-            Triple(InitialLoad(Quantity.of(100), estante), "AddToLocation", true),
-            Triple(ReceiptIn(Quantity.of(100), recepcion), "AddToLocation", true),
-            Triple(AdjustmentIn(Quantity.of(50), estante, "conteo"), "AddToLocation", true),
-            Triple(FulfillmentOut(Quantity.of(30), estante, "ORD-1"), "RemoveFromLocation", true),
-            Triple(AdjustmentOut(Quantity.of(10), estante, "merma"), "RemoveFromLocation", true),
-            Triple(Locate(Quantity.of(100), recepcion, estante), "TransferWithinWarehouse", false),
-            Triple(MoveWithinWarehouse(Quantity.of(20), estante, estanteB), "TransferWithinWarehouse", false),
-            Triple(TransferOut(Quantity.of(40), estante, 2L), "EnterTransit", false),
-            Triple(TransferIn(Quantity.of(40), estante, 1L), "LeaveTransit", false),
-            Triple(PendingOut(Quantity.of(15), estante, "ORD-2"), "NoInventoryChange", false),
-        ) { (movement, efectoEsperado, cambiaTotal) ->
-            val nombreEfecto = movement.effect::class.simpleName
-            withClue("${movement.type} debe declarar el efecto $efectoEsperado") {
-                nombreEfecto shouldBe efectoEsperado
+            Triple(InitialLoad(Quantity.of(100), shelf), "AddToLocation", true),
+            Triple(ReceiptIn(Quantity.of(100), receiving), "AddToLocation", true),
+            Triple(AdjustmentIn(Quantity.of(50), shelf, "conteo"), "AddToLocation", true),
+            Triple(FulfillmentOut(Quantity.of(30), shelf, "ORD-1"), "RemoveFromLocation", true),
+            Triple(AdjustmentOut(Quantity.of(10), shelf, "merma"), "RemoveFromLocation", true),
+            Triple(Locate(Quantity.of(100), receiving, shelf), "TransferWithinWarehouse", false),
+            Triple(MoveWithinWarehouse(Quantity.of(20), shelf, shelfB), "TransferWithinWarehouse", false),
+            Triple(TransferOut(Quantity.of(40), shelf, 2L), "EnterTransit", false),
+            Triple(TransferIn(Quantity.of(40), shelf, 1L), "LeaveTransit", false),
+            Triple(PendingOut(Quantity.of(15), shelf, "ORD-2"), "NoInventoryChange", false),
+        ) { (movement, effectExpected, changesTotal) ->
+            val nameEffect = movement.effect::class.simpleName
+            withClue("${movement.type} debe declarar el efecto $effectExpected") {
+                nameEffect shouldBe effectExpected
             }
-            withClue("${movement.type}: changesTotal debe ser $cambiaTotal") {
-                movement.effect.changesTotal shouldBe cambiaTotal
+            withClue("${movement.type}: changesTotal debe ser $changesTotal") {
+                movement.effect.changesTotal shouldBe changesTotal
             }
         }
     }
@@ -60,44 +60,44 @@ class StockMovementMatrixTest : DescribeSpec({
 
         it("ningún movimiento interno resta del total") {
             // Este es el test que hace imposible el bug del legacy.
-            val movimientosInternos = listOf(
-                Locate(Quantity.of(100), recepcion, estante),
-                MoveWithinWarehouse(Quantity.of(20), estante, estanteB),
-                TransferOut(Quantity.of(40), estante, 2L),
-                TransferIn(Quantity.of(40), estante, 1L),
-                PendingOut(Quantity.of(15), estante, "ORD-2"),
+            val movementsInternal = listOf(
+                Locate(Quantity.of(100), receiving, shelf),
+                MoveWithinWarehouse(Quantity.of(20), shelf, shelfB),
+                TransferOut(Quantity.of(40), shelf, 2L),
+                TransferIn(Quantity.of(40), shelf, 1L),
+                PendingOut(Quantity.of(15), shelf, "ORD-2"),
             )
 
-            movimientosInternos.forEach { movimiento ->
+            movementsInternal.forEach { movement ->
                 withClue(
-                    "${movimiento.type} NO debe modificar el inventario total. " +
+                    "${movement.type} NO debe modificar el inventario total. " +
                         "En el legacy, LOCATION restaba del total por un efecto por defecto, " +
                         "y una caja de 100 dejaba el inventario 100 unidades por debajo."
                 ) {
-                    movimiento.effect.totalDelta(movimiento.quantity) shouldBeExactly 0L
+                    movement.effect.totalDelta(movement.quantity) shouldBeExactly 0L
                 }
             }
         }
 
         it("solo AddToLocation y RemoveFromLocation pueden mover el total") {
-            val todasLasVariantes = listOf(
-                StockEffect.AddToLocation(estante),
-                StockEffect.RemoveFromLocation(estante),
-                StockEffect.TransferWithinWarehouse(estante, estanteB),
-                StockEffect.EnterTransit(estante, 2L),
-                StockEffect.LeaveTransit(estante, 1L),
+            val allVariants = listOf(
+                StockEffect.AddToLocation(shelf),
+                StockEffect.RemoveFromLocation(shelf),
+                StockEffect.TransferWithinWarehouse(shelf, shelfB),
+                StockEffect.EnterTransit(shelf, 2L),
+                StockEffect.LeaveTransit(shelf, 1L),
                 StockEffect.NoInventoryChange,
             )
 
-            val lasQueMuevenElTotal = todasLasVariantes.filter { it.changesTotal }
+            val thoseThatMoveTheTotal = allVariants.filter { it.changesTotal }
 
             withClue(
                 "Solo puede haber 2 efectos que muevan el total. " +
                     "Si aparece un tercero, es un movimiento que resta o suma sin justificación."
             ) {
-                lasQueMuevenElTotal.toSet() shouldBe setOf(
-                    StockEffect.AddToLocation(estante),
-                    StockEffect.RemoveFromLocation(estante),
+                thoseThatMoveTheTotal.toSet() shouldBe setOf(
+                    StockEffect.AddToLocation(shelf),
+                    StockEffect.RemoveFromLocation(shelf),
                 )
             }
         }
@@ -106,21 +106,21 @@ class StockMovementMatrixTest : DescribeSpec({
     describe("ubicar: el movimiento del bug del legacy") {
 
         it("mueve la cantidad de la recepción al estante sin tocar el total") {
-            val ubicar = Locate(Quantity.of(100), fromReceiving = recepcion, toShelf = estante)
+            val locate = Locate(Quantity.of(100), fromReceiving = receiving, toShelf = shelf)
 
-            val deltas = ubicar.effect.locationDeltas(ubicar.quantity)
+            val deltas = locate.effect.locationDeltas(locate.quantity)
 
             withClue("Debe tocar exactamente dos ubicaciones: la de recepción y el estante") {
-                deltas.keys shouldBe setOf(recepcion, estante)
+                deltas.keys shouldBe setOf(receiving, shelf)
             }
             withClue("Sale de recepción") {
-                (deltas[recepcion] ?: 0L) shouldBeExactly -100_000L  // 100 unidades * escala 1000
+                (deltas[receiving] ?: 0L) shouldBeExactly -100_000L  // 100 unidades * escala 1000
             }
             withClue("Entra al estante") {
-                (deltas[estante] ?: 0L) shouldBeExactly 100_000L
+                (deltas[shelf] ?: 0L) shouldBeExactly 100_000L
             }
             withClue("El total NO cambia, que es la corrección del bug (decisión R-65)") {
-                ubicar.effect.totalDelta(ubicar.quantity) shouldBeExactly 0L
+                locate.effect.totalDelta(locate.quantity) shouldBeExactly 0L
             }
             withClue("La suma de los deltas debe ser cero: no se crea ni se destruye stock") {
                 deltas.values.sum() shouldBeExactly 0L
@@ -136,29 +136,29 @@ class StockMovementMatrixTest : DescribeSpec({
             // legacy: removeUnitsFromKardex mutaba la fila de recepción,
             //         y ADEMÁS el registro LOCATION restaba por el `else` por defecto.
 
-            val stockInicial = 1_000L
-            val caja = 100L
+            val stockInitial = 1_000L
+            val box = 100L
 
             // 1. Captura física: PENDING-TO-LOCATE sumaba
-            val trasCaptura = stockInicial + caja                              // 1100
+            val afterCapture = stockInitial + box                              // 1100
             // 2. addKardexLocation: mutaba la fila (-100) y creaba LOCATION (-100)
-            val trasUbicarEnElLegacy = trasCaptura - caja - caja               // 900
+            val afterLocatingInLegacy = afterCapture - box - box               // 900
 
             withClue("El legacy dejaba el stock por debajo de lo real") {
-                (trasUbicarEnElLegacy < trasCaptura) shouldBe true
+                (afterLocatingInLegacy < afterCapture) shouldBe true
             }
             withClue("El descuadre era exactamente la cantidad ubicada, acumulándose por recepción") {
-                (trasCaptura - trasUbicarEnElLegacy) shouldBeExactly caja * 2
+                (afterCapture - afterLocatingInLegacy) shouldBeExactly box * 2
             }
 
             // El modelo nuevo: el total es invariante al ubicar.
-            val stockNuevoTrasCaptura = stockInicial + caja                    // 1100
-            val deltaUbicar = Locate(Quantity.of(caja), recepcion, estante)
-                .effect.totalDelta(Quantity.of(caja))
-            val stockNuevoTrasUbicar = stockNuevoTrasCaptura + deltaUbicar / 1000
+            val stockAfterCapture = stockInitial + box                    // 1100
+            val deltaLocate = Locate(Quantity.of(box), receiving, shelf)
+                .effect.totalDelta(Quantity.of(box))
+            val stockAfterLocate = stockAfterCapture + deltaLocate / 1000
 
             withClue("En el modelo nuevo el stock tras ubicar debe ser el mismo que tras capturar") {
-                stockNuevoTrasUbicar shouldBeExactly stockNuevoTrasCaptura
+                stockAfterLocate shouldBeExactly stockAfterCapture
             }
         }
     }
@@ -166,44 +166,44 @@ class StockMovementMatrixTest : DescribeSpec({
     describe("invariantes estructurales de los efectos") {
 
         it("todo efecto que toca dos ubicaciones suma cero en el total") {
-            val traslados = listOf(
-                StockEffect.TransferWithinWarehouse(estante, estanteB),
+            val transfers = listOf(
+                StockEffect.TransferWithinWarehouse(shelf, shelfB),
             )
-            traslados.forEach { efecto ->
-                withClue("Un traslado debe sumar cero: ${efecto::class.simpleName}") {
-                    efecto.locationDeltas(Quantity.of(10)).values.sum() shouldBeExactly 0L
+            transfers.forEach { effect ->
+                withClue("Un traslado debe sumar cero: ${effect::class.simpleName}") {
+                    effect.locationDeltas(Quantity.of(10)).values.sum() shouldBeExactly 0L
                 }
             }
         }
 
         it("las entradas y salidas tocan una sola ubicación") {
-            val deUnaUbicacion = listOf(
-                StockEffect.AddToLocation(estante) to 1,
-                StockEffect.RemoveFromLocation(estante) to -1,
+            val fromLocation = listOf(
+                StockEffect.AddToLocation(shelf) to 1,
+                StockEffect.RemoveFromLocation(shelf) to -1,
             )
-            deUnaUbicacion.forEach { (efecto, signo) ->
-                val deltas = efecto.locationDeltas(Quantity.of(10))
-                withClue("${efecto::class.simpleName} debe tocar exactamente una ubicación") {
+            fromLocation.forEach { (effect, sign) ->
+                val deltas = effect.locationDeltas(Quantity.of(10))
+                withClue("${effect::class.simpleName} debe tocar exactamente una ubicación") {
                     deltas.size shouldBe 1
                 }
-                withClue("${efecto::class.simpleName} debe tener el signo correcto") {
-                    (deltas.values.first() > 0) shouldBe (signo > 0)
+                withClue("${effect::class.simpleName} debe tener el signo correcto") {
+                    (deltas.values.first() > 0) shouldBe (sign > 0)
                 }
             }
         }
 
         it("el tránsito saca de la ubicación pero NO del inventario") {
-            val salidaATransito = TransferOut(Quantity.of(40), estante, toWarehouseId = 2L)
+            val outputATransit = TransferOut(Quantity.of(40), shelf, toWarehouseId = 2L)
 
             withClue("Sale de la ubicación física") {
-                salidaATransito.effect.locationDeltas(salidaATransito.quantity) shouldBe
-                    mapOf(estante to -40_000L)
+                outputATransit.effect.locationDeltas(outputATransit.quantity) shouldBe
+                    mapOf(shelf to -40_000L)
             }
             withClue(
                 "Pero el total no baja: la mercancía sigue en el inventario, en tránsito. " +
                     "Si bajara, el inventario mentiría durante el viaje."
             ) {
-                salidaATransito.effect.totalDelta(salidaATransito.quantity) shouldBeExactly 0L
+                outputATransit.effect.totalDelta(outputATransit.quantity) shouldBeExactly 0L
             }
         }
     }
@@ -215,8 +215,8 @@ class StockMovementMatrixTest : DescribeSpec({
             // La regla vive en el TIPO, así que un ajuste sin motivo es
             // imposible de construir, no algo que haya que recordar validar.
             listOf(
-                { AdjustmentIn(Quantity.of(10), estante, reason = "  ") },
-                { AdjustmentOut(Quantity.of(10), estante, reason = "") },
+                { AdjustmentIn(Quantity.of(10), shelf, reason = "  ") },
+                { AdjustmentOut(Quantity.of(10), shelf, reason = "") },
             ).forEach { constructor ->
                 withClue("Un ajuste con motivo en blanco debe rechazarse") {
                     shouldThrow<IllegalArgumentException> { constructor() }
@@ -226,17 +226,17 @@ class StockMovementMatrixTest : DescribeSpec({
 
         it("un traslado a la misma ubicación no se puede construir") {
             shouldThrow<IllegalArgumentException> {
-                MoveWithinWarehouse(Quantity.of(10), estante, estante)
+                MoveWithinWarehouse(Quantity.of(10), shelf, shelf)
             }
             shouldThrow<IllegalArgumentException> {
-                Locate(Quantity.of(10), recepcion, recepcion)
+                Locate(Quantity.of(10), receiving, receiving)
             }
         }
 
         it("el tipo de movimiento NO se puede deducir mal: viene del tipo de la clase") {
-            val movimiento: StockMovement = Locate(Quantity.of(1), recepcion, estante)
-            movimiento.type shouldBe MovementType.LOCATE
-            movimiento.effect.shouldBeInstanceOf<StockEffect.TransferWithinWarehouse>()
+            val movement: StockMovement = Locate(Quantity.of(1), receiving, shelf)
+            movement.type shouldBe MovementType.LOCATE
+            movement.effect.shouldBeInstanceOf<StockEffect.TransferWithinWarehouse>()
         }
     }
 })

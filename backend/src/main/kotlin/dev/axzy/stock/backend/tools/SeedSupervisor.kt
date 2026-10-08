@@ -12,10 +12,10 @@ import java.sql.DriverManager
  */
 fun main(args: Array<String>) {
     require(args.size == 4) { "Uso: <url> <usuario> <clave> <rol>" }
-    val (url, usuario, clave, rol) = args
+    val (url, user, key, role) = args
 
     val hasher = NativeArgon2PasswordHasher()
-    val hash = hasher.hash(clave)
+    val hash = hasher.hash(key)
 
     DriverManager.getConnection(url).use { c ->
         c.autoCommit = true
@@ -27,16 +27,16 @@ fun main(args: Array<String>) {
             RETURNING id
             """.trimIndent(),
         ).use { st ->
-            st.setString(1, usuario); st.setString(2, hash); st.setString(3, usuario)
+            st.setString(1, user); st.setString(2, hash); st.setString(3, user)
             st.executeQuery().use { rs -> rs.next(); rs.getLong(1) }
         }
-        val rolId = c.prepareStatement("SELECT id FROM roles WHERE key = ?").use { st ->
-            st.setString(1, rol); st.executeQuery().use { rs -> rs.next(); rs.getLong(1) }
+        val roleId = c.prepareStatement("SELECT id FROM roles WHERE key = ?").use { st ->
+            st.setString(1, role); st.executeQuery().use { rs -> rs.next(); rs.getLong(1) }
         }
         c.prepareStatement(
             "INSERT INTO user_roles (user_id, role_id, is_primary) VALUES (?, ?, TRUE) ON CONFLICT DO NOTHING",
-        ).use { st -> st.setLong(1, userId); st.setLong(2, rolId); st.executeUpdate() }
+        ).use { st -> st.setLong(1, userId); st.setLong(2, roleId); st.executeUpdate() }
 
-        println("  usuario=$usuario id=$userId rol=$rol")
+        println("  usuario=$user id=$userId rol=$role")
     }
 }

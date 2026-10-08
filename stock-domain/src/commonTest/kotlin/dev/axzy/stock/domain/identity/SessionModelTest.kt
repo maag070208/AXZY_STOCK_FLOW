@@ -21,37 +21,37 @@ import io.kotest.matchers.types.shouldBeInstanceOf
  */
 class SessionModelTest : DescribeSpec({
 
-    val politica = SessionPolicy.DEFAULT
-    val ahora = 1_700_000_000_000L
-    val unaHora = 60 * 60 * 1000L
+    val policy = SessionPolicy.DEFAULT
+    val now = 1_700_000_000_000L
+    val oneHour = 60 * 60 * 1000L
 
-    fun registro(
+    fun record(
         id: Long = 1,
-        familia: String = "fam-1",
-        usuario: Long = 7,
-        emitidoHace: Long = unaHora,
-        expiraEn: Long = 24 * unaHora,
-        rotadoHaceMs: Long? = null,
-        revocadoHaceMs: Long? = null,
-        motivoRevocacion: RevocationReason? = null,
+        family: String = "fam-1",
+        user: Long = 7,
+        issuedDoes: Long = oneHour,
+        expiresIn: Long = 24 * oneHour,
+        rotatedDoesMs: Long? = null,
+        revokedDoesMs: Long? = null,
+        reasonRevocation: RevocationReason? = null,
     ) = RefreshTokenRecord(
         id = TokenId(id),
-        familyId = TokenFamilyId(familia),
-        userId = usuario,
+        familyId = TokenFamilyId(family),
+        userId = user,
         fingerprint = "abc123…xyz9",
-        issuedAt = ahora - emitidoHace,
-        expiresAt = ahora + expiraEn,
-        rotatedAt = rotadoHaceMs?.let { ahora - it },
-        replacedBy = rotadoHaceMs?.let { "abc999…new1" },
-        revokedAt = revocadoHaceMs?.let { ahora - it },
-        revocationReason = motivoRevocacion,
+        issuedAt = now - issuedDoes,
+        expiresAt = now + expiresIn,
+        rotatedAt = rotatedDoesMs?.let { now - it },
+        replacedBy = rotatedDoesMs?.let { "abc999…new1" },
+        revokedAt = revokedDoesMs?.let { now - it },
+        revocationReason = reasonRevocation,
     )
 
     // ═════════════════════════════════════════════════════════════════════════
     describe("el caso normal: un token válido se rota") {
 
         it("un token nuevo y sin usar se acepta para rotar") {
-            val decision = decideRefresh(registro(), ahora, politica)
+            val decision = decideRefresh(record(), now, policy)
 
             decision.shouldBeInstanceOf<RefreshDecision.Rotate>()
         }
@@ -59,9 +59,9 @@ class SessionModelTest : DescribeSpec({
         it("un token que aún no venció se acepta aunque sea viejo") {
             // Un refresh token de 29 días sigue siendo válido: su vida es de 30.
             val decision = decideRefresh(
-                registro(emitidoHace = 29L * 24 * unaHora, expiraEn = unaHora),
-                ahora,
-                politica,
+                record(issuedDoes = 29L * 24 * oneHour, expiresIn = oneHour),
+                now,
+                policy,
             )
 
             decision.shouldBeInstanceOf<RefreshDecision.Rotate>()
@@ -78,14 +78,14 @@ class SessionModelTest : DescribeSpec({
             // No se puede distinguir de un reintento por fallo de red, así que se
             // asume lo peor: se revoca la familia y el usuario vuelve a entrar.
             val decision = decideRefresh(
-                registro(rotadoHaceMs = 10 * 60 * 1000),   // rotado hace 10 minutos
-                ahora,
-                politica,
+                record(rotatedDoesMs = 10 * 60 * 1000),   // rotado hace 10 minutos
+                now,
+                policy,
             )
 
-            val reuso = decision.shouldBeInstanceOf<RefreshDecision.ReuseDetected>()
+            val reuse = decision.shouldBeInstanceOf<RefreshDecision.ReuseDetected>()
             withClue("Debe señalar el registro comprometido") {
-                reuso.record.id shouldBe TokenId(1)
+                reuse.record.id shouldBe TokenId(1)
             }
         }
 
@@ -97,13 +97,13 @@ class SessionModelTest : DescribeSpec({
             // El orden de las comprobaciones es una decisión de seguridad, no un
             // detalle de implementación.
             val decision = decideRefresh(
-                registro(
-                    rotadoHaceMs = 10 * 60 * 1000,
-                    revocadoHaceMs = 10 * 60 * 1000,
-                    motivoRevocacion = RevocationReason.REUSE_DETECTED,
+                record(
+                    rotatedDoesMs = 10 * 60 * 1000,
+                    revokedDoesMs = 10 * 60 * 1000,
+                    reasonRevocation = RevocationReason.REUSE_DETECTED,
                 ),
-                ahora,
-                politica,
+                now,
+                policy,
             )
 
             withClue("Debe reportarse como REUSO, no como «revocado»") {
@@ -113,9 +113,9 @@ class SessionModelTest : DescribeSpec({
 
         it("un token rotado hace mucho también se detecta") {
             val decision = decideRefresh(
-                registro(rotadoHaceMs = 20L * 24 * unaHora, expiraEn = 10 * unaHora),
-                ahora,
-                politica,
+                record(rotatedDoesMs = 20L * 24 * oneHour, expiresIn = 10 * oneHour),
+                now,
+                policy,
             )
 
             decision.shouldBeInstanceOf<RefreshDecision.ReuseDetected>()
@@ -133,9 +133,9 @@ class SessionModelTest : DescribeSpec({
             // Es la clase de detalle que, si falta, hace que la gente pida
             // desactivar la rotación porque «cierra sesiones sola».
             val decision = decideRefresh(
-                registro(rotadoHaceMs = 5_000),   // rotado hace 5 s, margen 30 s
-                ahora,
-                politica,
+                record(rotatedDoesMs = 5_000),   // rotado hace 5 s, margen 30 s
+                now,
+                policy,
             )
 
             withClue("Dentro del margen debe tratarse como reintento, no como robo") {
@@ -145,9 +145,9 @@ class SessionModelTest : DescribeSpec({
 
         it("justo en el límite del margen se acepta") {
             val decision = decideRefresh(
-                registro(rotadoHaceMs = politica.rotationGraceMs),
-                ahora,
-                politica,
+                record(rotatedDoesMs = policy.rotationGraceMs),
+                now,
+                policy,
             )
 
             decision.shouldBeInstanceOf<RefreshDecision.Rotate>()
@@ -157,9 +157,9 @@ class SessionModelTest : DescribeSpec({
             // El límite es exacto y el test lo fija: un cambio accidental de `<=`
             // a `<` o al revés abriría o cerraría la ventana sin que nadie lo note.
             val decision = decideRefresh(
-                registro(rotadoHaceMs = politica.rotationGraceMs + 1),
-                ahora,
-                politica,
+                record(rotatedDoesMs = policy.rotationGraceMs + 1),
+                now,
+                policy,
             )
 
             decision.shouldBeInstanceOf<RefreshDecision.ReuseDetected>()
@@ -170,9 +170,9 @@ class SessionModelTest : DescribeSpec({
             // manipulados o de un desajuste entre servidores. Tratarlo como
             // reintento abriría una ventana de gracia sin límite.
             val decision = decideRefresh(
-                registro(rotadoHaceMs = -unaHora),   // rotado una hora en el futuro
-                ahora,
-                politica,
+                record(rotatedDoesMs = -oneHour),   // rotado una hora en el futuro
+                now,
+                policy,
             )
 
             withClue("Un instante futuro no debe conceder el margen de gracia") {
@@ -183,7 +183,7 @@ class SessionModelTest : DescribeSpec({
         it("el margen de gracia es corto: 30 segundos") {
             // La ventana es la misma para el atacante que para el reintento
             // legítimo, así que debe ser corta. Este test la fija.
-            politica.rotationGraceMs shouldBe 30_000
+            policy.rotationGraceMs shouldBe 30_000
         }
     }
 
@@ -193,30 +193,30 @@ class SessionModelTest : DescribeSpec({
         it("un token que no existe devuelve Unknown, no reuso") {
             // Confundirlo con reuso haría que un token inventado por un escáner
             // de puertos revocara la sesión de un usuario real.
-            decideRefresh(null, ahora, politica) shouldBe RefreshDecision.Unknown
+            decideRefresh(null, now, policy) shouldBe RefreshDecision.Unknown
         }
 
         it("un token revocado por cierre de sesión devuelve Revoked") {
             val decision = decideRefresh(
-                registro(revocadoHaceMs = unaHora, motivoRevocacion = RevocationReason.LOGOUT),
-                ahora,
-                politica,
+                record(revokedDoesMs = oneHour, reasonRevocation = RevocationReason.LOGOUT),
+                now,
+                policy,
             )
 
-            val revocado = decision.shouldBeInstanceOf<RefreshDecision.Revoked>()
+            val revoked = decision.shouldBeInstanceOf<RefreshDecision.Revoked>()
             withClue("El motivo debe conservarse para el diagnóstico") {
-                revocado.record.revocationReason shouldBe RevocationReason.LOGOUT
+                revoked.record.revocationReason shouldBe RevocationReason.LOGOUT
             }
         }
 
         it("un token revocado por cambio de contraseña devuelve Revoked") {
             val decision = decideRefresh(
-                registro(
-                    revocadoHaceMs = unaHora,
-                    motivoRevocacion = RevocationReason.PASSWORD_CHANGED,
+                record(
+                    revokedDoesMs = oneHour,
+                    reasonRevocation = RevocationReason.PASSWORD_CHANGED,
                 ),
-                ahora,
-                politica,
+                now,
+                policy,
             )
 
             decision.shouldBeInstanceOf<RefreshDecision.Revoked>()
@@ -226,9 +226,9 @@ class SessionModelTest : DescribeSpec({
             // Un usuario que vuelve después de 31 días no es un atacante: es un
             // usuario. Se le pide iniciar sesión de nuevo, sin alarmas.
             val decision = decideRefresh(
-                registro(emitidoHace = 31L * 24 * unaHora, expiraEn = -unaHora),
-                ahora,
-                politica,
+                record(issuedDoes = 31L * 24 * oneHour, expiresIn = -oneHour),
+                now,
+                policy,
             )
 
             decision.shouldBeInstanceOf<RefreshDecision.Expired>()
@@ -238,13 +238,13 @@ class SessionModelTest : DescribeSpec({
             // El orden: la revocación explícita es más informativa que el
             // vencimiento, porque dice que alguien actuó.
             val decision = decideRefresh(
-                registro(
-                    expiraEn = -unaHora,
-                    revocadoHaceMs = 2 * unaHora,
-                    motivoRevocacion = RevocationReason.ADMIN_REVOKED,
+                record(
+                    expiresIn = -oneHour,
+                    revokedDoesMs = 2 * oneHour,
+                    reasonRevocation = RevocationReason.ADMIN_REVOKED,
                 ),
-                ahora,
-                politica,
+                now,
+                policy,
             )
 
             decision.shouldBeInstanceOf<RefreshDecision.Revoked>()
@@ -254,16 +254,16 @@ class SessionModelTest : DescribeSpec({
             // Si dos casos colapsaran en el mismo valor, el llamador no podría
             // decidir bien: por ejemplo, revocar la familia solo ante un reuso
             // real y no ante un token vencido.
-            val decisiones = listOf(
-                decideRefresh(registro(), ahora, politica),
-                decideRefresh(registro(rotadoHaceMs = 10 * 60 * 1000), ahora, politica),
-                decideRefresh(null, ahora, politica),
-                decideRefresh(registro(revocadoHaceMs = unaHora), ahora, politica),
-                decideRefresh(registro(expiraEn = -unaHora), ahora, politica),
+            val decisions = listOf(
+                decideRefresh(record(), now, policy),
+                decideRefresh(record(rotatedDoesMs = 10 * 60 * 1000), now, policy),
+                decideRefresh(null, now, policy),
+                decideRefresh(record(revokedDoesMs = oneHour), now, policy),
+                decideRefresh(record(expiresIn = -oneHour), now, policy),
             )
 
             withClue("Cada caso debe producir un tipo distinto") {
-                decisiones.map { it::class.simpleName }.distinct().size shouldBe 5
+                decisions.map { it::class.simpleName }.distinct().size shouldBe 5
             }
         }
     }
@@ -272,8 +272,8 @@ class SessionModelTest : DescribeSpec({
     describe("el refresh token es opaco") {
 
         it("acepta un valor con la longitud y el alfabeto correctos") {
-            val valido = "a".repeat(43)
-            RefreshToken.of(valido)?.value shouldBe valido
+            val valid = "a".repeat(43)
+            RefreshToken.of(valid)?.value shouldBe valid
         }
 
         it("rechaza un valor demasiado corto") {
@@ -289,16 +289,16 @@ class SessionModelTest : DescribeSpec({
                 "a".repeat(42) + "+",
                 "a".repeat(42) + "=",
                 "a".repeat(42) + " ",
-            ).forEach { invalido ->
-                withClue("'$invalido' no es base64url y debe rechazarse") {
-                    RefreshToken.of(invalido) shouldBe null
+            ).forEach { invalid ->
+                withClue("'$invalid' no es base64url y debe rechazarse") {
+                    RefreshToken.of(invalid) shouldBe null
                 }
             }
         }
 
         it("acepta guion y guion bajo, que sí son base64url") {
-            val valido = "a-b_c" + "d".repeat(38)
-            RefreshToken.of(valido)?.value shouldBe valido
+            val valid = "a-b_c" + "d".repeat(38)
+            RefreshToken.of(valid)?.value shouldBe valid
         }
 
         it("rechaza un valor absurdamente largo") {
@@ -310,11 +310,11 @@ class SessionModelTest : DescribeSpec({
             // válidas. La huella permite correlacionar sin exponer.
             val token = RefreshToken.of("abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG")!!
 
-            val texto = token.toString()
-            withClue("La representación debe ser una huella, no el valor: $texto") {
-                (texto.contains(token.value)) shouldBe false
-                (texto.contains("abcdef")) shouldBe true
-                (texto.contains("DEFG")) shouldBe true
+            val text = token.toString()
+            withClue("La representación debe ser una huella, no el valor: $text") {
+                (text.contains(token.value)) shouldBe false
+                (text.contains("abcdef")) shouldBe true
+                (text.contains("DEFG")) shouldBe true
             }
         }
     }
@@ -335,7 +335,7 @@ class SessionModelTest : DescribeSpec({
 
         it("el refresh token debe vivir más que el access token") {
             // Si no, no serviría para refrescar: habría vencido antes.
-            val invalida = runCatching {
+            val invalid = runCatching {
                 SessionPolicy(
                     accessTokenTtlMs = 1000,
                     refreshTokenTtlMs = 500,
@@ -343,11 +343,11 @@ class SessionModelTest : DescribeSpec({
                 )
             }
 
-            invalida.isFailure shouldBe true
+            invalid.isFailure shouldBe true
         }
 
         it("el margen de gracia no puede superar la vida del refresh token") {
-            val invalida = runCatching {
+            val invalid = runCatching {
                 SessionPolicy(
                     accessTokenTtlMs = 1000,
                     refreshTokenTtlMs = 2000,
@@ -355,15 +355,15 @@ class SessionModelTest : DescribeSpec({
                 )
             }
 
-            invalida.isFailure shouldBe true
+            invalid.isFailure shouldBe true
         }
 
         it("rechaza un access token de vida no positiva") {
-            val invalida = runCatching {
+            val invalid = runCatching {
                 SessionPolicy(accessTokenTtlMs = 0, refreshTokenTtlMs = 1000, rotationGraceMs = 0)
             }
 
-            invalida.isFailure shouldBe true
+            invalid.isFailure shouldBe true
         }
     }
 
@@ -385,8 +385,8 @@ class SessionModelTest : DescribeSpec({
     describe("el estado del registro, con datos tabulados") {
 
         withData(
-            nameFn = { (revocado, rotado, vencido, esperado) ->
-                "revocado=$revocado rotado=$rotado vencido=$vencido → usable=$esperado"
+            nameFn = { (revoked, rotated, expired, expected) ->
+                "revocado=$revoked rotado=$rotated vencido=$expired → usable=$expected"
             },
             // (revocado, rotado, vencido, usable)
             listOf(false, false, false, true),
@@ -394,20 +394,20 @@ class SessionModelTest : DescribeSpec({
             listOf(false, true, false, false),
             listOf(true, false, false, false),
             listOf(true, true, true, false),
-        ) { (revocado, rotado, vencido, usableEsperado) ->
+        ) { (revoked, rotated, expired, usableExpected) ->
             val r = RefreshTokenRecord(
                 id = TokenId(1),
                 familyId = TokenFamilyId("fam"),
                 userId = 1,
                 fingerprint = "huella",
-                issuedAt = ahora - unaHora,
-                expiresAt = if (vencido) ahora - unaHora else ahora + unaHora,
-                rotatedAt = if (rotado) ahora - 1000 else null,
-                revokedAt = if (revocado) ahora - 1000 else null,
-                revocationReason = if (revocado) RevocationReason.ADMIN_REVOKED else null,
+                issuedAt = now - oneHour,
+                expiresAt = if (expired) now - oneHour else now + oneHour,
+                rotatedAt = if (rotated) now - 1000 else null,
+                revokedAt = if (revoked) now - 1000 else null,
+                revocationReason = if (revoked) RevocationReason.ADMIN_REVOKED else null,
             )
 
-            r.isUsable(ahora) shouldBe usableEsperado
+            r.isUsable(now) shouldBe usableExpected
         }
     }
 })

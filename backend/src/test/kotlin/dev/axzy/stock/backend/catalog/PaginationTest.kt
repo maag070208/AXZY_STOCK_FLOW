@@ -18,29 +18,29 @@ import io.kotest.matchers.string.shouldContain
  */
 class PaginationTest : DescribeSpec({
 
-    val campos = setOf("productCode", "name", "createdAt")
+    val fields = setOf("productCode", "name", "createdAt")
 
-    fun analizar(page: String? = null, size: String? = null, sort: String? = null) =
-        PageRequest.analizar(page, size, sort, campos, "productCode")
+    fun analyze(page: String? = null, size: String? = null, sort: String? = null) =
+        PageRequest.analyze(page, size, sort, fields, "productCode")
 
     describe("valores por defecto") {
 
         it("usa page 0 y size 50 cuando no se piden") {
-            val pagina = analizar()
+            val page = analyze()
 
-            pagina.page shouldBe 0
-            pagina.size shouldBe 50
-            pagina.campoOrden shouldBe "productCode"
-            pagina.ascendente shouldBe true
+            page.page shouldBe 0
+            page.size shouldBe 50
+            page.fieldOrder shouldBe "productCode"
+            page.ascending shouldBe true
         }
 
         it("sin orden explícito usa el campo por defecto ascendente") {
-            analizar(sort = "").campoOrden shouldBe "productCode"
+            analyze(sort = "").fieldOrder shouldBe "productCode"
         }
 
         it("calcula el desplazamiento que se pasa al OFFSET") {
             withClue("page=2 con size=50 salta 100 filas EN LA BASE, no en memoria") {
-                analizar(page = "2").offset shouldBe 100L
+                analyze(page = "2").offset shouldBe 100L
             }
         }
     }
@@ -65,7 +65,7 @@ class PaginationTest : DescribeSpec({
     describe("se rechaza lo que no encaja, no se recorta en silencio") {
 
         it("rechaza un size mayor que el máximo") {
-            val error = runCatching { analizar(size = "201") }.exceptionOrNull()
+            val error = runCatching { analyze(size = "201") }.exceptionOrNull()
 
             (error is BadRequestException) shouldBe true
             val badRequest = error as BadRequestException
@@ -76,26 +76,26 @@ class PaginationTest : DescribeSpec({
         }
 
         it("acepta justo el tamaño máximo") {
-            analizar(size = "200").size shouldBe 200
+            analyze(size = "200").size shouldBe 200
         }
 
         it("rechaza size 0: no hay página posible") {
-            (runCatching { analizar(size = "0") }.exceptionOrNull() as BadRequestException)
+            (runCatching { analyze(size = "0") }.exceptionOrNull() as BadRequestException)
                 .code shouldBe "INVALID_PAGINATION"
         }
 
         it("rechaza un page negativo") {
-            (runCatching { analizar(page = "-1") }.exceptionOrNull() as BadRequestException)
+            (runCatching { analyze(page = "-1") }.exceptionOrNull() as BadRequestException)
                 .code shouldBe "INVALID_PAGINATION"
         }
 
         it("rechaza un page que no es un número") {
-            (runCatching { analizar(page = "primera") }.exceptionOrNull() as BadRequestException)
+            (runCatching { analyze(page = "primera") }.exceptionOrNull() as BadRequestException)
                 .details?.get("page") shouldBe "primera"
         }
 
         it("rechaza un campo de orden no admitido y dice cuáles sí lo están") {
-            val error = runCatching { analizar(sort = "stock,asc") }.exceptionOrNull() as BadRequestException
+            val error = runCatching { analyze(sort = "stock,asc") }.exceptionOrNull() as BadRequestException
 
             error.code shouldBe "INVALID_SORT"
             withClue("El mensaje debe listar los campos admitidos: adivinar no es una opción") {
@@ -104,21 +104,21 @@ class PaginationTest : DescribeSpec({
         }
 
         it("rechaza una dirección de orden que no es asc ni desc") {
-            (runCatching { analizar(sort = "name,arriba") }.exceptionOrNull() as BadRequestException)
+            (runCatching { analyze(sort = "name,arriba") }.exceptionOrNull() as BadRequestException)
                 .code shouldBe "INVALID_SORT"
         }
 
         it("acepta la dirección en mayúsculas y sin espacios") {
-            analizar(sort = " name , DESC ").let { pagina ->
-                pagina.campoOrden shouldBe "name"
-                pagina.ascendente shouldBe false
+            analyze(sort = " name , DESC ").let { page ->
+                page.fieldOrder shouldBe "name"
+                page.ascending shouldBe false
             }
         }
 
         it("acepta el campo sin dirección y asume ascendente") {
-            analizar(sort = "createdAt").let { pagina ->
-                pagina.campoOrden shouldBe "createdAt"
-                pagina.ascendente shouldBe true
+            analyze(sort = "createdAt").let { page ->
+                page.fieldOrder shouldBe "createdAt"
+                page.ascending shouldBe true
             }
         }
     }

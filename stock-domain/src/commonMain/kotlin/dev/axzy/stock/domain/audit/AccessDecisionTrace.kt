@@ -51,7 +51,7 @@ data class AuditedCondition(
     val field: String,
     val operator: String,
     val expected: Any?,
-    val actual: Any?,
+    val current: Any?,
     val matches: Boolean,
 )
 
@@ -138,15 +138,15 @@ data class AccessDecisionTrace(
                 "(alcance ${rbac.effectiveScope}, bodegas ${rbac.warehousesAtTime})"
 
         stage == "ABAC" -> {
-            val regla = abac.rules.firstOrNull { it.policyId == (abac.deniedByPolicyId ?: abac.decidedByPolicyId) }
-            val condicionesQueFallaron = regla?.conditions?.filterNot { it.matches }.orEmpty()
+            val rule = abac.rules.firstOrNull { it.policyId == (abac.deniedByPolicyId ?: abac.decidedByPolicyId) }
+            val conditionsThatFailed = rule?.conditions?.filterNot { it.matches }.orEmpty()
             buildString {
-                append("Denegado por la política '${regla?.policyName ?: "?"}'")
-                if (condicionesQueFallaron.isNotEmpty()) {
+                append("Denegado por la política '${rule?.policyName ?: "?"}'")
+                if (conditionsThatFailed.isNotEmpty()) {
                     append(". Condiciones no cumplidas: ")
                     append(
-                        condicionesQueFallaron.joinToString("; ") {
-                            "${it.field} ${it.operator} ${it.expected} (valor real: ${it.actual})"
+                        conditionsThatFailed.joinToString("; ") {
+                            "${it.field} ${it.operator} ${it.expected} (valor real: ${it.current})"
                         }
                     )
                 }

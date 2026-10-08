@@ -277,21 +277,21 @@ enum class PolicyOperator(val symbol: String) {
      * Por eso TODAS las comparaciones numéricas pasan por [asLong], y la
      * igualdad solo usa `equals` cuando no hay números de por medio.
      */
-    fun matches(actual: Any?, expected: Any?): Boolean = when (this) {
-        EQUALS -> sonIguales(actual, expected)
-        NOT_EQUALS -> !sonIguales(actual, expected)
+    fun matches(current: Any?, expected: Any?): Boolean = when (this) {
+        EQUALS -> areEqual(current, expected)
+        NOT_EQUALS -> !areEqual(current, expected)
         IN -> when (expected) {
-            is Collection<*> -> expected.any { sonIguales(actual, it) }
+            is Collection<*> -> expected.any { areEqual(current, it) }
             else -> false
         }
         NOT_IN -> when (expected) {
-            is Collection<*> -> expected.none { sonIguales(actual, it) }
+            is Collection<*> -> expected.none { areEqual(current, it) }
             else -> false
         }
-        LESS_THAN -> compareNumbers(actual, expected) { a, b -> a < b }
-        LESS_OR_EQUAL -> compareNumbers(actual, expected) { a, b -> a <= b }
-        GREATER_THAN -> compareNumbers(actual, expected) { a, b -> a > b }
-        GREATER_OR_EQUAL -> compareNumbers(actual, expected) { a, b -> a >= b }
+        LESS_THAN -> compareNumbers(current, expected) { a, b -> a < b }
+        LESS_OR_EQUAL -> compareNumbers(current, expected) { a, b -> a <= b }
+        GREATER_THAN -> compareNumbers(current, expected) { a, b -> a > b }
+        GREATER_OR_EQUAL -> compareNumbers(current, expected) { a, b -> a >= b }
     }
 
     /**
@@ -300,7 +300,7 @@ enum class PolicyOperator(val symbol: String) {
      * Si **ambos** lados son números, compara como `Long` (de modo que
      * `Int(8) == Long(8)`). Si alguno no lo es, usa `equals` normal.
      */
-    private fun sonIguales(a: Any?, b: Any?): Boolean {
+    private fun areEqual(a: Any?, b: Any?): Boolean {
         val na = asLong(a)
         val nb = asLong(b)
         if (na != null && nb != null) return na == nb
@@ -308,11 +308,11 @@ enum class PolicyOperator(val symbol: String) {
     }
 
     private inline fun compareNumbers(
-        actual: Any?,
+        current: Any?,
         expected: Any?,
         predicate: (Long, Long) -> Boolean,
     ): Boolean {
-        val a = asLong(actual) ?: return false
+        val a = asLong(current) ?: return false
         val b = asLong(expected) ?: return false
         return predicate(a, b)
     }
@@ -343,7 +343,7 @@ data class PolicyCondition(
 /** Traza de la evaluación de **una** condición. Es lo que hace explicable el "por qué no". */
 data class ConditionTrace(
     val condition: PolicyCondition,
-    val actual: Any?,
+    val current: Any?,
     val matches: Boolean,
 )
 

@@ -51,7 +51,7 @@ object RoleDefinitions {
         // puede hacer es VISIBLE en la matriz y auditable.
         PermissionCatalog.keys.associateWith { A }
 
-    private val gerenteOperaciones: Map<String, PermissionScope> = mapOf(
+    private val managerOperations: Map<String, PermissionScope> = mapOf(
         // Identidad: ve y consulta, no administra.
         "user.view" to A,
         "audit.view" to A,
@@ -111,7 +111,7 @@ object RoleDefinitions {
         "system.health" to A,
     )
 
-    private val jefeBodega: Map<String, PermissionScope> = mapOf(
+    private val managerWarehouse: Map<String, PermissionScope> = mapOf(
         "user.view" to R,
         "audit.view" to R,
         "product.view" to A,
@@ -166,7 +166,7 @@ object RoleDefinitions {
         "system.health" to A,
     )
 
-    private val operadorAlmacen: Map<String, PermissionScope> = mapOf(
+    private val operatorWarehouse: Map<String, PermissionScope> = mapOf(
         "product.view" to A,
         "warehouse.view" to A,
         "location.view" to O,
@@ -231,7 +231,7 @@ object RoleDefinitions {
             key = BaseRole.OPERATIONS_MANAGER.key,
             name = BaseRole.OPERATIONS_MANAGER.displayName,
             description = BaseRole.OPERATIONS_MANAGER.oneLiner,
-            permissions = gerenteOperaciones,
+            permissions = managerOperations,
             isSystem = true,
             sortOrder = 1,
         ),
@@ -239,7 +239,7 @@ object RoleDefinitions {
             key = BaseRole.WAREHOUSE_MANAGER.key,
             name = BaseRole.WAREHOUSE_MANAGER.displayName,
             description = BaseRole.WAREHOUSE_MANAGER.oneLiner,
-            permissions = jefeBodega,
+            permissions = managerWarehouse,
             isSystem = true,
             sortOrder = 2,
         ),
@@ -247,7 +247,7 @@ object RoleDefinitions {
             key = BaseRole.WAREHOUSE_OPERATOR.key,
             name = BaseRole.WAREHOUSE_OPERATOR.displayName,
             description = BaseRole.WAREHOUSE_OPERATOR.oneLiner,
-            permissions = operadorAlmacen,
+            permissions = operatorWarehouse,
             isSystem = true,
             sortOrder = 3,
         ),
@@ -287,8 +287,8 @@ object RoleDefinitions {
      */
     val writePermissions: Set<String>
         get() = PermissionCatalog.all
-            .filterNot { permiso ->
-                READ_ONLY_ACTION_SUFFIXES.any { permiso.action.endsWith(it) }
+            .filterNot { permission ->
+                READ_ONLY_ACTION_SUFFIXES.any { permission.action.endsWith(it) }
             }
             .map { it.key }
             .toSet()

@@ -272,8 +272,8 @@ class NativeArgon2PasswordHasher(
         }
 
         // La cadena codificada termina en NUL: se recorta hasta ahí.
-        val fin = encoded.indexOf(0.toByte()).let { if (it < 0) encoded.size else it }
-        return String(encoded, 0, fin, StandardCharsets.US_ASCII)
+        val end = encoded.indexOf(0.toByte()).let { if (it < 0) encoded.size else it }
+        return String(encoded, 0, end, StandardCharsets.US_ASCII)
     }
 
     /**
@@ -339,19 +339,19 @@ class NativeArgon2PasswordHasher(
      * porque fuerza a regenerarlo en el próximo inicio de sesión.
      */
     override fun needsRehash(hash: String): Boolean {
-        val parametros = parsearParametros(hash) ?: return true
+        val parameters = parseParameters(hash) ?: return true
 
         // Se compara también el tipo: si el hash no es Argon2id, hay que
         // regenerarlo. Cubre el caso de una migración desde Argon2i o Argon2d.
-        return parametros.tipo != "argon2id" ||
-            parametros.memoryKib != config.memoryKib ||
-            parametros.iterations != config.iterations ||
-            parametros.parallelism != config.parallelism
+        return parameters.type != "argon2id" ||
+            parameters.memoryKib != config.memoryKib ||
+            parameters.iterations != config.iterations ||
+            parameters.parallelism != config.parallelism
     }
 
     /** Los parámetros que un hash PHC lleva dentro. */
-    internal data class ParametrosPhc(
-        val tipo: String,
+    internal data class PhcParameters(
+        val type: String,
         val version: Int,
         val memoryKib: Int,
         val iterations: Int,
@@ -365,29 +365,29 @@ class NativeArgon2PasswordHasher(
      *
      * @return los parámetros, o `null` si el hash no tiene el formato esperado.
      */
-    internal fun parsearParametros(hash: String): ParametrosPhc? {
-        val partes = hash.split('$')
+    internal fun parseParameters(hash: String): PhcParameters? {
+        val parts = hash.split('$')
         // La cadena empieza por `$`, así que la primera parte es vacía:
         // ["", "argon2id", "v=19", "m=65536,t=3,p=1", sal, hash]
-        if (partes.size < 5 || partes[0].isNotEmpty()) return null
+        if (parts.size < 5 || parts[0].isNotEmpty()) return null
 
-        val tipo = partes[1]
-        val version = partes[2].removePrefix("v=").toIntOrNull() ?: return null
+        val type = parts[1]
+        val version = parts[2].removePrefix("v=").toIntOrNull() ?: return null
 
-        val valores = partes[3].split(',').associate { par ->
-            val (clave, valor) = par.split('=', limit = 2).let {
+        val values = parts[3].split(',').associate { pair ->
+            val (key, value) = pair.split('=', limit = 2).let {
                 if (it.size != 2) return null
                 it[0] to it[1]
             }
-            clave to (valor.toIntOrNull() ?: return null)
+            key to (value.toIntOrNull() ?: return null)
         }
 
-        return ParametrosPhc(
-            tipo = tipo,
+        return PhcParameters(
+            type = type,
             version = version,
-            memoryKib = valores["m"] ?: return null,
-            iterations = valores["t"] ?: return null,
-            parallelism = valores["p"] ?: return null,
+            memoryKib = values["m"] ?: return null,
+            iterations = values["t"] ?: return null,
+            parallelism = values["p"] ?: return null,
         )
     }
 

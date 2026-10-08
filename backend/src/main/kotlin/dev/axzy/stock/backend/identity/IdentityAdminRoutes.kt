@@ -1,15 +1,15 @@
 package dev.axzy.stock.backend.identity
 
 import dev.axzy.stock.backend.catalog.PageRequest
-import dev.axzy.stock.backend.catalog.aRespuesta
+import dev.axzy.stock.backend.catalog.aResponse
 import dev.axzy.stock.backend.error.BadRequestException
 import dev.axzy.stock.backend.error.ForbiddenException
 import dev.axzy.stock.backend.error.UnauthorizedException
 import dev.axzy.stock.backend.identity.IdentityAdminService
-import dev.axzy.stock.backend.identity.ModuloDePermisos
-import dev.axzy.stock.backend.identity.PermisoAdmin
-import dev.axzy.stock.backend.identity.RolAdmin
-import dev.axzy.stock.backend.identity.UsuarioAdmin
+import dev.axzy.stock.backend.identity.PermissionModuleGroup
+import dev.axzy.stock.backend.identity.AdminPermission
+import dev.axzy.stock.backend.identity.AdminRole
+import dev.axzy.stock.backend.identity.AdminUser
 import dev.axzy.stock.backend.security.DenyAllPermissionChecker
 import dev.axzy.stock.backend.security.PermissionChecker
 import dev.axzy.stock.backend.security.PermissionDecision
@@ -62,10 +62,10 @@ import javax.sql.DataSource
 // Para el catálogo de permisos, `role.manage` es el permiso más cercano de los
 // que existen, y es el que hace falta para la pantalla que lo consume: la matriz
 // de roles, que sin el catálogo no se puede dibujar.
-private const val PERMISO_VER_USUARIOS = "user.view"
+private const val PERMISSION_VIEW_USERS = "user.view"
 
 /** `role.manage` es lo más cercano que existe a `role.view` y a `permission.view`. */
-private const val PERMISO_ADMINISTRAR_ACCESO = "role.manage"
+private const val PERMISSION_ADMINISTER_ACCESS = "role.manage"
 
 /**
  * Instala las rutas de administración de identidad.
@@ -84,24 +84,24 @@ fun Route.identityAdminRoutes(
     dataSource: DataSource,
     permissionChecker: PermissionChecker = DenyAllPermissionChecker,
 ) {
-    val servicio = IdentityAdminService(dataSource)
+    val service = IdentityAdminService(dataSource)
 
     // ═══════════════════════════════════════════════════════════════════════
     // GET /v1/users — personas, paginadas
     // ═══════════════════════════════════════════════════════════════════════
     route("/v1/users") {
         get {
-            call.exigirPermiso(permissionChecker, PERMISO_VER_USUARIOS)
+            call.requirePermission(permissionChecker, PERMISSION_VIEW_USERS)
 
-            val pagina = call.pagina(
-                camposOrdenables = IdentityAdminService.CAMPOS_ORDENABLES_USUARIOS,
-                ordenPorDefecto = IdentityAdminService.ORDEN_POR_DEFECTO_USUARIOS,
+            val page = call.page(
+                fieldsSortable = IdentityAdminService.SORTABLE_USER_FIELDS,
+                defaultOrder = IdentityAdminService.DEFAULT_USER_ORDER,
             )
-            val busqueda = call.request.queryParameters["q"]
-            val activo = call.filtroBooleano("active")
+            val search = call.request.queryParameters["q"]
+            val active = call.filterBoolean("active")
 
-            val resultado = servicio.listarUsuarios(pagina, busqueda, activo)
-            call.respond(HttpStatusCode.OK, resultado.aRespuesta { it.aDto() })
+            val result = service.listUsers(page, search, active)
+            call.respond(HttpStatusCode.OK, result.aResponse { it.aDto() })
         }
     }
 
@@ -110,17 +110,17 @@ fun Route.identityAdminRoutes(
     // ═══════════════════════════════════════════════════════════════════════
     route("/v1/roles") {
         get {
-            call.exigirPermiso(permissionChecker, PERMISO_ADMINISTRAR_ACCESO)
+            call.requirePermission(permissionChecker, PERMISSION_ADMINISTER_ACCESS)
 
-            val pagina = call.pagina(
-                camposOrdenables = IdentityAdminService.CAMPOS_ORDENABLES_ROLES,
-                ordenPorDefecto = IdentityAdminService.ORDEN_POR_DEFECTO_ROLES,
+            val page = call.page(
+                fieldsSortable = IdentityAdminService.SORTABLE_ROLE_FIELDS,
+                defaultOrder = IdentityAdminService.DEFAULT_ROLE_ORDER,
             )
-            val busqueda = call.request.queryParameters["q"]
-            val activo = call.filtroBooleano("active")
+            val search = call.request.queryParameters["q"]
+            val active = call.filterBoolean("active")
 
-            val resultado = servicio.listarRoles(pagina, busqueda, activo)
-            call.respond(HttpStatusCode.OK, resultado.aRespuesta { it.aDto() })
+            val result = service.listRoles(page, search, active)
+            call.respond(HttpStatusCode.OK, result.aResponse { it.aDto() })
         }
     }
 
@@ -129,25 +129,25 @@ fun Route.identityAdminRoutes(
     // ═══════════════════════════════════════════════════════════════════════
     route("/v1/permissions") {
         get {
-            call.exigirPermiso(permissionChecker, PERMISO_ADMINISTRAR_ACCESO)
+            call.requirePermission(permissionChecker, PERMISSION_ADMINISTER_ACCESS)
 
             // Sin paginación, y es deliberado: §1.4 exceptúa los catálogos
             // cerrados que la interfaz necesita COMPLETOS —como las bodegas—
             // porque el cliente tendría que pedir todas las páginas antes de
             // poder dibujar nada. El catálogo de permisos es la matriz de la
             // pantalla de roles: llega entero, agrupado por módulo.
-            val modulos = servicio.catalogoDePermisos()
-            val planos = modulos.flatMap { it.permissions }
+            val modules = service.permissionCatalog()
+            val planes = modules.flatMap { it.permissions }
 
             call.respond(
                 HttpStatusCode.OK,
-                CatalogoDePermisosResponse(
-                    totalItems = planos.size,
-                    modules = modulos.map { it.aDto() },
+                PermissionCatalogResponse(
+                    totalItems = planes.size,
+                    modules = modules.map { it.aDto() },
                     // La lista plana viaja ADEMÁS de los grupos, no en su lugar:
                     // un selector de permisos no tiene por qué recorrer los
                     // módulos para pintar 76 opciones, y el dato es el mismo.
-                    items = planos.map { it.aDto() },
+                    items = planes.map { it.aDto() },
                 ),
             )
         }
@@ -166,7 +166,7 @@ fun Route.identityAdminRoutes(
  * es un campo que algún día se rellena por descuido.
  */
 @Serializable
-data class UsuarioResponse(
+data class UserResponse(
     val id: Long,
     val username: String,
     val name: String,
@@ -180,7 +180,7 @@ data class UsuarioResponse(
 
 /** Un rol con su número de permisos y de personas. */
 @Serializable
-data class RolResponse(
+data class RoleResponse(
     val id: Long,
     val key: String,
     val name: String,
@@ -194,7 +194,7 @@ data class RolResponse(
 
 /** Un permiso del catálogo con sus alcances admitidos. */
 @Serializable
-data class PermisoResponse(
+data class PermissionResponse(
     val key: String,
     val module: String,
     val resource: String,
@@ -209,12 +209,12 @@ data class PermisoResponse(
 
 /** Un módulo del catálogo con sus permisos, en orden de presentación. */
 @Serializable
-data class ModuloDePermisosResponse(
+data class PermissionModuleResponse(
     val module: String,
     /** Nombre legible (`IDENTITY` → «identidad»), para el encabezado de la pantalla. */
     val moduleName: String,
     val count: Int,
-    val permissions: List<PermisoResponse>,
+    val permissions: List<PermissionResponse>,
 )
 
 /**
@@ -225,17 +225,17 @@ data class ModuloDePermisosResponse(
  * que no necesita el agrupado.
  */
 @Serializable
-data class CatalogoDePermisosResponse(
+data class PermissionCatalogResponse(
     val totalItems: Int,
-    val modules: List<ModuloDePermisosResponse>,
-    val items: List<PermisoResponse>,
+    val modules: List<PermissionModuleResponse>,
+    val items: List<PermissionResponse>,
 )
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TRADUCCIONES DE FILA A RESPUESTA
 // ═════════════════════════════════════════════════════════════════════════════
 
-private fun UsuarioAdmin.aDto() = UsuarioResponse(
+private fun AdminUser.aDto() = UserResponse(
     id = id,
     username = username,
     name = name,
@@ -247,7 +247,7 @@ private fun UsuarioAdmin.aDto() = UsuarioResponse(
     lastLoginAt = lastLoginAt?.toString(),
 )
 
-private fun RolAdmin.aDto() = RolResponse(
+private fun AdminRole.aDto() = RoleResponse(
     id = id,
     key = key,
     name = name,
@@ -259,7 +259,7 @@ private fun RolAdmin.aDto() = RolResponse(
     userCount = userCount,
 )
 
-private fun PermisoAdmin.aDto() = PermisoResponse(
+private fun AdminPermission.aDto() = PermissionResponse(
     key = key,
     module = module,
     resource = resource,
@@ -272,7 +272,7 @@ private fun PermisoAdmin.aDto() = PermisoResponse(
     sortOrder = sortOrder,
 )
 
-private fun ModuloDePermisos.aDto() = ModuloDePermisosResponse(
+private fun PermissionModuleGroup.aDto() = PermissionModuleResponse(
     module = module,
     moduleName = moduleName,
     count = permissions.size,
@@ -297,11 +297,11 @@ private fun ModuloDePermisos.aDto() = ModuloDePermisosResponse(
  * demás es 403 con su código propio. Colapsarlos en un 403 genérico dejaría al
  * usuario sin saber si le falta un permiso o si el permiso no alcanza.
  */
-private suspend fun ApplicationCall.exigirPermiso(verificador: PermissionChecker, permiso: String) {
-    when (val decision = verificador.comprobar(this, permiso)) {
-        PermissionDecision.Permitido -> Unit
+private suspend fun ApplicationCall.requirePermission(verifier: PermissionChecker, permission: String) {
+    when (val decision = verifier.check(this, permission)) {
+        PermissionDecision.Permitted -> Unit
 
-        is PermissionDecision.Denegado ->
+        is PermissionDecision.Denied ->
             if (decision.code == "UNAUTHENTICATED") {
                 throw UnauthorizedException(decision.code, decision.message)
             } else {
@@ -311,25 +311,25 @@ private suspend fun ApplicationCall.exigirPermiso(verificador: PermissionChecker
 }
 
 /** Paginación de la petición, validada contra los campos admitidos del endpoint. */
-private fun ApplicationCall.pagina(camposOrdenables: Set<String>, ordenPorDefecto: String): PageRequest =
-    PageRequest.analizar(
+private fun ApplicationCall.page(fieldsSortable: Set<String>, defaultOrder: String): PageRequest =
+    PageRequest.analyze(
         page = request.queryParameters["page"],
         size = request.queryParameters["size"],
         sort = request.queryParameters["sort"],
-        camposOrdenables = camposOrdenables,
-        ordenPorDefecto = ordenPorDefecto,
+        fieldsSortable = fieldsSortable,
+        defaultOrder = defaultOrder,
     )
 
 /** Filtro booleano opcional de la query (`active=true`). */
-private fun ApplicationCall.filtroBooleano(nombre: String): Boolean? {
-    val crudo = request.queryParameters[nombre]?.trim() ?: return null
-    return when (crudo.lowercase()) {
+private fun ApplicationCall.filterBoolean(name: String): Boolean? {
+    val raw = request.queryParameters[name]?.trim() ?: return null
+    return when (raw.lowercase()) {
         "true" -> true
         "false" -> false
         else -> throw BadRequestException(
             code = "INVALID_PARAMETER",
-            message = "El parámetro '$nombre' debe ser true o false. Se recibió '$crudo'.",
-            details = mapOf(nombre to crudo),
+            message = "El parámetro '$name' debe ser true o false. Se recibió '$raw'.",
+            details = mapOf(name to raw),
         )
     }
 }

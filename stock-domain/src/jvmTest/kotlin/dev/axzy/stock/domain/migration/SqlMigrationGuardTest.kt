@@ -36,54 +36,54 @@ class SqlMigrationGuardTest : DescribeSpec({
      * trabajo, para que el test funcione tanto desde la raíz del monorepo como
      * desde el directorio del módulo.
      */
-    fun directorioDeMigraciones(): File {
-        val candidatos = listOf(
+    fun migrationsDir(): File {
+        val candidates = listOf(
             File("backend/src/main/resources/db/migration"),
             File("../backend/src/main/resources/db/migration"),
             File("../../backend/src/main/resources/db/migration"),
         )
-        return candidatos.firstOrNull { it.isDirectory }
+        return candidates.firstOrNull { it.isDirectory }
             ?: error(
                 "No se encontró el directorio de migraciones. Buscado en: " +
-                    candidatos.joinToString { it.absolutePath }
+                    candidates.joinToString { it.absolutePath }
             )
     }
 
-    fun archivosSql(): List<File> = directorioDeMigraciones()
+    fun filesSql(): List<File> = migrationsDir()
         .listFiles { f -> f.extension == "sql" }
         ?.sortedBy { it.name }
         ?: emptyList()
 
-    fun contenidoCompleto(): String = archivosSql().joinToString("\n") { it.readText() }
+    fun contentComplete(): String = filesSql().joinToString("\n") { it.readText() }
 
     describe("versionado de las migraciones") {
 
         it("existen migraciones y siguen la convención V<n>__<nombre>.sql") {
-            val archivos = archivosSql()
+            val files = filesSql()
 
             withClue("Debe haber al menos una migración") {
-                (archivos.isNotEmpty()) shouldBe true
+                (files.isNotEmpty()) shouldBe true
             }
 
-            val patron = Regex("^V\\d+__[a-z0-9_]+\\.sql$")
-            archivos.forEach { archivo ->
+            val pattern = Regex("^V\\d+__[a-z0-9_]+\\.sql$")
+            files.forEach { file ->
                 withClue(
-                    "La migración '${archivo.name}' no sigue la convención " +
+                    "La migración '${file.name}' no sigue la convención " +
                         "V<n>__<nombre>.sql que exige Flyway. Un nombre mal formado " +
                         "hace que la migración NO se aplique y falle en silencio."
                 ) {
-                    patron.matches(archivo.name) shouldBe true
+                    pattern.matches(file.name) shouldBe true
                 }
             }
         }
 
         it("las versiones son correlativas desde 1, sin huecos ni duplicados") {
-            val versiones = archivosSql()
+            val versions = filesSql()
                 .map { it.name.substringAfter('V').substringBefore("__").toInt() }
                 .sorted()
 
-            withClue("Versiones encontradas: $versiones") {
-                versiones shouldBe (1..versiones.size).toList()
+            withClue("Versiones encontradas: $versions") {
+                versions shouldBe (1..versions.size).toList()
             }
         }
     }
@@ -94,9 +94,9 @@ class SqlMigrationGuardTest : DescribeSpec({
             // Cada uno de estos impone una regla de negocio en la BASE DE DATOS,
             // no solo en el código. Borrarlos convertiría una invariante en una
             // convención que se puede olvidar.
-            val sql = contenidoCompleto()
+            val sql = contentComplete()
 
-            val checksEsperados = mapOf(
+            val checksExpected = mapOf(
                 "audit_critical_has_permission" to
                     "Un evento crítico sin permiso no puede responder 'con qué permiso se hizo'",
                 "audit_critical_has_trace" to
@@ -107,9 +107,9 @@ class SqlMigrationGuardTest : DescribeSpec({
                     "Si lo hizo una persona, debe estar identificada",
             )
 
-            checksEsperados.forEach { (nombre, razon) ->
-                withClue("Falta el CHECK '$nombre': $razon") {
-                    sql shouldContain nombre
+            checksExpected.forEach { (name, reason) ->
+                withClue("Falta el CHECK '$name': $reason") {
+                    sql shouldContain name
                 }
             }
         }
@@ -119,7 +119,7 @@ class SqlMigrationGuardTest : DescribeSpec({
             // un trigger declarado en una tabla particionada NO se aplica a sus
             // particiones. Ponerlo solo en el padre daba una falsa sensación de
             // protección, y un UPDATE sobre una partición PASABA.
-            val sql = contenidoCompleto()
+            val sql = contentComplete()
 
             withClue("Debe existir la función que aplica la inmutabilidad por partición") {
                 sql shouldContain "audit_log_attach_immutability"
@@ -133,7 +133,7 @@ class SqlMigrationGuardTest : DescribeSpec({
         }
 
         it("la auditoría bloquea UPDATE y DELETE con un mensaje que explica por qué") {
-            val sql = contenidoCompleto()
+            val sql = contentComplete()
 
             withClue("Debe existir la función que bloquea las mutaciones") {
                 sql shouldContain "audit_log_block_mutations"
@@ -149,7 +149,7 @@ class SqlMigrationGuardTest : DescribeSpec({
             // particiones: toda inserción fallaba con 'null value in column id'.
             // Una secuencia compartida garantiza además un orden GLOBAL del
             // ledger, no uno por partición.
-            val sql = contenidoCompleto()
+            val sql = contentComplete()
 
             withClue("Debe existir la secuencia compartida") {
                 sql shouldContain "CREATE SEQUENCE audit_log_id_seq"
@@ -166,7 +166,7 @@ class SqlMigrationGuardTest : DescribeSpec({
         }
 
         it("la matriz de permisos liga rol, permiso y alcance, y no concede NONE") {
-            val sql = contenidoCompleto()
+            val sql = contentComplete()
 
             withClue("Debe existir la tabla de la matriz") {
                 sql shouldContain "CREATE TABLE role_permissions"
@@ -183,7 +183,7 @@ class SqlMigrationGuardTest : DescribeSpec({
             // El ledger es el libro de inventario. En el legacy,
             // `removeUnitsFromKardex` hacía `kardex.update`: un registro
             // histórico se modificaba y la trazabilidad se destruía.
-            val sql = contenidoCompleto()
+            val sql = contentComplete()
 
             withClue("Debe existir la función que bloquea las mutaciones del kardex") {
                 sql shouldContain "kardex_block_mutations"
@@ -206,7 +206,7 @@ class SqlMigrationGuardTest : DescribeSpec({
         it("`difference` es una COLUMNA GENERADA, no un campo que se pueda desincronizar") {
             // El legacy declaraba `difference` en modelo, DTO, mapper y
             // respuesta, y siempre escribía 0 (hallazgo R-58).
-            val sql = contenidoCompleto()
+            val sql = contentComplete()
 
             withClue("La columna debe ser GENERATED ALWAYS AS ... STORED") {
                 sql shouldContain "GENERATED ALWAYS AS (physical_quantity - quantity) STORED"
@@ -214,7 +214,7 @@ class SqlMigrationGuardTest : DescribeSpec({
         }
 
         it("el stock por ubicación y el total no pueden ser negativos (invariante I2)") {
-            val sql = contenidoCompleto()
+            val sql = contentComplete()
 
             withClue("La proyección por ubicación tiene CHECK") {
                 sql shouldContain "stock_non_negative"
@@ -228,7 +228,7 @@ class SqlMigrationGuardTest : DescribeSpec({
             // Es la regla B1 y la segregación de funciones (R-74) impuestas en
             // la base de datos: sin esto, el control interno depende de que el
             // código se acuerde de validarlo.
-            val sql = contenidoCompleto()
+            val sql = contentComplete()
 
             withClue("Debe exigirse aprobador") {
                 sql shouldContain "invoice_lines_approved_has_approver"
@@ -241,7 +241,7 @@ class SqlMigrationGuardTest : DescribeSpec({
         it("el borrado de documentos deja rastro: no se borra sin motivo") {
             // El legacy declaraba `deleted` en el esquema y hacía DELETE físico,
             // sin escribir nunca el flag (hallazgo B-1 / R-57).
-            val sql = contenidoCompleto()
+            val sql = contentComplete()
 
             withClue("La factura exige motivo y fecha si está borrada") {
                 sql shouldContain "invoices_deleted_coherent"
@@ -255,7 +255,7 @@ class SqlMigrationGuardTest : DescribeSpec({
             // El legacy marcaba `printed = true` sin esperar la respuesta del
             // POST: si la Zebra estaba apagada, la etiqueta se perdía para
             // siempre (hallazgo R-83).
-            val sql = contenidoCompleto()
+            val sql = contentComplete()
 
             withClue("Debe existir la máquina de estados de impresión") {
                 sql shouldContain "CREATE TYPE print_status"
@@ -271,7 +271,7 @@ class SqlMigrationGuardTest : DescribeSpec({
         it("la conversión al ERP tiene estado y no solo un booleano") {
             // El flujo de conversión NUNCA existió en el legacy: `converted` y
             // `sent` estaban y no se escribían ni se leían (hallazgo R-82).
-            val sql = contenidoCompleto()
+            val sql = contentComplete()
 
             withClue("Debe registrarse cuándo se convirtió") {
                 sql shouldContain "orders_converted_coherent"
@@ -286,7 +286,7 @@ class SqlMigrationGuardTest : DescribeSpec({
             // La mercancía que viaja SIGUE contando en el inventario. Si se
             // modelara como dos movimientos instantáneos, el total bajaría
             // durante el trayecto y los reportes mentirían.
-            val sql = contenidoCompleto()
+            val sql = contentComplete()
 
             withClue("Debe existir la tabla de tránsito") {
                 sql shouldContain "CREATE TABLE stock_in_transit"
@@ -299,7 +299,7 @@ class SqlMigrationGuardTest : DescribeSpec({
         it("la ubicación de RECEPCIÓN existe como ubicación real, no como pseudo-ubicación") {
             // El legacy devolvía 'ADMIN' hardcodeada con un id ficticio que podía
             // colisionar con la ubicación real 1 (hallazgo R-69).
-            val sql = contenidoCompleto()
+            val sql = contentComplete()
 
             withClue("Debe existir el tipo de ubicación") {
                 sql shouldContain "CREATE TYPE location_kind"
@@ -312,7 +312,7 @@ class SqlMigrationGuardTest : DescribeSpec({
         it("las bodegas del alcance AREA viven en la PERSONA, no en el rol") {
             // Es lo que permite que un solo rol JEFE_BODEGA sirva para cualquier
             // bodega, en lugar de crear un rol por cada una.
-            val sql = contenidoCompleto()
+            val sql = contentComplete()
 
             withClue("Debe existir la tabla de bodegas por usuario") {
                 sql shouldContain "CREATE TABLE user_warehouse_scopes"
@@ -322,7 +322,7 @@ class SqlMigrationGuardTest : DescribeSpec({
         it("una persona puede tener varios roles, con uno principal") {
             // El legacy tenía `User.roleId` único, lo que obligaba a crear roles
             // híbridos cuando alguien cubría dos funciones.
-            val sql = contenidoCompleto()
+            val sql = contentComplete()
 
             withClue("La relación usuario-rol debe ser N:M") {
                 sql shouldContain "CREATE TABLE user_roles"
@@ -333,7 +333,7 @@ class SqlMigrationGuardTest : DescribeSpec({
         }
 
         it("la clave del rol tiene formato validado y es estable") {
-            val sql = contenidoCompleto()
+            val sql = contentComplete()
 
             withClue("La clave debe tener un CHECK de formato") {
                 sql shouldContain "roles_key_format"
@@ -344,7 +344,7 @@ class SqlMigrationGuardTest : DescribeSpec({
         }
 
         it("las claves de permiso siguen la convención recurso.accion en minúsculas") {
-            val sql = contenidoCompleto()
+            val sql = contentComplete()
 
             withClue(
                 "El CHECK del formato es lo que impide que se cuele un permiso con " +
@@ -360,10 +360,10 @@ class SqlMigrationGuardTest : DescribeSpec({
         it("ninguna migración hace DROP de tablas del dominio ni TRUNCATE") {
             // Un `DROP TABLE` en una migración borra datos de producción. La
             // única excepción legítima es la limpieza de una tabla temporal.
-            val archivos = archivosSql()
+            val files = filesSql()
 
-            val destructivas = archivos.filter { archivo ->
-                val contenido = archivo.readText()
+            val destructive = files.filter { file ->
+                val content = file.readText()
                     .lines()
                     // Se ignoran los comentarios: documentar una operación
                     // destructiva no es ejecutarla.
@@ -371,30 +371,30 @@ class SqlMigrationGuardTest : DescribeSpec({
                     .joinToString("\n")
                     .uppercase()
 
-                val borraTabla = contenido.contains("DROP TABLE") &&
-                    !contenido.contains("DROP TABLE IF EXISTS")
+                val deletesTable = content.contains("DROP TABLE") &&
+                    !content.contains("DROP TABLE IF EXISTS")
 
                 // CUIDADO con TRUNCATE: `REVOKE ... TRUNCATE` QUITA el permiso de
                 // truncar, que es una medida de seguridad, no una operación
                 // destructiva. Se busca el truncado real, que empieza la
                 // sentencia, y no la mención del privilegio.
-                val truncaDeVerdad = Regex("(^|;|\\n)\\s*TRUNCATE\\s", RegexOption.MULTILINE)
-                    .containsMatchIn(contenido)
+                val truncatesForReal = Regex("(^|;|\\n)\\s*TRUNCATE\\s", RegexOption.MULTILINE)
+                    .containsMatchIn(content)
 
-                borraTabla || truncaDeVerdad
+                deletesTable || truncatesForReal
             }
 
             withClue(
                 "Estas migraciones contienen operaciones destructivas: " +
-                    "${destructivas.map { it.name }}. Una migración no debe borrar datos " +
+                    "${destructive.map { it.name }}. Una migración no debe borrar datos " +
                     "sin una revisión explícita."
             ) {
-                destructivas shouldBe emptyList()
+                destructive shouldBe emptyList()
             }
         }
 
         it("ninguna migración borra filas de la auditoría") {
-            val sql = contenidoCompleto().uppercase()
+            val sql = contentComplete().uppercase()
 
             withClue("Una migración no puede vaciar la auditoría: sería alterar la historia") {
                 (sql.contains("DELETE FROM AUDIT_LOG")) shouldBe false
@@ -405,7 +405,7 @@ class SqlMigrationGuardTest : DescribeSpec({
     describe("documentación integrada") {
 
         it("las tablas y columnas críticas están comentadas en la base de datos") {
-            val sql = contenidoCompleto()
+            val sql = contentComplete()
 
             // Los comentarios viven en la base y los ve quien la inspecciona.
             // Son la diferencia entre un esquema que se entiende y uno que hay

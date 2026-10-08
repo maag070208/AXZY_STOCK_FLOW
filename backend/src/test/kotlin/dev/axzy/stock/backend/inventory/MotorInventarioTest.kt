@@ -37,22 +37,22 @@ import javax.sql.DataSource
  * total**. Si algún día cambia, el modelo se habrá roto y este test lo dice.
  * ═══════════════════════════════════════════════════════════════════════════
  */
-class MotorInventarioTest : DescribeSpec({
+class EngineInventoryTest : DescribeSpec({
 
-    val nombreBase = "stock_motor_test"
+    val nameBase = "stock_motor_test"
 
-    fun contrasenaLocal(): String {
-        val archivo: File? = listOf(File("infra/.env"), File("../infra/.env"))
+    fun passwordLocal(): String {
+        val file: File? = listOf(File("infra/.env"), File("../infra/.env"))
             .firstOrNull { it.exists() }
-        return archivo?.readLines()
+        return file?.readLines()
             ?.firstOrNull { it.startsWith("POSTGRES_PASSWORD=") }
             ?.substringAfter("=")?.trim() ?: ""
     }
 
     val config = DatabaseConfig(
-        jdbcUrl = "jdbc:postgresql://127.0.0.1:5432/$nombreBase",
+        jdbcUrl = "jdbc:postgresql://127.0.0.1:5432/$nameBase",
         username = System.getenv("STOCK_TEST_DB_USER") ?: "stock_app",
-        password = System.getenv("STOCK_TEST_DB_PASSWORD") ?: contrasenaLocal(),
+        password = System.getenv("STOCK_TEST_DB_PASSWORD") ?: passwordLocal(),
         // 2 y no 1: Flyway necesita una conexion mientras el test mantiene la
         // suya. Con el pool a 1, la peticion de Flyway se queda esperando y el
         // test falla por AGOTAMIENTO DEL POOL, no por el motor.
@@ -62,12 +62,12 @@ class MotorInventarioTest : DescribeSpec({
 
     val configAdmin = config.copy(jdbcUrl = "jdbc:postgresql://127.0.0.1:5432/postgres")
 
-    fun cerrar(pool: DataSource?) {
+    fun close(pool: DataSource?) {
         runCatching { (pool as? AutoCloseable)?.close() }
     }
 
     /** Base disponible. Si no, los tests se saltan y lo dicen. */
-    val hayBase: Boolean = run {
+    val thereIsBase: Boolean = run {
         val pool = runCatching { buildDataSource(configAdmin) }.getOrNull() ?: return@run false
         try {
             pool.connection.use { c ->
@@ -77,11 +77,11 @@ class MotorInventarioTest : DescribeSpec({
         } catch (_: Exception) {
             false
         } finally {
-            cerrar(pool)
+            close(pool)
         }
     }
 
-    if (!hayBase) {
+    if (!thereIsBase) {
         println("MotorInventarioTest SALTADO: no hay PostgreSQL. cd infra && docker compose up -d")
     }
 
@@ -92,21 +92,21 @@ class MotorInventarioTest : DescribeSpec({
      * lo que dejó el anterior pasa o falla según el orden, y eso es peor que no
      * tenerlo.
      */
-    fun prepararBase(): DataSource? {
+    fun prepareDatabase(): DataSource? {
         val admin = runCatching { buildDataSource(configAdmin) }.getOrNull() ?: return null
 
         try {
             admin.connection.use { c ->
                 c.autoCommit = true
                 c.createStatement().use { st ->
-                    st.execute("DROP DATABASE IF EXISTS $nombreBase WITH (FORCE)")
-                    st.execute("CREATE DATABASE $nombreBase")
+                    st.execute("DROP DATABASE IF EXISTS $nameBase WITH (FORCE)")
+                    st.execute("CREATE DATABASE $nameBase")
                 }
             }
         } catch (_: Exception) {
             return null
         } finally {
-            cerrar(admin)
+            close(admin)
         }
 
         val pool = buildDataSource(config)
@@ -114,29 +114,29 @@ class MotorInventarioTest : DescribeSpec({
             migrate(pool)
             pool
         } catch (e: Exception) {
-            cerrar(pool)
+            close(pool)
             throw e
         }
     }
 
-    fun <T> conBase(bloque: (DataSource) -> T): T? {
-        if (!hayBase) return null
-        val pool = prepararBase() ?: return null
+    fun <T> withDatabase(block: (DataSource) -> T): T? {
+        if (!thereIsBase) return null
+        val pool = prepareDatabase() ?: return null
         return try {
-            bloque(pool)
+            block(pool)
         } finally {
-            cerrar(pool)
+            close(pool)
         }
     }
 
     /** Ejecuta SQL y devuelve la primera columna de la primera fila. */
-    fun Connection.escalar(sql: String): String? =
+    fun Connection.scalar(sql: String): String? =
         createStatement().use { st ->
             st.executeQuery(sql).use { rs -> if (rs.next()) rs.getString(1) else null }
         }
 
     /** Prepara un producto y un estante. Devuelve el id del estante. */
-    fun Connection.datosDePrueba(): String {
+    fun Connection.testData(): String {
         createStatement().use { st ->
             st.execute("INSERT INTO products (product_code, name, unit_measure_id) VALUES ('X1','P1',1)")
             st.execute(
@@ -144,50 +144,50 @@ class MotorInventarioTest : DescribeSpec({
                     "VALUES (1,'05','A','A',1,'SHELF')",
             )
         }
-        return escalar("SELECT id FROM locations WHERE hall='05'")!!
+        return scalar("SELECT id FROM locations WHERE hall='05'")!!
     }
 
     describe("el motor de inventario mantiene las proyecciones") {
 
         it("la carga inicial crea el saldo y el total") {
-            conBase { pool ->
+            withDatabase { pool ->
                 pool.connection.use { c ->
                     c.autoCommit = true
-                    c.datosDePrueba()
+                    c.testData()
 
-                    val unassigned = c.escalar("SELECT id FROM locations WHERE kind='UNASSIGNED'")
+                    val unassigned = c.scalar("SELECT id FROM locations WHERE kind='UNASSIGNED'")
 
-                    c.escalar(
+                    c.scalar(
                         "SELECT registrar_movimiento(1,1,'INITIAL',1000,NULL,$unassigned," +
                             "NULL,NULL,NULL,NULL,NULL,NULL,NULL)",
                     ) shouldBe "1"
 
-                    c.escalar("SELECT quantity::text FROM product_stock WHERE product_id=1") shouldBe "1000.000"
+                    c.scalar("SELECT quantity::text FROM product_stock WHERE product_id=1") shouldBe "1000.000"
                 }
             }
         }
 
         it("ubicar NO cambia el total: es un traslado, no una salida") {
-            conBase { pool ->
+            withDatabase { pool ->
                 pool.connection.use { c ->
                     c.autoCommit = true
-                    val estante = c.datosDePrueba()
+                    val shelf = c.testData()
 
-                    val unassigned = c.escalar("SELECT id FROM locations WHERE kind='UNASSIGNED'")
+                    val unassigned = c.scalar("SELECT id FROM locations WHERE kind='UNASSIGNED'")
 
-                    c.escalar(
+                    c.scalar(
                         "SELECT registrar_movimiento(1,1,'INITIAL',1000,NULL,$unassigned," +
                             "NULL,NULL,NULL,NULL,NULL,NULL,NULL)",
                     )
 
                     // El caso que más importa: ubicar es un TRASLADO, así que el
                     // total no debe moverse.
-                    c.escalar(
-                        "SELECT registrar_movimiento(1,1,'LOCATE',300,$unassigned,$estante," +
+                    c.scalar(
+                        "SELECT registrar_movimiento(1,1,'LOCATE',300,$unassigned,$shelf," +
                             "NULL,NULL,NULL,NULL,NULL,NULL,NULL)",
                     )
 
-                    c.escalar("SELECT quantity::text FROM product_stock WHERE product_id=1") shouldBe "1000.000"
+                    c.scalar("SELECT quantity::text FROM product_stock WHERE product_id=1") shouldBe "1000.000"
                 }
             }
         }

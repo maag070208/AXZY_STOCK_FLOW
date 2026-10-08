@@ -40,25 +40,25 @@ import java.math.RoundingMode
  * una sola representación para el mismo concepto, sin errores de redondeo
  * binario.
  */
-@Serializable(with = CantidadJsonSerializer::class)
+@Serializable(with = JsonQuantitySerializer::class)
 @JvmInline
-value class CantidadJson(val milesimas: Long) {
+value class JsonQuantity(val thousandths: Long) {
 
     /** Texto decimal con 3 decimales, que es lo que se escribe en el JSON. */
-    fun comoTexto(): String {
-        val negativo = milesimas < 0
-        val absoluto = if (negativo) -milesimas else milesimas
-        val entero = absoluto / 1000
-        val fraccion = absoluto % 1000
-        val signo = if (negativo) "-" else ""
-        return "$signo$entero.${fraccion.toString().padStart(3, '0')}"
+    fun asText(): String {
+        val negative = thousandths < 0
+        val absolute = if (negative) -thousandths else thousandths
+        val integer = absolute / 1000
+        val fraction = absolute % 1000
+        val sign = if (negative) "-" else ""
+        return "$sign$integer.${fraction.toString().padStart(3, '0')}"
     }
 
     companion object {
-        val CERO = CantidadJson(0)
+        val Zero = JsonQuantity(0)
 
         /** Desde el objeto de valor del dominio. */
-        fun deCantidad(cantidad: Quantity): CantidadJson = CantidadJson(cantidad.value)
+        fun fromQuantity(quantity: Quantity): JsonQuantity = JsonQuantity(quantity.value)
 
         /**
          * Desde un `NUMERIC(14,3)` de PostgreSQL.
@@ -66,8 +66,8 @@ value class CantidadJson(val milesimas: Long) {
          * Se redondea a 3 decimales y no se trunca: truncar perdería la
          * milésima que la base ya redondeó al guardar.
          */
-        fun deDecimal(valor: BigDecimal): CantidadJson =
-            CantidadJson(valor.movePointRight(3).setScale(0, RoundingMode.HALF_UP).toLong())
+        fun fromDecimal(value: BigDecimal): JsonQuantity =
+            JsonQuantity(value.movePointRight(3).setScale(0, RoundingMode.HALF_UP).toLong())
     }
 }
 
@@ -80,24 +80,24 @@ value class CantidadJson(val milesimas: Long) {
  * es `Quantity.parse` del dominio, que sí valida.
  */
 @OptIn(ExperimentalSerializationApi::class)
-object CantidadJsonSerializer : KSerializer<CantidadJson> {
+object JsonQuantitySerializer : KSerializer<JsonQuantity> {
 
     override val descriptor: SerialDescriptor =
         PrimitiveSerialDescriptor("CantidadJson", PrimitiveKind.STRING)
 
-    override fun serialize(encoder: Encoder, value: CantidadJson) {
-        val texto = value.comoTexto()
+    override fun serialize(encoder: Encoder, value: JsonQuantity) {
+        val text = value.asText()
         if (encoder is JsonEncoder) {
-            encoder.encodeJsonElement(JsonUnquotedLiteral(texto))
+            encoder.encodeJsonElement(JsonUnquotedLiteral(text))
         } else {
             // Fuera de JSON no hay número sin comillas posible: se escribe el
             // texto en lugar de fallar, para no atar el serializador a un
             // formato concreto.
-            encoder.encodeString(texto)
+            encoder.encodeString(text)
         }
     }
 
-    override fun deserialize(decoder: Decoder): CantidadJson =
+    override fun deserialize(decoder: Decoder): JsonQuantity =
         throw UnsupportedOperationException(
             "CantidadJson es un DTO de salida. Para leer una cantidad usa " +
                 "Quantity.parse del dominio, que valida el formato y los decimales."
@@ -119,8 +119,8 @@ data class PageResponse<T>(
 )
 
 /** Convierte una página del repositorio en el sobre del contrato. */
-fun <T, R> Page<T>.aRespuesta(transformacion: (T) -> R): PageResponse<R> = PageResponse(
-    items = items.map(transformacion),
+fun <T, R> Page<T>.aResponse(transformation: (T) -> R): PageResponse<R> = PageResponse(
+    items = items.map(transformation),
     page = page,
     size = size,
     totalItems = totalItems,
@@ -140,7 +140,7 @@ data class ProductResponse(
     val externalId: Long? = null,
     val active: Boolean,
     /** Total derivado de `stock_by_location` + `stock_in_transit`. */
-    val stock: CantidadJson,
+    val stock: JsonQuantity,
 )
 
 fun ProductRecord.aDto() = ProductResponse(
@@ -151,7 +151,7 @@ fun ProductRecord.aDto() = ProductResponse(
     unitMeasure = unitMeasure,
     externalId = externalId,
     active = active,
-    stock = CantidadJson.deDecimal(stock),
+    stock = JsonQuantity.fromDecimal(stock),
 )
 
 /** Alta de producto. */
@@ -189,7 +189,7 @@ data class ProductUpdateRequest(
  * `audit_log`, que es de la capa de auditoría.
  */
 @Serializable
-data class MotivoDeBorradoRequest(
+data class DeleteReasonRequest(
     val reason: String? = null,
 )
 
@@ -312,7 +312,7 @@ data class ImportReportResponse(
     val totalRows: Int,
     val accepted: Int,
     val rejected: Int,
-    val totalStock: CantidadJson,
+    val totalStock: JsonQuantity,
     val zeroStockCount: Int,
     val unitMeasures: List<String>,
     val rejections: List<RowRejectionResponse>,
@@ -340,18 +340,18 @@ data class RowRejectionResponse(
  *
  * @param persistidos cuántos productos se escribieron de verdad (0 en simulación).
  */
-fun ImportReport.aDto(persistidos: Int) = ImportReportResponse(
+fun ImportReport.aDto(persisted: Int) = ImportReportResponse(
     dryRun = isDryRun,
     totalRows = totalRows,
     accepted = acceptedCount,
     rejected = rejectedCount,
-    totalStock = CantidadJson.deCantidad(totalStock),
+    totalStock = JsonQuantity.fromQuantity(totalStock),
     zeroStockCount = zeroStockCount,
     unitMeasures = unitMeasures,
     rejections = rejected.map { it.aDto() },
     // En una simulación no se escribió nada, y el informe lo dice en lugar de
     // dejar que el cliente lo deduzca del campo `dryRun`.
-    persisted = if (isDryRun) 0 else persistidos,
+    persisted = if (isDryRun) 0 else persisted,
     stockPersisted = false,
 )
 

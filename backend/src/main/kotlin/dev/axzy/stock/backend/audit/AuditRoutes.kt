@@ -4,7 +4,7 @@ import dev.axzy.stock.backend.audit.AuditFilters
 import dev.axzy.stock.backend.audit.AuditQueryService
 import dev.axzy.stock.backend.catalog.Page
 import dev.axzy.stock.backend.catalog.PageRequest
-import dev.axzy.stock.backend.catalog.aRespuesta
+import dev.axzy.stock.backend.catalog.aResponse
 import dev.axzy.stock.backend.error.BadRequestException
 import dev.axzy.stock.backend.error.ForbiddenException
 import dev.axzy.stock.backend.security.PermissionChecker
@@ -45,14 +45,14 @@ import java.util.UUID
  * ═══════════════════════════════════════════════════════════════════════════
  */
 fun Route.auditRoutes(
-    servicio: AuditQueryService,
+    service: AuditQueryService,
     permissionChecker: PermissionChecker,
 ) {
 
     get("/v1/audit/log") {
-        when (val decision = permissionChecker.comprobar(call, "audit.view")) {
-            is PermissionDecision.Permitido -> Unit
-            is PermissionDecision.Denegado -> throw ForbiddenException(decision.code, decision.message)
+        when (val decision = permissionChecker.check(call, "audit.view")) {
+            is PermissionDecision.Permitted -> Unit
+            is PermissionDecision.Denied -> throw ForbiddenException(decision.code, decision.message)
         }
 
         // **El orden por defecto es DESCENDENTE, y `PageRequest` no lo hace solo.**
@@ -63,32 +63,32 @@ fun Route.auditRoutes(
         // una dirección, se le pasa el orden por defecto explícito; así el cliente
         // que escribe `sort=occurredAt` obtiene lo que pidió (ascendente) y el que
         // no escribe nada obtiene lo que espera (lo más reciente primero).
-        val page = PageRequest.analizar(
+        val page = PageRequest.analyze(
             page = call.request.queryParameters["page"],
             size = call.request.queryParameters["size"],
             sort = call.request.queryParameters["sort"] ?: "occurredAt,desc",
-            camposOrdenables = CAMPOS_ORDENABLES,
-            ordenPorDefecto = "occurredAt",
+            fieldsSortable = SORTABLE_FIELDS,
+            defaultOrder = "occurredAt",
         )
 
-        val filtros = call.filtrosDeAuditoria()
+        val filters = call.auditFilters()
 
         // El listado y el conteo comparten `filtros`: no hay forma de que el
         // sobre diga «1.064 registros» y los items sean cero, que es el error
         // que ya se cometió en el kardex.
-        val items = servicio.listar(
-            filtros = filtros,
-            descendente = !page.ascendente,
+        val items = service.list(
+            filters = filters,
+            descending = !page.ascending,
             offset = page.offset.toInt(),
-            limite = page.size,
+            limit = page.size,
         )
         // **El total se CUENTA, no se adivina con `items.size`.** El bug del
         // inventario hacía que el sobre dijera «50 resultados» siempre.
-        val total = servicio.contar(filtros)
+        val total = service.count(filters)
 
         call.respond(
             HttpStatusCode.OK,
-            Page(items, page.page, page.size, total).aRespuesta { it },
+            Page(items, page.page, page.size, total).aResponse { it },
         )
     }
 }
@@ -99,7 +99,7 @@ fun Route.auditRoutes(
  * miles de filas no responde a ninguna pregunta de auditoría y multiplicaría los
  * índices necesarios.
  */
-private val CAMPOS_ORDENABLES = setOf("occurredAt")
+private val SORTABLE_FIELDS = setOf("occurredAt")
 
 /**
  * Lee y valida los filtros de la consulta.
@@ -113,51 +113,51 @@ private val CAMPOS_ORDENABLES = setOf("occurredAt")
  * Todos los filtros son opcionales (`null` = no se pidió) y ninguno es
  * obligatorio: la bitácora se puede abrir entera y podar a mano.
  */
-private fun ApplicationCall.filtrosDeAuditoria(): AuditFilters {
-    val parametros = request.queryParameters
+private fun ApplicationCall.auditFilters(): AuditFilters {
+    val parameters = request.queryParameters
 
-    val desde = parametros.textoOpcional("from")?.let { instante(it, esFinDeDia = false) }
-    val hasta = parametros.textoOpcional("to")?.let { instante(it, esFinDeDia = true) }
+    val from = parameters.textOptional("from")?.let { instant(it, isEndOfDay = false) }
+    val until = parameters.textOptional("to")?.let { instant(it, isEndOfDay = true) }
 
     // Un rango invertido devuelve cero filas siempre. Es mejor decirlo que
     // devolver una lista vacía que el usuario interpretará como «no hay nada
     // registrado» cuando el error está en su petición.
-    if (desde != null && hasta != null && desde.isAfter(hasta)) {
+    if (from != null && until != null && from.isAfter(until)) {
         throw BadRequestException(
             code = "INVALID_FILTER_RANGE",
             message = "El parámetro 'from' es posterior a 'to', así que el rango no " +
                 "contiene ningún instante. Un rango invertido no devuelve nada y " +
                 "parecería que no hay registros.",
-            details = mapOf("from" to parametros["from"].orEmpty(), "to" to parametros["to"].orEmpty()),
+            details = mapOf("from" to parameters["from"].orEmpty(), "to" to parameters["to"].orEmpty()),
         )
     }
 
     return AuditFilters(
-        desde = desde,
-        hasta = hasta,
-        actorUserId = parametros.numeroOpcional("userId"),
-        entityType = parametros.textoOpcional("entity"),
-        entityId = parametros.textoOpcional("entityId"),
-        action = parametros.textoOpcional("action"),
-        correlationId = parametros.uuidOpcional("correlationId"),
-        decision = parametros.enumOpcional("decision", AuditQueryService.DECISIONES),
-        result = parametros.enumOpcional("result", AuditQueryService.RESULTADOS),
-        actionLevel = parametros.enumOpcional("actionLevel", AuditQueryService.NIVELES),
-        channel = parametros.enumOpcional("channel", AuditQueryService.CANALES),
+        from = from,
+        until = until,
+        actorUserId = parameters.numberOptional("userId"),
+        entityType = parameters.textOptional("entity"),
+        entityId = parameters.textOptional("entityId"),
+        action = parameters.textOptional("action"),
+        correlationId = parameters.uuidOptional("correlationId"),
+        decision = parameters.enumOptional("decision", AuditQueryService.DECISIONS),
+        result = parameters.enumOptional("result", AuditQueryService.RESULTS),
+        actionLevel = parameters.enumOptional("actionLevel", AuditQueryService.Levels),
+        channel = parameters.enumOptional("channel", AuditQueryService.Channels),
     )
 }
 
 /** Un parámetro de la URL, ausente o vacío = no se pidió. */
-private fun io.ktor.http.Parameters.textoOpcional(nombre: String): String? =
-    this[nombre]?.trim()?.takeIf { it.isNotEmpty() }
+private fun io.ktor.http.Parameters.textOptional(name: String): String? =
+    this[name]?.trim()?.takeIf { it.isNotEmpty() }
 
 /** Entero opcional; si viene y no es un número, es un 400 y no un filtro ignorado. */
-private fun io.ktor.http.Parameters.numeroOpcional(nombre: String): Long? {
-    val crudo = textoOpcional(nombre) ?: return null
-    return crudo.toLongOrNull() ?: throw BadRequestException(
+private fun io.ktor.http.Parameters.numberOptional(name: String): Long? {
+    val raw = textOptional(name) ?: return null
+    return raw.toLongOrNull() ?: throw BadRequestException(
         code = "INVALID_FILTER",
-        message = "El parámetro '$nombre' debe ser un número entero. Se recibió '$crudo'.",
-        details = mapOf(nombre to crudo),
+        message = "El parámetro '$name' debe ser un número entero. Se recibió '$raw'.",
+        details = mapOf(name to raw),
     )
 }
 
@@ -169,15 +169,15 @@ private fun io.ktor.http.Parameters.numeroOpcional(nombre: String): Long? {
  * de quien llama y merece un **400**. Es exactamente el tropiezo que ya tuvimos
  * con la cabecera `Idempotency-Key` y no se repite aquí.
  */
-private fun io.ktor.http.Parameters.uuidOpcional(nombre: String): UUID? {
-    val crudo = textoOpcional(nombre) ?: return null
+private fun io.ktor.http.Parameters.uuidOptional(name: String): UUID? {
+    val raw = textOptional(name) ?: return null
     return try {
-        UUID.fromString(crudo)
+        UUID.fromString(raw)
     } catch (_: IllegalArgumentException) {
         throw BadRequestException(
             code = "INVALID_FILTER",
-            message = "El parámetro '$nombre' debe ser un UUID. Se recibió '$crudo'.",
-            details = mapOf(nombre to crudo),
+            message = "El parámetro '$name' debe ser un UUID. Se recibió '$raw'.",
+            details = mapOf(name to raw),
         )
     }
 }
@@ -191,18 +191,18 @@ private fun io.ktor.http.Parameters.uuidOpcional(nombre: String): UUID? {
  * el cliente escribió mal. El 400 además dice cuáles son los valores válidos, que
  * es lo que el cliente necesita para corregir.
  */
-private fun io.ktor.http.Parameters.enumOpcional(nombre: String, permitidos: Set<String>): String? {
-    val crudo = textoOpcional(nombre) ?: return null
-    val valor = crudo.uppercase()
-    if (valor !in permitidos) {
+private fun io.ktor.http.Parameters.enumOptional(name: String, allowed: Set<String>): String? {
+    val raw = textOptional(name) ?: return null
+    val value = raw.uppercase()
+    if (value !in allowed) {
         throw BadRequestException(
             code = "INVALID_FILTER",
-            message = "El parámetro '$nombre' no admite '$crudo'. Valores válidos: " +
-                permitidos.sorted().joinToString(", ") + ".",
-            details = mapOf(nombre to crudo),
+            message = "El parámetro '$name' no admite '$raw'. Valores válidos: " +
+                allowed.sorted().joinToString(", ") + ".",
+            details = mapOf(name to raw),
         )
     }
-    return valor
+    return value
 }
 
 /**
@@ -218,25 +218,25 @@ private fun io.ktor.http.Parameters.enumOpcional(nombre: String, permitidos: Set
  * filtro— haría que el listado y el conteo coincidieran entre sí pero no con lo
  * que pidió el cliente.
  */
-private fun instante(crudo: String, esFinDeDia: Boolean): Instant {
+private fun instant(raw: String, isEndOfDay: Boolean): Instant {
     // Primero instante completo: `Instant.parse` exige zona (`Z` o `+02:00`) y
     // así no se confunde una fecha suelta con un instante a medianoche.
-    runCatching { Instant.parse(crudo) }.getOrNull()?.let { return it }
+    runCatching { Instant.parse(raw) }.getOrNull()?.let { return it }
 
-    val fecha = runCatching { LocalDate.parse(crudo) }.getOrNull()
+    val date = runCatching { LocalDate.parse(raw) }.getOrNull()
         ?: throw BadRequestException(
             code = "INVALID_FILTER_DATE",
-            message = "El valor '$crudo' no es una fecha ISO ('2026-11-15') ni un instante " +
+            message = "El valor '$raw' no es una fecha ISO ('2026-11-15') ni un instante " +
                 "ISO-8601 ('2026-11-15T08:30:00Z').",
-            details = mapOf("valor" to crudo),
+            details = mapOf("valor" to raw),
         )
 
-    return if (esFinDeDia) {
+    return if (isEndOfDay) {
         // El final del día incluye el último nanosegundo: con `23:59:59` se
         // perderían los registros de ese último segundo, y en un ledger que
         // registra accesos eso es un hueco silencioso.
-        fecha.atTime(23, 59, 59, 999_999_999).toInstant(ZoneOffset.UTC)
+        date.atTime(23, 59, 59, 999_999_999).toInstant(ZoneOffset.UTC)
     } else {
-        fecha.atStartOfDay(ZoneOffset.UTC).toInstant()
+        date.atStartOfDay(ZoneOffset.UTC).toInstant()
     }
 }

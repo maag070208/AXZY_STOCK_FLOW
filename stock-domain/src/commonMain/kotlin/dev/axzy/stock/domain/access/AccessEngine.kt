@@ -405,8 +405,8 @@ class AccessEngine(
         // Salvo que TODAS las políticas aplicables estén en observación: en ese
         // caso no hay ninguna regla vigente que exija autorización, y la acción
         // se decide solo por RBAC. Es la esencia del modo observación.
-        val hayPoliticasVigentes = traces.any { !it.shadowMode }
-        if (!hayPoliticasVigentes) {
+        val hasActivePolicies = traces.any { !it.shadowMode }
+        if (!hasActivePolicies) {
             return AccessDecision.Allowed(
                 permission = permissionKey,
                 effectiveScope = effectiveScope,
@@ -482,15 +482,15 @@ class AccessEngine(
         }
 
         val conditionTraces = policy.conditions.map { condition ->
-            val actual = resolveField(condition.field, user, resource, context)
+            val current = resolveField(condition.field, user, resource, context)
             // El valor esperado puede ser una constante o una referencia al
             // usuario que actúa. La segregación de funciones necesita lo segundo:
             // compara `capturedBy` contra **quien intenta aprobar**.
             val expected = resolveExpected(condition.value, user)
             ConditionTrace(
                 condition = condition,
-                actual = actual,
-                matches = condition.operator.matches(actual, expected),
+                current = current,
+                matches = condition.operator.matches(current, expected),
             )
         }
 

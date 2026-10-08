@@ -121,10 +121,10 @@ data class ScanWindow(
  * percibe como "lo puse en la raya".
  */
 fun ScanWindow.contains(bounds: ScanRect): Boolean {
-    val efectiva = effective
-    val dentroX = bounds.centerX in efectiva.left..efectiva.right
-    val dentroY = bounds.centerY in efectiva.top..efectiva.bottom
-    return dentroX && dentroY
+    val effective = effective
+    val insideX = bounds.centerX in effective.left..effective.right
+    val insideY = bounds.centerY in effective.top..effective.bottom
+    return insideX && insideY
 }
 
 /** Qué debe hacer el escáner en cada paso. */
@@ -229,9 +229,9 @@ fun ScanState.onScan(
                 "El código quedó fuera de la ventana de escaneo. Céntralo en la banda."
             )
         }
-        val producto = resolveProduct(input.raw)
+        val product = resolveProduct(input.raw)
             ?: return ScanOutcome.Rejected("'${input.raw}' no es un código de producto conocido")
-        ScanOutcome.Advanced(ScanState.ProductScanned(producto, unitsEntered))
+        ScanOutcome.Advanced(ScanState.ProductScanned(product, unitsEntered))
     }
 
     is ScanState.ProductScanned -> {
@@ -245,10 +245,10 @@ fun ScanState.onScan(
         if (!window.contains(input.bounds)) {
             return ScanOutcome.Rejected("La ubicación quedó fuera de la ventana de escaneo")
         }
-        val ubicacion = resolveLocation(input.raw)
+        val location = resolveLocation(input.raw)
             ?: return ScanOutcome.Rejected("'${input.raw}' no es una ubicación conocida")
 
-        if (ubicacion.value == RECEPCION) {
+        if (location.value == Receiving) {
             return ScanOutcome.Rejected("No se puede mover mercancía a la misma ubicación de origen")
         }
 
@@ -256,7 +256,7 @@ fun ScanState.onScan(
             ScanState.ReadyToConfirm(
                 product = product,
                 units = units ?: unitsEntered!!,
-                to = ubicacion,
+                to = location,
             )
         )
     }
@@ -270,4 +270,4 @@ fun ScanState.onScan(
 }
 
 /** Alias para el nombre de la ubicación de recepción, para no repetir literales. */
-private const val RECEPCION = "RECEPCION"
+private const val Receiving = "RECEPCION"

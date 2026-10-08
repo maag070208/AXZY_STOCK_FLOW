@@ -81,29 +81,29 @@ object LocationContent {
         productCode: String,
         location: LocationCode,
     ): Quantity {
-        val entradasDeLaUbicacion = ledger.entries
+        val locationEntries = ledger.entries
             .filter { it.productCode == productCode && (it.to == location || it.from == location) }
 
-        if (entradasDeLaUbicacion.isEmpty()) return Quantity.ZERO
+        if (locationEntries.isEmpty()) return Quantity.ZERO
 
         // Paso 1: la última entrada del producto en esa ubicación.
-        val ultima = entradasDeLaUbicacion.last()
+        val last = locationEntries.last()
 
         // Paso 2: si la última es un ajuste, el total es ese ajuste.
-        if (ultima.type == MovementType.ADJUSTMENT_IN || ultima.type == MovementType.ADJUSTMENT_OUT) {
-            return totalDelAjuste(ultima)
+        if (last.type == MovementType.ADJUSTMENT_IN || last.type == MovementType.ADJUSTMENT_OUT) {
+            return adjustmentTotal(last)
         }
 
         // Paso 3: buscar el último ajuste anterior.
-        val ultimoAjuste = entradasDeLaUbicacion.lastOrNull {
+        val lastAdjustment = locationEntries.lastOrNull {
             it.type == MovementType.ADJUSTMENT_IN || it.type == MovementType.ADJUSTMENT_OUT
         }
 
-        val desdeSecuencia = ultimoAjuste?.sequence ?: 0L
+        val fromSequence = lastAdjustment?.sequence ?: 0L
 
         // Paso 4: sumar LOCATION y restar OUT desde el ajuste (o desde el inicio).
-        val suma = entradasDeLaUbicacion
-            .filter { it.sequence >= desdeSecuencia }
+        val sum = locationEntries
+            .filter { it.sequence >= fromSequence }
             .filter {
                 it.type == MovementType.LOCATE ||
                     it.type == MovementType.MOVE_WITHIN_WAREHOUSE ||
@@ -113,8 +113,8 @@ object LocationContent {
             }
             .sumOf { it.quantity.value }
 
-        val resta = entradasDeLaUbicacion
-            .filter { it.sequence >= desdeSecuencia }
+        val subtraction = locationEntries
+            .filter { it.sequence >= fromSequence }
             .filter {
                 it.type == MovementType.FULFILLMENT_OUT ||
                     it.type == MovementType.ADJUSTMENT_OUT ||
@@ -122,13 +122,13 @@ object LocationContent {
             }
             .sumOf { it.quantity.value }
 
-        val total = Quantity.ofScaled(suma - resta)
+        val total = Quantity.ofScaled(sum - subtraction)
 
         // Paso 5: se descartan los totales <= 0.
         return if (total.isPositive) total else Quantity.ZERO
     }
 
-    private fun totalDelAjuste(entry: LedgerEntry): Quantity =
+    private fun adjustmentTotal(entry: LedgerEntry): Quantity =
         if (entry.type == MovementType.ADJUSTMENT_OUT) Quantity.ZERO else entry.quantity
 }
 
@@ -175,13 +175,13 @@ object LocationContentComparison {
     fun compare(ledger: InventoryLedger): List<ContentDivergence> =
         ledger.allBalances()
             .filter { it.quantity.isPositive }
-            .map { saldo ->
+            .map { balance ->
                 ContentDivergence(
-                    productCode = saldo.productCode,
-                    location = saldo.location,
-                    modelSays = LocationContent.direct(ledger, saldo.productCode, saldo.location),
+                    productCode = balance.productCode,
+                    location = balance.location,
+                    modelSays = LocationContent.direct(ledger, balance.productCode, balance.location),
                     legacySays = LocationContent.legacyAlgorithm(
-                        ledger, saldo.productCode, saldo.location,
+                        ledger, balance.productCode, balance.location,
                     ),
                 )
             }
@@ -195,35 +195,35 @@ object LocationContentComparison {
      * el objetivo es que alguien del negocio pueda leerlo y decidir.
      */
     fun report(ledger: InventoryLedger): String {
-        val divergencias = onlyDivergent(ledger)
-        if (divergencias.isEmpty()) {
+        val divergences = onlyDivergent(ledger)
+        if (divergences.isEmpty()) {
             return "Sin divergencias: los dos métodos coinciden en las " +
                 "${compare(ledger).size} ubicaciones con stock."
         }
 
-        val explicadas = divergencias.count { it.explainedByKnownBug }
-        val sinExplicar = divergencias.filterNot { it.explainedByKnownBug }
-        val descuadreTotal = divergencias.sumOf { it.absoluteDifference }
+        val explained = divergences.count { it.explainedByKnownBug }
+        val withoutExplanation = divergences.filterNot { it.explainedByKnownBug }
+        val mismatchTotal = divergences.sumOf { it.absoluteDifference }
 
         return buildString {
             appendLine("Informe de divergencias de contenido por ubicación")
             appendLine("─────────────────────────────────────────────────────")
-            appendLine("Ubicaciones con discrepancia: ${divergencias.size}")
-            appendLine("  · Explicadas por el bug conocido (el modelo ve MÁS): $explicadas")
-            appendLine("  · Sin explicar (el modelo ve MENOS): ${sinExplicar.size}")
-            appendLine("Descuadre absoluto acumulado: ${Quantity.ofScaled(descuadreTotal)} unidades")
-            if (sinExplicar.isNotEmpty()) {
+            appendLine("Ubicaciones con discrepancia: ${divergences.size}")
+            appendLine("  · Explicadas por el bug conocido (el modelo ve MÁS): $explained")
+            appendLine("  · Sin explicar (el modelo ve MENOS): ${withoutExplanation.size}")
+            appendLine("Descuadre absoluto acumulado: ${Quantity.ofScaled(mismatchTotal)} unidades")
+            if (withoutExplanation.isNotEmpty()) {
                 appendLine()
                 appendLine("⚠️  Las siguientes NO se explican por el bug conocido y requieren")
                 appendLine("    revisión manual antes de simplificar el algoritmo:")
-                sinExplicar.take(20).forEach {
+                withoutExplanation.take(20).forEach {
                     appendLine(
                         "    · ${it.productCode} en ${it.location.value}: " +
                             "modelo=${it.modelSays} legacy=${it.legacySays}"
                     )
                 }
-                if (sinExplicar.size > 20) {
-                    appendLine("    … y ${sinExplicar.size - 20} más")
+                if (withoutExplanation.size > 20) {
+                    appendLine("    … y ${withoutExplanation.size - 20} más")
                 }
             }
         }

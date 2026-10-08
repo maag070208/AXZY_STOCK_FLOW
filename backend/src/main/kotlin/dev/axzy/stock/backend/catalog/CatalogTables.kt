@@ -157,23 +157,23 @@ object StockInTransit : Table("stock_in_transit") {
  * `CREATE TYPE` y ningún `SchemaUtils` debe gestionarlo.
  */
 class CastAEnumPostgres(
-    private val valor: String,
-    private val tipoPostgres: String,
+    private val value: String,
+    private val typePostgres: String,
 ) : Expression<String>() {
 
     override fun toQueryBuilder(queryBuilder: QueryBuilder) {
         queryBuilder {
             // El valor viaja como parámetro (nunca concatenado en el SQL: eso
             // sería una inyección) y el cast lo hace PostgreSQL.
-            registerArgument(VarCharColumnType(), valor)
+            registerArgument(VarCharColumnType(), value)
             append("::")
-            append(tipoPostgres)
+            append(typePostgres)
         }
     }
 }
 
 /** Cast de un valor concreto a la columna `locations.kind`. */
-fun castAKindDeUbicacion(kind: String): Expression<String> =
+fun castToLocationKind(kind: String): Expression<String> =
     CastAEnumPostgres(kind, "location_kind")
 
 /**
@@ -185,4 +185,4 @@ fun castAKindDeUbicacion(kind: String): Expression<String> =
  * `booleanLiteral(true)` es una expresión, no un `Op`, así que no sirve como
  * «sin filtro».
  */
-fun Query.conFiltro(filtro: Op<Boolean>?): Query = if (filtro == null) this else where(filtro)
+fun Query.withFilter(filter: Op<Boolean>?): Query = if (filter == null) this else where(filter)

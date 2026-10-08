@@ -24,8 +24,8 @@ package dev.axzy.stock.domain.access
 object PermissionCatalog {
 
     // ── Atajos de alcance, para que las declaraciones se lean ───────────────
-    private val SOLO_TODO = setOf(PermissionScope.ALL)
-    private val ESCALERA = setOf(PermissionScope.OWN, PermissionScope.AREA, PermissionScope.ALL)
+    private val ONLY_ALL = setOf(PermissionScope.ALL)
+    private val Ladder = setOf(PermissionScope.OWN, PermissionScope.AREA, PermissionScope.ALL)
 
     /**
      * Todos los permisos, en orden de presentación.
@@ -36,100 +36,100 @@ object PermissionCatalog {
      */
     private val declared: List<Permission> = buildList {
         // ═══ IDENTIDAD ═══════════════════════════════════════════════════════
-        add(p("user.view", PermissionModule.IDENTITY, "Ver usuarios", ESCALERA))
-        add(p("user.create", PermissionModule.IDENTITY, "Crear usuarios", SOLO_TODO))
-        add(p("user.edit", PermissionModule.IDENTITY, "Editar usuarios", SOLO_TODO))
-        add(p("user.delete", PermissionModule.IDENTITY, "Eliminar usuarios", SOLO_TODO, sensitive = true))
-        add(p("user.reset_password", PermissionModule.IDENTITY, "Restablecer contraseña", SOLO_TODO, sensitive = true))
-        add(p("role.manage", PermissionModule.IDENTITY, "Administrar roles y permisos", SOLO_TODO, sensitive = true))
-        add(p("role.assign", PermissionModule.IDENTITY, "Asignar roles a personas", SOLO_TODO, sensitive = true))
-        add(p("permission.exception", PermissionModule.IDENTITY, "Conceder excepciones de permiso", SOLO_TODO, sensitive = true))
-        add(p("audit.view", PermissionModule.IDENTITY, "Consultar la auditoría", ESCALERA, sensitive = true))
-        add(p("session.revoke", PermissionModule.IDENTITY, "Revocar sesiones", SOLO_TODO, sensitive = true))
+        add(p("user.view", PermissionModule.IDENTITY, "Ver usuarios", Ladder))
+        add(p("user.create", PermissionModule.IDENTITY, "Crear usuarios", ONLY_ALL))
+        add(p("user.edit", PermissionModule.IDENTITY, "Editar usuarios", ONLY_ALL))
+        add(p("user.delete", PermissionModule.IDENTITY, "Eliminar usuarios", ONLY_ALL, sensitive = true))
+        add(p("user.reset_password", PermissionModule.IDENTITY, "Restablecer contraseña", ONLY_ALL, sensitive = true))
+        add(p("role.manage", PermissionModule.IDENTITY, "Administrar roles y permisos", ONLY_ALL, sensitive = true))
+        add(p("role.assign", PermissionModule.IDENTITY, "Asignar roles a personas", ONLY_ALL, sensitive = true))
+        add(p("permission.exception", PermissionModule.IDENTITY, "Conceder excepciones de permiso", ONLY_ALL, sensitive = true))
+        add(p("audit.view", PermissionModule.IDENTITY, "Consultar la auditoría", Ladder, sensitive = true))
+        add(p("session.revoke", PermissionModule.IDENTITY, "Revocar sesiones", ONLY_ALL, sensitive = true))
 
         // ═══ CATÁLOGO ════════════════════════════════════════════════════════
-        add(p("product.view", PermissionModule.CATALOG, "Ver productos", SOLO_TODO))
-        add(p("product.create", PermissionModule.CATALOG, "Crear productos", SOLO_TODO))
-        add(p("product.edit", PermissionModule.CATALOG, "Editar productos", SOLO_TODO))
-        add(p("product.delete", PermissionModule.CATALOG, "Desactivar productos", SOLO_TODO, sensitive = true))
-        add(p("product.import", PermissionModule.CATALOG, "Importar catálogo", SOLO_TODO, sensitive = true))
-        add(p("product.sync_barcode", PermissionModule.CATALOG, "Reasignar códigos de barras", SOLO_TODO, sensitive = true))
+        add(p("product.view", PermissionModule.CATALOG, "Ver productos", ONLY_ALL))
+        add(p("product.create", PermissionModule.CATALOG, "Crear productos", ONLY_ALL))
+        add(p("product.edit", PermissionModule.CATALOG, "Editar productos", ONLY_ALL))
+        add(p("product.delete", PermissionModule.CATALOG, "Desactivar productos", ONLY_ALL, sensitive = true))
+        add(p("product.import", PermissionModule.CATALOG, "Importar catálogo", ONLY_ALL, sensitive = true))
+        add(p("product.sync_barcode", PermissionModule.CATALOG, "Reasignar códigos de barras", ONLY_ALL, sensitive = true))
 
         // ═══ ALMACÉN FÍSICO ══════════════════════════════════════════════════
-        add(p("warehouse.view", PermissionModule.WAREHOUSE, "Ver bodegas", SOLO_TODO))
-        add(p("warehouse.create", PermissionModule.WAREHOUSE, "Crear bodegas", SOLO_TODO))
-        add(p("warehouse.edit", PermissionModule.WAREHOUSE, "Editar bodegas", SOLO_TODO))
-        add(p("location.view", PermissionModule.WAREHOUSE, "Ver ubicaciones", ESCALERA))
+        add(p("warehouse.view", PermissionModule.WAREHOUSE, "Ver bodegas", ONLY_ALL))
+        add(p("warehouse.create", PermissionModule.WAREHOUSE, "Crear bodegas", ONLY_ALL))
+        add(p("warehouse.edit", PermissionModule.WAREHOUSE, "Editar bodegas", ONLY_ALL))
+        add(p("location.view", PermissionModule.WAREHOUSE, "Ver ubicaciones", Ladder))
         add(p("location.create", PermissionModule.WAREHOUSE, "Crear ubicaciones", setOf(PermissionScope.AREA, PermissionScope.ALL)))
         add(p("location.edit", PermissionModule.WAREHOUSE, "Editar ubicaciones", setOf(PermissionScope.AREA, PermissionScope.ALL)))
-        add(p("location.delete", PermissionModule.WAREHOUSE, "Eliminar ubicaciones", SOLO_TODO, sensitive = true))
+        add(p("location.delete", PermissionModule.WAREHOUSE, "Eliminar ubicaciones", ONLY_ALL, sensitive = true))
         add(p("location.print_labels", PermissionModule.WAREHOUSE, "Imprimir etiquetas de ubicación", setOf(PermissionScope.AREA, PermissionScope.ALL)))
 
         // ═══ RECEPCIÓN ═══════════════════════════════════════════════════════
-        add(p("invoice.view", PermissionModule.RECEIVING, "Ver facturas", ESCALERA))
+        add(p("invoice.view", PermissionModule.RECEIVING, "Ver facturas", Ladder))
         add(p("invoice.create", PermissionModule.RECEIVING, "Crear facturas", setOf(PermissionScope.AREA, PermissionScope.ALL)))
-        add(p("invoice.edit", PermissionModule.RECEIVING, "Editar facturas", ESCALERA))
-        add(p("invoice.delete", PermissionModule.RECEIVING, "Anular facturas", SOLO_TODO, sensitive = true))
-        add(p("invoice.capture", PermissionModule.RECEIVING, "Capturar conteo físico", ESCALERA))
+        add(p("invoice.edit", PermissionModule.RECEIVING, "Editar facturas", Ladder))
+        add(p("invoice.delete", PermissionModule.RECEIVING, "Anular facturas", ONLY_ALL, sensitive = true))
+        add(p("invoice.capture", PermissionModule.RECEIVING, "Capturar conteo físico", Ladder))
         add(p("invoice.assign", PermissionModule.RECEIVING, "Asignar trabajo de recepción", setOf(PermissionScope.AREA, PermissionScope.ALL)))
-        add(p("invoice.locate", PermissionModule.RECEIVING, "Ubicar mercancía en estantes", ESCALERA))
+        add(p("invoice.locate", PermissionModule.RECEIVING, "Ubicar mercancía en estantes", Ladder))
         add(p("invoice.approve", PermissionModule.RECEIVING, "Aprobar discrepancias", setOf(PermissionScope.AREA, PermissionScope.ALL), sensitive = true))
         add(p("invoice.reject", PermissionModule.RECEIVING, "Rechazar discrepancias", setOf(PermissionScope.AREA, PermissionScope.ALL)))
         add(p("invoice.close", PermissionModule.RECEIVING, "Cerrar facturas", setOf(PermissionScope.AREA, PermissionScope.ALL)))
-        add(p("invoice.import_external", PermissionModule.RECEIVING, "Importar facturas del ERP", SOLO_TODO, sensitive = true))
+        add(p("invoice.import_external", PermissionModule.RECEIVING, "Importar facturas del ERP", ONLY_ALL, sensitive = true))
 
         // ═══ SURTIDO ═════════════════════════════════════════════════════════
-        add(p("order.view", PermissionModule.FULFILLMENT, "Ver órdenes", ESCALERA))
+        add(p("order.view", PermissionModule.FULFILLMENT, "Ver órdenes", Ladder))
         add(p("order.create", PermissionModule.FULFILLMENT, "Crear órdenes", setOf(PermissionScope.AREA, PermissionScope.ALL)))
-        add(p("order.edit", PermissionModule.FULFILLMENT, "Editar órdenes", ESCALERA))
-        add(p("order.delete", PermissionModule.FULFILLMENT, "Anular órdenes", SOLO_TODO, sensitive = true))
+        add(p("order.edit", PermissionModule.FULFILLMENT, "Editar órdenes", Ladder))
+        add(p("order.delete", PermissionModule.FULFILLMENT, "Anular órdenes", ONLY_ALL, sensitive = true))
         add(p("order.assign", PermissionModule.FULFILLMENT, "Asignar trabajo de surtido", setOf(PermissionScope.AREA, PermissionScope.ALL)))
-        add(p("order.package", PermissionModule.FULFILLMENT, "Surtir y empacar", ESCALERA))
+        add(p("order.package", PermissionModule.FULFILLMENT, "Surtir y empacar", Ladder))
         add(p("order.confirm", PermissionModule.FULFILLMENT, "Confirmar empaque", setOf(PermissionScope.AREA, PermissionScope.ALL)))
-        add(p("order.convert", PermissionModule.FULFILLMENT, "Exportar orden al ERP", SOLO_TODO, sensitive = true))
+        add(p("order.convert", PermissionModule.FULFILLMENT, "Exportar orden al ERP", ONLY_ALL, sensitive = true))
 
         // ═══ INVENTARIO ══════════════════════════════════════════════════════
-        add(p("inventory.view", PermissionModule.INVENTORY, "Ver inventario", ESCALERA))
-        add(p("inventory.view_cost", PermissionModule.INVENTORY, "Ver el costo del inventario", SOLO_TODO, sensitive = true))
-        add(p("inventory.move", PermissionModule.INVENTORY, "Mover entre estantes", ESCALERA))
-        add(p("inventory.count", PermissionModule.INVENTORY, "Contar inventario", ESCALERA))
+        add(p("inventory.view", PermissionModule.INVENTORY, "Ver inventario", Ladder))
+        add(p("inventory.view_cost", PermissionModule.INVENTORY, "Ver el costo del inventario", ONLY_ALL, sensitive = true))
+        add(p("inventory.move", PermissionModule.INVENTORY, "Mover entre estantes", Ladder))
+        add(p("inventory.count", PermissionModule.INVENTORY, "Contar inventario", Ladder))
         add(p("inventory.adjust_increase", PermissionModule.INVENTORY, "Ajustar inventario al alza", setOf(PermissionScope.AREA, PermissionScope.ALL), sensitive = true))
         add(p("inventory.adjust_count_error", PermissionModule.INVENTORY, "Ajustar por error de conteo", setOf(PermissionScope.AREA, PermissionScope.ALL)))
         add(p("inventory.adjust_shortage", PermissionModule.INVENTORY, "Ajustar por faltante", setOf(PermissionScope.AREA, PermissionScope.ALL), sensitive = true))
         add(p("inventory.adjust_damage", PermissionModule.INVENTORY, "Ajustar por daño", setOf(PermissionScope.AREA, PermissionScope.ALL), sensitive = true))
-        add(p("inventory.adjust_theft", PermissionModule.INVENTORY, "Ajustar por robo", SOLO_TODO, sensitive = true))
+        add(p("inventory.adjust_theft", PermissionModule.INVENTORY, "Ajustar por robo", ONLY_ALL, sensitive = true))
         add(p("inventory.approve_adjustment", PermissionModule.INVENTORY, "Aprobar ajustes", setOf(PermissionScope.AREA, PermissionScope.ALL), sensitive = true))
-        add(p("inventory.reconcile", PermissionModule.INVENTORY, "Reconciliar inventario", SOLO_TODO, sensitive = true))
-        add(p("kardex.view", PermissionModule.INVENTORY, "Ver el kardex", ESCALERA))
+        add(p("inventory.reconcile", PermissionModule.INVENTORY, "Reconciliar inventario", ONLY_ALL, sensitive = true))
+        add(p("kardex.view", PermissionModule.INVENTORY, "Ver el kardex", Ladder))
         add(p("kardex.export", PermissionModule.INVENTORY, "Exportar el kardex", setOf(PermissionScope.AREA, PermissionScope.ALL)))
 
         // ═══ TRANSFERENCIAS ══════════════════════════════════════════════════
-        add(p("transfer.view", PermissionModule.TRANSFER, "Ver transferencias", ESCALERA))
+        add(p("transfer.view", PermissionModule.TRANSFER, "Ver transferencias", Ladder))
         add(p("transfer.create", PermissionModule.TRANSFER, "Crear transferencias", setOf(PermissionScope.AREA, PermissionScope.ALL)))
         add(p("transfer.dispatch", PermissionModule.TRANSFER, "Despachar transferencias", setOf(PermissionScope.AREA, PermissionScope.ALL)))
         add(p("transfer.receive", PermissionModule.TRANSFER, "Recibir transferencias", setOf(PermissionScope.AREA, PermissionScope.ALL)))
-        add(p("transfer.cancel", PermissionModule.TRANSFER, "Cancelar transferencias", SOLO_TODO, sensitive = true))
+        add(p("transfer.cancel", PermissionModule.TRANSFER, "Cancelar transferencias", ONLY_ALL, sensitive = true))
         add(p("transit.view", PermissionModule.TRANSFER, "Ver mercancía en tránsito", setOf(PermissionScope.AREA, PermissionScope.ALL)))
 
         // ═══ ETIQUETADO ══════════════════════════════════════════════════════
-        add(p("label.print", PermissionModule.LABELING, "Imprimir etiquetas", ESCALERA))
+        add(p("label.print", PermissionModule.LABELING, "Imprimir etiquetas", Ladder))
         add(p("label.reprint", PermissionModule.LABELING, "Reimprimir etiquetas", setOf(PermissionScope.AREA, PermissionScope.ALL)))
         add(p("label.template_view", PermissionModule.LABELING, "Ver plantillas de etiqueta", setOf(PermissionScope.AREA, PermissionScope.ALL)))
-        add(p("label.template_edit", PermissionModule.LABELING, "Editar plantillas de etiqueta", SOLO_TODO, sensitive = true))
+        add(p("label.template_edit", PermissionModule.LABELING, "Editar plantillas de etiqueta", ONLY_ALL, sensitive = true))
         add(p("label.queue_view", PermissionModule.LABELING, "Ver la cola de impresión", setOf(PermissionScope.AREA, PermissionScope.ALL)))
-        add(p("label.queue_manage", PermissionModule.LABELING, "Gestionar la cola de impresión", SOLO_TODO, sensitive = true))
+        add(p("label.queue_manage", PermissionModule.LABELING, "Gestionar la cola de impresión", ONLY_ALL, sensitive = true))
 
         // ═══ REPORTES ════════════════════════════════════════════════════════
-        add(p("report.view", PermissionModule.REPORT, "Ver reportes", ESCALERA))
+        add(p("report.view", PermissionModule.REPORT, "Ver reportes", Ladder))
         add(p("report.export", PermissionModule.REPORT, "Exportar reportes", setOf(PermissionScope.AREA, PermissionScope.ALL)))
-        add(p("report.financial", PermissionModule.REPORT, "Ver reportes financieros", SOLO_TODO, sensitive = true))
-        add(p("report.audit", PermissionModule.REPORT, "Ver reportes de auditoría", SOLO_TODO, sensitive = true))
+        add(p("report.financial", PermissionModule.REPORT, "Ver reportes financieros", ONLY_ALL, sensitive = true))
+        add(p("report.audit", PermissionModule.REPORT, "Ver reportes de auditoría", ONLY_ALL, sensitive = true))
 
         // ═══ SISTEMA ═════════════════════════════════════════════════════════
-        add(p("system.config", PermissionModule.SYSTEM, "Configurar el sistema", SOLO_TODO, sensitive = true))
-        add(p("system.health", PermissionModule.SYSTEM, "Ver el estado del sistema", SOLO_TODO))
-        add(p("print_device.manage", PermissionModule.SYSTEM, "Gestionar la impresora", SOLO_TODO, sensitive = true))
-        add(p("integration.manage", PermissionModule.SYSTEM, "Gestionar integraciones", SOLO_TODO, sensitive = true))
+        add(p("system.config", PermissionModule.SYSTEM, "Configurar el sistema", ONLY_ALL, sensitive = true))
+        add(p("system.health", PermissionModule.SYSTEM, "Ver el estado del sistema", ONLY_ALL))
+        add(p("print_device.manage", PermissionModule.SYSTEM, "Gestionar la impresora", ONLY_ALL, sensitive = true))
+        add(p("integration.manage", PermissionModule.SYSTEM, "Gestionar integraciones", ONLY_ALL, sensitive = true))
     }
 
     private fun p(

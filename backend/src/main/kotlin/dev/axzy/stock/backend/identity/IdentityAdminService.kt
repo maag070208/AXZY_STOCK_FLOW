@@ -42,16 +42,16 @@ class IdentityAdminService(private val dataSource: DataSource) {
          * ni puede estarlo, y un campo fuera de la lista se rechaza con 400 en
          * lugar de ignorarse.
          */
-        val CAMPOS_ORDENABLES_USUARIOS: Set<String> =
+        val SORTABLE_USER_FIELDS: Set<String> =
             setOf("username", "name", "createdAt", "lastLoginAt")
 
-        const val ORDEN_POR_DEFECTO_USUARIOS = "username"
+        const val DEFAULT_USER_ORDER = "username"
 
         /** Campos de `sort` admitidos en `GET /v1/roles`. */
-        val CAMPOS_ORDENABLES_ROLES: Set<String> =
+        val SORTABLE_ROLE_FIELDS: Set<String> =
             setOf("key", "name", "sortOrder", "permissionCount", "userCount")
 
-        const val ORDEN_POR_DEFECTO_ROLES = "sortOrder"
+        const val DEFAULT_ROLE_ORDER = "sortOrder"
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -72,33 +72,33 @@ class IdentityAdminService(private val dataSource: DataSource) {
      *   haría creer que nunca existió y quien la busca para reactivarla no la
      *   encontraría.
      */
-    fun listarUsuarios(pagina: PageRequest, busqueda: String?, activo: Boolean?): Page<UsuarioAdmin> =
-        dataSource.connection.use { conexion ->
-            val filtro = filtroDeUsuarios(busqueda, activo)
+    fun listUsers(page: PageRequest, search: String?, active: Boolean?): Page<AdminUser> =
+        dataSource.connection.use { connection ->
+            val filter = userFilter(search, active)
 
-            val total = conexion.prepareStatement("SELECT count(*) FROM users ${filtro.sql}")
-                .use { sentencia ->
-                    sentencia.conParametros(filtro.parametros)
-                    sentencia.executeQuery().use { filas -> filas.next(); filas.getLong(1) }
+            val total = connection.prepareStatement("SELECT count(*) FROM users ${filter.sql}")
+                .use { statement ->
+                    statement.withParameters(filter.parameters)
+                    statement.executeQuery().use { rows -> rows.next(); rows.getLong(1) }
                 }
 
-            val filas = conexion.prepareStatement(
+            val rows = connection.prepareStatement(
                 """
                 SELECT id, username, name, disabled, last_login_at
                 FROM users
-                ${filtro.sql}
-                ORDER BY ${columnaDeOrdenDeUsuarios(pagina)} ${direccionDe(pagina)}, id ${direccionDe(pagina)}
+                ${filter.sql}
+                ORDER BY ${userSortColumn(page)} ${directionOf(page)}, id ${directionOf(page)}
                 LIMIT ? OFFSET ?
                 """.trimIndent(),
-            ).use { sentencia ->
-                sentencia.conParametros(filtro.parametros)
-                sentencia.setInt(filtro.parametros.size + 1, pagina.size)
-                sentencia.setLong(filtro.parametros.size + 2, pagina.offset)
-                sentencia.executeQuery().use { rs ->
+            ).use { statement ->
+                statement.withParameters(filter.parameters)
+                statement.setInt(filter.parameters.size + 1, page.size)
+                statement.setLong(filter.parameters.size + 2, page.offset)
+                statement.executeQuery().use { rs ->
                     buildList {
                         while (rs.next()) {
                             add(
-                                UsuarioAdmin(
+                                AdminUser(
                                     id = rs.getLong("id"),
                                     username = rs.getString("username"),
                                     name = rs.getString("name"),
@@ -117,12 +117,12 @@ class IdentityAdminService(private val dataSource: DataSource) {
 
             // Los roles de TODA la página en una sola consulta. Pedirlos persona a
             // persona sería el N+1 que un listado no se puede permitir.
-            val rolesPorPersona = rolesDe(conexion, filas.map { it.id })
+            val rolesPerPerson = rolesOf(connection, rows.map { it.id })
 
             Page(
-                items = filas.map { it.copy(roles = rolesPorPersona[it.id].orEmpty()) },
-                page = pagina.page,
-                size = pagina.size,
+                items = rows.map { it.copy(roles = rolesPerPerson[it.id].orEmpty()) },
+                page = page.page,
+                size = page.size,
                 totalItems = total,
             )
         }
@@ -135,27 +135,27 @@ class IdentityAdminService(private val dataSource: DataSource) {
      * filtra). Devolver un rol apagado como si estuviera concedido prometería un
      * acceso que el motor va a denegar.
      */
-    private fun rolesDe(conexion: Connection, ids: List<Long>): Map<Long, List<String>> {
+    private fun rolesOf(connection: Connection, ids: List<Long>): Map<Long, List<String>> {
         if (ids.isEmpty()) return emptyMap()
 
-        val marcadores = ids.joinToString(", ") { "?" }
-        return conexion.prepareStatement(
+        val markers = ids.joinToString(", ") { "?" }
+        return connection.prepareStatement(
             """
             SELECT ur.user_id, r.key
             FROM user_roles ur
             JOIN roles r ON r.id = ur.role_id
-            WHERE ur.user_id IN ($marcadores) AND r.active
+            WHERE ur.user_id IN ($markers) AND r.active
             ORDER BY r.sort_order, r.key
             """.trimIndent(),
-        ).use { sentencia ->
-            sentencia.conParametros(ids)
-            sentencia.executeQuery().use { filas ->
-                val acumulado = mutableMapOf<Long, MutableList<String>>()
-                while (filas.next()) {
-                    acumulado.getOrPut(filas.getLong("user_id")) { mutableListOf() }
-                        .add(filas.getString("key"))
+        ).use { statement ->
+            statement.withParameters(ids)
+            statement.executeQuery().use { rows ->
+                val accumulated = mutableMapOf<Long, MutableList<String>>()
+                while (rows.next()) {
+                    accumulated.getOrPut(rows.getLong("user_id")) { mutableListOf() }
+                        .add(rows.getString("key"))
                 }
-                acumulado
+                accumulated
             }
         }
     }
@@ -177,17 +177,17 @@ class IdentityAdminService(private val dataSource: DataSource) {
      * permiso desactivado no es acceso, y contarlo inflaría el número que la
      * pantalla usa para decidir si un rol está vacío.
      */
-    fun listarRoles(pagina: PageRequest, busqueda: String?, activo: Boolean?): Page<RolAdmin> =
-        dataSource.connection.use { conexion ->
-            val filtro = filtroDeRoles(busqueda, activo)
+    fun listRoles(page: PageRequest, search: String?, active: Boolean?): Page<AdminRole> =
+        dataSource.connection.use { connection ->
+            val filter = roleFilter(search, active)
 
-            val total = conexion.prepareStatement("SELECT count(*) FROM roles r ${filtro.sql}")
-                .use { sentencia ->
-                    sentencia.conParametros(filtro.parametros)
-                    sentencia.executeQuery().use { filas -> filas.next(); filas.getLong(1) }
+            val total = connection.prepareStatement("SELECT count(*) FROM roles r ${filter.sql}")
+                .use { statement ->
+                    statement.withParameters(filter.parameters)
+                    statement.executeQuery().use { rows -> rows.next(); rows.getLong(1) }
                 }
 
-            val filas = conexion.prepareStatement(
+            val rows = connection.prepareStatement(
                 """
                 SELECT r.id, r.key, r.name, r.description, r.is_system, r.active, r.sort_order,
                        (SELECT count(*)
@@ -198,19 +198,19 @@ class IdentityAdminService(private val dataSource: DataSource) {
                           FROM user_roles ur
                          WHERE ur.role_id = r.id) AS user_count
                 FROM roles r
-                ${filtro.sql}
-                ORDER BY ${columnaDeOrdenDeRoles(pagina)} ${direccionDe(pagina)}, r.id ${direccionDe(pagina)}
+                ${filter.sql}
+                ORDER BY ${roleSortColumn(page)} ${directionOf(page)}, r.id ${directionOf(page)}
                 LIMIT ? OFFSET ?
                 """.trimIndent(),
-            ).use { sentencia ->
-                sentencia.conParametros(filtro.parametros)
-                sentencia.setInt(filtro.parametros.size + 1, pagina.size)
-                sentencia.setLong(filtro.parametros.size + 2, pagina.offset)
-                sentencia.executeQuery().use { rs ->
+            ).use { statement ->
+                statement.withParameters(filter.parameters)
+                statement.setInt(filter.parameters.size + 1, page.size)
+                statement.setLong(filter.parameters.size + 2, page.offset)
+                statement.executeQuery().use { rs ->
                     buildList {
                         while (rs.next()) {
                             add(
-                                RolAdmin(
+                                AdminRole(
                                     id = rs.getLong("id"),
                                     key = rs.getString("key"),
                                     name = rs.getString("name"),
@@ -228,9 +228,9 @@ class IdentityAdminService(private val dataSource: DataSource) {
             }
 
             Page(
-                items = filas,
-                page = pagina.page,
-                size = pagina.size,
+                items = rows,
+                page = page.page,
+                size = page.size,
                 totalItems = total,
             )
         }
@@ -252,9 +252,9 @@ class IdentityAdminService(private val dataSource: DataSource) {
      * `array_agg` obligaría a montar el JSON dentro del SQL. Aquí las filas ya
      * vienen en orden de `sort_order`, y `groupBy` conserva ese orden de aparición.
      */
-    fun catalogoDePermisos(): List<ModuloDePermisos> {
-        val permisos = dataSource.connection.use { conexion ->
-            conexion.prepareStatement(
+    fun permissionCatalog(): List<PermissionModuleGroup> {
+        val permissions = dataSource.connection.use { connection ->
+            connection.prepareStatement(
                 """
                 SELECT key, module, resource, action, name, description,
                        scopes::text AS scopes, sensitive, active, sort_order
@@ -262,19 +262,19 @@ class IdentityAdminService(private val dataSource: DataSource) {
                 WHERE active
                 ORDER BY sort_order, key
                 """.trimIndent(),
-            ).use { sentencia ->
-                sentencia.executeQuery().use { rs ->
+            ).use { statement ->
+                statement.executeQuery().use { rs ->
                     buildList {
                         while (rs.next()) {
                             add(
-                                PermisoAdmin(
+                                AdminPermission(
                                     key = rs.getString("key"),
                                     module = rs.getString("module"),
                                     resource = rs.getString("resource"),
                                     action = rs.getString("action"),
                                     name = rs.getString("name"),
                                     description = rs.getString("description"),
-                                    scopes = alcancesDe(rs.getString("scopes")),
+                                    scopes = scopesOf(rs.getString("scopes")),
                                     sensitive = rs.getBoolean("sensitive"),
                                     active = rs.getBoolean("active"),
                                     sortOrder = rs.getInt("sort_order"),
@@ -286,8 +286,8 @@ class IdentityAdminService(private val dataSource: DataSource) {
             }
         }
 
-        return permisos.groupBy { it.module }
-            .map { (clave, delModulo) -> ModuloDePermisos(clave, nombreLegibleDe(clave), delModulo) }
+        return permissions.groupBy { it.module }
+            .map { (key, fromModule) -> PermissionModuleGroup(key, displayNameOf(key), fromModule) }
     }
 
     /**
@@ -299,7 +299,7 @@ class IdentityAdminService(private val dataSource: DataSource) {
      * la lista de nombres. Se aceptan también las comillas dobles que PostgreSQL
      * pone alrededor de un valor que las necesite.
      */
-    private fun alcancesDe(literal: String?): List<String> =
+    private fun scopesOf(literal: String?): List<String> =
         literal?.trim()?.removePrefix("{")?.removeSuffix("}")?.split(',')
             ?.map { it.trim().removeSurrounding("\"") }
             ?.filter { it.isNotEmpty() }
@@ -313,55 +313,55 @@ class IdentityAdminService(private val dataSource: DataSource) {
      * devuelve la clave cruda: **una pantalla con `FUTURO` es mejor que un error
      * 500** por un dato que la propia base aceptó.
      */
-    private fun nombreLegibleDe(clave: String): String =
-        runCatching { PermissionModule.valueOf(clave).displayName }.getOrDefault(clave)
+    private fun displayNameOf(key: String): String =
+        runCatching { PermissionModule.valueOf(key).displayName }.getOrDefault(key)
 
     // ═══════════════════════════════════════════════════════════════════════
     // FILTROS Y ORDEN
     // ═══════════════════════════════════════════════════════════════════════
 
     /** Una cláusula `WHERE` ya compuesta, con sus parámetros en orden. */
-    private data class FiltroSql(val sql: String, val parametros: List<Any?>)
+    private data class SqlFilter(val sql: String, val parameters: List<Any?>)
 
-    private fun filtroDeUsuarios(busqueda: String?, activo: Boolean?): FiltroSql {
-        val condiciones = mutableListOf<String>()
-        val parametros = mutableListOf<Any?>()
+    private fun userFilter(search: String?, active: Boolean?): SqlFilter {
+        val conditions = mutableListOf<String>()
+        val parameters = mutableListOf<Any?>()
 
-        activo?.let { valor ->
-            condiciones += "disabled = ?"
-            parametros += !valor
+        active?.let { value ->
+            conditions += "disabled = ?"
+            parameters += !value
         }
 
-        busqueda?.trim()?.takeIf { it.isNotEmpty() }?.let { texto ->
+        search?.trim()?.takeIf { it.isNotEmpty() }?.let { text ->
             // El patrón viaja como parámetro, nunca concatenado en el SQL. El `%`
             // escrito por el usuario es un comodín a propósito: esto es una
             // búsqueda libre, no una comparación exacta.
-            condiciones += "(lower(username) LIKE ? OR lower(name) LIKE ?)"
-            val patron = "%${texto.lowercase()}%"
-            parametros += patron
-            parametros += patron
+            conditions += "(lower(username) LIKE ? OR lower(name) LIKE ?)"
+            val pattern = "%${text.lowercase()}%"
+            parameters += pattern
+            parameters += pattern
         }
 
-        return FiltroSql(condiciones.aWhere(), parametros)
+        return SqlFilter(conditions.aWhere(), parameters)
     }
 
-    private fun filtroDeRoles(busqueda: String?, activo: Boolean?): FiltroSql {
-        val condiciones = mutableListOf<String>()
-        val parametros = mutableListOf<Any?>()
+    private fun roleFilter(search: String?, active: Boolean?): SqlFilter {
+        val conditions = mutableListOf<String>()
+        val parameters = mutableListOf<Any?>()
 
-        activo?.let { valor ->
-            condiciones += "r.active = ?"
-            parametros += valor
+        active?.let { value ->
+            conditions += "r.active = ?"
+            parameters += value
         }
 
-        busqueda?.trim()?.takeIf { it.isNotEmpty() }?.let { texto ->
-            condiciones += "(lower(r.key) LIKE ? OR lower(r.name) LIKE ?)"
-            val patron = "%${texto.lowercase()}%"
-            parametros += patron
-            parametros += patron
+        search?.trim()?.takeIf { it.isNotEmpty() }?.let { text ->
+            conditions += "(lower(r.key) LIKE ? OR lower(r.name) LIKE ?)"
+            val pattern = "%${text.lowercase()}%"
+            parameters += pattern
+            parameters += pattern
         }
 
-        return FiltroSql(condiciones.aWhere(), parametros)
+        return SqlFilter(conditions.aWhere(), parameters)
     }
 
     /**
@@ -381,14 +381,14 @@ class IdentityAdminService(private val dataSource: DataSource) {
      * devuelve literales del código: aunque la validación fallara, de aquí no
      * puede salir SQL ajeno.
      */
-    private fun columnaDeOrdenDeUsuarios(pagina: PageRequest): String = when (pagina.campoOrden) {
+    private fun userSortColumn(page: PageRequest): String = when (page.fieldOrder) {
         "name" -> "name"
         "createdAt" -> "created_at"
         "lastLoginAt" -> "last_login_at"
         else -> "username"
     }
 
-    private fun columnaDeOrdenDeRoles(pagina: PageRequest): String = when (pagina.campoOrden) {
+    private fun roleSortColumn(page: PageRequest): String = when (page.fieldOrder) {
         "key" -> "r.key"
         "name" -> "r.name"
         "permissionCount" -> "permission_count"
@@ -396,11 +396,11 @@ class IdentityAdminService(private val dataSource: DataSource) {
         else -> "r.sort_order"
     }
 
-    private fun direccionDe(pagina: PageRequest): String = if (pagina.ascendente) "ASC" else "DESC"
+    private fun directionOf(page: PageRequest): String = if (page.ascending) "ASC" else "DESC"
 
     /** Enlaza los parámetros en orden. Solo valores: ni un nombre de columna viaja así. */
-    private fun PreparedStatement.conParametros(parametros: List<Any?>): PreparedStatement {
-        parametros.forEachIndexed { indice, valor -> setObject(indice + 1, valor) }
+    private fun PreparedStatement.withParameters(parameters: List<Any?>): PreparedStatement {
+        parameters.forEachIndexed { index, value -> setObject(index + 1, value) }
         return this
     }
 }
@@ -419,7 +419,7 @@ class IdentityAdminService(private val dataSource: DataSource) {
  * se oculte al serializar: el hash no se selecciona en la consulta, así que no
  * existe en memoria en ningún momento de este camino.
  */
-data class UsuarioAdmin(
+data class AdminUser(
     val id: Long,
     val username: String,
     val name: String,
@@ -430,7 +430,7 @@ data class UsuarioAdmin(
 )
 
 /** Un rol con cuántos permisos concede y cuántas personas lo tienen. */
-data class RolAdmin(
+data class AdminRole(
     val id: Long,
     val key: String,
     val name: String,
@@ -450,7 +450,7 @@ data class RolAdmin(
 )
 
 /** Un permiso del catálogo, con sus alcances admitidos. */
-data class PermisoAdmin(
+data class AdminPermission(
     val key: String,
     val module: String,
     val resource: String,
@@ -465,8 +465,8 @@ data class PermisoAdmin(
 )
 
 /** Un módulo del catálogo con sus permisos, en orden de presentación. */
-data class ModuloDePermisos(
+data class PermissionModuleGroup(
     val module: String,
     val moduleName: String,
-    val permissions: List<PermisoAdmin>,
+    val permissions: List<AdminPermission>,
 )

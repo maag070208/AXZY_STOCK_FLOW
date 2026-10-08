@@ -32,7 +32,7 @@ import org.w3c.dom.Element
  */
 
 /** Una fila de la hoja, con el número de fila tal como se ve en Excel. */
-data class FilaDeCeldas(val numeroDeFila: Int, val valores: Map<Int, String>)
+data class CellRow(val rowNumber: Int, val values: Map<Int, String>)
 
 object XlsxReader {
 
@@ -40,70 +40,70 @@ object XlsxReader {
      * Tope de bytes descomprimidos. 64 MB es holgadísimo para una hoja de
      * catálogo (la real ocupa unos pocos cientos de KB) y corta una zip bomb.
      */
-    private const val LIMITE_DESCOMPRIMIDO = 64L * 1024 * 1024
+    private const val LIMIT_DECOMPRESSED = 64L * 1024 * 1024
 
     /** Ruta por defecto de la primera hoja, si el libro no la resuelve. */
-    private const val HOJA_POR_DEFECTO = "xl/worksheets/sheet1.xml"
+    private const val DEFAULT_SHEET = "xl/worksheets/sheet1.xml"
 
-    private const val CADENA_COMPARTIDA = "xl/sharedStrings.xml"
-    private const val LIBRO = "xl/workbook.xml"
-    private const val RELACIONES_DEL_LIBRO = "xl/_rels/workbook.xml.rels"
+    private const val STRING_SHARED = "xl/sharedStrings.xml"
+    private const val Book = "xl/workbook.xml"
+    private const val LEDGER_RELATIONS = "xl/_rels/workbook.xml.rels"
 
     /** ¿El contenido es un ZIP? Los XLSX empiezan por `PK`. */
-    fun esXlsx(contenido: ByteArray): Boolean =
-        contenido.size >= 2 && contenido[0] == 'P'.code.toByte() && contenido[1] == 'K'.code.toByte()
+    fun isXlsx(content: ByteArray): Boolean =
+        content.size >= 2 && content[0] == 'P'.code.toByte() && content[1] == 'K'.code.toByte()
 
-    fun leer(contenido: ByteArray): List<FilaDeCeldas> {
-        val entradas = descomprimir(contenido)
+    fun read(content: ByteArray): List<CellRow> {
+        val entries = decompress(content)
 
-        val cadenas = entradas[CADENA_COMPARTIDA]?.let(::leerCadenasCompartidas) ?: emptyList()
-        val hoja = entradas[rutaDeLaPrimeraHoja(entradas)]
+        val strings = entries[STRING_SHARED]?.let(::readSharedStrings) ?: emptyList()
+        val sheet = entries[firstSheetPath(entries)]
             ?: throw BadRequestException(
                 code = "IMPORT_FILE_FORMAT",
                 message = "El archivo no contiene ninguna hoja de cálculo legible.",
             )
 
-        return leerFilas(hoja, cadenas)
+        return readRows(sheet, strings)
     }
 
     // ── ZIP ─────────────────────────────────────────────────────────────────
 
-    private fun descomprimir(contenido: ByteArray): Map<String, ByteArray> {
-        val entradas = mutableMapOf<String, ByteArray>()
+    private fun decompress(content: ByteArray): Map<String, ByteArray> {
+        val entries = mutableMapOf<String, ByteArray>()
         var total = 0L
 
         try {
-            ZipInputStream(ByteArrayInputStream(contenido)).use { zip ->
+            ZipInputStream(ByteArrayInputStream(content)).use { zip ->
                 while (true) {
-                    val entrada = zip.nextEntry ?: break
-                    if (entrada.isDirectory) continue
+                    val entry = zip.nextEntry ?: break
+                    if (entry.isDirectory) continue
 
                     // Solo interesan las partes del libro. Leer las demás sería
                     // gastar memoria en imágenes y estilos que no se usan.
-                    val interesante = entrada.name == CADENA_COMPARTIDA ||
-                        entrada.name == LIBRO ||
-                        entrada.name == RELACIONES_DEL_LIBRO ||
-                        entrada.name.startsWith("xl/worksheets/")
+                    val interesting = entry.name == STRING_SHARED ||
+                        entry.name == Book ||
+                        entry.name == LEDGER_RELATIONS ||
+                        entry.name.startsWith("xl/worksheets/")
 
-                    if (!interesante) continue
+                    if (!interesting) continue
 
-                    val destino = ByteArrayOutputStream()
+                    val destination = ByteArrayOutputStream()
                     val buffer = ByteArray(8 * 1024)
                     while (true) {
-                        val leidos = zip.read(buffer)
-                        if (leidos <= 0) break
-                        total += leidos
-                        if (total > LIMITE_DESCOMPRIMIDO) {
+                        val read = zip.read(buffer)
+                        if (read <= 0) break
+                        total += read
+                        if (total > LIMIT_DECOMPRESSED) {
                             throw BadRequestException(
                                 code = "FILE_TOO_LARGE",
                                 message = "El archivo descomprimido supera " +
-                                    "${LIMITE_DESCOMPRIMIDO / (1024 * 1024)} MB. " +
+                                    "${LIMIT_DECOMPRESSED / (1024 * 1024)} MB. " +
                                     "Un catálogo de productos no debería llegar a ese tamaño.",
                             )
                         }
-                        destino.write(buffer, 0, leidos)
+                        destination.write(buffer, 0, read)
                     }
-                    entradas[entrada.name] = destino.toByteArray()
+                    entries[entry.name] = destination.toByteArray()
                 }
             }
         } catch (e: BadRequestException) {
@@ -115,7 +115,7 @@ object XlsxReader {
             )
         }
 
-        return entradas
+        return entries
     }
 
     /**
@@ -126,27 +126,27 @@ object XlsxReader {
      * los archivos y falla justo en los que se guardaron con Excel en otro
      * idioma o con hojas renombradas, que es cuando más molesta.
      */
-    private fun rutaDeLaPrimeraHoja(entradas: Map<String, ByteArray>): String {
-        val libro = entradas[LIBRO]?.let { parsearSeguro(it) } ?: return HOJA_POR_DEFECTO
-        val primeraHoja = libro.getElementsByTagName("sheet").item(0) as? Element
-            ?: return HOJA_POR_DEFECTO
+    private fun firstSheetPath(entries: Map<String, ByteArray>): String {
+        val book = entries[Book]?.let { safeParse(it) } ?: return DEFAULT_SHEET
+        val firstSheet = book.getElementsByTagName("sheet").item(0) as? Element
+            ?: return DEFAULT_SHEET
 
-        val idRelacion = primeraHoja.getAttribute("r:id").ifBlank {
-            primeraHoja.getAttribute("id")
+        val idRelation = firstSheet.getAttribute("r:id").ifBlank {
+            firstSheet.getAttribute("id")
         }
-        val relaciones = entradas[RELACIONES_DEL_LIBRO]?.let { parsearSeguro(it) }
-            ?: return HOJA_POR_DEFECTO
+        val relations = entries[LEDGER_RELATIONS]?.let { safeParse(it) }
+            ?: return DEFAULT_SHEET
 
-        val relacion = relaciones.getElementsByTagName("Relationship")
-        for (i in 0 until relacion.length) {
-            val nodo = relacion.item(i) as? Element ?: continue
-            if (nodo.getAttribute("Id") != idRelacion) continue
-            val destino = nodo.getAttribute("Target")
-            if (destino.isBlank()) continue
-            return if (destino.startsWith("/")) destino.removePrefix("/") else "xl/$destino"
+        val relation = relations.getElementsByTagName("Relationship")
+        for (i in 0 until relation.length) {
+            val node = relation.item(i) as? Element ?: continue
+            if (node.getAttribute("Id") != idRelation) continue
+            val destination = node.getAttribute("Target")
+            if (destination.isBlank()) continue
+            return if (destination.startsWith("/")) destination.removePrefix("/") else "xl/$destination"
         }
 
-        return HOJA_POR_DEFECTO
+        return DEFAULT_SHEET
     }
 
     // ── XML ─────────────────────────────────────────────────────────────────
@@ -159,80 +159,80 @@ object XlsxReader {
      * concatenan en lugar de tomar solo el primero: un nombre con una parte en
      * negrita se partiría en dos.
      */
-    private fun leerCadenasCompartidas(xml: ByteArray): List<String> {
-        val documento = parsearSeguro(xml)
-        val items = documento.getElementsByTagName("si")
+    private fun readSharedStrings(xml: ByteArray): List<String> {
+        val document = safeParse(xml)
+        val items = document.getElementsByTagName("si")
 
-        return (0 until items.length).map { indice ->
-            val item = items.item(indice) as? Element ?: return@map ""
+        return (0 until items.length).map { index ->
+            val item = items.item(index) as? Element ?: return@map ""
             // `getElementsByTagName` baja por todo el subárbol, así que también
             // recoge los `<t>` que van dentro de un `<r>` (texto enriquecido).
-            val textos = item.getElementsByTagName("t")
-            (0 until textos.length).joinToString("") { textos.item(it).textContent }
+            val texts = item.getElementsByTagName("t")
+            (0 until texts.length).joinToString("") { texts.item(it).textContent }
         }
     }
 
-    private fun leerFilas(xml: ByteArray, cadenas: List<String>): List<FilaDeCeldas> {
-        val documento = parsearSeguro(xml)
-        val filas = documento.getElementsByTagName("row")
-        val resultado = mutableListOf<FilaDeCeldas>()
+    private fun readRows(xml: ByteArray, strings: List<String>): List<CellRow> {
+        val document = safeParse(xml)
+        val rows = document.getElementsByTagName("row")
+        val result = mutableListOf<CellRow>()
 
-        for (i in 0 until filas.length) {
-            val fila = filas.item(i) as? Element ?: continue
+        for (i in 0 until rows.length) {
+            val row = rows.item(i) as? Element ?: continue
             // El número de fila físico del archivo, que es el que se ve en
             // Excel. Si el atributo no está, se usa la posición (1-based).
-            val numeroDeFila = fila.getAttribute("r").toIntOrNull() ?: (i + 1)
+            val rowNumber = row.getAttribute("r").toIntOrNull() ?: (i + 1)
 
-            val celdas = mutableMapOf<Int, String>()
-            val hijos = fila.childNodes
-            for (j in 0 until hijos.length) {
-                val celda = hijos.item(j) as? Element ?: continue
-                if (celda.tagName != "c") continue
+            val cells = mutableMapOf<Int, String>()
+            val children = row.childNodes
+            for (j in 0 until children.length) {
+                val cell = children.item(j) as? Element ?: continue
+                if (cell.tagName != "c") continue
 
-                val columna = columnaDe(celda.getAttribute("r")) ?: continue
-                val valor = valorDe(celda, cadenas) ?: continue
-                if (valor.isNotEmpty()) celdas[columna] = valor
+                val column = columnOf(cell.getAttribute("r")) ?: continue
+                val value = valueOf(cell, strings) ?: continue
+                if (value.isNotEmpty()) cells[column] = value
             }
 
-            resultado += FilaDeCeldas(numeroDeFila, celdas)
+            result += CellRow(rowNumber, cells)
         }
 
-        return resultado
+        return result
     }
 
     /** Traduce `BC12` a la columna 54 (0-based: A = 0). */
-    private fun columnaDe(referencia: String): Int? {
-        val letras = referencia.takeWhile { it.isLetter() }
-        if (letras.isEmpty()) return null
+    private fun columnOf(reference: String): Int? {
+        val letters = reference.takeWhile { it.isLetter() }
+        if (letters.isEmpty()) return null
 
-        var columna = 0
-        letras.uppercase().forEach { letra ->
-            columna = columna * 26 + (letra - 'A' + 1)
+        var column = 0
+        letters.uppercase().forEach { letter ->
+            column = column * 26 + (letter - 'A' + 1)
         }
-        return columna - 1
+        return column - 1
     }
 
-    private fun valorDe(celda: Element, cadenas: List<String>): String? {
-        when (celda.getAttribute("t")) {
+    private fun valueOf(cell: Element, strings: List<String>): String? {
+        when (cell.getAttribute("t")) {
             // Cadena compartida: el valor es el índice en `sharedStrings`.
             "s" -> {
-                val indice = textoDe(celda, "v")?.toIntOrNull() ?: return null
-                return cadenas.getOrNull(indice)
+                val index = textOf(cell, "v")?.toIntOrNull() ?: return null
+                return strings.getOrNull(index)
             }
             // Cadena en línea: el texto va dentro de `<is>`.
             "inlineStr" -> {
-                val nodos = celda.getElementsByTagName("t")
-                return (0 until nodos.length).joinToString("") { nodos.item(it).textContent }
+                val nodes = cell.getElementsByTagName("t")
+                return (0 until nodes.length).joinToString("") { nodes.item(it).textContent }
             }
             // `str` es el resultado de una fórmula y viene en `<v>` como texto.
-            else -> return textoDe(celda, "v")?.trim()
+            else -> return textOf(cell, "v")?.trim()
         }
     }
 
-    private fun textoDe(celda: Element, etiqueta: String): String? {
-        val nodos = celda.getElementsByTagName(etiqueta)
-        if (nodos.length == 0) return null
-        return nodos.item(0).textContent
+    private fun textOf(cell: Element, label: String): String? {
+        val nodes = cell.getElementsByTagName(label)
+        if (nodes.length == 0) return null
+        return nodes.item(0).textContent
     }
 
     /**
@@ -242,19 +242,19 @@ object XlsxReader {
      * entidad que apunte a `file:///etc/passwd` y el servidor la resolvería. Es
      * el XXE clásico, y aquí el archivo lo elige quien sube el catálogo.
      */
-    private fun parsearSeguro(xml: ByteArray): org.w3c.dom.Document {
-        val fabrica = DocumentBuilderFactory.newInstance()
+    private fun safeParse(xml: ByteArray): org.w3c.dom.Document {
+        val factory = DocumentBuilderFactory.newInstance()
         listOf(
             "http://apache.org/xml/features/disallow-doctype-decl" to true,
             "http://xml.org/sax/features/external-general-entities" to false,
             "http://xml.org/sax/features/external-parameter-entities" to false,
             "http://apache.org/xml/features/nonvalidating/load-external-dtd" to false,
-        ).forEach { (caracteristica, valor) ->
-            runCatching { fabrica.setFeature(caracteristica, valor) }
+        ).forEach { (characteristic, value) ->
+            runCatching { factory.setFeature(characteristic, value) }
         }
-        fabrica.isXIncludeAware = false
-        fabrica.isExpandEntityReferences = false
+        factory.isXIncludeAware = false
+        factory.isExpandEntityReferences = false
 
-        return fabrica.newDocumentBuilder().parse(ByteArrayInputStream(xml))
+        return factory.newDocumentBuilder().parse(ByteArrayInputStream(xml))
     }
 }

@@ -21,22 +21,22 @@ import org.jetbrains.exposed.sql.transactions.transaction
 class UnitOfMeasureRepository(private val db: Database) {
 
     /** Todas las unidades, ordenadas por código. */
-    fun listar(): List<UnitOfMeasureRecord> = transaction(db) {
+    fun list(): List<UnitOfMeasureRecord> = transaction(db) {
         UnitsOfMeasure
             .selectAll()
             .orderBy(UnitsOfMeasure.code)
-            .map { fila ->
+            .map { row ->
                 UnitOfMeasureRecord(
-                    id = fila[UnitsOfMeasure.id],
-                    code = fila[UnitsOfMeasure.code],
-                    name = fila[UnitsOfMeasure.name],
-                    allowsFraction = fila[UnitsOfMeasure.allowsFraction],
+                    id = row[UnitsOfMeasure.id],
+                    code = row[UnitsOfMeasure.code],
+                    name = row[UnitsOfMeasure.name],
+                    allowsFraction = row[UnitsOfMeasure.allowsFraction],
                 )
             }
     }
 
     /** Mapa `código → id`, que es lo que necesita el import masivo. */
-    fun mapaCodigoId(): Map<String, Long> = listar().associate { it.code to it.id }
+    fun mapCodeId(): Map<String, Long> = list().associate { it.code to it.id }
 
     /**
      * Busca por código, normalizando a mayúsculas.
@@ -45,9 +45,9 @@ class UnitOfMeasureRepository(private val db: Database) {
      * del código de producto —donde una minúscula indica que algo cambió en el
      * origen— aquí no hay ambigüedad posible.
      */
-    fun porCodigo(codigo: String): UnitOfMeasureRecord? {
-        val normalizado = codigo.trim().uppercase()
-        return listar().firstOrNull { it.code == normalizado }
+    fun byCode(code: String): UnitOfMeasureRecord? {
+        val normalized = code.trim().uppercase()
+        return list().firstOrNull { it.code == normalized }
     }
 }
 

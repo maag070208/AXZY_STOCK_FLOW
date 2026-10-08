@@ -3,10 +3,10 @@ package dev.axzy.stock.backend.receiving
 import dev.axzy.stock.backend.error.BadRequestException
 import dev.axzy.stock.backend.error.ForbiddenException
 import dev.axzy.stock.backend.error.UnauthorizedException
-import dev.axzy.stock.backend.receiving.NuevaLinea
+import dev.axzy.stock.backend.receiving.NewInvoiceLine
 import dev.axzy.stock.backend.receiving.ReceivingService
 import dev.axzy.stock.backend.security.PermissionDecision
-import dev.axzy.stock.backend.security.usuarioDelToken
+import dev.axzy.stock.backend.security.userFromToken
 import dev.axzy.stock.backend.security.PermissionChecker
 import dev.axzy.stock.domain.value.Quantity
 import io.ktor.http.HttpStatusCode
@@ -34,7 +34,7 @@ import java.time.LocalDate
  */
 
 @Serializable
-data class NuevaLineaRequest(
+data class NewInvoiceLineRequest(
     val productCode: String,
     val container: String? = null,
     val unitMeasure: String = "PZA",
@@ -44,58 +44,58 @@ data class NuevaLineaRequest(
 )
 
 @Serializable
-data class NuevaFacturaRequest(
+data class NewInvoiceRequest(
     val invoiceNumber: String,
     val receiptDate: String,
     val invoiceType: String = "NATIONAL",
-    val lines: List<NuevaLineaRequest> = emptyList(),
+    val lines: List<NewInvoiceLineRequest> = emptyList(),
 )
 
 @Serializable
-data class CapturarLineaRequest(
+data class CaptureLineRequest(
     val physicalQuantity: Double,
     val physicalBoxQuantity: Double? = null,
 )
 
 @Serializable
-data class AprobarFacturaRequest(
+data class ApproveInvoiceRequest(
     val adjustmentReason: String,
     val note: String? = null,
 )
 
 @Serializable
-data class FacturaCreadaResponse(val id: Long, val invoiceNumber: String)
+data class InvoiceCreatedResponse(val id: Long, val invoiceNumber: String)
 
 fun Route.receivingRoutes(
-    servicio: ReceivingService,
+    service: ReceivingService,
     permissionChecker: PermissionChecker,
 ) {
 
-    suspend fun exigir(call: io.ktor.server.application.ApplicationCall, permiso: String) {
-        when (val d = permissionChecker.comprobar(call, permiso)) {
-            is PermissionDecision.Permitido -> Unit
-            is PermissionDecision.Denegado -> throw ForbiddenException(d.code, d.message)
+    suspend fun require(call: io.ktor.server.application.ApplicationCall, permission: String) {
+        when (val d = permissionChecker.check(call, permission)) {
+            is PermissionDecision.Permitted -> Unit
+            is PermissionDecision.Denied -> throw ForbiddenException(d.code, d.message)
         }
     }
 
-    suspend fun usuario(call: io.ktor.server.application.ApplicationCall): Long =
-        call.usuarioDelToken() ?: throw UnauthorizedException()
+    suspend fun user(call: io.ktor.server.application.ApplicationCall): Long =
+        call.userFromToken() ?: throw UnauthorizedException()
 
     /** Traduce la cantidad del contrato (3 decimales) a la del dominio. */
-    fun cantidad(v: Double): Quantity =
+    fun quantity(v: Double): Quantity =
         Quantity.ofScaled(java.math.BigDecimal.valueOf(v).movePointRight(3).toLong())
 
     route("/v1/invoices") {
 
         // ── Crear ──────────────────────────────────────────────────────────
         post {
-            exigir(call, "invoice.create")
-            val cuerpo = call.receive<NuevaFacturaRequest>()
+            require(call, "invoice.create")
+            val body = call.receive<NewInvoiceRequest>()
 
-            if (cuerpo.invoiceNumber.isBlank()) {
+            if (body.invoiceNumber.isBlank()) {
                 throw BadRequestException("FIELD_REQUIRED", "El número de factura es obligatorio.")
             }
-            if (cuerpo.lines.isEmpty()) {
+            if (body.lines.isEmpty()) {
                 // Una factura sin líneas es un documento que no sirve para nada y
                 // bloquea el flujo: no se puede capturar ni ubicar nada.
                 throw BadRequestException(
@@ -105,88 +105,88 @@ fun Route.receivingRoutes(
                 )
             }
 
-            val fecha = runCatching { LocalDate.parse(cuerpo.receiptDate) }.getOrNull()
+            val date = runCatching { LocalDate.parse(body.receiptDate) }.getOrNull()
                 ?: throw BadRequestException(
                     "INVALID_PARAMETER",
                     "La fecha de recepción debe tener el formato AAAA-MM-DD.",
                 )
 
-            val id = servicio.crearFactura(
-                numero = cuerpo.invoiceNumber,
-                fecha = fecha,
-                tipo = cuerpo.invoiceType.uppercase(),
-                lineas = cuerpo.lines.map {
-                    NuevaLinea(
+            val id = service.createInvoice(
+                number = body.invoiceNumber,
+                date = date,
+                type = body.invoiceType.uppercase(),
+                lines = body.lines.map {
+                    NewInvoiceLine(
                         productCode = it.productCode,
                         container = it.container,
                         unitMeasure = it.unitMeasure,
-                        quantity = cantidad(it.quantity),
-                        boxQuantity = cantidad(it.boxQuantity),
-                        unitsPerBox = it.unitsPerBox?.let { v -> cantidad(v) },
+                        quantity = quantity(it.quantity),
+                        boxQuantity = quantity(it.boxQuantity),
+                        unitsPerBox = it.unitsPerBox?.let { v -> quantity(v) },
                     )
                 },
-                usuarioId = usuario(call),
+                userId = user(call),
             )
 
             call.respond(
                 HttpStatusCode.Created,
-                FacturaCreadaResponse(id, cuerpo.invoiceNumber),
+                InvoiceCreatedResponse(id, body.invoiceNumber),
             )
         }
 
         // ── Detalle ────────────────────────────────────────────────────────
         get("/{id}") {
-            exigir(call, "invoice.view")
+            require(call, "invoice.view")
             val id = call.parameters["id"]?.toLongOrNull()
                 ?: throw BadRequestException("INVALID_ID", "El identificador no es un número.")
-            call.respond(HttpStatusCode.OK, servicio.factura(id))
+            call.respond(HttpStatusCode.OK, service.invoice(id))
         }
 
         // ── Bandeja de pendientes. Va ANTES de /{id} para que no la capture. ──
         get("/pending-approval") {
             // **Pantalla nueva: el legacy no la tenía.** Sin ella, una discrepancia
             // se quedaba bloqueada sin que nadie supiera que había que aprobarla.
-            exigir(call, "invoice.view")
-            call.respond(HttpStatusCode.OK, mapOf("items" to servicio.pendientesDeAprobacion()))
+            require(call, "invoice.view")
+            call.respond(HttpStatusCode.OK, mapOf("items" to service.pendingApprovals()))
         }
 
         // ── Capturar el conteo físico ──────────────────────────────────────
         post("/{id}/lines/{lineId}/capture") {
-            exigir(call, "invoice.capture")
-            val facturaId = call.parameters["id"]?.toLongOrNull()
+            require(call, "invoice.capture")
+            val invoiceId = call.parameters["id"]?.toLongOrNull()
                 ?: throw BadRequestException("INVALID_ID", "El identificador no es un número.")
-            val lineaId = call.parameters["lineId"]?.toLongOrNull()
+            val lineId = call.parameters["lineId"]?.toLongOrNull()
                 ?: throw BadRequestException("INVALID_ID", "El identificador de línea no es un número.")
 
-            val cuerpo = call.receive<CapturarLineaRequest>()
+            val body = call.receive<CaptureLineRequest>()
 
-            val linea = servicio.capturarLinea(
-                facturaId = facturaId,
-                lineaId = lineaId,
-                cantidadFisica = cantidad(cuerpo.physicalQuantity),
-                cajasFisicas = cuerpo.physicalBoxQuantity?.let { cantidad(it) },
-                usuarioId = usuario(call),
+            val line = service.captureLine(
+                invoiceId = invoiceId,
+                lineId = lineId,
+                quantityPhysical = quantity(body.physicalQuantity),
+                boxesPhysical = body.physicalBoxQuantity?.let { quantity(it) },
+                userId = user(call),
             )
 
-            call.respond(HttpStatusCode.OK, linea)
+            call.respond(HttpStatusCode.OK, line)
         }
 
         // ── LA REGLA B1: aprobar la factura, no la línea ────────────────────
         post("/{id}/approve") {
-            exigir(call, "invoice.approve")
-            val facturaId = call.parameters["id"]?.toLongOrNull()
+            require(call, "invoice.approve")
+            val invoiceId = call.parameters["id"]?.toLongOrNull()
                 ?: throw BadRequestException("INVALID_ID", "El identificador no es un número.")
 
-            val cuerpo = call.receive<AprobarFacturaRequest>()
+            val body = call.receive<ApproveInvoiceRequest>()
 
-            val detalle = servicio.aprobarFactura(
-                facturaId = facturaId,
-                motivo = cuerpo.adjustmentReason,
-                nota = cuerpo.note,
-                aprobadorId = usuario(call),
+            val detail = service.approveInvoice(
+                invoiceId = invoiceId,
+                reason = body.adjustmentReason,
+                note = body.note,
+                approverId = user(call),
             )
 
-            call.respond(HttpStatusCode.OK, detalle)
+            call.respond(HttpStatusCode.OK, detail)
         }
     }
 }

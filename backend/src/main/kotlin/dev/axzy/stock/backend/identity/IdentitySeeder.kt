@@ -56,54 +56,54 @@ class IdentitySeeder(private val dataSource: DataSource) {
     fun seed(
         adminUsername: String = "admin",
         adminPassword: String? = null,
-    ): SeedResult = dataSource.connection.use { conexion ->
+    ): SeedResult = dataSource.connection.use { connection ->
 
         // ── UNA SOLA TRANSACCIÓN ────────────────────────────────────────────
         // Si algo falla a mitad, no queda un sembrado parcial: o están los roles,
         // los permisos, la matriz y el administrador, o no está nada.
-        conexion.autoCommit = false
+        connection.autoCommit = false
 
         try {
-            val permisosCreados = sembrarPermisos(conexion)
-            val rolesCreados = sembrarRoles(conexion)
-            val celdas = sembrarMatriz(conexion)
+            val permissionsCreated = seedPermissions(connection)
+            val rolesCreated = seedRoles(connection)
+            val cells = seedMatrix(connection)
 
-            val adminExistente = buscarIdDeUsuario(conexion, adminUsername)
-            if (adminExistente != null) {
+            val adminExisting = findUserId(connection, adminUsername)
+            if (adminExisting != null) {
                 // Ya existe: no se toca su contraseña. Re-sembrar no debe
                 // resetear la credencial de un administrador en producción.
-                conexion.commit()
+                connection.commit()
                 return@use SeedResult(
-                    rolesCreated = rolesCreados,
-                    permissionsCreated = permisosCreados,
-                    matrixCells = celdas,
+                    rolesCreated = rolesCreated,
+                    permissionsCreated = permissionsCreated,
+                    matrixCells = cells,
                     adminCreated = false,
                     adminPassword = null,
                     adminUsername = adminUsername,
                 )
             }
 
-            val generada = adminPassword == null
-            val contrasena = adminPassword ?: generarContrasena()
-            val hash = NativeArgon2PasswordHasher().hash(contrasena)
+            val generated = adminPassword == null
+            val password = adminPassword ?: generatePassword()
+            val hash = NativeArgon2PasswordHasher().hash(password)
 
-            val adminId = insertarUsuario(conexion, adminUsername, hash)
-            asignarRol(conexion, adminId, BaseRole.ADMIN.key.value)
+            val adminId = insertUser(connection, adminUsername, hash)
+            assignRole(connection, adminId, BaseRole.ADMIN.key.value)
 
-            conexion.commit()
+            connection.commit()
 
             SeedResult(
-                rolesCreated = rolesCreados,
-                permissionsCreated = permisosCreados,
-                matrixCells = celdas,
+                rolesCreated = rolesCreated,
+                permissionsCreated = permissionsCreated,
+                matrixCells = cells,
                 adminCreated = true,
                 // Solo se devuelve si la generamos nosotros: una contraseña que
                 // pasa el llamador ya la conoce.
-                adminPassword = if (generada) contrasena else null,
+                adminPassword = if (generated) password else null,
                 adminUsername = adminUsername,
             )
         } catch (e: Exception) {
-            conexion.rollback()
+            connection.rollback()
             throw e
         }
     }
@@ -118,8 +118,8 @@ class IdentitySeeder(private val dataSource: DataSource) {
      * El catálogo es la **fuente de verdad** y vive en `stock-domain`, con sus
      * tests. Duplicar aquí su lista la desincronizaría en la primera adición.
      */
-    private fun sembrarPermisos(conexion: Connection): Int {
-        val sentencia = conexion.prepareStatement(
+    private fun seedPermissions(connection: Connection): Int {
+        val statement = connection.prepareStatement(
             """
             INSERT INTO permissions
                 (key, module, resource, action, name, description, scopes, sensitive, active, sort_order)
@@ -128,36 +128,36 @@ class IdentitySeeder(private val dataSource: DataSource) {
             """.trimIndent(),
         )
 
-        var creados = 0
-        sentencia.use { st ->
-            PermissionCatalog.all.forEach { permiso ->
-                st.setString(1, permiso.key)
-                st.setString(2, permiso.module.name)
-                st.setString(3, permiso.resource)
-                st.setString(4, permiso.action)
-                st.setString(5, permiso.name)
+        var created = 0
+        statement.use { st ->
+            PermissionCatalog.all.forEach { permission ->
+                st.setString(1, permission.key)
+                st.setString(2, permission.module.name)
+                st.setString(3, permission.resource)
+                st.setString(4, permission.action)
+                st.setString(5, permission.name)
                 st.setString(6, null)
                 // El literal de array va entre LLAVES: `{ALL,AREA}`. Sin ellas,
                 // PostgreSQL responde «Array value must start with "{"».
-                st.setString(7, permiso.grantableScopes.joinToString(",", "{", "}") { it.name })
-                st.setBoolean(8, permiso.sensitive)
-                st.setInt(9, permiso.sortOrder)
+                st.setString(7, permission.grantableScopes.joinToString(",", "{", "}") { it.name })
+                st.setBoolean(8, permission.sensitive)
+                st.setInt(9, permission.sortOrder)
 
                 // `executeUpdate` devuelve 1 si insertó y 0 si el `ON CONFLICT` lo
                 // ignoró. **Se cuenta lo que de verdad se escribió**, no lo que se
                 // intentó.
-                creados += st.executeUpdate()
+                created += st.executeUpdate()
             }
         }
-        return creados
+        return created
     }
 
     // ═══════════════════════════════════════════════════════════════════════
     // ROLES
     // ═══════════════════════════════════════════════════════════════════════
 
-    private fun sembrarRoles(conexion: Connection): Int {
-        val sentencia = conexion.prepareStatement(
+    private fun seedRoles(connection: Connection): Int {
+        val statement = connection.prepareStatement(
             """
             INSERT INTO roles (key, name, description, is_system, active, sort_order)
             VALUES (?, ?, ?, TRUE, TRUE, ?)
@@ -165,9 +165,9 @@ class IdentitySeeder(private val dataSource: DataSource) {
             """.trimIndent(),
         )
 
-        var creados = 0
-        sentencia.use { st ->
-            BaseRole.entries.forEachIndexed { indice, base ->
+        var created = 0
+        statement.use { st ->
+            BaseRole.entries.forEachIndexed { index, base ->
                 // La CLAVE es el identificador estable; el `name` es el texto
                 // visible y se puede renombrar sin romper nada.
                 st.setString(1, base.key.value)
@@ -175,11 +175,11 @@ class IdentitySeeder(private val dataSource: DataSource) {
                 // La base exige descripción en los roles de sistema: un rol que no
                 // se explica en una frase está mal cortado.
                 st.setString(3, base.oneLiner)
-                st.setInt(4, indice)
-                creados += st.executeUpdate()
+                st.setInt(4, index)
+                created += st.executeUpdate()
             }
         }
-        return creados
+        return created
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -192,22 +192,22 @@ class IdentitySeeder(private val dataSource: DataSource) {
      * El contenido también viene del dominio: `RoleDefinitions` tiene los tests que
      * verifican que el AUDITOR no puede escribir. Aquí solo se persiste.
      */
-    private fun sembrarMatriz(conexion: Connection): Int {
-        val idsDeRol = mutableMapOf<String, Long>()
-        conexion.createStatement().use { st ->
+    private fun seedMatrix(connection: Connection): Int {
+        val roleIds = mutableMapOf<String, Long>()
+        connection.createStatement().use { st ->
             st.executeQuery("SELECT id, key FROM roles").use { rs ->
-                while (rs.next()) idsDeRol[rs.getString("key")] = rs.getLong("id")
+                while (rs.next()) roleIds[rs.getString("key")] = rs.getLong("id")
             }
         }
 
-        val idsDePermiso = mutableMapOf<String, Long>()
-        conexion.createStatement().use { st ->
+        val permissionIds = mutableMapOf<String, Long>()
+        connection.createStatement().use { st ->
             st.executeQuery("SELECT id, key FROM permissions").use { rs ->
-                while (rs.next()) idsDePermiso[rs.getString("key")] = rs.getLong("id")
+                while (rs.next()) permissionIds[rs.getString("key")] = rs.getLong("id")
             }
         }
 
-        val sentencia = conexion.prepareStatement(
+        val statement = connection.prepareStatement(
             """
             INSERT INTO role_permissions (role_id, permission_id, scope)
             VALUES (?, ?, ?::permission_scope)
@@ -215,36 +215,36 @@ class IdentitySeeder(private val dataSource: DataSource) {
             """.trimIndent(),
         )
 
-        var celdas = 0
-        sentencia.use { st ->
+        var cells = 0
+        statement.use { st ->
             BaseRole.entries.forEach { base ->
-                val rolId = idsDeRol[base.key.value] ?: return@forEach
-                val permisos = RoleDefinitions.byKey[base.key]?.permissions ?: return@forEach
+                val roleId = roleIds[base.key.value] ?: return@forEach
+                val permissions = RoleDefinitions.byKey[base.key]?.permissions ?: return@forEach
 
-                permisos.forEach { (claveDelPermiso, alcance) ->
-                    val permisoId = idsDePermiso[claveDelPermiso] ?: return@forEach
-                    st.setLong(1, rolId)
-                    st.setLong(2, permisoId)
-                    st.setString(3, alcance.name)
-                    celdas += st.executeUpdate()
+                permissions.forEach { (permissionKey, scope) ->
+                    val permissionId = permissionIds[permissionKey] ?: return@forEach
+                    st.setLong(1, roleId)
+                    st.setLong(2, permissionId)
+                    st.setString(3, scope.name)
+                    cells += st.executeUpdate()
                 }
             }
         }
-        return celdas
+        return cells
     }
 
     // ═══════════════════════════════════════════════════════════════════════
     // ADMINISTRADOR
     // ═══════════════════════════════════════════════════════════════════════
 
-    private fun buscarIdDeUsuario(conexion: Connection, username: String): Long? =
-        conexion.prepareStatement("SELECT id FROM users WHERE username = ?").use { st ->
+    private fun findUserId(connection: Connection, username: String): Long? =
+        connection.prepareStatement("SELECT id FROM users WHERE username = ?").use { st ->
             st.setString(1, username)
             st.executeQuery().use { rs -> if (rs.next()) rs.getLong("id") else null }
         }
 
-    private fun insertarUsuario(conexion: Connection, username: String, hash: String): Long =
-        conexion.prepareStatement(
+    private fun insertUser(connection: Connection, username: String, hash: String): Long =
+        connection.prepareStatement(
             """
             INSERT INTO users (username, password_hash, name, disabled, password_changed_at, must_change_password)
             VALUES (?, ?, ?, FALSE, ?, TRUE)
@@ -261,8 +261,8 @@ class IdentitySeeder(private val dataSource: DataSource) {
             }
         }
 
-    private fun asignarRol(conexion: Connection, userId: Long, roleKey: String) {
-        conexion.prepareStatement(
+    private fun assignRole(connection: Connection, userId: Long, roleKey: String) {
+        connection.prepareStatement(
             """
             INSERT INTO user_roles (user_id, role_id, is_primary)
             SELECT ?, id, TRUE FROM roles WHERE key = ?
@@ -285,9 +285,9 @@ class IdentitySeeder(private val dataSource: DataSource) {
      * Cumple la política del dominio por construcción: mayúsculas, minúsculas y
      * dígitos, y mucha más longitud que el mínimo.
      */
-    private fun generarContrasena(): String {
-        val alfabeto = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
+    private fun generatePassword(): String {
+        val alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
         val random = SecureRandom()
-        return (1..24).map { alfabeto[random.nextInt(alfabeto.length)] }.joinToString("")
+        return (1..24).map { alphabet[random.nextInt(alphabet.length)] }.joinToString("")
     }
 }

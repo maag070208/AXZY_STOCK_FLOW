@@ -40,11 +40,11 @@ class ApplicationTest : DescribeSpec({
      * El archivo está ignorado por git, así que no hay secreto en el
      * repositorio: el test lee la misma fuente que el contenedor.
      */
-    fun contrasenaLocal(): String {
-        val archivo: File? = listOf(File("infra/.env"), File("../infra/.env"))
+    fun passwordLocal(): String {
+        val file: File? = listOf(File("infra/.env"), File("../infra/.env"))
             .firstOrNull { it.exists() }
 
-        return archivo?.readLines()
+        return file?.readLines()
             ?.firstOrNull { it.startsWith("POSTGRES_PASSWORD=") }
             ?.substringAfter("=")
             ?.trim()
@@ -54,16 +54,16 @@ class ApplicationTest : DescribeSpec({
     val config = DatabaseConfig(
         jdbcUrl = System.getenv("STOCK_TEST_DB_URL") ?: "jdbc:postgresql://127.0.0.1:5432/stock_test",
         username = System.getenv("STOCK_TEST_DB_USER") ?: "stock_app",
-        password = System.getenv("STOCK_TEST_DB_PASSWORD") ?: contrasenaLocal(),
+        password = System.getenv("STOCK_TEST_DB_PASSWORD") ?: passwordLocal(),
         maxPoolSize = 2,
         runMigrations = false,
     )
 
     /** Crea un pool, ejecuta el bloque y lo cierra siempre. */
-    fun <T> conPool(bloque: (DataSource) -> T): T {
+    fun <T> withPool(block: (DataSource) -> T): T {
         val pool = buildDataSource(config)
         return try {
-            bloque(pool)
+            block(pool)
         } finally {
             (pool as? AutoCloseable)?.close()
         }
@@ -78,11 +78,11 @@ class ApplicationTest : DescribeSpec({
      * comprobación pasaba y luego el primer `SELECT` real fallaba con 503.
      * Es exactamente la clase de falso verde que hay que evitar.
      */
-    fun diagnosticarConexion(): String? = try {
-        conPool { pool ->
-            pool.connection.use { conexion ->
-                conexion.createStatement().use { sentencia ->
-                    sentencia.executeQuery("SELECT 1").use { filas -> filas.next() }
+    fun diagnoseConnection(): String? = try {
+        withPool { pool ->
+            pool.connection.use { connection ->
+                connection.createStatement().use { statement ->
+                    statement.executeQuery("SELECT 1").use { rows -> rows.next() }
                 }
             }
         }
@@ -91,15 +91,15 @@ class ApplicationTest : DescribeSpec({
         "${e::class.simpleName}: ${e.message}"
     }
 
-    val problemaDeConexion: String? = diagnosticarConexion()
-    val hayBase: Boolean = problemaDeConexion == null
+    val connectionProblem: String? = diagnoseConnection()
+    val thereIsBase: Boolean = connectionProblem == null
 
-    if (!hayBase) {
+    if (!thereIsBase) {
         println(
             """
             |
             |  ⚠️  TESTS DEL BACKEND SALTADOS: no se pudo consultar ${config.jdbcUrl}
-            |      Motivo: $problemaDeConexion
+            |      Motivo: $connectionProblem
             |      Levántalo con:  cd infra && docker compose up -d
             |      Si el contenedor ya está arriba, define STOCK_TEST_DB_PASSWORD.
             |
@@ -125,10 +125,10 @@ class ApplicationTest : DescribeSpec({
     // lo que pasa en un despliegue nuevo.
     // ═════════════════════════════════════════════════════════════════════════
 
-    val nombreBaseMigracion = "stock_migracion_test"
+    val nameBaseMigration = "stock_migracion_test"
 
-    val configMigracion = DatabaseConfig(
-        jdbcUrl = "jdbc:postgresql://127.0.0.1:5432/$nombreBaseMigracion",
+    val configMigration = DatabaseConfig(
+        jdbcUrl = "jdbc:postgresql://127.0.0.1:5432/$nameBaseMigration",
         username = config.username,
         password = config.password,
         maxPoolSize = 2,
@@ -141,25 +141,25 @@ class ApplicationTest : DescribeSpec({
      * Se conecta a `postgres` —la base de administración— porque no se puede
      * soltar la base a la que estás conectado.
      */
-    fun recrearBaseDedicada() {
+    fun recreateDedicatedDatabase() {
         val urlAdmin = "jdbc:postgresql://127.0.0.1:5432/postgres"
         val pool = buildDataSource(
             config.copy(jdbcUrl = urlAdmin, maxPoolSize = 1)
         )
 
         try {
-            pool.connection.use { conexion ->
+            pool.connection.use { connection ->
                 // DDL con confirmación automática: con `autoCommit = false` el
                 // `CREATE DATABASE` quedaría en una transacción sin confirmar y
                 // al cerrar la conexión PostgreSQL haría ROLLBACK, dejando la
                 // base sin crear mientras el `DROP` sí se había aplicado.
-                conexion.autoCommit = true
+                connection.autoCommit = true
 
-                conexion.createStatement().use { sentencia ->
+                connection.createStatement().use { statement ->
                     // `WITH (FORCE)` cierra las conexiones abiertas: sin esto,
                     // un pool que quedó vivo impide soltar la base.
-                    sentencia.execute("DROP DATABASE IF EXISTS $nombreBaseMigracion WITH (FORCE)")
-                    sentencia.execute("CREATE DATABASE $nombreBaseMigracion")
+                    statement.execute("DROP DATABASE IF EXISTS $nameBaseMigration WITH (FORCE)")
+                    statement.execute("CREATE DATABASE $nameBaseMigration")
                 }
             }
         } finally {
@@ -170,28 +170,28 @@ class ApplicationTest : DescribeSpec({
     describe("migraciones de Flyway sobre una base limpia") {
 
         it("aplica TODAS las migraciones desde cero sin errores") {
-            if (!hayBase) return@it
+            if (!thereIsBase) return@it
 
-            recrearBaseDedicada()
+            recreateDedicatedDatabase()
 
-            val pool = buildDataSource(configMigracion)
+            val pool = buildDataSource(configMigration)
             try {
                 migrate(pool)
 
                 // Se comprueba el resultado, no solo que no lanzara: una
                 // migración que "pasa" sin crear tablas es un fallo silencioso.
-                pool.connection.use { conexion ->
-                    conexion.createStatement().use { sentencia ->
-                        sentencia.executeQuery(
+                pool.connection.use { connection ->
+                    connection.createStatement().use { statement ->
+                        statement.executeQuery(
                             "SELECT count(*) FROM information_schema.tables " +
                                 "WHERE table_schema = 'public'"
-                        ).use { filas ->
-                            filas.next()
-                            val tablas = filas.getInt(1)
+                        ).use { rows ->
+                            rows.next()
+                            val tables = rows.getInt(1)
                             withClue(
-                                "Deben existir las 30 tablas del esquema. Encontradas: $tablas"
+                                "Deben existir las 30 tablas del esquema. Encontradas: $tables"
                             ) {
-                                (tablas >= 30) shouldBe true
+                                (tables >= 30) shouldBe true
                             }
                         }
                     }
@@ -209,24 +209,24 @@ class ApplicationTest : DescribeSpec({
             // añade una migración es un test que, con prisa, se actualiza sin
             // mirar si el número es el correcto. Comparar con el repositorio
             // verifica lo que de verdad importa: que **no falte ninguna**.
-            if (!hayBase) return@it
+            if (!thereIsBase) return@it
 
-            val pool = buildDataSource(configMigracion)
+            val pool = buildDataSource(configMigration)
             try {
-                pool.connection.use { conexion ->
-                    conexion.createStatement().use { sentencia ->
-                        sentencia.executeQuery(
+                pool.connection.use { connection ->
+                    connection.createStatement().use { statement ->
+                        statement.executeQuery(
                             "SELECT version FROM flyway_schema_history " +
                                 "WHERE version IS NOT NULL ORDER BY installed_rank"
-                        ).use { filas ->
-                            val versiones = mutableListOf<String>()
-                            while (filas.next()) versiones += filas.getString("version")
+                        ).use { rows ->
+                            val versions = mutableListOf<String>()
+                            while (rows.next()) versions += rows.getString("version")
 
-                            val esperadas = java.io.File("src/main/resources/db/migration")
+                            val expected = java.io.File("src/main/resources/db/migration")
                                 .takeIf { it.isDirectory }
                                 ?: java.io.File("../backend/src/main/resources/db/migration")
 
-                            val versionesEnDisco = (esperadas.listFiles { f ->
+                            val versionsOnDisk = (expected.listFiles { f ->
                                 f.name.startsWith("V") && f.name.endsWith(".sql")
                             } ?: emptyArray())
                                 .map { it.name.substringAfter('V').substringBefore("__") }
@@ -234,9 +234,9 @@ class ApplicationTest : DescribeSpec({
 
                             withClue(
                                 "El historial debe coincidir con las migraciones del " +
-                                    "repositorio ($versionesEnDisco) y no faltar ninguna: $versiones"
+                                    "repositorio ($versionsOnDisk) y no faltar ninguna: $versions"
                             ) {
-                                versiones shouldBe versionesEnDisco
+                                versions shouldBe versionsOnDisk
                             }
                         }
                     }
@@ -250,20 +250,20 @@ class ApplicationTest : DescribeSpec({
             // Una migración que crea las tablas pero pierde los CHECK pasaría el
             // test de recuento. Éste comprueba que las reglas de negocio siguen
             // impuestas por la BASE DE DATOS.
-            if (!hayBase) return@it
+            if (!thereIsBase) return@it
 
-            val pool = buildDataSource(configMigracion)
+            val pool = buildDataSource(configMigration)
             try {
-                val checksEsperados = listOf(
+                val checksExpected = listOf(
                     "stock_non_negative" to "stock_by_location",
                     "kardex_adjustment_requires_reason" to "kardex",
                     "invoice_lines_approved_has_approver" to "invoice_lines",
                     "audit_critical_has_permission" to "audit_log",
                 )
 
-                pool.connection.use { conexion ->
-                    conexion.createStatement().use { sentencia ->
-                        checksEsperados.forEach { (nombre, tabla) ->
+                pool.connection.use { connection ->
+                    connection.createStatement().use { statement ->
+                        checksExpected.forEach { (name, table) ->
                             // ── SE COMPRUEBA EN LA TABLA DONDE SE DECLARA ───────
                             // Un CHECK sobre una tabla PARTICIONADA se materializa
                             // como un objeto propio en CADA partición, además del
@@ -275,21 +275,21 @@ class ApplicationTest : DescribeSpec({
                             // mi parte, no un defecto de la migración. Se comprueba
                             // donde la regla se DECLARA, que es lo que importa: la
                             // partición es un detalle de almacenamiento.
-                            sentencia.executeQuery(
+                            statement.executeQuery(
                                 """
                                 SELECT count(*)
                                 FROM pg_constraint c
-                                WHERE c.conname = '$nombre'
-                                  AND c.conrelid = '$tabla'::regclass
+                                WHERE c.conname = '$name'
+                                  AND c.conrelid = '$table'::regclass
                                 """.trimIndent()
-                            ).use { filas ->
-                                filas.next()
+                            ).use { rows ->
+                                rows.next()
                                 withClue(
-                                    "El CHECK '$nombre' debe existir en '$tabla' tras migrar: " +
+                                    "El CHECK '$name' debe existir en '$table' tras migrar: " +
                                         "es una regla de negocio impuesta en la base de datos, " +
                                         "no solo en el código"
                                 ) {
-                                    filas.getInt(1) shouldBe 1
+                                    rows.getInt(1) shouldBe 1
                                 }
                             }
                         }
@@ -304,19 +304,19 @@ class ApplicationTest : DescribeSpec({
     describe("GET /v1/health — comprueba la base de datos de verdad") {
 
         it("responde 200 y UP cuando la base responde") {
-            if (!hayBase) return@it
+            if (!thereIsBase) return@it
 
-            conPool { pool ->
+            withPool { pool ->
                 testApplication {
                     application { module(pool) }
-                    val respuesta = client.get("/v1/health")
+                    val response = client.get("/v1/health")
 
-                    respuesta.status shouldBe HttpStatusCode.OK
+                    response.status shouldBe HttpStatusCode.OK
 
-                    val cuerpo = respuesta.bodyAsText()
+                    val body = response.bodyAsText()
                     withClue("El cuerpo debe declarar el estado y el componente") {
-                        cuerpo shouldContain "\"status\":\"UP\""
-                        cuerpo shouldContain "\"database\""
+                        body shouldContain "\"status\":\"UP\""
+                        body shouldContain "\"database\""
                     }
                 }
             }
@@ -326,17 +326,17 @@ class ApplicationTest : DescribeSpec({
             // Saber qué código corre contra qué versión de esquema es lo que
             // permite diagnosticar un despliegue a medias. Sin esto, un desajuste
             // entre código y base se manifiesta como errores incomprensibles.
-            if (!hayBase) return@it
+            if (!thereIsBase) return@it
 
-            conPool { pool ->
+            withPool { pool ->
                 migrate(pool)
 
                 testApplication {
                     application { module(pool) }
-                    val cuerpo = client.get("/v1/health").bodyAsText()
+                    val body = client.get("/v1/health").bodyAsText()
 
-                    withClue("El health debe incluir schemaVersion. Cuerpo: $cuerpo") {
-                        cuerpo shouldContain "schemaVersion"
+                    withClue("El health debe incluir schemaVersion. Cuerpo: $body") {
+                        body shouldContain "schemaVersion"
                     }
                 }
             }
@@ -345,9 +345,9 @@ class ApplicationTest : DescribeSpec({
         it("mide la latencia de la comprobación") {
             // Un health que no mide latencia no permite detectar una base lenta
             // antes de que se convierta en una caída.
-            if (!hayBase) return@it
+            if (!thereIsBase) return@it
 
-            conPool { pool ->
+            withPool { pool ->
                 testApplication {
                     application { module(pool) }
                     client.get("/v1/health").bodyAsText() shouldContain "latencyMs"
@@ -361,39 +361,39 @@ class ApplicationTest : DescribeSpec({
         it("una ruta inexistente devuelve el contrato de error en JSON, no HTML") {
             // Ktor devolvería una página por defecto. Un cliente que espera JSON
             // y recibe HTML falla al deserializar, y el error real se pierde.
-            if (!hayBase) return@it
+            if (!thereIsBase) return@it
 
-            conPool { pool ->
+            withPool { pool ->
                 testApplication {
                     application { module(pool) }
-                    val respuesta = client.get("/v1/no-existe")
+                    val response = client.get("/v1/no-existe")
 
-                    respuesta.status shouldBe HttpStatusCode.NotFound
+                    response.status shouldBe HttpStatusCode.NotFound
 
-                    val cuerpo = respuesta.bodyAsText()
+                    val body = response.bodyAsText()
                     withClue("Debe ser el contrato de error en JSON") {
-                        cuerpo shouldContain "\"code\""
-                        cuerpo shouldContain "NOT_FOUND"
+                        body shouldContain "\"code\""
+                        body shouldContain "NOT_FOUND"
                     }
                 }
             }
         }
 
         it("el error 404 no filtra detalles internos") {
-            if (!hayBase) return@it
+            if (!thereIsBase) return@it
 
-            conPool { pool ->
+            withPool { pool ->
                 testApplication {
                     application { module(pool) }
-                    val cuerpo = client.get("/v1/no-existe").bodyAsText()
+                    val body = client.get("/v1/no-existe").bodyAsText()
 
                     withClue(
                         "No debe aparecer una traza ni un nombre de tabla: el legacy " +
                             "devolvía los errores de Prisma con el SQL incluido"
                     ) {
-                        (cuerpo.contains("Exception")) shouldBe false
-                        (cuerpo.contains("at dev.axzy")) shouldBe false
-                        (cuerpo.contains("SELECT")) shouldBe false
+                        (body.contains("Exception")) shouldBe false
+                        (body.contains("at dev.axzy")) shouldBe false
+                        (body.contains("SELECT")) shouldBe false
                     }
                 }
             }
@@ -402,15 +402,15 @@ class ApplicationTest : DescribeSpec({
         it("el JSON omite los campos nulos en lugar de enviarlos") {
             // `explicitNulls = false`: un campo ausente y un campo nulo significan
             // lo mismo para el cliente, y omitirlos reduce el tamaño.
-            if (!hayBase) return@it
+            if (!thereIsBase) return@it
 
-            conPool { pool ->
+            withPool { pool ->
                 testApplication {
                     application { module(pool) }
-                    val cuerpo = client.get("/v1/no-existe").bodyAsText()
+                    val body = client.get("/v1/no-existe").bodyAsText()
 
-                    withClue("Un campo sin valor no debe aparecer como null. Cuerpo: $cuerpo") {
-                        (cuerpo.contains("null")) shouldBe false
+                    withClue("Un campo sin valor no debe aparecer como null. Cuerpo: $body") {
+                        (body.contains("null")) shouldBe false
                     }
                 }
             }

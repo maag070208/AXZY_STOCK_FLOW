@@ -36,11 +36,11 @@ data class DatabaseConfig(
          *   el daño es peor que no arrancar.
          */
         fun fromEnvironment(): DatabaseConfig {
-            val host = requerido("STOCK_DB_HOST")
+            val host = required("STOCK_DB_HOST")
             val port = System.getenv("STOCK_DB_PORT") ?: "5432"
-            val name = requerido("STOCK_DB_NAME")
-            val user = requerido("STOCK_DB_USER")
-            val password = requerido("STOCK_DB_PASSWORD")
+            val name = required("STOCK_DB_NAME")
+            val user = required("STOCK_DB_USER")
+            val password = required("STOCK_DB_PASSWORD")
 
             return DatabaseConfig(
                 jdbcUrl = "jdbc:postgresql://$host:$port/$name",
@@ -54,10 +54,10 @@ data class DatabaseConfig(
             )
         }
 
-        private fun requerido(nombre: String): String =
-            System.getenv(nombre)?.takeIf { it.isNotBlank() }
+        private fun required(name: String): String =
+            System.getenv(name)?.takeIf { it.isNotBlank() }
                 ?: error(
-                    "Falta la variable de entorno $nombre. " +
+                    "Falta la variable de entorno $name. " +
                         "Cópiala de infra/.env.example. No hay valor por defecto: " +
                         "un despliegue con credenciales por defecto es un despliegue " +
                         "vulnerable que nadie nota."
@@ -104,7 +104,7 @@ fun buildDataSource(config: DatabaseConfig): DataSource {
  * recreaba el esquema: su historial **no reconstruía la base**.
  */
 fun migrate(dataSource: DataSource) {
-    val resultado = Flyway.configure()
+    val result = Flyway.configure()
         .dataSource(dataSource)
         .locations("classpath:db/migration")
         .baselineOnMigrate(false)
@@ -114,7 +114,7 @@ fun migrate(dataSource: DataSource) {
 
     logger.info(
         "Migraciones aplicadas: {} (esquema en versión {})",
-        resultado.migrationsExecuted,
-        resultado.targetSchemaVersion ?: "sin cambios",
+        result.migrationsExecuted,
+        result.targetSchemaVersion ?: "sin cambios",
     )
 }

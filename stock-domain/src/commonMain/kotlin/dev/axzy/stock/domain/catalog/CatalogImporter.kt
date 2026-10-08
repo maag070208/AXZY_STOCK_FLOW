@@ -222,9 +222,9 @@ class CatalogImporter(
 
             // ── Duplicado ──────────────────────────────────────────────────
             // `product_code` es la clave de identidad para el upsert.
-            val yaVisto = seenCodes[code.value]
-            if (yaVisto != null) {
-                rejected += RowRejection.DuplicateCode(row.rowNumber, code.value, yaVisto)
+            val alreadySeen = seenCodes[code.value]
+            if (alreadySeen != null) {
+                rejected += RowRejection.DuplicateCode(row.rowNumber, code.value, alreadySeen)
                 return@forEach
             }
             seenCodes[code.value] = row.rowNumber
@@ -236,8 +236,8 @@ class CatalogImporter(
             }
 
             // ── Unidad de medida ───────────────────────────────────────────
-            val unidad = row.unitMeasure.trim().uppercase()
-            if (unidad !in knownUnitMeasures) {
+            val unit = row.unitMeasure.trim().uppercase()
+            if (unit !in knownUnitMeasures) {
                 rejected += RowRejection.UnknownUnitMeasure(row.rowNumber, code.value, row.unitMeasure)
                 return@forEach
             }
@@ -270,7 +270,7 @@ class CatalogImporter(
                 externalId = row.externalId.trim().ifBlank { null },
                 code = code,
                 name = row.name,
-                unitMeasure = unidad,
+                unitMeasure = unit,
                 stock = stock,
             )
         }
@@ -292,51 +292,51 @@ class CatalogImporter(
      * una dependencia al dominio, que debe seguir siendo Kotlin puro.
      */
     fun parseCsv(content: String): List<CatalogRow> {
-        val lineas = content.lines().filter { it.isNotBlank() }
-        if (lineas.isEmpty()) return emptyList()
+        val lines = content.lines().filter { it.isNotBlank() }
+        if (lines.isEmpty()) return emptyList()
 
         // La primera línea es la cabecera.
-        return lineas.drop(1).mapIndexed { indice, linea ->
-            val campos = splitCsvLine(linea)
+        return lines.drop(1).mapIndexed { index, line ->
+            val fields = splitCsvLine(line)
             CatalogRow(
-                rowNumber = indice + 2,   // +2: una por la cabecera y otra porque las filas empiezan en 1
-                externalId = campos.getOrElse(0) { "" },
-                productCode = campos.getOrElse(1) { "" },
-                name = campos.getOrElse(2) { "" },
-                unitMeasure = campos.getOrElse(3) { "" },
-                stock = campos.getOrElse(4) { "" },
+                rowNumber = index + 2,   // +2: una por la cabecera y otra porque las filas empiezan en 1
+                externalId = fields.getOrElse(0) { "" },
+                productCode = fields.getOrElse(1) { "" },
+                name = fields.getOrElse(2) { "" },
+                unitMeasure = fields.getOrElse(3) { "" },
+                stock = fields.getOrElse(4) { "" },
             )
         }
     }
 
     /** Divide una línea CSV respetando las comillas dobles. */
-    private fun splitCsvLine(linea: String): List<String> {
-        val campos = mutableListOf<String>()
-        val actual = StringBuilder()
-        var entreComillas = false
+    private fun splitCsvLine(line: String): List<String> {
+        val fields = mutableListOf<String>()
+        val current = StringBuilder()
+        var betweenQuotes = false
         var i = 0
 
-        while (i < linea.length) {
-            val c = linea[i]
+        while (i < line.length) {
+            val c = line[i]
             when {
                 c == '"' -> {
                     // Comilla escapada dentro de un campo entrecomillado.
-                    if (entreComillas && i + 1 < linea.length && linea[i + 1] == '"') {
-                        actual.append('"')
+                    if (betweenQuotes && i + 1 < line.length && line[i + 1] == '"') {
+                        current.append('"')
                         i++
                     } else {
-                        entreComillas = !entreComillas
+                        betweenQuotes = !betweenQuotes
                     }
                 }
-                c == ',' && !entreComillas -> {
-                    campos += actual.toString()
-                    actual.clear()
+                c == ',' && !betweenQuotes -> {
+                    fields += current.toString()
+                    current.clear()
                 }
-                else -> actual.append(c)
+                else -> current.append(c)
             }
             i++
         }
-        campos += actual.toString()
-        return campos
+        fields += current.toString()
+        return fields
     }
 }

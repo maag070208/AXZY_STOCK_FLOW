@@ -39,8 +39,8 @@ import io.kotest.matchers.shouldBe
  */
 class LegacyBehaviorCharacterizationTest : DescribeSpec({
 
-    val producto = ProductCode.of("ABRAA1B")
-    val contenedor = "CONT-01"
+    val product = ProductCode.of("ABRAA1B")
+    val container = "CONT-01"
 
     // ═════════════════════════════════════════════════════════════════════════
     // EL READ MODEL DEL LEGACY
@@ -69,7 +69,7 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
          * propósito y con conocimiento.
          */
         fun applyMovement(units: Quantity, type: MovementType) {
-            when (type.suEfectoEnElLegacy) {
+            when (type.itsEffectInLegacy) {
                 LegacyEffect.ADDS -> stock += units.units
                 LegacyEffect.SUBTRACTS -> stock -= units.units
                 LegacyEffect.IGNORES -> Unit
@@ -113,7 +113,7 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
         }
 
         /** Los tipos de movimiento que `removeUnitsFromKardex` consideraba candidatos. */
-        val esCandidatoParaMutacion: Boolean
+        val isMutationCandidate: Boolean
             get() = moveType in setOf(
                 MovementType.INITIAL,
                 MovementType.ADJUSTMENT_IN,
@@ -131,14 +131,14 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
         container: String,
     ) {
         // Paso 1: mutar el registro histórico.
-        val candidata = rows.lastOrNull { it.container == container && it.esCandidatoParaMutacion }
+        val candidate = rows.lastOrNull { it.container == container && it.isMutationCandidate }
             ?: error("Product not found (el legacy lanzaba aquí)")
-        candidata.mutateUnitsBy(units)
+        candidate.mutateUnitsBy(units)
 
         // Paso 2: crear el registro de ubicación. Obsérvese que NO hay ninguna
         // llamada al read model: el total del legacy no se toca.
         rows += LegacyKardexRow(
-            product = candidata.product,
+            product = candidate.product,
             container = container,
             moveType = MovementType.LOCATE,
             units = units,
@@ -151,7 +151,7 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
 
         it("el registro de recepción queda en cero tras ubicar") {
             val store = LegacyStore(1000)
-            val filas = mutableListOf<LegacyKardexRow>()
+            val rows = mutableListOf<LegacyKardexRow>()
 
             // Captura: `addKardex` SÍ aplica el movimiento al read model.
             //
@@ -161,20 +161,20 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
             // consideraba candidatos para mutar. Es decir: **la captura creaba la
             // fila que la ubicación después editaba**. El tipo del modelo nuevo
             // que corresponde a ese concepto es PENDING_OUT.
-            filas += LegacyKardexRow(producto, contenedor, MovementType.PENDING_OUT, Quantity.of(100))
+            rows += LegacyKardexRow(product, container, MovementType.PENDING_OUT, Quantity.of(100))
             store.applyMovement(Quantity.of(100), MovementType.RECEIPT_IN)
 
             withClue("Tras la captura el total es 1.100") {
                 store.stock shouldBe 1100
             }
 
-            addKardexLocationLegacy(filas, Quantity.of(100), contenedor)
+            addKardexLocationLegacy(rows, Quantity.of(100), container)
 
             withClue(
                 "DEFECTO D-1: el registro de recepción decía 100 y ahora dice 0. " +
                     "La historia se perdió: ya no se puede reconstruir qué se recibió."
             ) {
-                filas.first().units shouldBe Quantity.ZERO
+                rows.first().units shouldBe Quantity.ZERO
             }
             withClue(
                 "Y el total queda en 1.100, que es CORRECTO. Ésta es la corrección " +
@@ -186,38 +186,38 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
         }
 
         it("cada ubicación parcial vuelve a mutar la misma fila") {
-            val filas = mutableListOf<LegacyKardexRow>()
+            val rows = mutableListOf<LegacyKardexRow>()
             // El tipo de la captura en el legacy: PENDING-TO-LOCATE, candidato a
             // ser mutado por removeUnitsFromKardex.
-            filas += LegacyKardexRow(producto, contenedor, MovementType.PENDING_OUT, Quantity.of(100))
+            rows += LegacyKardexRow(product, container, MovementType.PENDING_OUT, Quantity.of(100))
 
             // Tres ubicaciones parciales: cada una edita el MISMO registro.
-            listOf(30L, 30L, 40L).forEach { parcial ->
-                addKardexLocationLegacy(filas, Quantity.of(parcial), contenedor)
+            listOf(30L, 30L, 40L).forEach { partial ->
+                addKardexLocationLegacy(rows, Quantity.of(partial), container)
             }
 
             withClue(
                 "El registro de recepción de 100 terminó en 0 tras tres operaciones " +
                     "que lo editaron. El libro solo conserva su estado final, no los pasos."
             ) {
-                filas.first().units shouldBe Quantity.ZERO
+                rows.first().units shouldBe Quantity.ZERO
             }
             withClue("Se crearon tres registros LOCATE, uno por operación") {
-                filas.count { it.moveType == MovementType.LOCATE } shouldBe 3
+                rows.count { it.moveType == MovementType.LOCATE } shouldBe 3
             }
         }
 
         it("el modelo nuevo conserva el registro original: es la diferencia central") {
             // Contraste directo. En el modelo nuevo, ubicar es un movimiento
             // NUEVO con origen y destino, y el registro de recepción no se toca.
-            val unidadesRecibidas = Quantity.of(100)
+            val unitsReceived = Quantity.of(100)
 
             withClue(
                 "En el legacy ese registro acababa en 0. En el modelo nuevo sigue " +
                     "diciendo 100, porque el ledger es append-only y su inmutabilidad " +
                     "está impuesta por trigger en la base de datos."
             ) {
-                unidadesRecibidas shouldBe Quantity.of(100)
+                unitsReceived shouldBe Quantity.of(100)
             }
         }
     }
@@ -236,17 +236,17 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
                 store.stock shouldBe 100
             }
 
-            val filaConUbicacion = LegacyKardexRow(
-                producto, contenedor, MovementType.LOCATE,
+            val rowWithLocation = LegacyKardexRow(
+                product, container, MovementType.LOCATE,
                 Quantity.of(100), location = LocationCode.of("04BCA"),
             )
 
             withClue(
-                "El kardex SÍ sabe la ubicación (location = ${filaConUbicacion.location}), " +
+                "El kardex SÍ sabe la ubicación (location = ${rowWithLocation.location}), " +
                     "y el inventario NO puede consultarse por ella. El dato existe y es " +
                     "inaccesible: ése es D-2."
             ) {
-                (filaConUbicacion.location != null) shouldBe true
+                (rowWithLocation.location != null) shouldBe true
                 // `store` no expone existencias por ubicación: el campo no existe.
                 true shouldBe true
             }
@@ -279,7 +279,7 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
             // En el modelo nuevo, ubicar declara su efecto y el `when` lo obliga:
             // `StockEffect.TransferWithinWarehouse` nunca toca el total. No hay
             // ninguna función con un valor por defecto que reste.
-            val efectosQueNoCambianElTotal = listOf(
+            val effectsThatDoNotChangeTotal = listOf(
                 "TransferWithinWarehouse",
                 "EnterTransit",
                 "LeaveTransit",
@@ -291,7 +291,7 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
                     "porque el total es una SUMA DERIVADA de las ubicaciones: no existe " +
                     "ninguna operación que lo modifique directamente."
             ) {
-                efectosQueNoCambianElTotal.size shouldBe 4
+                effectsThatDoNotChangeTotal.size shouldBe 4
             }
         }
     }
@@ -302,10 +302,10 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
         it("la lista que SUMA son tres tipos, y ninguno es LOCATE") {
             // En el original esto era un `if` con una lista literal y un `else`
             // por defecto. Aquí es una tabla exhaustiva.
-            val suman = MovementType.entries.filter { it.suEfectoEnElLegacy == LegacyEffect.ADDS }
+            val sum = MovementType.entries.filter { it.itsEffectInLegacy == LegacyEffect.ADDS }
 
             withClue("Solo estos tres movimientos sumaban al total") {
-                suman.toSet() shouldBe setOf(
+                sum.toSet() shouldBe setOf(
                     MovementType.INITIAL,
                     MovementType.RECEIPT_IN,
                     MovementType.ADJUSTMENT_IN,
@@ -328,9 +328,9 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
         it("todos los tipos de movimiento tienen efecto declarado (el `when` es exhaustivo)") {
             // Si se añade un MovementType sin decidir su efecto en el legacy, esto
             // no compila. Es la misma garantía que en el modelo nuevo.
-            MovementType.entries.forEach { tipo ->
-                withClue("El tipo $tipo debe tener un efecto declarado") {
-                    (tipo.suEfectoEnElLegacy in LegacyEffect.entries) shouldBe true
+            MovementType.entries.forEach { type ->
+                withClue("El tipo $type debe tener un efecto declarado") {
+                    (type.itsEffectInLegacy in LegacyEffect.entries) shouldBe true
                 }
             }
         }
@@ -342,29 +342,29 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
         it("ninguna tabla de auditoría entre sus 13 modelos") {
             // Verificado leyendo `prisma/schema.prisma`. Por eso el sistema legacy
             // no puede responder "quién hizo esto" para casi nada.
-            val modelos = listOf(
+            val models = listOf(
                 "User", "Role", "RolePermission", "Permission",
                 "Invoice", "InvoiceDetail", "Order", "OrderDetail",
                 "Location", "Labels", "Store", "Kardex", "Print",
             )
 
-            val conAuditoria = modelos.filter {
+            val withAudit = models.filter {
                 it.contains("Audit", ignoreCase = true) || it.contains("Log", ignoreCase = true)
             }
 
-            withClue("13 modelos, ninguno de auditoría: $conAuditoria") {
-                modelos.size shouldBe 13
-                conAuditoria shouldBe emptyList()
+            withClue("13 modelos, ninguno de auditoría: $withAudit") {
+                models.size shouldBe 13
+                withAudit shouldBe emptyList()
             }
         }
 
         it("su única trazabilidad guarda el NOMBRE del usuario, no una referencia") {
             // `Kardex.user` era un `String` libre: sin integridad referencial, y
             // el histórico se rompe si alguien se renombra.
-            val elKardexGuardabaUnStringLibre = true
+            val kardexStoredFreeString = true
 
             withClue("Es la diferencia entre trazabilidad y una nota al margen") {
-                elKardexGuardabaUnStringLibre shouldBe true
+                kardexStoredFreeString shouldBe true
             }
         }
     }
@@ -374,29 +374,29 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
 
         it("el esquema declara borrado lógico y el servicio borra en físico") {
             // Hallazgo B-1 / R-57.
-            val elEsquemaDeclaraSoftDelete = true
-            val elServicioHaceDeleteFisico = true
+            val schemaDeclaresSoftDelete = true
+            val serviceDoesHardDelete = true
 
             withClue("El flag `deleted` nunca se escribía") {
-                elEsquemaDeclaraSoftDelete shouldBe true
-                elServicioHaceDeleteFisico shouldBe true
+                schemaDeclaresSoftDelete shouldBe true
+                serviceDoesHardDelete shouldBe true
             }
         }
 
         it("`difference` existe en el modelo y siempre vale cero") {
             // Hallazgo B-2 / R-58. El sistema nuevo usa una columna generada.
-            val declaradoEnModeloDtoMapperYRespuesta = 4
-            val vecesQueSeCalculaba = 0
+            val declaredInModelDtoMapperAndResponse = 4
+            val timesItWasComputed = 0
 
             withClue("Declarado en 4 sitios, calculado en 0") {
-                declaradoEnModeloDtoMapperYRespuesta shouldBe 4
-                vecesQueSeCalculaba shouldBe 0
+                declaredInModelDtoMapperAndResponse shouldBe 4
+                timesItWasComputed shouldBe 0
             }
         }
 
         it("permisos sembrados que no se exigían en ninguna ruta") {
             // Hallazgo B-3. El sistema nuevo tiene un test de biyección.
-            val sembradosSinRuta = listOf(
+            val seededWithoutRoute = listOf(
                 "user:create", "user:read", "user:update", "user:delete",
                 "order:approve", "print:update", "invoice:update",
             )
@@ -405,7 +405,7 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
                 "Un permiso que existe y no se exige da una falsa sensación de " +
                     "control: parece que hay una restricción y no la hay"
             ) {
-                sembradosSinRuta.size shouldBe 7
+                seededWithoutRoute.size shouldBe 7
             }
         }
     }
@@ -430,7 +430,7 @@ enum class LegacyEffect { ADDS, SUBTRACTS, IGNORES }
  * Al ser explícita, este `when` es exhaustivo: añadir un movimiento obliga a
  * decidir su efecto aquí, en lugar de caer en un `else` silencioso.
  */
-val MovementType.suEfectoEnElLegacy: LegacyEffect
+val MovementType.itsEffectInLegacy: LegacyEffect
     get() = when (this) {
         MovementType.INITIAL,
         MovementType.RECEIPT_IN,

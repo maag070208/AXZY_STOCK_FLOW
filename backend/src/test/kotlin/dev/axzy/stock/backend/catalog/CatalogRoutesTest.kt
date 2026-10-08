@@ -46,16 +46,16 @@ import javax.sql.DataSource
  */
 class CatalogRoutesTest : DescribeSpec({
 
-    val nombreBase = "stock_catalog_test"
-    val problemaDeConexion = CatalogoTestDb.problemaDeConexion()
-    val hayBase = problemaDeConexion == null
+    val nameBase = "stock_catalog_test"
+    val connectionProblem = CatalogTestDb.connectionProblem()
+    val thereIsBase = connectionProblem == null
 
-    if (!hayBase) {
+    if (!thereIsBase) {
         println(
             """
             |
             |  ⚠️  TESTS DE CATÁLOGO SALTADOS: no se pudo consultar PostgreSQL
-            |      Motivo: $problemaDeConexion
+            |      Motivo: $connectionProblem
             |      Levántalo con:  cd infra && docker compose up -d
             |
             """.trimMargin()
@@ -63,103 +63,103 @@ class CatalogRoutesTest : DescribeSpec({
     }
 
     beforeSpec {
-        if (hayBase) CatalogoTestDb.recrear(nombreBase)
+        if (thereIsBase) CatalogTestDb.recreate(nameBase)
     }
 
     // Cada test parte de un catálogo vacío pero migrado: los datos de un test no
     // pueden cambiar el resultado de otro, sobre todo los recuentos.
     beforeTest {
-        if (hayBase) CatalogoTestDb.conPool(nombreBase) { pool -> CatalogoTestDb.limpiar(pool) }
+        if (thereIsBase) CatalogTestDb.withPool(nameBase) { pool -> CatalogTestDb.clean(pool) }
     }
 
     // ── Utilidades ──────────────────────────────────────────────────────────
 
     /** Monta la aplicación con el módulo real y las rutas del catálogo. */
-    fun ApplicationTestBuilder.montar(
+    fun ApplicationTestBuilder.build(
         pool: DataSource,
-        verificador: PermissionChecker = AllowAllPermissionChecker,
+        verifier: PermissionChecker = AllowAllPermissionChecker,
     ) {
         application {
             // El verificador se pasa a `module()`, que registra las rutas
             // UNA sola vez. Antes se montaba `module(pool)` y ADEMAS un
             // `routing { catalogRoutes(...) }`, asi que las rutas quedaban
             // duplicadas y Ktor resolvia la del verificador que deniega todo.
-            module(dataSource = pool, permissionChecker = verificador)
+            module(dataSource = pool, permissionChecker = verifier)
         }
     }
 
     /** Ejecuta un bloque HTTP contra una base real y limpia. */
-    fun conApi(
-        verificador: PermissionChecker = AllowAllPermissionChecker,
-        bloque: suspend ApplicationTestBuilder.(DataSource) -> Unit,
+    fun withApi(
+        verifier: PermissionChecker = AllowAllPermissionChecker,
+        block: suspend ApplicationTestBuilder.(DataSource) -> Unit,
     ) {
-        if (!hayBase) return
-        CatalogoTestDb.conPool(nombreBase) { pool ->
+        if (!thereIsBase) return
+        CatalogTestDb.withPool(nameBase) { pool ->
             testApplication {
-                montar(pool, verificador)
-                bloque(pool)
+                build(pool, verifier)
+                block(pool)
             }
         }
     }
 
-    suspend fun ApplicationTestBuilder.crearProducto(
-        codigo: String,
-        nombre: String,
-        descripcion: String? = null,
-        unidad: String = "PZA",
+    suspend fun ApplicationTestBuilder.createProduct(
+        code: String,
+        name: String,
+        description: String? = null,
+        unit: String = "PZA",
     ): HttpResponse {
-        val descripcionJson = descripcion?.let { "\"$it\"" } ?: "null"
+        val descriptionJson = description?.let { "\"$it\"" } ?: "null"
         return client.post("/v1/products") {
             contentType(ContentType.Application.Json)
             setBody(
                 """
-                {"productCode":"$codigo","name":"$nombre",
-                 "description":$descripcionJson,"unitMeasure":"$unidad"}
+                {"productCode":"$code","name":"$name",
+                 "description":$descriptionJson,"unitMeasure":"$unit"}
                 """.trimIndent()
             )
         }
     }
 
-    suspend fun HttpResponse.cuerpo(): JsonObject =
+    suspend fun HttpResponse.body(): JsonObject =
         Json.parseToJsonElement(bodyAsText()).jsonObject
 
-    suspend fun HttpResponse.codigoDeError(): String =
-        cuerpo()["code"]!!.jsonPrimitive.content
+    suspend fun HttpResponse.errorCode(): String =
+        body()["code"]!!.jsonPrimitive.content
 
     // ═════════════════════════════════════════════════════════════════════════
     describe("paginación y orden en la base (§1.4)") {
 
         it("devuelve el sobre del contrato con el total contado en la base") {
-            conApi { _ ->
-                crearProducto("AAA0001", "ABRAZADERA UNO")
-                crearProducto("AAA0002", "ABRAZADERA DOS")
-                crearProducto("AAA0003", "ABRAZADERA TRES")
+            withApi { _ ->
+                createProduct("AAA0001", "ABRAZADERA UNO")
+                createProduct("AAA0002", "ABRAZADERA DOS")
+                createProduct("AAA0003", "ABRAZADERA TRES")
 
-                val primera = client.get("/v1/products?page=0&size=2")
-                primera.status shouldBe HttpStatusCode.OK
-                val sobre = primera.cuerpo()
+                val first = client.get("/v1/products?page=0&size=2")
+                first.status shouldBe HttpStatusCode.OK
+                val over = first.body()
 
-                sobre["page"]!!.jsonPrimitive.int shouldBe 0
-                sobre["size"]!!.jsonPrimitive.int shouldBe 2
+                over["page"]!!.jsonPrimitive.int shouldBe 0
+                over["size"]!!.jsonPrimitive.int shouldBe 2
                 withClue("totalItems es el total que cumple el filtro, no el tamaño de la página") {
-                    sobre["totalItems"]!!.jsonPrimitive.long shouldBe 3L
+                    over["totalItems"]!!.jsonPrimitive.long shouldBe 3L
                 }
-                sobre["totalPages"]!!.jsonPrimitive.int shouldBe 2
-                sobre["items"]!!.jsonArray.size shouldBe 2
+                over["totalPages"]!!.jsonPrimitive.int shouldBe 2
+                over["items"]!!.jsonArray.size shouldBe 2
 
-                val segunda = client.get("/v1/products?page=1&size=2")
-                segunda.cuerpo()["items"]!!.jsonArray.size shouldBe 1
+                val second = client.get("/v1/products?page=1&size=2")
+                second.body()["items"]!!.jsonArray.size shouldBe 1
             }
         }
 
         it("ordena por nombre descendente") {
-            conApi { _ ->
-                crearProducto("BBB0001", "B INTERMEDIO")
-                crearProducto("BBB0002", "A PRIMERO")
-                crearProducto("BBB0003", "C ULTIMO")
+            withApi { _ ->
+                createProduct("BBB0001", "B INTERMEDIO")
+                createProduct("BBB0002", "A PRIMERO")
+                createProduct("BBB0003", "C ULTIMO")
 
                 val items = client.get("/v1/products?sort=name,desc")
-                    .cuerpo()["items"]!!.jsonArray
+                    .body()["items"]!!.jsonArray
 
                 items.map { it.jsonObject["name"]!!.jsonPrimitive.content } shouldBe
                     listOf("C ULTIMO", "B INTERMEDIO", "A PRIMERO")
@@ -167,39 +167,39 @@ class CatalogRoutesTest : DescribeSpec({
         }
 
         it("busca por código y por nombre con q") {
-            conApi { _ ->
-                crearProducto("CCC0001", "TORNILLO")
-                crearProducto("DDD0002", "ABRAZADERA")
+            withApi { _ ->
+                createProduct("CCC0001", "TORNILLO")
+                createProduct("DDD0002", "ABRAZADERA")
 
-                val porNombre = client.get("/v1/products?q=abraz").cuerpo()["items"]!!.jsonArray
-                porNombre.size shouldBe 1
-                porNombre.single().jsonObject["productCode"]!!.jsonPrimitive.content shouldBe "DDD0002"
+                val byName = client.get("/v1/products?q=abraz").body()["items"]!!.jsonArray
+                byName.size shouldBe 1
+                byName.single().jsonObject["productCode"]!!.jsonPrimitive.content shouldBe "DDD0002"
 
-                val porCodigo = client.get("/v1/products?q=ccc").cuerpo()["items"]!!.jsonArray
-                porCodigo.size shouldBe 1
+                val byCode = client.get("/v1/products?q=ccc").body()["items"]!!.jsonArray
+                byCode.size shouldBe 1
             }
         }
 
         it("rechaza size fuera de rango con 400 en lugar de recortarlo") {
-            conApi { _ ->
-                val respuesta = client.get("/v1/products?size=500")
+            withApi { _ ->
+                val response = client.get("/v1/products?size=500")
 
-                respuesta.status shouldBe HttpStatusCode.BadRequest
-                respuesta.codigoDeError() shouldBe "INVALID_PAGINATION"
+                response.status shouldBe HttpStatusCode.BadRequest
+                response.errorCode() shouldBe "INVALID_PAGINATION"
             }
         }
 
         it("rechaza un campo de orden no admitido con 400") {
-            conApi { _ ->
-                val respuesta = client.get("/v1/products?sort=stock,asc")
+            withApi { _ ->
+                val response = client.get("/v1/products?sort=stock,asc")
 
-                respuesta.status shouldBe HttpStatusCode.BadRequest
-                respuesta.codigoDeError() shouldBe "INVALID_SORT"
+                response.status shouldBe HttpStatusCode.BadRequest
+                response.errorCode() shouldBe "INVALID_SORT"
             }
         }
 
         it("rechaza un identificador de ruta que no es un número") {
-            conApi { _ ->
+            withApi { _ ->
                 client.get("/v1/products/abc").status shouldBe HttpStatusCode.BadRequest
             }
         }
@@ -209,190 +209,190 @@ class CatalogRoutesTest : DescribeSpec({
     describe("productos") {
 
         it("crea un producto con 201, su id y stock cero") {
-            conApi { _ ->
-                val respuesta = crearProducto("PPP0001", "PRODUCTO NUEVO", "descripción")
+            withApi { _ ->
+                val response = createProduct("PPP0001", "PRODUCTO NUEVO", "descripción")
 
-                respuesta.status shouldBe HttpStatusCode.Created
-                val creado = respuesta.cuerpo()
-                creado["productCode"]!!.jsonPrimitive.content shouldBe "PPP0001"
-                creado["unitMeasure"]!!.jsonPrimitive.content shouldBe "PZA"
-                creado["active"]!!.jsonPrimitive.content.toBoolean() shouldBe true
+                response.status shouldBe HttpStatusCode.Created
+                val created = response.body()
+                created["productCode"]!!.jsonPrimitive.content shouldBe "PPP0001"
+                created["unitMeasure"]!!.jsonPrimitive.content shouldBe "PZA"
+                created["active"]!!.jsonPrimitive.content.toBoolean() shouldBe true
                 withClue("El stock de un producto recién creado es 0.000, como número") {
-                    respuesta.bodyAsText() shouldContain "\"stock\":0.000"
+                    response.bodyAsText() shouldContain "\"stock\":0.000"
                 }
             }
         }
 
         it("rechaza el código duplicado con 409 DUPLICATE_PRODUCT_CODE") {
-            conApi { _ ->
-                crearProducto("DUP0001", "PRIMERO").status shouldBe HttpStatusCode.Created
+            withApi { _ ->
+                createProduct("DUP0001", "PRIMERO").status shouldBe HttpStatusCode.Created
 
-                val repetido = crearProducto("DUP0001", "SEGUNDO")
+                val repeated = createProduct("DUP0001", "SEGUNDO")
 
-                repetido.status shouldBe HttpStatusCode.Conflict
-                repetido.codigoDeError() shouldBe "DUPLICATE_PRODUCT_CODE"
+                repeated.status shouldBe HttpStatusCode.Conflict
+                repeated.errorCode() shouldBe "DUPLICATE_PRODUCT_CODE"
             }
         }
 
         it("rechaza un código que no cumple el alfabeto con 422 y el campo señalado") {
-            conApi { _ ->
-                val respuesta = crearProducto("mal-codigo", "PRODUCTO")
+            withApi { _ ->
+                val response = createProduct("mal-codigo", "PRODUCTO")
 
-                respuesta.status shouldBe HttpStatusCode.UnprocessableEntity
-                respuesta.codigoDeError() shouldBe "INVALID_PRODUCT_CODE"
-                respuesta.cuerpo()["details"]!!.jsonObject.containsKey("productCode") shouldBe true
+                response.status shouldBe HttpStatusCode.UnprocessableEntity
+                response.errorCode() shouldBe "INVALID_PRODUCT_CODE"
+                response.body()["details"]!!.jsonObject.containsKey("productCode") shouldBe true
             }
         }
 
         it("rechaza una unidad de medida que no está en el catálogo") {
-            conApi { _ ->
-                val respuesta = crearProducto("UNI0001", "PRODUCTO", unidad = "KGS")
+            withApi { _ ->
+                val response = createProduct("UNI0001", "PRODUCTO", unit = "KGS")
 
-                respuesta.status shouldBe HttpStatusCode.UnprocessableEntity
-                respuesta.codigoDeError() shouldBe "UNKNOWN_UNIT_MEASURE"
+                response.status shouldBe HttpStatusCode.UnprocessableEntity
+                response.errorCode() shouldBe "UNKNOWN_UNIT_MEASURE"
             }
         }
 
         it("devuelve 404 cuando el producto no existe") {
-            conApi { _ ->
-                val respuesta = client.get("/v1/products/999999")
+            withApi { _ ->
+                val response = client.get("/v1/products/999999")
 
-                respuesta.status shouldBe HttpStatusCode.NotFound
-                respuesta.codigoDeError() shouldBe "PRODUCT_NOT_FOUND"
+                response.status shouldBe HttpStatusCode.NotFound
+                response.errorCode() shouldBe "PRODUCT_NOT_FOUND"
             }
         }
 
         it("actualiza nombre, descripción y unidad con PUT") {
-            conApi { _ ->
-                val id = crearProducto("ACT0001", "NOMBRE VIEJO").cuerpo()["id"]!!.jsonPrimitive.long
+            withApi { _ ->
+                val id = createProduct("ACT0001", "NOMBRE VIEJO").body()["id"]!!.jsonPrimitive.long
 
-                val respuesta = client.put("/v1/products/$id") {
+                val response = client.put("/v1/products/$id") {
                     contentType(ContentType.Application.Json)
                     setBody("""{"name":"NOMBRE NUEVO","description":"ahora sí","unitMeasure":"PZA"}""")
                 }
 
-                respuesta.status shouldBe HttpStatusCode.OK
-                respuesta.cuerpo()["name"]!!.jsonPrimitive.content shouldBe "NOMBRE NUEVO"
-                respuesta.cuerpo()["description"]!!.jsonPrimitive.content shouldBe "ahora sí"
+                response.status shouldBe HttpStatusCode.OK
+                response.body()["name"]!!.jsonPrimitive.content shouldBe "NOMBRE NUEVO"
+                response.body()["description"]!!.jsonPrimitive.content shouldBe "ahora sí"
             }
         }
 
         it("tolera el ida y vuelta del objeto y rechaza cambiar el código") {
-            conApi { _ ->
-                val creado = crearProducto("INM0001", "PRODUCTO").cuerpo()
-                val id = creado["id"]!!.jsonPrimitive.long
+            withApi { _ ->
+                val created = createProduct("INM0001", "PRODUCTO").body()
+                val id = created["id"]!!.jsonPrimitive.long
 
                 // Un cliente que hace GET, cambia el nombre y devuelve el objeto
                 // entero manda el mismo `productCode`: eso no es un cambio.
-                val conMismoCodigo = client.put("/v1/products/$id") {
+                val withSameCode = client.put("/v1/products/$id") {
                     contentType(ContentType.Application.Json)
                     setBody("""{"productCode":"INM0001","name":"OTRO NOMBRE","unitMeasure":"PZA"}""")
                 }
-                conMismoCodigo.status shouldBe HttpStatusCode.OK
+                withSameCode.status shouldBe HttpStatusCode.OK
 
-                val conOtroCodigo = client.put("/v1/products/$id") {
+                val withOtherCode = client.put("/v1/products/$id") {
                     contentType(ContentType.Application.Json)
                     setBody("""{"productCode":"INM0002","name":"OTRO NOMBRE","unitMeasure":"PZA"}""")
                 }
-                conOtroCodigo.status shouldBe HttpStatusCode.UnprocessableEntity
-                conOtroCodigo.codigoDeError() shouldBe "PRODUCT_CODE_IMMUTABLE"
+                withOtherCode.status shouldBe HttpStatusCode.UnprocessableEntity
+                withOtherCode.errorCode() shouldBe "PRODUCT_CODE_IMMUTABLE"
             }
         }
 
         it("el borrado es lógico, exige motivo y deja el producto inactivo") {
-            conApi { _ ->
-                val id = crearProducto("DEL0001", "SE VA").cuerpo()["id"]!!.jsonPrimitive.long
+            withApi { _ ->
+                val id = createProduct("DEL0001", "SE VA").body()["id"]!!.jsonPrimitive.long
 
-                val sinMotivo = client.delete("/v1/products/$id")
-                sinMotivo.status shouldBe HttpStatusCode.UnprocessableEntity
-                sinMotivo.codigoDeError() shouldBe "REASON_REQUIRED"
+                val withoutReason = client.delete("/v1/products/$id")
+                withoutReason.status shouldBe HttpStatusCode.UnprocessableEntity
+                withoutReason.errorCode() shouldBe "REASON_REQUIRED"
 
-                val conMotivo = client.delete("/v1/products/$id") {
+                val withReason = client.delete("/v1/products/$id") {
                     contentType(ContentType.Application.Json)
                     setBody("""{"reason":"producto descontinuado por el proveedor"}""")
                 }
-                conMotivo.status shouldBe HttpStatusCode.NoContent
+                withReason.status shouldBe HttpStatusCode.NoContent
 
-                val despues = client.get("/v1/products/$id")
-                despues.status shouldBe HttpStatusCode.OK
-                despues.cuerpo()["active"]!!.jsonPrimitive.content.toBoolean() shouldBe false
+                val after = client.get("/v1/products/$id")
+                after.status shouldBe HttpStatusCode.OK
+                after.body()["active"]!!.jsonPrimitive.content.toBoolean() shouldBe false
                 withClue("El producto no se borra de la base: se desactiva") {
-                    despues.cuerpo()["productCode"]!!.jsonPrimitive.content shouldBe "DEL0001"
+                    after.body()["productCode"]!!.jsonPrimitive.content shouldBe "DEL0001"
                 }
             }
         }
 
         it("acepta el motivo en la query, para clientes que no mandan cuerpo en DELETE") {
-            conApi { _ ->
-                val id = crearProducto("DEL0002", "SE VA").cuerpo()["id"]!!.jsonPrimitive.long
+            withApi { _ ->
+                val id = createProduct("DEL0002", "SE VA").body()["id"]!!.jsonPrimitive.long
 
-                val respuesta = client.delete("/v1/products/$id?reason=duplicado")
+                val response = client.delete("/v1/products/$id?reason=duplicado")
 
-                respuesta.status shouldBe HttpStatusCode.NoContent
+                response.status shouldBe HttpStatusCode.NoContent
             }
         }
 
         it("no desactiva dos veces: el segundo borrado pisaría el motivo del primero") {
-            conApi { _ ->
-                val id = crearProducto("DEL0003", "SE VA").cuerpo()["id"]!!.jsonPrimitive.long
+            withApi { _ ->
+                val id = createProduct("DEL0003", "SE VA").body()["id"]!!.jsonPrimitive.long
                 client.delete("/v1/products/$id?reason=primero").status shouldBe HttpStatusCode.NoContent
 
-                val segunda = client.delete("/v1/products/$id?reason=segundo")
+                val second = client.delete("/v1/products/$id?reason=segundo")
 
-                segunda.status shouldBe HttpStatusCode.Conflict
-                segunda.codigoDeError() shouldBe "PRODUCT_ALREADY_INACTIVE"
+                second.status shouldBe HttpStatusCode.Conflict
+                second.errorCode() shouldBe "PRODUCT_ALREADY_INACTIVE"
             }
         }
 
         it("un producto con existencias no se desactiva: 409 PRODUCT_HAS_STOCK con details.stock") {
-            conApi { pool ->
-                val id = crearProducto("STK0001", "CON STOCK").cuerpo()["id"]!!.jsonPrimitive.long
-                val (ubicacionId, bodegaId) = CatalogoTestDb.ubicacionDeRecepcion(pool)
-                CatalogoTestDb.insertarStock(pool, id, ubicacionId, bodegaId, "12.500")
+            withApi { pool ->
+                val id = createProduct("STK0001", "CON STOCK").body()["id"]!!.jsonPrimitive.long
+                val (locationId, warehouseId) = CatalogTestDb.receivingLocation(pool)
+                CatalogTestDb.insertStock(pool, id, locationId, warehouseId, "12.500")
 
-                val respuesta = client.delete("/v1/products/$id?reason=ya no se usa")
+                val response = client.delete("/v1/products/$id?reason=ya no se usa")
 
-                respuesta.status shouldBe HttpStatusCode.Conflict
-                respuesta.codigoDeError() shouldBe "PRODUCT_HAS_STOCK"
+                response.status shouldBe HttpStatusCode.Conflict
+                response.errorCode() shouldBe "PRODUCT_HAS_STOCK"
                 withClue("El detalle dice cuánto stock lo bloquea, en número con 3 decimales") {
-                    respuesta.bodyAsText() shouldContain "12.500"
+                    response.bodyAsText() shouldContain "12.500"
                 }
             }
         }
 
         it("el stock es la suma de las ubicaciones y de la mercancía en tránsito") {
-            conApi { pool ->
-                val id = crearProducto("STK0002", "REPARTIDO").cuerpo()["id"]!!.jsonPrimitive.long
-                val (ubicacionId, bodegaId) = CatalogoTestDb.ubicacionDeRecepcion(pool)
-                CatalogoTestDb.insertarStock(pool, id, ubicacionId, bodegaId, "100.000")
-                CatalogoTestDb.ejecutar(
+            withApi { pool ->
+                val id = createProduct("STK0002", "REPARTIDO").body()["id"]!!.jsonPrimitive.long
+                val (locationId, warehouseId) = CatalogTestDb.receivingLocation(pool)
+                CatalogTestDb.insertStock(pool, id, locationId, warehouseId, "100.000")
+                CatalogTestDb.execute(
                     pool,
                     "INSERT INTO warehouses (code, name) VALUES ('SUCURSAL', 'Bodega sucursal')",
                 )
-                val sucursal = CatalogoTestDb.consultarUnLong(
+                val branch = CatalogTestDb.querySingleLong(
                     pool,
                     "SELECT id FROM warehouses WHERE code = 'SUCURSAL'",
                 )
-                CatalogoTestDb.insertarTransito(pool, id, bodegaId, sucursal, "50.000")
+                CatalogTestDb.insertTransit(pool, id, warehouseId, branch, "50.000")
 
-                val detalle = client.get("/v1/products/$id")
+                val detail = client.get("/v1/products/$id")
 
                 withClue("La mercancía en el camión SIGUE contando en el total") {
-                    detalle.bodyAsText() shouldContain "\"stock\":150.000"
+                    detail.bodyAsText() shouldContain "\"stock\":150.000"
                 }
             }
         }
 
         it("el listado incluye los productos inactivos, marcados como tales") {
-            conApi { _ ->
-                val id = crearProducto("INA0001", "DESACTIVADO").cuerpo()["id"]!!.jsonPrimitive.long
+            withApi { _ ->
+                val id = createProduct("INA0001", "DESACTIVADO").body()["id"]!!.jsonPrimitive.long
                 client.delete("/v1/products/$id?reason=obsoleto").status shouldBe HttpStatusCode.NoContent
 
-                val todos = client.get("/v1/products").cuerpo()["items"]!!.jsonArray
-                todos.size shouldBe 1
+                val all = client.get("/v1/products").body()["items"]!!.jsonArray
+                all.size shouldBe 1
 
-                val soloActivos = client.get("/v1/products?active=true").cuerpo()["items"]!!.jsonArray
-                soloActivos.size shouldBe 0
+                val onlyActive = client.get("/v1/products?active=true").body()["items"]!!.jsonArray
+                onlyActive.size shouldBe 0
             }
         }
     }
@@ -401,29 +401,29 @@ class CatalogRoutesTest : DescribeSpec({
     describe("ubicaciones") {
 
         it("crea una ubicación y compone su nombre para mostrar") {
-            conApi { pool ->
-                val bodegaId = CatalogoTestDb.bodegaPrincipal(pool)
+            withApi { pool ->
+                val warehouseId = CatalogTestDb.warehouseMain(pool)
 
-                val respuesta = client.post("/v1/locations") {
+                val response = client.post("/v1/locations") {
                     contentType(ContentType.Application.Json)
-                    setBody("""{"warehouseId":$bodegaId,"hall":"04","code":"b","position":"c","levels":3}""")
+                    setBody("""{"warehouseId":$warehouseId,"hall":"04","code":"b","position":"c","levels":3}""")
                 }
 
-                respuesta.status shouldBe HttpStatusCode.Created
-                val creada = respuesta.cuerpo()
+                response.status shouldBe HttpStatusCode.Created
+                val created = response.body()
                 withClue("Las partes se normalizan a mayúsculas: el esquema lo exige") {
-                    creada["hall"]!!.jsonPrimitive.content shouldBe "04"
-                    creada["code"]!!.jsonPrimitive.content shouldBe "B"
+                    created["hall"]!!.jsonPrimitive.content shouldBe "04"
+                    created["code"]!!.jsonPrimitive.content shouldBe "B"
                 }
-                creada["displayName"]!!.jsonPrimitive.content shouldBe "04-B-C"
-                creada["kind"]!!.jsonPrimitive.content shouldBe "SHELF"
-                creada["warehouseCode"]!!.jsonPrimitive.content shouldBe "PRINCIPAL"
+                created["displayName"]!!.jsonPrimitive.content shouldBe "04-B-C"
+                created["kind"]!!.jsonPrimitive.content shouldBe "SHELF"
+                created["warehouseCode"]!!.jsonPrimitive.content shouldBe "PRINCIPAL"
             }
         }
 
         it("la ubicación de recepción se muestra como RECEPCION, sin repetir la terna") {
-            conApi { _ ->
-                val items = client.get("/v1/locations?kind=RECEIVING").cuerpo()["items"]!!.jsonArray
+            withApi { _ ->
+                val items = client.get("/v1/locations?kind=RECEIVING").body()["items"]!!.jsonArray
 
                 items.size shouldBe 1
                 items.single().jsonObject["displayName"]!!.jsonPrimitive.content shouldBe "RECEPCION"
@@ -431,151 +431,151 @@ class CatalogRoutesTest : DescribeSpec({
         }
 
         it("rechaza la ubicación duplicada con 409 DUPLICATE_LOCATION") {
-            conApi { pool ->
-                val bodegaId = CatalogoTestDb.bodegaPrincipal(pool)
-                val cuerpo = """{"warehouseId":$bodegaId,"hall":"05","code":"A","position":"A"}"""
+            withApi { pool ->
+                val warehouseId = CatalogTestDb.warehouseMain(pool)
+                val body = """{"warehouseId":$warehouseId,"hall":"05","code":"A","position":"A"}"""
 
                 client.post("/v1/locations") {
                     contentType(ContentType.Application.Json)
-                    setBody(cuerpo)
+                    setBody(body)
                 }.status shouldBe HttpStatusCode.Created
 
-                val repetida = client.post("/v1/locations") {
+                val repeated = client.post("/v1/locations") {
                     contentType(ContentType.Application.Json)
-                    setBody(cuerpo)
+                    setBody(body)
                 }
 
-                repetida.status shouldBe HttpStatusCode.Conflict
-                repetida.codigoDeError() shouldBe "DUPLICATE_LOCATION"
+                repeated.status shouldBe HttpStatusCode.Conflict
+                repeated.errorCode() shouldBe "DUPLICATE_LOCATION"
             }
         }
 
         it("rechaza un tipo de ubicación que no existe") {
-            conApi { pool ->
-                val bodegaId = CatalogoTestDb.bodegaPrincipal(pool)
+            withApi { pool ->
+                val warehouseId = CatalogTestDb.warehouseMain(pool)
 
-                val respuesta = client.post("/v1/locations") {
+                val response = client.post("/v1/locations") {
                     contentType(ContentType.Application.Json)
-                    setBody("""{"warehouseId":$bodegaId,"hall":"06","code":"A","position":"A","kind":"PASILLO"}""")
+                    setBody("""{"warehouseId":$warehouseId,"hall":"06","code":"A","position":"A","kind":"PASILLO"}""")
                 }
 
-                respuesta.status shouldBe HttpStatusCode.UnprocessableEntity
-                respuesta.codigoDeError() shouldBe "INVALID_LOCATION_KIND"
+                response.status shouldBe HttpStatusCode.UnprocessableEntity
+                response.errorCode() shouldBe "INVALID_LOCATION_KIND"
             }
         }
 
         it("rechaza una bodega que no existe") {
-            conApi { _ ->
-                val respuesta = client.post("/v1/locations") {
+            withApi { _ ->
+                val response = client.post("/v1/locations") {
                     contentType(ContentType.Application.Json)
                     setBody("""{"warehouseId":987654,"hall":"07","code":"A","position":"A"}""")
                 }
 
-                respuesta.status shouldBe HttpStatusCode.UnprocessableEntity
-                respuesta.codigoDeError() shouldBe "UNKNOWN_WAREHOUSE"
+                response.status shouldBe HttpStatusCode.UnprocessableEntity
+                response.errorCode() shouldBe "UNKNOWN_WAREHOUSE"
             }
         }
 
         it("actualiza los niveles y vuelve a activar con PUT") {
-            conApi { pool ->
-                val bodegaId = CatalogoTestDb.bodegaPrincipal(pool)
+            withApi { pool ->
+                val warehouseId = CatalogTestDb.warehouseMain(pool)
                 val id = client.post("/v1/locations") {
                     contentType(ContentType.Application.Json)
-                    setBody("""{"warehouseId":$bodegaId,"hall":"08","code":"A","position":"A"}""")
-                }.cuerpo()["id"]!!.jsonPrimitive.long
+                    setBody("""{"warehouseId":$warehouseId,"hall":"08","code":"A","position":"A"}""")
+                }.body()["id"]!!.jsonPrimitive.long
 
-                val respuesta = client.put("/v1/locations/$id") {
+                val response = client.put("/v1/locations/$id") {
                     contentType(ContentType.Application.Json)
                     setBody("""{"levels":7,"kind":"RECEIVING","active":false}""")
                 }
 
-                respuesta.status shouldBe HttpStatusCode.OK
-                respuesta.cuerpo()["levels"]!!.jsonPrimitive.int shouldBe 7
-                respuesta.cuerpo()["kind"]!!.jsonPrimitive.content shouldBe "RECEIVING"
-                respuesta.cuerpo()["active"]!!.jsonPrimitive.content.toBoolean() shouldBe false
+                response.status shouldBe HttpStatusCode.OK
+                response.body()["levels"]!!.jsonPrimitive.int shouldBe 7
+                response.body()["kind"]!!.jsonPrimitive.content shouldBe "RECEIVING"
+                response.body()["active"]!!.jsonPrimitive.content.toBoolean() shouldBe false
             }
         }
 
         it("no permite mover una ubicación de bodega") {
-            conApi { pool ->
-                val bodegaId = CatalogoTestDb.bodegaPrincipal(pool)
+            withApi { pool ->
+                val warehouseId = CatalogTestDb.warehouseMain(pool)
                 val id = client.post("/v1/locations") {
                     contentType(ContentType.Application.Json)
-                    setBody("""{"warehouseId":$bodegaId,"hall":"09","code":"A","position":"A"}""")
-                }.cuerpo()["id"]!!.jsonPrimitive.long
+                    setBody("""{"warehouseId":$warehouseId,"hall":"09","code":"A","position":"A"}""")
+                }.body()["id"]!!.jsonPrimitive.long
 
-                val respuesta = client.put("/v1/locations/$id") {
+                val response = client.put("/v1/locations/$id") {
                     contentType(ContentType.Application.Json)
-                    setBody("""{"warehouseId":${bodegaId + 1},"levels":2}""")
+                    setBody("""{"warehouseId":${warehouseId + 1},"levels":2}""")
                 }
 
-                respuesta.status shouldBe HttpStatusCode.UnprocessableEntity
-                respuesta.codigoDeError() shouldBe "WAREHOUSE_IMMUTABLE"
+                response.status shouldBe HttpStatusCode.UnprocessableEntity
+                response.errorCode() shouldBe "WAREHOUSE_IMMUTABLE"
             }
         }
 
         it("desactiva una ubicación vacía") {
-            conApi { pool ->
-                val bodegaId = CatalogoTestDb.bodegaPrincipal(pool)
+            withApi { pool ->
+                val warehouseId = CatalogTestDb.warehouseMain(pool)
                 val id = client.post("/v1/locations") {
                     contentType(ContentType.Application.Json)
-                    setBody("""{"warehouseId":$bodegaId,"hall":"10","code":"A","position":"A"}""")
-                }.cuerpo()["id"]!!.jsonPrimitive.long
+                    setBody("""{"warehouseId":$warehouseId,"hall":"10","code":"A","position":"A"}""")
+                }.body()["id"]!!.jsonPrimitive.long
 
                 client.delete("/v1/locations/$id?reason=pasillo reubicado")
                     .status shouldBe HttpStatusCode.NoContent
 
-                client.get("/v1/locations/$id").cuerpo()["active"]!!.jsonPrimitive.content
+                client.get("/v1/locations/$id").body()["active"]!!.jsonPrimitive.content
                     .toBoolean() shouldBe false
             }
         }
 
         it("una ubicación con existencias no se desactiva: 409 LOCATION_HAS_STOCK") {
-            conApi { pool ->
-                val bodegaId = CatalogoTestDb.bodegaPrincipal(pool)
+            withApi { pool ->
+                val warehouseId = CatalogTestDb.warehouseMain(pool)
                 val id = client.post("/v1/locations") {
                     contentType(ContentType.Application.Json)
-                    setBody("""{"warehouseId":$bodegaId,"hall":"11","code":"A","position":"A"}""")
-                }.cuerpo()["id"]!!.jsonPrimitive.long
+                    setBody("""{"warehouseId":$warehouseId,"hall":"11","code":"A","position":"A"}""")
+                }.body()["id"]!!.jsonPrimitive.long
 
-                CatalogoTestDb.insertarProducto(pool, "UBI0001", "PRODUCTO EN EL ESTANTE")
-                val productoId = CatalogoTestDb.idDeProducto(pool, "UBI0001")
-                CatalogoTestDb.insertarStock(pool, productoId, id, bodegaId, "3.000")
+                CatalogTestDb.insertProduct(pool, "UBI0001", "PRODUCTO EN EL ESTANTE")
+                val productId = CatalogTestDb.productId(pool, "UBI0001")
+                CatalogTestDb.insertStock(pool, productId, id, warehouseId, "3.000")
 
-                val respuesta = client.delete("/v1/locations/$id?reason=vacia")
+                val response = client.delete("/v1/locations/$id?reason=vacia")
 
-                respuesta.status shouldBe HttpStatusCode.Conflict
-                respuesta.codigoDeError() shouldBe "LOCATION_HAS_STOCK"
+                response.status shouldBe HttpStatusCode.Conflict
+                response.errorCode() shouldBe "LOCATION_HAS_STOCK"
             }
         }
 
         it("la ubicación de recepción está protegida: sin ella la recepción no tiene destino") {
-            conApi { pool ->
-                val (recepcionId, _) = CatalogoTestDb.ubicacionDeRecepcion(pool)
+            withApi { pool ->
+                val (receivingId, _) = CatalogTestDb.receivingLocation(pool)
 
-                val respuesta = client.delete("/v1/locations/$recepcionId?reason=estorbaba")
+                val response = client.delete("/v1/locations/$receivingId?reason=estorbaba")
 
-                respuesta.status shouldBe HttpStatusCode.Conflict
-                respuesta.codigoDeError() shouldBe "RECEIVING_LOCATION_PROTECTED"
+                response.status shouldBe HttpStatusCode.Conflict
+                response.errorCode() shouldBe "RECEIVING_LOCATION_PROTECTED"
             }
         }
 
         it("filtra las ubicaciones por bodega") {
-            conApi { pool ->
-                val bodegaId = CatalogoTestDb.bodegaPrincipal(pool)
+            withApi { pool ->
+                val warehouseId = CatalogTestDb.warehouseMain(pool)
                 client.post("/v1/locations") {
                     contentType(ContentType.Application.Json)
-                    setBody("""{"warehouseId":$bodegaId,"hall":"12","code":"A","position":"A"}""")
+                    setBody("""{"warehouseId":$warehouseId,"hall":"12","code":"A","position":"A"}""")
                 }.status shouldBe HttpStatusCode.Created
 
-                val deLaPrincipal = client.get("/v1/locations?warehouseId=$bodegaId")
-                    .cuerpo()["totalItems"]!!.jsonPrimitive.long
+                val fromMain = client.get("/v1/locations?warehouseId=$warehouseId")
+                    .body()["totalItems"]!!.jsonPrimitive.long
 
-                withClue("La recepción sembrada más la creada") { deLaPrincipal shouldBe 2L }
+                withClue("La recepción sembrada más la creada") { fromMain shouldBe 2L }
 
-                val deOtra = client.get("/v1/locations?warehouseId=987654")
-                    .cuerpo()["totalItems"]!!.jsonPrimitive.long
-                deOtra shouldBe 0L
+                val fromOther = client.get("/v1/locations?warehouseId=987654")
+                    .body()["totalItems"]!!.jsonPrimitive.long
+                fromOther shouldBe 0L
             }
         }
     }
@@ -584,11 +584,11 @@ class CatalogRoutesTest : DescribeSpec({
     describe("bodegas") {
 
         it("lista la bodega sembrada por la migración") {
-            conApi { _ ->
-                val respuesta = client.get("/v1/warehouses")
+            withApi { _ ->
+                val response = client.get("/v1/warehouses")
 
-                respuesta.status shouldBe HttpStatusCode.OK
-                val items = respuesta.cuerpo()["items"]!!.jsonArray
+                response.status shouldBe HttpStatusCode.OK
+                val items = response.body()["items"]!!.jsonArray
                 items.size shouldBe 1
                 items.single().jsonObject["code"]!!.jsonPrimitive.content shouldBe "PRINCIPAL"
                 items.single().jsonObject["isDefault"]!!.jsonPrimitive.content.toBoolean() shouldBe true
@@ -596,15 +596,15 @@ class CatalogRoutesTest : DescribeSpec({
         }
 
         it("devuelve TODAS las bodegas y sin sobre de paginación (§1.4)") {
-            conApi { pool ->
-                CatalogoTestDb.ejecutar(
+            withApi { pool ->
+                CatalogTestDb.execute(
                     pool,
                     "INSERT INTO warehouses (code, name) VALUES ('SUCURSAL', 'Bodega sucursal')",
                 )
 
-                val respuesta = client.get("/v1/warehouses?page=0&size=1")
-                val cuerpo = respuesta.cuerpo()
-                val items = cuerpo["items"]!!.jsonArray
+                val response = client.get("/v1/warehouses?page=0&size=1")
+                val body = response.body()
+                val items = body["items"]!!.jsonArray
 
                 withClue(
                     "Es un catálogo cerrado y diminuto que la interfaz necesita COMPLETO " +
@@ -614,9 +614,9 @@ class CatalogRoutesTest : DescribeSpec({
                     items.size shouldBe 2
                 }
                 withClue("El sobre de paginación se omite a propósito, no se rellena") {
-                    cuerpo.containsKey("page") shouldBe false
-                    cuerpo.containsKey("totalItems") shouldBe false
-                    cuerpo.containsKey("totalPages") shouldBe false
+                    body.containsKey("page") shouldBe false
+                    body.containsKey("totalItems") shouldBe false
+                    body.containsKey("totalPages") shouldBe false
                 }
                 withClue("El orden es estable por código, aunque no se pida sort") {
                     items.map { it.jsonObject["code"]!!.jsonPrimitive.content } shouldBe
@@ -626,15 +626,15 @@ class CatalogRoutesTest : DescribeSpec({
         }
 
         it("filtra por nombre y por estado con parámetros opcionales") {
-            conApi { pool ->
-                CatalogoTestDb.ejecutar(
+            withApi { pool ->
+                CatalogTestDb.execute(
                     pool,
                     "INSERT INTO warehouses (code, name, active) VALUES ('VIEJA', 'Bodega vieja', false)",
                 )
 
-                client.get("/v1/warehouses?q=vieja").cuerpo()["items"]!!.jsonArray.size shouldBe 1
-                client.get("/v1/warehouses?active=true").cuerpo()["items"]!!.jsonArray.size shouldBe 1
-                client.get("/v1/warehouses?q=inexistente").cuerpo()["items"]!!.jsonArray.size shouldBe 0
+                client.get("/v1/warehouses?q=vieja").body()["items"]!!.jsonArray.size shouldBe 1
+                client.get("/v1/warehouses?active=true").body()["items"]!!.jsonArray.size shouldBe 1
+                client.get("/v1/warehouses?q=inexistente").body()["items"]!!.jsonArray.size shouldBe 0
             }
         }
     }
@@ -643,80 +643,80 @@ class CatalogRoutesTest : DescribeSpec({
     describe("control de acceso (§11)") {
 
         it("la implementación por defecto deniega todo con 401, no con 403") {
-            if (!hayBase) return@it
-            CatalogoTestDb.conPool(nombreBase) { pool ->
+            if (!thereIsBase) return@it
+            CatalogTestDb.withPool(nameBase) { pool ->
                 testApplication {
                     // Sin verificador explícito: el de por defecto.
-                    montar(pool, dev.axzy.stock.backend.security.DenyAllPermissionChecker)
+                    build(pool, dev.axzy.stock.backend.security.DenyAllPermissionChecker)
 
-                    val respuesta = client.get("/v1/products")
+                    val response = client.get("/v1/products")
 
                     withClue(
                         "Sin identidad conectada la verdad es que no hay identidad, y el " +
                             "cliente debe iniciar sesión; un 403 haría que pidiera un permiso " +
                             "que no le falta"
                     ) {
-                        respuesta.status shouldBe HttpStatusCode.Unauthorized
-                        respuesta.codigoDeError() shouldBe "UNAUTHENTICATED"
+                        response.status shouldBe HttpStatusCode.Unauthorized
+                        response.errorCode() shouldBe "UNAUTHENTICATED"
                     }
                 }
             }
         }
 
         it("un permiso que falta se responde con 403 y el código del motivo") {
-            val sinPermiso = object : PermissionChecker {
-                override suspend fun comprobar(
+            val withoutPermission = object : PermissionChecker {
+                override suspend fun check(
                     call: io.ktor.server.application.ApplicationCall,
-                    permiso: String,
-                ): PermissionDecision = PermissionDecision.Denegado(
+                    permission: String,
+                ): PermissionDecision = PermissionDecision.Denied(
                     code = "PERMISSION_DENIED",
-                    message = "Falta el permiso '$permiso'.",
+                    message = "Falta el permiso '$permission'.",
                 )
             }
 
-            conApi(sinPermiso) { _ ->
-                val respuesta = client.get("/v1/warehouses")
+            withApi(withoutPermission) { _ ->
+                val response = client.get("/v1/warehouses")
 
-                respuesta.status shouldBe HttpStatusCode.Forbidden
+                response.status shouldBe HttpStatusCode.Forbidden
                 withClue("El código distingue «no tienes el permiso» de «no alcanzas el recurso»") {
-                    respuesta.codigoDeError() shouldBe "PERMISSION_DENIED"
+                    response.errorCode() shouldBe "PERMISSION_DENIED"
                 }
             }
         }
 
         it("una denegación por alcance conserva su código propio") {
-            val sinAlcance = object : PermissionChecker {
-                override suspend fun comprobar(
+            val withoutScope = object : PermissionChecker {
+                override suspend fun check(
                     call: io.ktor.server.application.ApplicationCall,
-                    permiso: String,
-                ): PermissionDecision = PermissionDecision.Denegado(
+                    permission: String,
+                ): PermissionDecision = PermissionDecision.Denied(
                     code = "SCOPE_INSUFFICIENT",
-                    message = "El permiso '$permiso' no alcanza esta bodega.",
+                    message = "El permiso '$permission' no alcanza esta bodega.",
                 )
             }
 
-            conApi(sinAlcance) { _ ->
-                val respuesta = client.get("/v1/products")
+            withApi(withoutScope) { _ ->
+                val response = client.get("/v1/products")
 
-                respuesta.status shouldBe HttpStatusCode.Forbidden
-                respuesta.codigoDeError() shouldBe "SCOPE_INSUFFICIENT"
+                response.status shouldBe HttpStatusCode.Forbidden
+                response.errorCode() shouldBe "SCOPE_INSUFFICIENT"
             }
         }
 
         it("para crear exige product.create y para borrar product.delete") {
-            val permisosPedidos = mutableListOf<String>()
-            val registrador = object : PermissionChecker {
-                override suspend fun comprobar(
+            val permissionsRequests = mutableListOf<String>()
+            val logger = object : PermissionChecker {
+                override suspend fun check(
                     call: io.ktor.server.application.ApplicationCall,
-                    permiso: String,
+                    permission: String,
                 ): PermissionDecision {
-                    permisosPedidos += permiso
-                    return PermissionDecision.Permitido
+                    permissionsRequests += permission
+                    return PermissionDecision.Permitted
                 }
             }
 
-            conApi(registrador) { _ ->
-                val id = crearProducto("PRM0001", "PRODUCTO").cuerpo()["id"]!!.jsonPrimitive.long
+            withApi(logger) { _ ->
+                val id = createProduct("PRM0001", "PRODUCTO").body()["id"]!!.jsonPrimitive.long
                 client.put("/v1/products/$id") {
                     contentType(ContentType.Application.Json)
                     setBody("""{"name":"OTRO","unitMeasure":"PZA"}""")
@@ -726,7 +726,7 @@ class CatalogRoutesTest : DescribeSpec({
                 client.get("/v1/warehouses")
             }
 
-            permisosPedidos shouldBe listOf(
+            permissionsRequests shouldBe listOf(
                 "product.create",
                 "product.edit",
                 "product.delete",

@@ -36,9 +36,9 @@ object StockPolicies {
      */
     const val CURRENT_USER_MARKER = "__CURRENT_USER__"
 
-    private val OPERADOR = BaseRole.WAREHOUSE_OPERATOR.key
-    private val JEFE = BaseRole.WAREHOUSE_MANAGER.key
-    private val GERENTE = BaseRole.OPERATIONS_MANAGER.key
+    private val OPERATOR = BaseRole.WAREHOUSE_OPERATOR.key
+    private val WAREHOUSE_MANAGER = BaseRole.WAREHOUSE_MANAGER.key
+    private val OPERATIONS_MANAGER = BaseRole.OPERATIONS_MANAGER.key
     private val ADMIN = BaseRole.ADMIN.key
 
     /** Todas las políticas, tal como se sembrarían en la base de datos. */
@@ -57,7 +57,7 @@ object StockPolicies {
             effect = PolicyEffect.DENY,
             priority = 100,
             protected = true,
-            roles = setOf(JEFE, GERENTE),
+            roles = setOf(WAREHOUSE_MANAGER, OPERATIONS_MANAGER),
             conditions = listOf(
                 PolicyCondition("resource.capturedBy", PolicyOperator.EQUALS, CURRENT_USER_MARKER),
             ),
@@ -75,7 +75,7 @@ object StockPolicies {
             action = "invoice.approve",
             effect = PolicyEffect.ALLOW,
             priority = 10,
-            roles = setOf(JEFE),
+            roles = setOf(WAREHOUSE_MANAGER),
         ),
         Policy(
             id = 3,
@@ -84,7 +84,7 @@ object StockPolicies {
             action = "invoice.approve",
             effect = PolicyEffect.ALLOW,
             priority = 10,
-            roles = setOf(GERENTE),
+            roles = setOf(OPERATIONS_MANAGER),
         ),
 
         // ═════════════════════════════════════════════════════════════════════
@@ -100,7 +100,7 @@ object StockPolicies {
             effect = PolicyEffect.ALLOW,
             priority = 20,
             protected = true,
-            roles = setOf(GERENTE, ADMIN),
+            roles = setOf(OPERATIONS_MANAGER, ADMIN),
         ),
         Policy(
             id = 5,
@@ -110,7 +110,7 @@ object StockPolicies {
             action = "inventory.adjust_shortage",
             effect = PolicyEffect.ALLOW,
             priority = 20,
-            roles = setOf(JEFE),
+            roles = setOf(WAREHOUSE_MANAGER),
             conditions = listOf(
                 PolicyCondition("context.hour", PolicyOperator.GREATER_OR_EQUAL, 8L),
                 PolicyCondition("context.hour", PolicyOperator.LESS_THAN, 18L),
@@ -123,7 +123,7 @@ object StockPolicies {
             action = "inventory.adjust_damage",
             effect = PolicyEffect.ALLOW,
             priority = 20,
-            roles = setOf(JEFE),
+            roles = setOf(WAREHOUSE_MANAGER),
             conditions = listOf(
                 PolicyCondition("context.hour", PolicyOperator.GREATER_OR_EQUAL, 8L),
                 PolicyCondition("context.hour", PolicyOperator.LESS_THAN, 18L),
@@ -137,7 +137,7 @@ object StockPolicies {
             action = "inventory.adjust_shortage",
             effect = PolicyEffect.DENY,
             priority = 30,
-            roles = setOf(JEFE),
+            roles = setOf(WAREHOUSE_MANAGER),
             conditions = listOf(
                 PolicyCondition("context.weekday", PolicyOperator.IN, listOf(0L, 6L)),
             ),
@@ -150,7 +150,7 @@ object StockPolicies {
             action = "inventory.adjust_count_error",
             effect = PolicyEffect.ALLOW,
             priority = 10,
-            roles = setOf(JEFE),
+            roles = setOf(WAREHOUSE_MANAGER),
         ),
 
         // ═════════════════════════════════════════════════════════════════════
@@ -165,7 +165,7 @@ object StockPolicies {
             action = "inventory.move",
             effect = PolicyEffect.DENY,
             priority = 30,
-            roles = setOf(OPERADOR),
+            roles = setOf(OPERATOR),
             conditions = listOf(
                 PolicyCondition("resource.unitCost", PolicyOperator.GREATER_THAN, 5_000L),
             ),
@@ -184,7 +184,7 @@ object StockPolicies {
             action = "invoice.locate",
             effect = PolicyEffect.ALLOW,
             priority = 20,
-            roles = setOf(OPERADOR),
+            roles = setOf(OPERATOR),
             conditions = listOf(
                 PolicyCondition("resource.locationKind", PolicyOperator.EQUALS, "RECEIVING"),
             ),
@@ -202,7 +202,7 @@ object StockPolicies {
             action = "transfer.dispatch",
             effect = PolicyEffect.ALLOW,
             priority = 20,
-            roles = setOf(JEFE, GERENTE),
+            roles = setOf(WAREHOUSE_MANAGER, OPERATIONS_MANAGER),
         ),
 
         // ═════════════════════════════════════════════════════════════════════

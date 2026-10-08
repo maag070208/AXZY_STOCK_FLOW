@@ -1,28 +1,28 @@
 package dev.axzy.stock.backend.catalog
 
-import dev.axzy.stock.backend.catalog.CambiosProducto
-import dev.axzy.stock.backend.catalog.CambiosUbicacion
-import dev.axzy.stock.backend.catalog.CantidadJson
+import dev.axzy.stock.backend.catalog.ProductChanges
+import dev.axzy.stock.backend.catalog.ChangesLocation
+import dev.axzy.stock.backend.catalog.JsonQuantity
 import dev.axzy.stock.backend.catalog.CatalogImportService
 import dev.axzy.stock.backend.catalog.ImportReportResponse
 import dev.axzy.stock.backend.catalog.LocationCreateRequest
 import dev.axzy.stock.backend.catalog.LocationRepository
 import dev.axzy.stock.backend.catalog.LocationUpdateRequest
-import dev.axzy.stock.backend.catalog.MotivoDeBorradoRequest
-import dev.axzy.stock.backend.catalog.NuevaUbicacion
-import dev.axzy.stock.backend.catalog.NuevoProducto
+import dev.axzy.stock.backend.catalog.DeleteReasonRequest
+import dev.axzy.stock.backend.catalog.NewLocation
+import dev.axzy.stock.backend.catalog.NewProduct
 import dev.axzy.stock.backend.catalog.PageRequest
 import dev.axzy.stock.backend.catalog.ProductCreateRequest
 import dev.axzy.stock.backend.catalog.ProductRepository
 import dev.axzy.stock.backend.catalog.ProductResponse
 import dev.axzy.stock.backend.catalog.ProductUpdateRequest
-import dev.axzy.stock.backend.catalog.TipoDeUbicacion
+import dev.axzy.stock.backend.catalog.LocationKind
 import dev.axzy.stock.backend.catalog.UnitOfMeasureRepository
 import dev.axzy.stock.backend.catalog.WarehouseListResponse
 import dev.axzy.stock.backend.catalog.WarehouseRepository
 import dev.axzy.stock.backend.catalog.aDto
-import dev.axzy.stock.backend.catalog.aRespuesta
-import dev.axzy.stock.backend.catalog.traduciendoErroresDeBase
+import dev.axzy.stock.backend.catalog.aResponse
+import dev.axzy.stock.backend.catalog.translatingDbErrors
 import dev.axzy.stock.backend.config.logger
 import dev.axzy.stock.backend.error.BadRequestException
 import dev.axzy.stock.backend.error.ConflictException
@@ -88,148 +88,148 @@ fun Route.catalogRoutes(
     // conexiones: envuelve el pool, y cada transacción toma la suya.
     val db = org.jetbrains.exposed.sql.Database.connect(dataSource)
 
-    val productos = ProductRepository(db)
-    val ubicaciones = LocationRepository(db)
-    val bodegas = WarehouseRepository(db)
-    val unidades = UnitOfMeasureRepository(db)
-    val importacion = CatalogImportService(db, productos, unidades)
+    val products = ProductRepository(db)
+    val locations = LocationRepository(db)
+    val warehouses = WarehouseRepository(db)
+    val units = UnitOfMeasureRepository(db)
+    val importService = CatalogImportService(db, products, units)
 
-    rutasDeProductos(productos, unidades, importacion, permissionChecker)
-    rutasDeUbicaciones(ubicaciones, bodegas, permissionChecker)
-    rutasDeBodegas(bodegas, permissionChecker)
+    productRoutes(products, units, importService, permissionChecker)
+    locationRoutes(locations, warehouses, permissionChecker)
+    warehouseRoutes(warehouses, permissionChecker)
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
 // PRODUCTOS
 // ═════════════════════════════════════════════════════════════════════════════
 
-private fun Route.rutasDeProductos(
-    productos: ProductRepository,
-    unidades: UnitOfMeasureRepository,
-    importacion: CatalogImportService,
-    verificador: PermissionChecker,
+private fun Route.productRoutes(
+    products: ProductRepository,
+    units: UnitOfMeasureRepository,
+    importService: CatalogImportService,
+    verifier: PermissionChecker,
 ) = route("/v1/products") {
 
     get {
-        call.exigirPermiso(verificador, "product.view")
+        call.requirePermission(verifier, "product.view")
 
-        val pagina = call.pagina(ProductRepository.CAMPOS_ORDENABLES, ProductRepository.ORDEN_POR_DEFECTO)
-        val busqueda = call.request.queryParameters["q"]
-        val activo = call.filtroBooleano("active")
+        val page = call.page(ProductRepository.SORTABLE_FIELDS, ProductRepository.DEFAULT_ORDER)
+        val search = call.request.queryParameters["q"]
+        val active = call.filterBoolean("active")
 
-        val resultado = productos.listar(pagina, busqueda, activo)
-        call.respond(HttpStatusCode.OK, resultado.aRespuesta { it.aDto() })
+        val result = products.list(page, search, active)
+        call.respond(HttpStatusCode.OK, result.aResponse { it.aDto() })
     }
 
     post {
-        call.exigirPermiso(verificador, "product.create")
+        call.requirePermission(verifier, "product.create")
 
-        val peticion = call.receive<ProductCreateRequest>()
-        val codigo = codigoDeProducto(peticion.productCode)
-        val nombre = textoObligatorio(peticion.name, "name", 120)
-        val unidad = unidades.porCodigo(peticion.unitMeasure)
-            ?: throw unidadDesconocida(peticion.unitMeasure)
+        val request = call.receive<ProductCreateRequest>()
+        val code = productCode(request.productCode)
+        val name = textRequired(request.name, "name", 120)
+        val unit = units.byCode(request.unitMeasure)
+            ?: throw unitUnknown(request.unitMeasure)
 
         // El prechequeo da el 409 legible en el caso normal; la garantía la
         // tiene el índice único de la base, que es el que no tiene carrera.
-        if (productos.existeCodigo(codigo)) {
+        if (products.existsCode(code)) {
             throw ConflictException(
                 code = "DUPLICATE_PRODUCT_CODE",
-                message = "Ya existe un producto con el código '$codigo'.",
+                message = "Ya existe un producto con el código '$code'.",
             )
         }
 
-        val creado = traduciendoErroresDeBase {
-            productos.crear(
-                datos = NuevoProducto(
-                    codigo = codigo,
-                    nombre = nombre,
-                    descripcion = peticion.description?.trim()?.takeIf { it.isNotEmpty() },
-                    codigoUnidadMedida = unidad.code,
+        val created = translatingDbErrors {
+            products.create(
+                data = NewProduct(
+                    code = code,
+                    name = name,
+                    description = request.description?.trim()?.takeIf { it.isNotEmpty() },
+                    unitMeasureCode = unit.code,
                 ),
-                unidadDeMedidaId = unidad.id,
+                unitOfMeasureId = unit.id,
             )
         }
 
-        call.respond(HttpStatusCode.Created, creado.aDto())
+        call.respond(HttpStatusCode.Created, created.aDto())
     }
 
     // La ruta constante va antes que la de parámetro. Ktor resuelve por
     // prioridad, pero declararla primero deja claro que `/import` no es un id.
     post("/import") {
-        call.exigirPermiso(verificador, "product.import")
+        call.requirePermission(verifier, "product.import")
 
-        val (contenido, dryRun) = call.leerArchivoDeImport()
-        val informe: ImportReportResponse = importacion.importar(contenido, dryRun)
+        val (content, dryRun) = call.readImportFile()
+        val report: ImportReportResponse = importService.importCatalog(content, dryRun)
 
         // 200 también en el import real: el cuerpo es el informe, y el informe
         // de una simulación y el de una carga difieren en `dryRun` y `persisted`.
-        call.respond(HttpStatusCode.OK, informe)
+        call.respond(HttpStatusCode.OK, report)
     }
 
     get("/{id}") {
-        call.exigirPermiso(verificador, "product.view")
+        call.requirePermission(verifier, "product.view")
 
-        val id = call.idDeRuta()
-        val producto = productos.porId(id) ?: throw noExisteProducto(id)
-        call.respond(HttpStatusCode.OK, producto.aDto())
+        val id = call.routeId()
+        val product = products.byId(id) ?: throw productNotFound(id)
+        call.respond(HttpStatusCode.OK, product.aDto())
     }
 
     put("/{id}") {
-        call.exigirPermiso(verificador, "product.edit")
+        call.requirePermission(verifier, "product.edit")
 
-        val id = call.idDeRuta()
-        val actual = productos.porId(id) ?: throw noExisteProducto(id)
-        val peticion = call.receive<ProductUpdateRequest>()
+        val id = call.routeId()
+        val current = products.byId(id) ?: throw productNotFound(id)
+        val request = call.receive<ProductUpdateRequest>()
 
         // Tolerar el código igual permite el ida y vuelta de un cliente que
         // recibe el objeto del GET y lo devuelve modificado. Cambiarlo se
         // rechaza: está impreso en las etiquetas y en los estantes.
-        peticion.productCode?.let { enviado ->
-            if (enviado != actual.productCode) {
+        request.productCode?.let { sent ->
+            if (sent != current.productCode) {
                 throw UnprocessableException(
                     code = "PRODUCT_CODE_IMMUTABLE",
-                    message = "El código de producto no se puede cambiar ('${actual.productCode}' → " +
-                        "'$enviado'): es el código de barras impreso en las etiquetas y en los " +
+                    message = "El código de producto no se puede cambiar ('${current.productCode}' → " +
+                        "'$sent'): es el código de barras impreso en las etiquetas y en los " +
                         "estantes, y cambiarlo obliga a reetiquetar el almacén. Existe una acción " +
                         "específica para reasignar códigos.",
-                    details = mapOf("productCode" to enviado),
+                    details = mapOf("productCode" to sent),
                 )
             }
         }
 
-        val nombre = textoObligatorio(peticion.name, "name", 120)
-        val unidad = unidades.porCodigo(peticion.unitMeasure)
-            ?: throw unidadDesconocida(peticion.unitMeasure)
+        val name = textRequired(request.name, "name", 120)
+        val unit = units.byCode(request.unitMeasure)
+            ?: throw unitUnknown(request.unitMeasure)
 
-        val actualizado = productos.actualizar(
+        val updated = products.update(
             id = id,
-            cambios = CambiosProducto(
-                nombre = nombre,
+            changes = ProductChanges(
+                name = name,
                 // En un PUT el cuerpo reemplaza al recurso: si no viene
                 // descripción, se guarda sin descripción. Es la única forma de
                 // borrarla, y omitirla no puede significar «déjala como está»
                 // sin inventar un campo nuevo en el contrato.
-                descripcion = peticion.description?.trim()?.takeIf { it.isNotEmpty() },
-                unidadDeMedida = unidad.code,
+                description = request.description?.trim()?.takeIf { it.isNotEmpty() },
+                unitOfMeasure = unit.code,
             ),
-            unidadDeMedidaId = unidad.id,
-        ) ?: throw noExisteProducto(id)
+            unitOfMeasureId = unit.id,
+        ) ?: throw productNotFound(id)
 
-        call.respond(HttpStatusCode.OK, actualizado.aDto())
+        call.respond(HttpStatusCode.OK, updated.aDto())
     }
 
     delete("/{id}") {
-        call.exigirPermiso(verificador, "product.delete")
+        call.requirePermission(verifier, "product.delete")
 
-        val id = call.idDeRuta()
+        val id = call.routeId()
         // El motivo se exige ANTES de mirar el producto: es un requisito de la
         // petición, no del recurso, y el contrato lo pide siempre.
-        val motivo = call.motivoObligatorio()
+        val reason = call.reasonRequired()
 
-        val producto = productos.porId(id) ?: throw noExisteProducto(id)
+        val product = products.byId(id) ?: throw productNotFound(id)
 
-        if (!producto.active) {
+        if (!product.active) {
             throw ConflictException(
                 code = "PRODUCT_ALREADY_INACTIVE",
                 message = "El producto '$id' ya estaba desactivado. Volver a desactivarlo " +
@@ -240,16 +240,16 @@ private fun Route.rutasDeProductos(
         // Un producto con existencias no se desactiva: el stock quedaría en un
         // producto invisible para el listado y el descuadre aparecería en el
         // siguiente conteo. Primero se ajusta a cero (con motivo) o se traslada.
-        if (producto.stock.signum() != 0) {
+        if (product.stock.signum() != 0) {
             throw ConflictException(
                 code = "PRODUCT_HAS_STOCK",
-                message = "El producto '${producto.productCode}' tiene existencias y no se " +
+                message = "El producto '${product.productCode}' tiene existencias y no se " +
                     "puede desactivar. Ajusta o traslada el stock primero.",
-                details = mapOf("stock" to CantidadJson.deDecimal(producto.stock).comoTexto()),
+                details = mapOf("stock" to JsonQuantity.fromDecimal(product.stock).asText()),
             )
         }
 
-        if (!productos.desactivar(id)) {
+        if (!products.disable(id)) {
             // Carrera: otra petición lo desactivó entre la lectura y el UPDATE.
             throw ConflictException(
                 code = "PRODUCT_ALREADY_INACTIVE",
@@ -263,8 +263,8 @@ private fun Route.rutasDeProductos(
         logger.info(
             "Producto {} ({}) desactivado. Motivo declarado: {}",
             id,
-            producto.productCode,
-            motivo,
+            product.productCode,
+            reason,
         )
 
         call.respond(HttpStatusCode.NoContent)
@@ -275,147 +275,147 @@ private fun Route.rutasDeProductos(
 // UBICACIONES
 // ═════════════════════════════════════════════════════════════════════════════
 
-private fun Route.rutasDeUbicaciones(
-    ubicaciones: LocationRepository,
-    bodegas: WarehouseRepository,
-    verificador: PermissionChecker,
+private fun Route.locationRoutes(
+    locations: LocationRepository,
+    warehouses: WarehouseRepository,
+    verifier: PermissionChecker,
 ) = route("/v1/locations") {
 
     get {
-        call.exigirPermiso(verificador, "location.view")
+        call.requirePermission(verifier, "location.view")
 
-        val pagina = call.pagina(LocationRepository.CAMPOS_ORDENABLES, LocationRepository.ORDEN_POR_DEFECTO)
-        val busqueda = call.request.queryParameters["q"]
-        val bodegaId = call.parametroLong("warehouseId")
-        val tipo = call.request.queryParameters["kind"]?.let(::tipoDeUbicacion)
-        val activo = call.filtroBooleano("active")
+        val page = call.page(LocationRepository.SORTABLE_FIELDS, LocationRepository.DEFAULT_ORDER)
+        val search = call.request.queryParameters["q"]
+        val warehouseId = call.parameterLong("warehouseId")
+        val type = call.request.queryParameters["kind"]?.let(::parseLocationKind)
+        val active = call.filterBoolean("active")
 
-        val resultado = ubicaciones.listar(pagina, busqueda, bodegaId, tipo?.name, activo)
-        call.respond(HttpStatusCode.OK, resultado.aRespuesta { it.aDto() })
+        val result = locations.list(page, search, warehouseId, type?.name, active)
+        call.respond(HttpStatusCode.OK, result.aResponse { it.aDto() })
     }
 
     post {
-        call.exigirPermiso(verificador, "location.create")
+        call.requirePermission(verifier, "location.create")
 
-        val peticion = call.receive<LocationCreateRequest>()
-        val bodega = bodegas.porId(peticion.warehouseId)
+        val request = call.receive<LocationCreateRequest>()
+        val warehouse = warehouses.byId(request.warehouseId)
             ?: throw UnprocessableException(
                 code = "UNKNOWN_WAREHOUSE",
-                message = "La bodega ${peticion.warehouseId} no existe.",
-                details = mapOf("warehouseId" to peticion.warehouseId.toString()),
+                message = "La bodega ${request.warehouseId} no existe.",
+                details = mapOf("warehouseId" to request.warehouseId.toString()),
             )
 
-        val hall = parteDeUbicacion(peticion.hall, "hall")
-        val codigo = parteDeUbicacion(peticion.code, "code")
-        val posicion = parteDeUbicacion(peticion.position, "position")
-        val niveles = nivelesDeUbicacion(peticion.levels)
-        val tipo = peticion.kind?.let(::tipoDeUbicacion) ?: TipoDeUbicacion.SHELF
+        val hall = locationPart(request.hall, "hall")
+        val code = locationPart(request.code, "code")
+        val position = locationPart(request.position, "position")
+        val levels = locationLevels(request.levels)
+        val type = request.kind?.let(::parseLocationKind) ?: LocationKind.SHELF
 
-        if (ubicaciones.existeTerna(bodega.id, hall, codigo, posicion, null)) {
-            throw ubicacionDuplicada(hall, codigo, posicion, bodega.code)
+        if (locations.tripleExists(warehouse.id, hall, code, position, null)) {
+            throw locationDuplicated(hall, code, position, warehouse.code)
         }
 
-        val creada = traduciendoErroresDeBase {
-            ubicaciones.crear(
-                NuevaUbicacion(
-                    warehouseId = bodega.id,
+        val created = translatingDbErrors {
+            locations.create(
+                NewLocation(
+                    warehouseId = warehouse.id,
                     hall = hall,
-                    code = codigo,
-                    position = posicion,
-                    levels = niveles,
-                    kind = tipo.name,
+                    code = code,
+                    position = position,
+                    levels = levels,
+                    kind = type.name,
                 )
             )
         }
 
-        call.respond(HttpStatusCode.Created, creada.aDto())
+        call.respond(HttpStatusCode.Created, created.aDto())
     }
 
     get("/{id}") {
-        call.exigirPermiso(verificador, "location.view")
+        call.requirePermission(verifier, "location.view")
 
-        val id = call.idDeRuta()
-        val ubicacion = ubicaciones.porId(id) ?: throw noExisteUbicacion(id)
-        call.respond(HttpStatusCode.OK, ubicacion.aDto())
+        val id = call.routeId()
+        val location = locations.byId(id) ?: throw locationNotFound(id)
+        call.respond(HttpStatusCode.OK, location.aDto())
     }
 
     put("/{id}") {
-        call.exigirPermiso(verificador, "location.edit")
+        call.requirePermission(verifier, "location.edit")
 
-        val id = call.idDeRuta()
-        val actual = ubicaciones.porId(id) ?: throw noExisteUbicacion(id)
-        val peticion = call.receive<LocationUpdateRequest>()
+        val id = call.routeId()
+        val current = locations.byId(id) ?: throw locationNotFound(id)
+        val request = call.receive<LocationUpdateRequest>()
 
-        peticion.warehouseId?.let { enviado ->
-            if (enviado != actual.warehouseId) {
+        request.warehouseId?.let { sent ->
+            if (sent != current.warehouseId) {
                 throw UnprocessableException(
                     code = "WAREHOUSE_IMMUTABLE",
                     message = "Una ubicación no se puede mover de bodega: el stock que " +
                         "contiene cambiaría de bodega sin ningún movimiento de inventario. " +
                         "Crea la ubicación en la bodega de destino y traslada el stock.",
-                    details = mapOf("warehouseId" to enviado.toString()),
+                    details = mapOf("warehouseId" to sent.toString()),
                 )
             }
         }
 
-        val hall = peticion.hall?.let { parteDeUbicacion(it, "hall") }
-        val codigo = peticion.code?.let { parteDeUbicacion(it, "code") }
-        val posicion = peticion.position?.let { parteDeUbicacion(it, "position") }
-        val niveles = peticion.levels?.let { nivelesDeUbicacion(it) }
-        val tipo = peticion.kind?.let(::tipoDeUbicacion)
+        val hall = request.hall?.let { locationPart(it, "hall") }
+        val code = request.code?.let { locationPart(it, "code") }
+        val position = request.position?.let { locationPart(it, "position") }
+        val levels = request.levels?.let { locationLevels(it) }
+        val type = request.kind?.let(::parseLocationKind)
 
         // La terna resultante se comprueba completa: cambiar solo la posición
         // puede chocar con una ubicación que ya existe.
-        val nuevaTerna = Triple(
-            hall ?: actual.hall,
-            codigo ?: actual.code,
-            posicion ?: actual.position,
+        val newTriple = Triple(
+            hall ?: current.hall,
+            code ?: current.code,
+            position ?: current.position,
         )
-        val cambiaLaTerna = nuevaTerna != Triple(actual.hall, actual.code, actual.position)
-        if (cambiaLaTerna &&
-            ubicaciones.existeTerna(actual.warehouseId, nuevaTerna.first, nuevaTerna.second, nuevaTerna.third, id)
+        val changesTriple = newTriple != Triple(current.hall, current.code, current.position)
+        if (changesTriple &&
+            locations.tripleExists(current.warehouseId, newTriple.first, newTriple.second, newTriple.third, id)
         ) {
-            throw ubicacionDuplicada(nuevaTerna.first, nuevaTerna.second, nuevaTerna.third, actual.warehouseCode)
+            throw locationDuplicated(newTriple.first, newTriple.second, newTriple.third, current.warehouseCode)
         }
 
-        val actualizada = traduciendoErroresDeBase {
-            ubicaciones.actualizar(
+        val updated = translatingDbErrors {
+            locations.update(
                 id = id,
-                cambios = CambiosUbicacion(
+                changes = ChangesLocation(
                     hall = hall,
-                    code = codigo,
-                    position = posicion,
-                    levels = niveles,
-                    kind = tipo?.name,
+                    code = code,
+                    position = position,
+                    levels = levels,
+                    kind = type?.name,
                     // `active` se puede volver a poner en true: sin esto, una
                     // ubicación desactivada por error solo se recuperaría por SQL.
-                    activo = peticion.active,
+                    active = request.active,
                 ),
             )
-        } ?: throw noExisteUbicacion(id)
+        } ?: throw locationNotFound(id)
 
-        call.respond(HttpStatusCode.OK, actualizada.aDto())
+        call.respond(HttpStatusCode.OK, updated.aDto())
     }
 
     delete("/{id}") {
-        call.exigirPermiso(verificador, "location.delete")
+        call.requirePermission(verifier, "location.delete")
 
-        val id = call.idDeRuta()
+        val id = call.routeId()
         // El motivo es opcional aquí (el contrato solo lo exige para productos),
         // pero si viene se registra: es la diferencia entre saber por qué se
         // apagó una ubicación y no saberlo.
-        val motivo = call.motivoOpcional()
+        val reason = call.reasonOptional()
 
-        val ubicacion = ubicaciones.porId(id) ?: throw noExisteUbicacion(id)
+        val location = locations.byId(id) ?: throw locationNotFound(id)
 
-        if (!ubicacion.active) {
+        if (!location.active) {
             throw ConflictException(
                 code = "LOCATION_ALREADY_INACTIVE",
                 message = "La ubicación '$id' ya estaba desactivada.",
             )
         }
 
-        if (ubicacion.kind == TipoDeUbicacion.RECEIVING.name) {
+        if (location.kind == LocationKind.RECEIVING.name) {
             throw ConflictException(
                 code = "RECEIVING_LOCATION_PROTECTED",
                 message = "La ubicación de recepción no se puede desactivar: es donde " +
@@ -423,24 +423,24 @@ private fun Route.rutasDeUbicaciones(
             )
         }
 
-        val stock = ubicaciones.totalDeStockDe(id)
+        val stock = locations.totalStockOf(id)
         if (stock.signum() != 0) {
             throw ConflictException(
                 code = "LOCATION_HAS_STOCK",
-                message = "La ubicación '${ubicacion.displayName}' tiene existencias y no se " +
+                message = "La ubicación '${location.displayName}' tiene existencias y no se " +
                     "puede desactivar. Traslada el stock primero.",
-                details = mapOf("stock" to CantidadJson.deDecimal(stock).comoTexto()),
+                details = mapOf("stock" to JsonQuantity.fromDecimal(stock).asText()),
             )
         }
 
-        if (!ubicaciones.desactivar(id)) {
+        if (!locations.disable(id)) {
             throw ConflictException(
                 code = "LOCATION_ALREADY_INACTIVE",
                 message = "La ubicación '$id' ya estaba desactivada.",
             )
         }
 
-        logger.info("Ubicación {} ({}) desactivada. Motivo declarado: {}", id, ubicacion.displayName, motivo)
+        logger.info("Ubicación {} ({}) desactivada. Motivo declarado: {}", id, location.displayName, reason)
 
         call.respond(HttpStatusCode.NoContent)
     }
@@ -450,9 +450,9 @@ private fun Route.rutasDeUbicaciones(
 // BODEGAS
 // ═════════════════════════════════════════════════════════════════════════════
 
-private fun Route.rutasDeBodegas(
-    bodegas: WarehouseRepository,
-    verificador: PermissionChecker,
+private fun Route.warehouseRoutes(
+    warehouses: WarehouseRepository,
+    verifier: PermissionChecker,
 ) = route("/v1/warehouses") {
 
     get {
@@ -460,17 +460,17 @@ private fun Route.rutasDeBodegas(
         // `location.view`, que es el permiso que el dominio define para ver el
         // almacén físico. Dejarla sin permiso sería repetir el defecto del
         // legacy: rutas que parecían protegidas y no lo estaban.
-        call.exigirPermiso(verificador, "location.view")
+        call.requirePermission(verifier, "location.view")
 
         // Sin paginación, y es deliberado: §1.4 exceptúa las bodegas porque son
         // un catálogo cerrado y diminuto que la interfaz necesita COMPLETO para
         // poblar el desplegable. Devolver solo la primera página obligaría al
         // cliente a pedirlas todas antes de poder dibujar el `select`.
-        val busqueda = call.request.queryParameters["q"]
-        val activo = call.filtroBooleano("active")
+        val search = call.request.queryParameters["q"]
+        val active = call.filterBoolean("active")
 
-        val bodegasEncontradas = bodegas.listarTodas(busqueda, activo)
-        call.respond(HttpStatusCode.OK, WarehouseListResponse(bodegasEncontradas.map { it.aDto() }))
+        val warehousesFound = warehouses.listAll(search, active)
+        call.respond(HttpStatusCode.OK, WarehouseListResponse(warehousesFound.map { it.aDto() }))
     }
 }
 
@@ -487,11 +487,11 @@ private fun Route.rutasDeBodegas(
  * el defecto del legacy: el usuario no sabe si pedir un permiso, esperar o
  * llamar a otra persona.
  */
-private suspend fun ApplicationCall.exigirPermiso(verificador: PermissionChecker, permiso: String) {
-    when (val decision = verificador.comprobar(this, permiso)) {
-        PermissionDecision.Permitido -> Unit
+private suspend fun ApplicationCall.requirePermission(verifier: PermissionChecker, permission: String) {
+    when (val decision = verifier.check(this, permission)) {
+        PermissionDecision.Permitted -> Unit
 
-        is PermissionDecision.Denegado ->
+        is PermissionDecision.Denied ->
             if (decision.code == "UNAUTHENTICATED") {
                 throw UnauthorizedException(decision.code, decision.message)
             } else {
@@ -501,49 +501,49 @@ private suspend fun ApplicationCall.exigirPermiso(verificador: PermissionChecker
 }
 
 /** Paginación de la petición, validada contra los campos admitidos del endpoint. */
-private fun ApplicationCall.pagina(camposOrdenables: Set<String>, ordenPorDefecto: String): PageRequest =
-    PageRequest.analizar(
+private fun ApplicationCall.page(fieldsSortable: Set<String>, defaultOrder: String): PageRequest =
+    PageRequest.analyze(
         page = request.queryParameters["page"],
         size = request.queryParameters["size"],
         sort = request.queryParameters["sort"],
-        camposOrdenables = camposOrdenables,
-        ordenPorDefecto = ordenPorDefecto,
+        fieldsSortable = fieldsSortable,
+        defaultOrder = defaultOrder,
     )
 
 /** Filtro booleano opcional de la query (`active=true`). */
-private fun ApplicationCall.filtroBooleano(nombre: String): Boolean? {
-    val crudo = request.queryParameters[nombre]?.trim() ?: return null
-    return when (crudo.lowercase()) {
+private fun ApplicationCall.filterBoolean(name: String): Boolean? {
+    val raw = request.queryParameters[name]?.trim() ?: return null
+    return when (raw.lowercase()) {
         "true" -> true
         "false" -> false
         else -> throw BadRequestException(
             code = "INVALID_PARAMETER",
-            message = "El parámetro '$nombre' debe ser true o false. Se recibió '$crudo'.",
-            details = mapOf(nombre to crudo),
+            message = "El parámetro '$name' debe ser true o false. Se recibió '$raw'.",
+            details = mapOf(name to raw),
         )
     }
 }
 
 /** Parámetro de query numérico opcional. */
-private fun ApplicationCall.parametroLong(nombre: String): Long? {
-    val crudo = request.queryParameters[nombre]?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-    return crudo.toLongOrNull() ?: throw BadRequestException(
+private fun ApplicationCall.parameterLong(name: String): Long? {
+    val raw = request.queryParameters[name]?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    return raw.toLongOrNull() ?: throw BadRequestException(
         code = "INVALID_PARAMETER",
-        message = "El parámetro '$nombre' debe ser un número entero. Se recibió '$crudo'.",
-        details = mapOf(nombre to crudo),
+        message = "El parámetro '$name' debe ser un número entero. Se recibió '$raw'.",
+        details = mapOf(name to raw),
     )
 }
 
 /** Identificador de la ruta. Se rechaza con 400 lo que no sea un entero positivo. */
-private fun ApplicationCall.idDeRuta(): Long {
-    val crudo = parameters["id"]
-    val id = crudo?.toLongOrNull()
+private fun ApplicationCall.routeId(): Long {
+    val raw = parameters["id"]
+    val id = raw?.toLongOrNull()
     if (id == null || id <= 0L) {
         throw BadRequestException(
             code = "INVALID_ID",
             message = "El identificador de la ruta debe ser un número entero positivo. " +
-                "Se recibió '$crudo'.",
-            details = mapOf("id" to crudo.orEmpty()),
+                "Se recibió '$raw'.",
+            details = mapOf("id" to raw.orEmpty()),
         )
     }
     return id
@@ -557,51 +557,51 @@ private fun ApplicationCall.idDeRuta(): Long {
  * hay proxies y clientes HTTP que descartan el cuerpo de un `DELETE`, y sin él
  * el usuario no podría borrar un producto.
  */
-private suspend fun ApplicationCall.motivoObligatorio(): String =
-    motivoOpcional() ?: throw UnprocessableException(
+private suspend fun ApplicationCall.reasonRequired(): String =
+    reasonOptional() ?: throw UnprocessableException(
         code = "REASON_REQUIRED",
         message = "El borrado es lógico y exige un motivo: sin él, dentro de seis meses " +
             "nadie sabrá por qué se desactivó el producto.",
         details = mapOf("reason" to "obligatorio"),
     )
 
-private suspend fun ApplicationCall.motivoOpcional(): String? {
-    val delCuerpo = runCatching { receive<MotivoDeBorradoRequest>() }.getOrNull()?.reason
-    val deLaQuery = request.queryParameters["reason"]
-    return (delCuerpo ?: deLaQuery)?.trim()?.takeIf { it.isNotEmpty() }
+private suspend fun ApplicationCall.reasonOptional(): String? {
+    val fromBody = runCatching { receive<DeleteReasonRequest>() }.getOrNull()?.reason
+    val fromQuery = request.queryParameters["reason"]
+    return (fromBody ?: fromQuery)?.trim()?.takeIf { it.isNotEmpty() }
 }
 
 /** Valida el código de producto con el objeto de valor del dominio. */
-private fun codigoDeProducto(crudo: String): String {
-    val resultado = ProductCode.validate(crudo)
-    val error = resultado.exceptionOrNull()
+private fun productCode(raw: String): String {
+    val result = ProductCode.validate(raw)
+    val error = result.exceptionOrNull()
     if (error != null) {
         throw UnprocessableException(
             code = "INVALID_PRODUCT_CODE",
             message = error.message ?: "El código de producto no es válido.",
-            details = mapOf("productCode" to crudo),
+            details = mapOf("productCode" to raw),
         )
     }
-    return resultado.getOrThrow().value
+    return result.getOrThrow().value
 }
 
-private fun textoObligatorio(crudo: String?, campo: String, maximo: Int): String {
-    val limpio = crudo?.trim().orEmpty()
-    if (limpio.isEmpty()) {
+private fun textRequired(raw: String?, field: String, maximum: Int): String {
+    val clean = raw?.trim().orEmpty()
+    if (clean.isEmpty()) {
         throw UnprocessableException(
             code = "FIELD_REQUIRED",
-            message = "El campo '$campo' es obligatorio.",
-            details = mapOf(campo to "obligatorio"),
+            message = "El campo '$field' es obligatorio.",
+            details = mapOf(field to "obligatorio"),
         )
     }
-    if (limpio.length > maximo) {
+    if (clean.length > maximum) {
         throw UnprocessableException(
             code = "FIELD_TOO_LONG",
-            message = "El campo '$campo' admite $maximo caracteres y se recibieron ${limpio.length}.",
-            details = mapOf(campo to limpio.length.toString()),
+            message = "El campo '$field' admite $maximum caracteres y se recibieron ${clean.length}.",
+            details = mapOf(field to clean.length.toString()),
         )
     }
-    return limpio
+    return clean
 }
 
 /**
@@ -612,78 +612,78 @@ private fun textoObligatorio(crudo: String?, campo: String, maximo: Int): String
  * `Ñ`. Normalizar aquí convierte una violación de restricción de PostgreSQL en
  * un 422 que explica qué campo está mal.
  */
-private fun parteDeUbicacion(crudo: String?, campo: String): String {
-    val limpio = crudo?.trim()?.uppercase().orEmpty()
-    if (limpio.isEmpty()) {
+private fun locationPart(raw: String?, field: String): String {
+    val clean = raw?.trim()?.uppercase().orEmpty()
+    if (clean.isEmpty()) {
         throw UnprocessableException(
             code = "FIELD_REQUIRED",
-            message = "El campo '$campo' de la ubicación es obligatorio.",
-            details = mapOf(campo to "obligatorio"),
+            message = "El campo '$field' de la ubicación es obligatorio.",
+            details = mapOf(field to "obligatorio"),
         )
     }
-    if (limpio.length > 20) {
+    if (clean.length > 20) {
         throw UnprocessableException(
             code = "FIELD_TOO_LONG",
-            message = "El campo '$campo' admite 20 caracteres y se recibieron ${limpio.length}.",
-            details = mapOf(campo to limpio.length.toString()),
+            message = "El campo '$field' admite 20 caracteres y se recibieron ${clean.length}.",
+            details = mapOf(field to clean.length.toString()),
         )
     }
-    if (!ALFABETO_UBICACION.matches(limpio)) {
+    if (!LOCATION_ALPHABET.matches(clean)) {
         throw UnprocessableException(
             code = "INVALID_LOCATION_PART",
-            message = "El campo '$campo' solo admite dígitos y letras en mayúsculas " +
-                "(A-Z, Ñ). Se recibió '$limpio'.",
-            details = mapOf(campo to limpio),
+            message = "El campo '$field' solo admite dígitos y letras en mayúsculas " +
+                "(A-Z, Ñ). Se recibió '$clean'.",
+            details = mapOf(field to clean),
         )
     }
-    return limpio
+    return clean
 }
 
-private val ALFABETO_UBICACION = Regex("^[0-9A-ZÑ]+$")
+private val LOCATION_ALPHABET = Regex("^[0-9A-ZÑ]+$")
 
-private fun nivelesDeUbicacion(crudo: Int?): Int {
-    val niveles = crudo ?: 1
-    if (niveles < 1 || niveles > 99) {
+private fun locationLevels(raw: Int?): Int {
+    val levels = raw ?: 1
+    if (levels < 1 || levels > 99) {
         throw UnprocessableException(
             code = "INVALID_LEVELS",
-            message = "El número de niveles debe estar entre 1 y 99. Se recibió $niveles.",
-            details = mapOf("levels" to niveles.toString()),
+            message = "El número de niveles debe estar entre 1 y 99. Se recibió $levels.",
+            details = mapOf("levels" to levels.toString()),
         )
     }
-    return niveles
+    return levels
 }
 
-private fun tipoDeUbicacion(crudo: String): TipoDeUbicacion =
-    runCatching { TipoDeUbicacion.valueOf(crudo.trim().uppercase()) }.getOrElse {
+private fun parseLocationKind(raw: String): LocationKind =
+    runCatching { LocationKind.valueOf(raw.trim().uppercase()) }.getOrElse {
         throw UnprocessableException(
             code = "INVALID_LOCATION_KIND",
-            message = "El tipo de ubicación debe ser SHELF o RECEIVING. Se recibió '$crudo'.",
-            details = mapOf("kind" to crudo),
+            message = "El tipo de ubicación debe ser SHELF o RECEIVING. Se recibió '$raw'.",
+            details = mapOf("kind" to raw),
         )
     }
 
-private fun unidadDesconocida(crudo: String) = UnprocessableException(
+private fun unitUnknown(raw: String) = UnprocessableException(
     code = "UNKNOWN_UNIT_MEASURE",
-    message = "La unidad de medida '$crudo' no existe en el catálogo de unidades. " +
+    message = "La unidad de medida '$raw' no existe en el catálogo de unidades. " +
         "El catálogo es cerrado a propósito: evita el clásico KG/Kg/KGS como tres " +
         "unidades distintas.",
-    details = mapOf("unitMeasure" to crudo),
+    details = mapOf("unitMeasure" to raw),
 )
 
-private fun noExisteProducto(id: Long) = NotFoundException(
+private fun productNotFound(id: Long) = NotFoundException(
     message = "El producto $id no existe.",
     code = "PRODUCT_NOT_FOUND",
 )
 
-private fun noExisteUbicacion(id: Long) = NotFoundException(
+private fun locationNotFound(id: Long) = NotFoundException(
     message = "La ubicación $id no existe.",
     code = "LOCATION_NOT_FOUND",
 )
 
-private fun ubicacionDuplicada(hall: String, code: String, position: String, bodega: String) =
+private fun locationDuplicated(hall: String, code: String, position: String, warehouse: String) =
     ConflictException(
         code = "DUPLICATE_LOCATION",
-        message = "Ya existe la ubicación $hall-$code-$position en la bodega $bodega.",
+        message = "Ya existe la ubicación $hall-$code-$position en la bodega $warehouse.",
     )
 
 /**
@@ -693,49 +693,49 @@ private fun ubicacionDuplicada(hall: String, code: String, position: String, bod
  * El olvido inverso —escribir 1.398 productos cuando se quería simular— no
  * tiene vuelta atrás.
  */
-private suspend fun ApplicationCall.leerArchivoDeImport(): Pair<ByteArray, Boolean> {
+private suspend fun ApplicationCall.readImportFile(): Pair<ByteArray, Boolean> {
     var dryRun = true
-    var contenido: ByteArray? = null
+    var content: ByteArray? = null
 
-    receiveMultipart().forEachPart { parte ->
-        when (parte) {
-            is PartData.FormItem -> if (parte.name == "dryRun") {
-                dryRun = when (parte.value.trim().lowercase()) {
+    receiveMultipart().forEachPart { part ->
+        when (part) {
+            is PartData.FormItem -> if (part.name == "dryRun") {
+                dryRun = when (part.value.trim().lowercase()) {
                     "true" -> true
                     "false" -> false
                     else -> throw BadRequestException(
                         code = "INVALID_DRY_RUN",
-                        message = "El campo 'dryRun' debe ser true o false. Se recibió '${parte.value}'.",
-                        details = mapOf("dryRun" to parte.value),
+                        message = "El campo 'dryRun' debe ser true o false. Se recibió '${part.value}'.",
+                        details = mapOf("dryRun" to part.value),
                     )
                 }
             }
 
-            is PartData.FileItem -> if (parte.name == "file") {
-                contenido = parte.provider().readRemaining().readByteArray()
+            is PartData.FileItem -> if (part.name == "file") {
+                content = part.provider().readRemaining().readByteArray()
             }
 
             else -> Unit
         }
-        parte.dispose()
+        part.dispose()
     }
 
-    val archivo = contenido ?: throw BadRequestException(
+    val file = content ?: throw BadRequestException(
         code = "FILE_REQUIRED",
         message = "Falta la parte 'file' del formulario. El import es " +
             "multipart/form-data con 'file' (CSV o XLSX) y 'dryRun'.",
     )
 
-    if (archivo.size > LIMITE_DE_ARCHIVO) {
+    if (file.size > FILE_SIZE_LIMIT) {
         throw BadRequestException(
             code = "FILE_TOO_LARGE",
-            message = "El archivo supera ${LIMITE_DE_ARCHIVO / (1024 * 1024)} MB. " +
+            message = "El archivo supera ${FILE_SIZE_LIMIT / (1024 * 1024)} MB. " +
                 "El catálogo real ocupa unos cientos de KB.",
         )
     }
 
-    return archivo to dryRun
+    return file to dryRun
 }
 
 /** 20 MB: holgado para el catálogo real y lejos de un archivo que ahogue el servidor. */
-private const val LIMITE_DE_ARCHIVO = 20L * 1024 * 1024
+private const val FILE_SIZE_LIMIT = 20L * 1024 * 1024

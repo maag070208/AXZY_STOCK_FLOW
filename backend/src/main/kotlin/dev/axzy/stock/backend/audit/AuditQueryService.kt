@@ -86,20 +86,20 @@ class AuditQueryService(private val dataSource: DataSource) {
      * `limite` y `offset` ya vienen validados por `PageRequest` (el tope de 200
      * se RECHAZA, no se recorta); aquí no se vuelve a comprobar.
      */
-    fun listar(
-        filtros: AuditFilters,
-        descendente: Boolean = true,
+    fun list(
+        filters: AuditFilters,
+        descending: Boolean = true,
         offset: Int = 0,
-        limite: Int = 50,
-    ): List<AuditEntryDto> = dataSource.connection.use { conexion ->
+        limit: Int = 50,
+    ): List<AuditEntryDto> = dataSource.connection.use { connection ->
         // El orden desempata por `id` además de por fecha, y no es cosmético: dos
         // registros del mismo milisegundo —una recepción de 30 líneas los
         // produce— sin desempate pueden salir en orden distinto en cada consulta,
         // y entonces una fila se repite en la página 1 y desaparece de la 2. El
         // `id` sale de una secuencia ÚNICA compartida por todas las particiones,
         // así que da un orden total del ledger.
-        val orden = if (descendente) "DESC" else "ASC"
-        val (condiciones, parametros) = condicionesDe(filtros)
+        val order = if (descending) "DESC" else "ASC"
+        val (conditions, parameters) = conditionsOf(filters)
 
         val sql = """
             SELECT id, sequence_no, occurred_at, business_date,
@@ -112,19 +112,19 @@ class AuditQueryService(private val dataSource: DataSource) {
                    correlation_id, causation_id, request_id,
                    prev_hash, record_hash
             FROM audit_log
-            WHERE $condiciones
-            ORDER BY occurred_at $orden, id $orden
+            WHERE $conditions
+            ORDER BY occurred_at $order, id $order
             LIMIT ? OFFSET ?
         """.trimIndent()
 
-        conexion.prepareStatement(sql).use { st ->
-            st.enlazar(parametros)
-            st.setInt(parametros.size + 1, limite)
-            st.setInt(parametros.size + 2, offset)
+        connection.prepareStatement(sql).use { st ->
+            st.link(parameters)
+            st.setInt(parameters.size + 1, limit)
+            st.setInt(parameters.size + 2, offset)
 
-            st.executeQuery().use { filas ->
+            st.executeQuery().use { rows ->
                 buildList {
-                    while (filas.next()) add(filas.aDto())
+                    while (rows.next()) add(rows.aDto())
                 }
             }
         }
@@ -138,12 +138,12 @@ class AuditQueryService(private val dataSource: DataSource) {
      * puedan divergir. PostgreSQL resuelve el `count(*)` sobre las mismas
      * particiones que el listado, con el mismo plan de poda.
      */
-    fun contar(filtros: AuditFilters): Long = dataSource.connection.use { conexion ->
-        val (condiciones, parametros) = condicionesDe(filtros)
+    fun count(filters: AuditFilters): Long = dataSource.connection.use { connection ->
+        val (conditions, parameters) = conditionsOf(filters)
 
-        conexion.prepareStatement("SELECT count(*) FROM audit_log WHERE $condiciones").use { st ->
-            st.enlazar(parametros)
-            st.executeQuery().use { filas -> if (filas.next()) filas.getLong(1) else 0L }
+        connection.prepareStatement("SELECT count(*) FROM audit_log WHERE $conditions").use { st ->
+            st.link(parameters)
+            st.executeQuery().use { rows -> if (rows.next()) rows.getLong(1) else 0L }
         }
     }
 
@@ -152,7 +152,7 @@ class AuditQueryService(private val dataSource: DataSource) {
     // ═══════════════════════════════════════════════════════════════════════
 
     /** Condiciones ya en SQL, con sus parámetros en el mismo orden. */
-    private data class Condiciones(val sql: String, val parametros: List<Any?>)
+    private data class Conditions(val sql: String, val parameters: List<Any?>)
 
     /**
      * **La única puerta por la que se decide qué registros entran.** [listar] y
@@ -167,43 +167,43 @@ class AuditQueryService(private val dataSource: DataSource) {
      * dentro de las particiones que la fecha ya haya dejado, que es suficiente
      * para el uso previsto (una investigación, no un recorrido masivo).
      */
-    private fun condicionesDe(filtros: AuditFilters): Condiciones {
-        val condiciones = mutableListOf<String>()
-        val parametros = mutableListOf<Any?>()
+    private fun conditionsOf(filters: AuditFilters): Conditions {
+        val conditions = mutableListOf<String>()
+        val parameters = mutableListOf<Any?>()
 
         // ── CUÁNDO: el rango, que además es lo que poda particiones ────────
-        if (filtros.desde != null) {
-            condiciones += "occurred_at >= ?"
-            parametros += filtros.desde
+        if (filters.from != null) {
+            conditions += "occurred_at >= ?"
+            parameters += filters.from
         }
-        if (filtros.hasta != null) {
-            condiciones += "occurred_at <= ?"
-            parametros += filtros.hasta
+        if (filters.until != null) {
+            conditions += "occurred_at <= ?"
+            parameters += filters.until
         }
 
         // ── QUIÉN ───────────────────────────────────────────────────────────
-        if (filtros.actorUserId != null) {
-            condiciones += "actor_user_id = ?"
-            parametros += filtros.actorUserId
+        if (filters.actorUserId != null) {
+            conditions += "actor_user_id = ?"
+            parameters += filters.actorUserId
         }
 
         // ── SOBRE QUÉ ───────────────────────────────────────────────────────
         // Igualdad exacta sobre `entity_type` (no `LIKE`): es lo que usa el
         // índice `(entity_type, entity_id, occurred_at DESC)`, y una búsqueda
         // por texto forzaría un recorrido completo de la partición.
-        if (filtros.entityType != null) {
-            condiciones += "entity_type = ?"
-            parametros += filtros.entityType
+        if (filters.entityType != null) {
+            conditions += "entity_type = ?"
+            parameters += filters.entityType
         }
-        if (filtros.entityId != null) {
-            condiciones += "entity_id = ?"
-            parametros += filtros.entityId
+        if (filters.entityId != null) {
+            conditions += "entity_id = ?"
+            parameters += filters.entityId
         }
 
         // ── QUÉ ─────────────────────────────────────────────────────────────
-        if (filtros.action != null) {
-            condiciones += "action = ?"
-            parametros += filtros.action
+        if (filters.action != null) {
+            conditions += "action = ?"
+            parameters += filters.action
         }
 
         // ── EL FLUJO COMPLETO: de dónde viene esta operación ────────────────
@@ -211,9 +211,9 @@ class AuditQueryService(private val dataSource: DataSource) {
         // varios registros —la recepción con sus 30 líneas, quién hizo cada una
         // y qué se denegó por el camino—, que es el «de dónde» que pidió el
         // usuario. Todas las filas de una misma operación comparten UUID.
-        if (filtros.correlationId != null) {
-            condiciones += "correlation_id = ?"
-            parametros += filtros.correlationId
+        if (filters.correlationId != null) {
+            conditions += "correlation_id = ?"
+            parameters += filters.correlationId
         }
 
         // ── CON QUÉ PERMISO / RESULTADO ─────────────────────────────────────
@@ -223,40 +223,40 @@ class AuditQueryService(private val dataSource: DataSource) {
         // error de conversión que saldría como 500, cuando el culpable es quien
         // llamó y merece un 400. Es el mismo tropiezo que ya tuvimos con
         // `Idempotency-Key` no-UUID.
-        if (filtros.decision != null) {
-            condiciones += "decision = ?::audit_decision"
-            parametros += filtros.decision
+        if (filters.decision != null) {
+            conditions += "decision = ?::audit_decision"
+            parameters += filters.decision
         }
-        if (filtros.result != null) {
-            condiciones += "result = ?::audit_result"
-            parametros += filtros.result
+        if (filters.result != null) {
+            conditions += "result = ?::audit_result"
+            parameters += filters.result
         }
-        if (filtros.actionLevel != null) {
-            condiciones += "action_level = ?::audit_level"
-            parametros += filtros.actionLevel
+        if (filters.actionLevel != null) {
+            conditions += "action_level = ?::audit_level"
+            parameters += filters.actionLevel
         }
-        if (filtros.channel != null) {
-            condiciones += "source_channel = ?::audit_channel"
-            parametros += filtros.channel
+        if (filters.channel != null) {
+            conditions += "source_channel = ?::audit_channel"
+            parameters += filters.channel
         }
 
         // `1 = 1` cuando no hay filtros: mantiene la sentencia válida sin
         // construir un `WHERE` condicional, que es donde se cuelan los errores
         // de concatenación (y el `AND` huérfano).
-        val sql = if (condiciones.isEmpty()) "1 = 1" else condiciones.joinToString(" AND ")
-        return Condiciones(sql, parametros)
+        val sql = if (conditions.isEmpty()) "1 = 1" else conditions.joinToString(" AND ")
+        return Conditions(sql, parameters)
     }
 
     /** Enlaza parámetros por tipo. `Instant` y `UUID` necesitan su conversión. */
-    private fun PreparedStatement.enlazar(parametros: List<Any?>) {
-        parametros.forEachIndexed { indice, valor ->
-            when (valor) {
-                null -> setObject(indice + 1, null)
-                is Instant -> setTimestamp(indice + 1, Timestamp.from(valor))
-                is UUID -> setObject(indice + 1, valor)
-                is Long -> setLong(indice + 1, valor)
-                is Int -> setInt(indice + 1, valor)
-                else -> setString(indice + 1, valor.toString())
+    private fun PreparedStatement.link(parameters: List<Any?>) {
+        parameters.forEachIndexed { index, value ->
+            when (value) {
+                null -> setObject(index + 1, null)
+                is Instant -> setTimestamp(index + 1, Timestamp.from(value))
+                is UUID -> setObject(index + 1, value)
+                is Long -> setLong(index + 1, value)
+                is Int -> setInt(index + 1, value)
+                else -> setString(index + 1, value.toString())
             }
         }
     }
@@ -282,13 +282,13 @@ class AuditQueryService(private val dataSource: DataSource) {
         userId = getLongOrNull("actor_user_id"),
         username = getString("actor_username"),
         userName = getString("actor_name"),
-        roles = textoArray("actor_roles"),
+        roles = textArray("actor_roles"),
         action = getString("action"),
         actionLevel = getString("action_level"),
         entity = getString("entity_type"),
         entityId = getString("entity_id"),
         entityLabel = getString("entity_label"),
-        changedFields = textoArray("changed_fields"),
+        changedFields = textArray("changed_fields"),
         channel = getString("source_channel"),
         device = getString("source_device"),
         ip = getString("source_ip"),
@@ -307,19 +307,19 @@ class AuditQueryService(private val dataSource: DataSource) {
     )
 
     /** `getLong` devuelve 0 para SQL NULL; aquí el nulo es un dato, no un cero. */
-    private fun ResultSet.getLongOrNull(columna: String): Long? {
-        val valor = getLong(columna)
-        return if (wasNull()) null else valor
+    private fun ResultSet.getLongOrNull(column: String): Long? {
+        val value = getLong(column)
+        return if (wasNull()) null else value
     }
 
     /** `TEXT[]` de PostgreSQL (`actor_roles`, `changed_fields`) como lista. */
-    private fun ResultSet.textoArray(columna: String): List<String> {
-        val arreglo = getArray(columna) ?: return emptyList()
+    private fun ResultSet.textArray(column: String): List<String> {
+        val array = getArray(column) ?: return emptyList()
         return try {
             @Suppress("UNCHECKED_CAST")
-            (arreglo.array as? Array<Any?>)?.mapNotNull { it?.toString() } ?: emptyList()
+            (array.array as? Array<Any?>)?.mapNotNull { it?.toString() } ?: emptyList()
         } finally {
-            arreglo.free()
+            array.free()
         }
     }
 
@@ -330,14 +330,14 @@ class AuditQueryService(private val dataSource: DataSource) {
          * valor que la base no conoce en lugar de dejar que PostgreSQL lance la
          * conversión y el cliente reciba un 500 engañoso.
          */
-        val CANALES = setOf(
+        val Channels = setOf(
             "WEB", "MOBILE", "MOBILE_OFFLINE",
             "SERVICE_ERP", "SERVICE_PRINTER", "SERVICE_JOB",
             "MIGRATION", "SYSTEM",
         )
-        val NIVELES = setOf("CRITICAL", "RELEVANT", "ACCESS", "TECHNICAL")
-        val RESULTADOS = setOf("SUCCESS", "FAILURE", "DENIED", "PARTIAL")
-        val DECISIONES = setOf("ALLOWED", "DENIED", "NOT_APPLICABLE")
+        val Levels = setOf("CRITICAL", "RELEVANT", "ACCESS", "TECHNICAL")
+        val RESULTS = setOf("SUCCESS", "FAILURE", "DENIED", "PARTIAL")
+        val DECISIONS = setOf("ALLOWED", "DENIED", "NOT_APPLICABLE")
     }
 }
 
@@ -349,8 +349,8 @@ class AuditQueryService(private val dataSource: DataSource) {
  * imposible que un filtro ausente y un filtro vacío se comporten distinto.
  */
 data class AuditFilters(
-    val desde: Instant? = null,
-    val hasta: Instant? = null,
+    val from: Instant? = null,
+    val until: Instant? = null,
     val actorUserId: Long? = null,
     val entityType: String? = null,
     val entityId: String? = null,

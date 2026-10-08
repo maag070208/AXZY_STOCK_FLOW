@@ -206,8 +206,8 @@ data class AdjustmentRequest private constructor(
 
             // ── Motivo escrito cuando el motivo lo exige ────────────────────
             if (reason.requiresNote) {
-                val texto = note?.trim().orEmpty()
-                if (texto.length < MIN_NOTE_LENGTH) {
+                val text = note?.trim().orEmpty()
+                if (text.length < MIN_NOTE_LENGTH) {
                     return DomainError.ReasonRequired(
                         "El motivo «${reason.displayName}» exige una explicación de al " +
                             "menos $MIN_NOTE_LENGTH caracteres. Sin ella, el ajuste no " +

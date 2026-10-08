@@ -2,7 +2,7 @@ package dev.axzy.stock.backend.inventory
 
 import dev.axzy.stock.backend.error.NotFoundException
 import dev.axzy.stock.backend.error.UnprocessableException
-import dev.axzy.stock.backend.identity.esDireccionIp
+import dev.axzy.stock.backend.identity.isDirectionIp
 import dev.axzy.stock.domain.inventory.AdjustmentDirection
 import dev.axzy.stock.domain.inventory.AdjustmentOrigin
 import dev.axzy.stock.domain.inventory.AdjustmentPolicy
@@ -52,87 +52,87 @@ class InventoryService(private val dataSource: DataSource) {
      *
      * @param aprobadorId quién aprueba, si el ajuste lo requiere.
      */
-    fun ajustar(
-        solicitud: AdjustmentRequest,
-        aprobadorId: Long? = null,
+    fun applyAdjustment(
+        request: AdjustmentRequest,
+        approverId: Long? = null,
         ip: String? = null,
-    ): ResultadoDeAjuste = dataSource.connection.use { conexion ->
-        conexion.autoCommit = false
+    ): AdjustmentResult = dataSource.connection.use { connection ->
+        connection.autoCommit = false
 
         try {
-            val productoId = buscarProducto(conexion, solicitud.productCode)
+            val productId = findProduct(connection, request.productCode)
                 ?: throw NotFoundException(
-                    "El producto '${solicitud.productCode.value}' no existe.",
+                    "El producto '${request.productCode.value}' no existe.",
                     code = "PRODUCT_NOT_FOUND",
                 )
 
-            val ubicacion = buscarUbicacion(conexion, solicitud.locationCode)
+            val location = findLocation(connection, request.locationCode)
                 ?: throw NotFoundException(
-                    "La ubicación '${solicitud.locationCode.value}' no existe.",
+                    "La ubicación '${request.locationCode.value}' no existe.",
                     code = "LOCATION_NOT_FOUND",
                 )
 
             // El saldo se lee DENTRO de la transacción, no antes. Leerlo fuera
             // abriría una ventana en la que el saldo cambia entre la comprobación
             // y el movimiento.
-            val disponible = leerSaldo(conexion, productoId, ubicacion.id)
+            val available = readBalance(connection, productId, location.id)
 
             val decision = AdjustmentPolicy.decide(
-                request = solicitud,
-                approverId = aprobadorId,
-                available = disponible,
+                request = request,
+                approverId = approverId,
+                available = available,
             )
 
             when (decision) {
                 is AdjustmentPolicy.Decision.Reject -> {
-                    conexion.rollback()
-                    throw cuandoFalla(decision.error.code, decision.error.message)
+                    connection.rollback()
+                    throw whenFails(decision.error.code, decision.error.message)
                 }
 
                 is AdjustmentPolicy.Decision.PendingApproval -> {
                     // **No se escribe nada.** Un movimiento que espera aprobación y
                     // ya movió el inventario sería un cambio de stock sin autorizar,
                     // que es justo lo que la aprobación pretende evitar.
-                    conexion.rollback()
-                    return@use ResultadoDeAjuste(
-                        movimientos = emptyList(),
-                        total = disponible,
-                        estado = "PENDING_APPROVAL",
-                        motivo = decision.reason,
+                    connection.rollback()
+                    return@use AdjustmentResult(
+                        movements = emptyList(),
+                        total = available,
+                        status = "PENDING_APPROVAL",
+                        reason = decision.reason,
                     )
                 }
 
                 AdjustmentPolicy.Decision.Apply -> {
-                    val kardexId = escribirMovimiento(
-                        conexion = conexion,
-                        productoId = productoId,
-                        bodegaId = ubicacion.warehouseId,
-                        tipo = solicitud.movementType,
-                        unidades = solicitud.quantity,
+                    val kardexId = writeMovement(
+                        connection = connection,
+                        productId = productId,
+                        warehouseId = location.warehouseId,
+                        type = request.movementType,
+                        units = request.quantity,
                         // Un aumento ENTRA a la ubicación; una merma SALE de ella.
-                        origenId = if (solicitud.direction == AdjustmentDirection.DECREASE) ubicacion.id else null,
-                        destinoId = if (solicitud.direction == AdjustmentDirection.INCREASE) ubicacion.id else null,
-                        motivo = solicitud.reason,
-                        origen = solicitud.origin,
-                        usuarioId = solicitud.requestedBy,
-                        aprobadorId = aprobadorId,
-                        clave = solicitud.idempotencyKey,
-                        nota = solicitud.note,
+                        originId = if (request.direction == AdjustmentDirection.DECREASE) location.id else null,
+                        destinationId = if (request.direction == AdjustmentDirection.INCREASE) location.id else null,
+                        reason = request.reason,
+                        origin = request.origin,
+                        userId = request.requestedBy,
+                        approverId = approverId,
+                        key = request.idempotencyKey,
+                        note = request.note,
                         ip = ip,
                     )
 
-                    val totalNuevo = leerTotal(conexion, productoId)
-                    conexion.commit()
+                    val totalNew = readTotal(connection, productId)
+                    connection.commit()
 
-                    ResultadoDeAjuste(
-                        movimientos = listOf(kardexId),
-                        total = totalNuevo,
-                        estado = "APPLIED",
+                    AdjustmentResult(
+                        movements = listOf(kardexId),
+                        total = totalNew,
+                        status = "APPLIED",
                     )
                 }
             }
         } catch (e: Exception) {
-            runCatching { conexion.rollback() }
+            runCatching { connection.rollback() }
             throw e
         }
     }
@@ -149,74 +149,74 @@ class InventoryService(private val dataSource: DataSource) {
      * el total es una suma derivada de las ubicaciones, así que mover no puede
      * alterarlo.
      */
-    fun ubicar(
+    fun locate(
         productCode: ProductCode,
-        desde: LocationCode,
-        hasta: LocationCode,
-        cantidad: Quantity,
-        usuarioId: Long,
-        clave: String? = null,
-    ): Long = dataSource.connection.use { conexion ->
-        conexion.autoCommit = false
+        from: LocationCode,
+        until: LocationCode,
+        quantity: Quantity,
+        userId: Long,
+        key: String? = null,
+    ): Long = dataSource.connection.use { connection ->
+        connection.autoCommit = false
         try {
-            val productoId = buscarProducto(conexion, productCode)
+            val productId = findProduct(connection, productCode)
                 ?: throw NotFoundException("El producto '${productCode.value}' no existe.", "PRODUCT_NOT_FOUND")
 
-            val origen = buscarUbicacion(conexion, desde)
-                ?: throw NotFoundException("La ubicación '${desde.value}' no existe.", "LOCATION_NOT_FOUND")
+            val origin = findLocation(connection, from)
+                ?: throw NotFoundException("La ubicación '${from.value}' no existe.", "LOCATION_NOT_FOUND")
 
-            val destino = buscarUbicacion(conexion, hasta)
-                ?: throw NotFoundException("La ubicación '${hasta.value}' no existe.", "LOCATION_NOT_FOUND")
+            val destination = findLocation(connection, until)
+                ?: throw NotFoundException("La ubicación '${until.value}' no existe.", "LOCATION_NOT_FOUND")
 
-            if (origen.id == destino.id) {
+            if (origin.id == destination.id) {
                 throw UnprocessableException(
                     "SAME_SOURCE_AND_DESTINATION",
                     "El origen y el destino son la misma ubicación: no hay traslado.",
                 )
             }
 
-            val id = escribirMovimiento(
-                conexion = conexion,
-                productoId = productoId,
-                bodegaId = destino.warehouseId,
-                tipo = MovementType.LOCATE,
-                unidades = cantidad,
-                origenId = origen.id,
-                destinoId = destino.id,
-                usuarioId = usuarioId,
-                clave = clave,
+            val id = writeMovement(
+                connection = connection,
+                productId = productId,
+                warehouseId = destination.warehouseId,
+                type = MovementType.LOCATE,
+                units = quantity,
+                originId = origin.id,
+                destinationId = destination.id,
+                userId = userId,
+                key = key,
             )
 
-            conexion.commit()
+            connection.commit()
             id
         } catch (e: Exception) {
-            runCatching { conexion.rollback() }
+            runCatching { connection.rollback() }
             throw e
         }
     }
 
     /** Traslado entre estantes de la misma bodega. */
-    fun moverDentroDeBodega(
+    fun moveWithinWarehouse(
         productCode: ProductCode,
-        desde: LocationCode,
-        hasta: LocationCode,
-        cantidad: Quantity,
-        usuarioId: Long,
-        clave: String? = null,
-    ): Long = ubicar(productCode, desde, hasta, cantidad, usuarioId, clave)
+        from: LocationCode,
+        until: LocationCode,
+        quantity: Quantity,
+        userId: Long,
+        key: String? = null,
+    ): Long = locate(productCode, from, until, quantity, userId, key)
 
     // ═══════════════════════════════════════════════════════════════════════
     // CONSULTAS
     // ═══════════════════════════════════════════════════════════════════════
 
     /** Existencias por producto y ubicación. */
-    fun existencias(
+    fun stockByLocation(
         productCode: String? = null,
         locationCode: String? = null,
-        soloConExistencia: Boolean = true,
+        onlyWithStock: Boolean = true,
         offset: Int = 0,
-        limite: Int = 50,
-    ): List<ExistenciaDto> = dataSource.connection.use { conexion ->
+        limit: Int = 50,
+    ): List<StockByLocationDto> = dataSource.connection.use { connection ->
         val sql = buildString {
             append(
                 """
@@ -248,11 +248,11 @@ class InventoryService(private val dataSource: DataSource) {
                         "UPPER(REPLACE(?, '-', '')))",
                 )
             }
-            if (soloConExistencia) append(" AND s.quantity > 0")
+            if (onlyWithStock) append(" AND s.quantity > 0")
             append(" ORDER BY p.product_code, l.hall, l.code, l.\"position\" LIMIT ? OFFSET ?")
         }
 
-        conexion.prepareStatement(sql).use { st ->
+        connection.prepareStatement(sql).use { st ->
             var i = 1
             if (productCode != null) st.setString(i++, productCode)
             if (locationCode != null) {
@@ -264,19 +264,19 @@ class InventoryService(private val dataSource: DataSource) {
                 st.setString(i++, locationCode)
                 st.setString(i++, locationCode)
             }
-            st.setInt(i++, limite)
+            st.setInt(i++, limit)
             st.setInt(i, offset)
 
             st.executeQuery().use { rs ->
                 buildList {
                     while (rs.next()) {
                         add(
-                            ExistenciaDto(
+                            StockByLocationDto(
                                 productId = rs.getLong("product_id"),
                                 productCode = rs.getString("product_code"),
                                 productName = rs.getString("product_name"),
                                 locationId = rs.getLong("location_id"),
-                                locationDisplayName = nombreDeUbicacion(
+                                locationDisplayName = locationDisplayName(
                                     rs.getString("hall"),
                                     rs.getString("code"),
                                     rs.getString("position"),
@@ -296,12 +296,12 @@ class InventoryService(private val dataSource: DataSource) {
     /** El libro de inventario, paginado y filtrado. */
     fun kardex(
         productCode: String? = null,
-        desde: Instant? = null,
-        hasta: Instant? = null,
-        tipo: String? = null,
+        from: Instant? = null,
+        until: Instant? = null,
+        type: String? = null,
         offset: Int = 0,
-        limite: Int = 50,
-    ): List<KardexDto> = dataSource.connection.use { conexion ->
+        limit: Int = 50,
+    ): List<KardexDto> = dataSource.connection.use { connection ->
         val sql = buildString {
             append(
                 """
@@ -323,29 +323,29 @@ class InventoryService(private val dataSource: DataSource) {
                 """.trimIndent(),
             )
             if (productCode != null) append(" AND p.product_code = ?")
-            if (desde != null) append(" AND k.moved_at >= ?")
-            if (hasta != null) append(" AND k.moved_at <= ?")
-            if (tipo != null) append(" AND k.move_type = ?::movement_type")
+            if (from != null) append(" AND k.moved_at >= ?")
+            if (until != null) append(" AND k.moved_at <= ?")
+            if (type != null) append(" AND k.move_type = ?::movement_type")
             append(" ORDER BY k.moved_at DESC, k.id DESC LIMIT ? OFFSET ?")
         }
 
-        conexion.prepareStatement(sql).use { st ->
+        connection.prepareStatement(sql).use { st ->
             var i = 1
             if (productCode != null) st.setString(i++, productCode)
-            if (desde != null) st.setTimestamp(i++, Timestamp.from(desde))
-            if (hasta != null) st.setTimestamp(i++, Timestamp.from(hasta))
-            if (tipo != null) st.setString(i++, tipo)
-            st.setInt(i++, limite)
+            if (from != null) st.setTimestamp(i++, Timestamp.from(from))
+            if (until != null) st.setTimestamp(i++, Timestamp.from(until))
+            if (type != null) st.setString(i++, type)
+            st.setInt(i++, limit)
             st.setInt(i, offset)
 
             st.executeQuery().use { rs ->
                 buildList {
                     while (rs.next()) {
-                        val desde_ = rs.getString("from_hall")?.let {
-                            nombreDeUbicacion(it, rs.getString("from_code"), rs.getString("from_pos"), rs.getString("from_kind"))
+                        val from = rs.getString("from_hall")?.let {
+                            locationDisplayName(it, rs.getString("from_code"), rs.getString("from_pos"), rs.getString("from_kind"))
                         }
-                        val hacia = rs.getString("to_hall")?.let {
-                            nombreDeUbicacion(it, rs.getString("to_code"), rs.getString("to_pos"), rs.getString("to_kind"))
+                        val towards = rs.getString("to_hall")?.let {
+                            locationDisplayName(it, rs.getString("to_code"), rs.getString("to_pos"), rs.getString("to_kind"))
                         }
 
                         add(
@@ -357,8 +357,8 @@ class InventoryService(private val dataSource: DataSource) {
                                 moveType = rs.getString("move_type"),
                                 units = rs.getBigDecimal("units").toPlainString(),
                                 quantityAfter = rs.getBigDecimal("quantity_after").toPlainString(),
-                                fromLocationDisplayName = desde_,
-                                toLocationDisplayName = hacia,
+                                fromLocationDisplayName = from,
+                                toLocationDisplayName = towards,
                                 container = rs.getString("container"),
                                 orderNumber = rs.getString("order_number"),
                                 adjustmentReason = rs.getString("adjustment_reason"),
@@ -385,11 +385,11 @@ class InventoryService(private val dataSource: DataSource) {
      * El filtro por ubicación SÍ se aplica aquí. Antes la ruta lo ignoraba, así que
      * pedir `locationCode=SIN-UBICAR` devolvía **cero** filas sin decir por qué.
      */
-    fun contarExistencias(
+    fun countStock(
         productCode: String? = null,
         locationCode: String? = null,
-        soloConExistencia: Boolean = true,
-    ): Long = dataSource.connection.use { conexion ->
+        onlyWithStock: Boolean = true,
+    ): Long = dataSource.connection.use { connection ->
         val sql = buildString {
             append(
                 """
@@ -421,10 +421,10 @@ class InventoryService(private val dataSource: DataSource) {
                         "UPPER(REPLACE(?, '-', '')))",
                 )
             }
-            if (soloConExistencia) append(" AND s.quantity > 0")
+            if (onlyWithStock) append(" AND s.quantity > 0")
         }
 
-        conexion.prepareStatement(sql).use { st ->
+        connection.prepareStatement(sql).use { st ->
             var i = 1
             if (productCode != null) st.setString(i++, productCode)
             if (locationCode != null) {
@@ -445,25 +445,25 @@ class InventoryService(private val dataSource: DataSource) {
      * que la lista no cargó. Lo encontró un agente al conectar la pantalla del kardex,
      * y por eso esa pantalla no muestra el total cuando hay rango de fechas.
      */
-    fun contarKardex(
+    fun countKardex(
         productCode: String? = null,
-        tipo: String? = null,
-        desde: Instant? = null,
-        hasta: Instant? = null,
-    ): Long = dataSource.connection.use { conexion ->
+        type: String? = null,
+        from: Instant? = null,
+        until: Instant? = null,
+    ): Long = dataSource.connection.use { connection ->
         val sql = buildString {
             append("SELECT count(*) FROM kardex k JOIN products p ON p.id = k.product_id WHERE 1=1")
             if (productCode != null) append(" AND p.product_code = ?")
-            if (tipo != null) append(" AND k.move_type = ?::movement_type")
-            if (desde != null) append(" AND k.moved_at >= ?")
-            if (hasta != null) append(" AND k.moved_at <= ?")
+            if (type != null) append(" AND k.move_type = ?::movement_type")
+            if (from != null) append(" AND k.moved_at >= ?")
+            if (until != null) append(" AND k.moved_at <= ?")
         }
-        conexion.prepareStatement(sql).use { st ->
+        connection.prepareStatement(sql).use { st ->
             var i = 1
             if (productCode != null) st.setString(i++, productCode)
-            if (tipo != null) st.setString(i++, tipo)
-            if (desde != null) st.setTimestamp(i++, Timestamp.from(desde))
-            if (hasta != null) st.setTimestamp(i, Timestamp.from(hasta))
+            if (type != null) st.setString(i++, type)
+            if (from != null) st.setTimestamp(i++, Timestamp.from(from))
+            if (until != null) st.setTimestamp(i, Timestamp.from(until))
             st.executeQuery().use { rs -> if (rs.next()) rs.getLong(1) else 0L }
         }
     }
@@ -474,13 +474,13 @@ class InventoryService(private val dataSource: DataSource) {
      * **El legacy no tenía esto**: el descuadre solo se descubría con un conteo
      * físico. Aquí se puede preguntar en cualquier momento y sin contar nada.
      */
-    fun divergencias(): List<DivergenciaDto> = dataSource.connection.use { conexion ->
-        conexion.createStatement().use { st ->
+    fun divergences(): List<DivergenceDto> = dataSource.connection.use { connection ->
+        connection.createStatement().use { st ->
             st.executeQuery("SELECT * FROM comprobar_proyecciones()").use { rs ->
                 buildList {
                     while (rs.next()) {
                         add(
-                            DivergenciaDto(
+                            DivergenceDto(
                                 productId = rs.getLong("product_id"),
                                 productCode = rs.getString("product_code"),
                                 totalEnBd = rs.getBigDecimal("total_en_bd").toPlainString(),
@@ -504,22 +504,22 @@ class InventoryService(private val dataSource: DataSource) {
      * **Una sola llamada hace las tres cosas**: ajusta las ubicaciones, recalcula el
      * total y escribe el kardex, todo en la transacción de quien llama.
      */
-    private fun escribirMovimiento(
-        conexion: Connection,
-        productoId: Long,
-        bodegaId: Long,
-        tipo: MovementType,
-        unidades: Quantity,
-        origenId: Long? = null,
-        destinoId: Long? = null,
-        motivo: AdjustmentReason? = null,
-        origen: AdjustmentOrigin? = null,
-        usuarioId: Long? = null,
-        aprobadorId: Long? = null,
-        clave: String? = null,
-        nota: String? = null,
-        contenedor: String? = null,
-        orden: String? = null,
+    private fun writeMovement(
+        connection: Connection,
+        productId: Long,
+        warehouseId: Long,
+        type: MovementType,
+        units: Quantity,
+        originId: Long? = null,
+        destinationId: Long? = null,
+        reason: AdjustmentReason? = null,
+        origin: AdjustmentOrigin? = null,
+        userId: Long? = null,
+        approverId: Long? = null,
+        key: String? = null,
+        note: String? = null,
+        container: String? = null,
+        order: String? = null,
         ip: String? = null,
     ): Long {
         val sql = """
@@ -539,92 +539,92 @@ class InventoryService(private val dataSource: DataSource) {
         // El motor ajusta las ubicaciones y recalcula el total ANTES de que se
         // escriba el kardex, así que el `quantity_after` tiene que ser el de
         // después. Se hace en dos pasos coordinados por la misma transacción.
-        aplicarEnUbicaciones(conexion, productoId, bodegaId, origenId, destinoId, unidades)
-        recalcularTotal(conexion, productoId)
+        applyToLocations(connection, productId, warehouseId, originId, destinationId, units)
+        recalculateTotal(connection, productId)
 
-        return conexion.prepareStatement(sql).use { st ->
+        return connection.prepareStatement(sql).use { st ->
             var i = 1
-            st.setLong(i++, productoId)
-            st.setLong(i++, bodegaId)
-            st.setString(i++, tipo.name)
-            st.setBigDecimal(i++, unidades.aBigDecimal())
-            st.setObject(i++, destinoId)
-            st.setObject(i++, origenId)
-            st.setObject(i++, destinoId)
-            st.setString(i++, contenedor)
-            st.setString(i++, orden)
-            st.setString(i++, motivo?.name)
-            st.setString(i++, origen?.name)
-            st.setObject(i++, usuarioId)
-            st.setObject(i++, aprobadorId)
-            st.setTimestamp(i++, aprobadorId?.let { Timestamp.from(Instant.now()) })
-            st.setString(i++, clave ?: UUID.randomUUID().toString())
-            st.setString(i++, nota)
-            st.setLong(i, productoId)
+            st.setLong(i++, productId)
+            st.setLong(i++, warehouseId)
+            st.setString(i++, type.name)
+            st.setBigDecimal(i++, units.toBigDecimal())
+            st.setObject(i++, destinationId)
+            st.setObject(i++, originId)
+            st.setObject(i++, destinationId)
+            st.setString(i++, container)
+            st.setString(i++, order)
+            st.setString(i++, reason?.name)
+            st.setString(i++, origin?.name)
+            st.setObject(i++, userId)
+            st.setObject(i++, approverId)
+            st.setTimestamp(i++, approverId?.let { Timestamp.from(Instant.now()) })
+            st.setString(i++, key ?: UUID.randomUUID().toString())
+            st.setString(i++, note)
+            st.setLong(i, productId)
             st.executeQuery().use { rs -> if (rs.next()) rs.getLong("id") else error("Sin id") }
         }
     }
 
-    private fun aplicarEnUbicaciones(
-        conexion: Connection,
-        productoId: Long,
-        bodegaId: Long,
-        origenId: Long?,
-        destinoId: Long?,
-        unidades: Quantity,
+    private fun applyToLocations(
+        connection: Connection,
+        productId: Long,
+        warehouseId: Long,
+        originId: Long?,
+        destinationId: Long?,
+        units: Quantity,
     ) {
         val sql = "SELECT aplicar_movimiento_a_ubicacion(?, ?, ?, ?, FALSE)"
         listOfNotNull(
-            origenId?.let { it to unidades.negada() },
-            destinoId?.let { it to unidades },
-        ).forEach { (ubicacionId, delta) ->
-            conexion.prepareStatement(sql).use { st ->
-                st.setLong(1, productoId)
-                st.setLong(2, ubicacionId)
-                st.setLong(3, bodegaId)
-                st.setBigDecimal(4, delta.aBigDecimal())
+            originId?.let { it to units.negated() },
+            destinationId?.let { it to units },
+        ).forEach { (locationId, delta) ->
+            connection.prepareStatement(sql).use { st ->
+                st.setLong(1, productId)
+                st.setLong(2, locationId)
+                st.setLong(3, warehouseId)
+                st.setBigDecimal(4, delta.toBigDecimal())
                 st.execute()
             }
         }
     }
 
-    private fun recalcularTotal(conexion: Connection, productoId: Long) {
-        conexion.prepareStatement("SELECT recalcular_total_producto(?)").use { st ->
-            st.setLong(1, productoId)
+    private fun recalculateTotal(connection: Connection, productId: Long) {
+        connection.prepareStatement("SELECT recalcular_total_producto(?)").use { st ->
+            st.setLong(1, productId)
             st.execute()
         }
     }
 
-    private fun leerSaldo(conexion: Connection, productoId: Long, ubicacionId: Long): Quantity =
-        conexion.prepareStatement(
+    private fun readBalance(connection: Connection, productId: Long, locationId: Long): Quantity =
+        connection.prepareStatement(
             "SELECT quantity FROM stock_by_location WHERE product_id = ? AND location_id = ?",
         ).use { st ->
-            st.setLong(1, productoId)
-            st.setLong(2, ubicacionId)
+            st.setLong(1, productId)
+            st.setLong(2, locationId)
             st.executeQuery().use { rs ->
                 if (rs.next()) Quantity.ofScaled(rs.getBigDecimal("quantity").movePointRight(3).toLong())
                 else Quantity.ZERO
             }
         }
 
-    private fun leerTotal(conexion: Connection, productoId: Long): Quantity =
-        conexion.prepareStatement("SELECT quantity FROM product_stock WHERE product_id = ?").use { st ->
-            st.setLong(1, productoId)
+    private fun readTotal(connection: Connection, productId: Long): Quantity =
+        connection.prepareStatement("SELECT quantity FROM product_stock WHERE product_id = ?").use { st ->
+            st.setLong(1, productId)
             st.executeQuery().use { rs ->
                 if (rs.next()) Quantity.ofScaled(rs.getBigDecimal("quantity").movePointRight(3).toLong())
                 else Quantity.ZERO
             }
         }
 
-    private data class ProductoEncontrado(val id: Long)
+    private data class ProductFound(val id: Long)
 
-    private fun buscarProducto(conexion: Connection, code: ProductCode): Long? =
-        conexion.prepareStatement("SELECT id FROM products WHERE product_code = ? AND active").use { st ->
+    private fun findProduct(connection: Connection, code: ProductCode): Long? =
+        connection.prepareStatement("SELECT id FROM products WHERE product_code = ? AND active").use { st ->
             st.setString(1, code.value)
             st.executeQuery().use { rs -> if (rs.next()) rs.getLong("id") else null }
         }
 
-    data class UbicacionEncontrada(val id: Long, val warehouseId: Long)
+    data class LocationFound(val id: Long, val warehouseId: Long)
 
     /**
      * Resuelve una ubicación por su código.
@@ -643,8 +643,8 @@ class InventoryService(private val dataSource: DataSource) {
      * visible**, que es lo que el usuario ve en la pantalla y lo que copia. Por eso
      * se resuelven por `kind`, con el mismo criterio que usa `existencias`.
      */
-    private fun buscarUbicacion(conexion: Connection, code: LocationCode): UbicacionEncontrada? =
-        conexion.prepareStatement(
+    private fun findLocation(connection: Connection, code: LocationCode): LocationFound? =
+        connection.prepareStatement(
             """
             SELECT id, warehouse_id FROM locations
             WHERE (
@@ -660,7 +660,7 @@ class InventoryService(private val dataSource: DataSource) {
             st.setString(1, code.value)
             st.setString(2, code.value)
             st.executeQuery().use { rs ->
-                if (rs.next()) UbicacionEncontrada(rs.getLong("id"), rs.getLong("warehouse_id")) else null
+                if (rs.next()) LocationFound(rs.getLong("id"), rs.getLong("warehouse_id")) else null
             }
         }
 
@@ -674,14 +674,14 @@ class InventoryService(private val dataSource: DataSource) {
      * La de recepción y la de sin-ubicar devuelven su propio nombre y no la
      * concatenación: `RECEPCION-RECEPCION-RECEPCION` no dice nada.
      */
-    private fun nombreDeUbicacion(hall: String, code: String, position: String, kind: String): String =
+    private fun locationDisplayName(hall: String, code: String, position: String, kind: String): String =
         when (kind) {
             "RECEIVING" -> "RECEPCION"
             "UNASSIGNED" -> "SIN-UBICAR"
             else -> "$hall-$code-$position"
         }
 
-    private fun cuandoFalla(code: String, message: String) = when (code) {
+    private fun whenFails(code: String, message: String) = when (code) {
         "INSUFFICIENT_STOCK" -> UnprocessableException(code, message)
         "SEGREGATION_OF_DUTIES" -> UnprocessableException(code, message)
         "REASON_REQUIRED" -> UnprocessableException(code, message)
@@ -690,16 +690,16 @@ class InventoryService(private val dataSource: DataSource) {
 }
 
 /** El resultado de aplicar un ajuste. */
-data class ResultadoDeAjuste(
-    val movimientos: List<Long>,
+data class AdjustmentResult(
+    val movements: List<Long>,
     val total: Quantity,
     /** `APPLIED` o `PENDING_APPROVAL`. */
-    val estado: String,
-    val motivo: String? = null,
+    val status: String,
+    val reason: String? = null,
 )
 
 @Serializable
-data class ExistenciaDto(
+data class StockByLocationDto(
     val productId: Long,
     val productCode: String,
     val productName: String,
@@ -732,7 +732,7 @@ data class KardexDto(
 )
 
 @Serializable
-data class DivergenciaDto(
+data class DivergenceDto(
     val productId: Long,
     val productCode: String,
     val totalEnBd: String,
@@ -749,7 +749,7 @@ data class DivergenciaDto(
  * `Decimal` contra `number` del legacy es justo el origen de sus descuadres de
  * redondeo.
  */
-private fun Quantity.aBigDecimal(): java.math.BigDecimal =
+private fun Quantity.toBigDecimal(): java.math.BigDecimal =
     java.math.BigDecimal.valueOf(this.value).movePointLeft(Quantity.SCALE)
 
 /**
@@ -758,4 +758,4 @@ private fun Quantity.aBigDecimal(): java.math.BigDecimal =
  * Se construye sobre `ofScaled` en lugar de multiplicar por −1 en coma flotante:
  * negar el entero escalado es exacto por definición.
  */
-private fun Quantity.negada(): Quantity = Quantity.ofScaled(-this.value)
+private fun Quantity.negated(): Quantity = Quantity.ofScaled(-this.value)
