@@ -33,6 +33,13 @@
 
 ---
 
+> **⚖️ Las reglas de arquitectura, patrones y estándares están en
+> [`ARQUITECTURA.md`](ARQUITECTURA.md), y ese documento es NORMATIVO.** Si el código
+> contradice algo de allí, el código está mal. Este plan dice **qué** se construye;
+> `ARQUITECTURA.md` dice **cómo**.
+
+---
+
 ## 0. Resumen ejecutivo
 
 Los tres repos en `~/DEV/STOCK/BASE` son la versión productiva de un sistema de almacén
