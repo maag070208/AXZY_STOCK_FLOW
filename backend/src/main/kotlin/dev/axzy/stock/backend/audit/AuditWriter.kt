@@ -147,13 +147,13 @@ class AuditWriter(private val dataSource: DataSource) {
         // quien llama no la dio, se genera aquí una correlación en lugar de dejar que
         // el INSERT falle: perder el registro de una operación crítica por un detalle
         // de fontanería sería peor que el detalle.
-        val correlacion = correlationId
+        val correlation = correlationId
             ?: if (level == Level.CRITICAL) newCorrelationId() else null
 
         // Una IP que no es IP (un `localhost` sin resolver, una cabecera manipulada)
         // haría fallar el CAST a `inet` y tumbaría la operación por un dato accesorio.
         // Se descarta en lugar de propagar el fallo.
-        val ipValida = sourceIp?.takeIf { pareceIp(it) }
+        val validIp = sourceIp?.takeIf { looksLikeIp(it) }
 
         // ── EL NOMBRE DEL ACTOR SE RESUELVE AQUÍ ───────────────────────────
         //
@@ -171,16 +171,16 @@ class AuditWriter(private val dataSource: DataSource) {
         // que se añada también.
         //
         // Sin consulta adicional cuando el llamador ya lo manda.
-        val nombreActor = actorUsername ?: resolverNombreDeActor(connection, actorUserId)
+        val actorName = actorUsername ?: resolveActorName(connection, actorUserId)
 
         connection.prepareStatement(sql).use { st ->
             var i = 1
             st.setObject(i++, actorUserId, Types.BIGINT)
-            st.setString(i++, nombreActor)
+            st.setString(i++, actorName)
             st.setString(i++, actorName)
             st.setArray(i++, actorRoles?.let { connection.createArrayOf("text", it.toTypedArray()) })
             st.setString(i++, channel.name)
-            st.setString(i++, ipValida)
+            st.setString(i++, validIp)
             st.setString(i++, sourceUserAgent)
             st.setString(i++, sourceDevice)
             st.setString(i++, entityType)
@@ -199,7 +199,7 @@ class AuditWriter(private val dataSource: DataSource) {
             st.setString(i++, errorCode)
             st.setString(i++, errorMessage)
             st.setObject(i++, durationMs, Types.INTEGER)
-            st.setString(i++, correlacion)
+            st.setString(i++, correlation)
             st.setString(i++, causationId)
             st.setString(i++, idempotencyKey)
             st.setString(i++, requestId)
@@ -220,7 +220,7 @@ class AuditWriter(private val dataSource: DataSource) {
      * clave foránea ya garantiza que un id presente existe; esto solo añade la parte
      * legible.
      */
-    private fun resolverNombreDeActor(connection: Connection, userId: Long?): String? {
+    private fun resolveActorName(connection: Connection, userId: Long?): String? {
         if (userId == null) return null
         return connection.prepareStatement(
             "SELECT username FROM users WHERE id = ?",
@@ -295,7 +295,7 @@ class AuditWriter(private val dataSource: DataSource) {
          * `X-Forwarded-For` **es falsificable** y una validación estricta daría una
          * falsa sensación de seguridad. La IP es un dato indicativo, no una prueba.
          */
-        private fun pareceIp(valor: String): Boolean {
+        private fun looksLikeIp(valor: String): Boolean {
             val v = valor.trim()
             if (v.isEmpty()) return false
             // IPv4 o IPv6 con los caracteres que `inet` admite.
