@@ -88,3 +88,55 @@ internal fun ResultSet.toKardexDto(
     userName = getString("user_name"),
     note = getString("note"),
 )
+
+/**
+ * Convierte una fila de existencias por ubicación en su DTO.
+ *
+ * **El nombre visible de la ubicación se calcula con [locationDisplayName], y no se lee
+ * de una columna.** La base guarda las tres partes por separado (`hall`, `code`,
+ * `position`) y el nombre que ve el operador se compone en el servidor. Las ubicaciones
+ * especiales —`RECEPCION` y `SIN-UBICAR`— tienen además las tres partes **iguales**
+ * (`hall = code = position`), así que concatenarlas daría
+ * `SINUBICARSINUBICARSINUBICAR`: **el nombre visible no es una concatenación, es una
+ * decisión**, y por eso vive en una función y no en un `CONCAT` del SQL.
+ */
+internal fun ResultSet.toStockByLocationDto(): StockByLocationDto = StockByLocationDto(
+    productId = getLong("product_id"),
+    productCode = getString("product_code"),
+    productName = getString("product_name"),
+    locationId = getLong("location_id"),
+    locationDisplayName = locationDisplayName(
+        getString("hall"),
+        getString("code"),
+        getString("position"),
+        getString("kind"),
+    ),
+    warehouseId = getLong("warehouse_id"),
+    warehouseCode = getString("warehouse_code"),
+    quantity = getBigDecimal("quantity").toPlainString(),
+)
+
+/**
+ * Convierte una fila de `comprobar_proyecciones()` en su DTO.
+ *
+ * Los tres totales van como **cadena** con `toPlainString()`, igual que el resto de
+ * cantidades del contrato (`CONTRATO_API.md` §1.7). Aquí importa más que en ningún otro
+ * sitio: este endpoint **existe precisamente para detectar descuadres**, y devolver los
+ * totales como número invitaría a que el cliente los comparara en coma flotante.
+ * **Un reporte de reconciliación que redondea es peor que no tenerlo**, porque dice que
+ * todo cuadra cuando la diferencia está por debajo de la precisión del `double`.
+ */
+internal fun ResultSet.toDivergenceDto(): DivergenceDto = DivergenceDto(
+    productId = getLong("product_id"),
+    productCode = getString("product_code"),
+    totalEnBd = getBigDecimal("total_en_bd").toPlainString(),
+    totalEsperado = getBigDecimal("total_esperado").toPlainString(),
+    diferencia = getBigDecimal("diferencia").toPlainString(),
+)
+
+internal fun locationDisplayName(hall: String, code: String, position: String, kind: String): String =
+    when (kind) {
+        "RECEIVING" -> "RECEPCION"
+        "UNASSIGNED" -> "SIN-UBICAR"
+        else -> "$hall-$code-$position"
+    }

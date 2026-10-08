@@ -391,21 +391,7 @@ class InventoryService(
                 buildList {
                     while (rs.next()) {
                         add(
-                            StockByLocationDto(
-                                productId = rs.getLong("product_id"),
-                                productCode = rs.getString("product_code"),
-                                productName = rs.getString("product_name"),
-                                locationId = rs.getLong("location_id"),
-                                locationDisplayName = locationDisplayName(
-                                    rs.getString("hall"),
-                                    rs.getString("code"),
-                                    rs.getString("position"),
-                                    rs.getString("kind"),
-                                ),
-                                warehouseId = rs.getLong("warehouse_id"),
-                                warehouseCode = rs.getString("warehouse_code"),
-                                quantity = rs.getBigDecimal("quantity").toPlainString(),
-                            ),
+                            rs.toStockByLocationDto(),
                         )
                     }
                 }
@@ -589,13 +575,7 @@ class InventoryService(
                 buildList {
                     while (rs.next()) {
                         add(
-                            DivergenceDto(
-                                productId = rs.getLong("product_id"),
-                                productCode = rs.getString("product_code"),
-                                totalEnBd = rs.getBigDecimal("total_en_bd").toPlainString(),
-                                totalEsperado = rs.getBigDecimal("total_esperado").toPlainString(),
-                                diferencia = rs.getBigDecimal("diferencia").toPlainString(),
-                            ),
+                            rs.toDivergenceDto(),
                         )
                     }
                 }
@@ -783,19 +763,6 @@ class InventoryService(
      * La de recepción y la de sin-ubicar devuelven su propio nombre y no la
      * concatenación: `RECEPCION-RECEPCION-RECEPCION` no dice nada.
      */
-    private fun locationDisplayName(hall: String, code: String, position: String, kind: String): String =
-        when (kind) {
-            "RECEIVING" -> "RECEPCION"
-            "UNASSIGNED" -> "SIN-UBICAR"
-            else -> "$hall-$code-$position"
-        }
-
-    private fun whenFails(code: String, message: String) = when (code) {
-        "INSUFFICIENT_STOCK" -> UnprocessableException(code, message)
-        "SEGREGATION_OF_DUTIES" -> UnprocessableException(code, message)
-        "REASON_REQUIRED" -> UnprocessableException(code, message)
-        else -> UnprocessableException(code, message)
-    }
 }
 
 /** El resultado de aplicar un ajuste. */
@@ -868,6 +835,21 @@ private fun Quantity.toBigDecimal(): java.math.BigDecimal =
  * negar el entero escalado es exacto por definición.
  */
 private fun Quantity.negated(): Quantity = Quantity.ofScaled(-this.value)
+
+/**
+ * Traduce un código de error de dominio a la excepción HTTP que le corresponde.
+ *
+ * **No es un mapper y por eso NO vive en `InventoryMappers.kt`.** Un mapper convierte
+ * datos; esto convierte errores, y es una decisión de la capa HTTP. Mezclarlos haría que
+ * el archivo de mappers dependiera del catálogo de excepciones — que es exactamente el
+ * tipo de acoplamiento que los mappers existen para evitar.
+ */
+private fun whenFails(code: String, message: String) = when (code) {
+    "INSUFFICIENT_STOCK" -> UnprocessableException(code, message)
+    "SEGREGATION_OF_DUTIES" -> UnprocessableException(code, message)
+    "REASON_REQUIRED" -> UnprocessableException(code, message)
+    else -> UnprocessableException(code, message)
+}
 
 /**
  * El permiso que exigía el ajuste, para dejarlo en el registro de auditoría.
