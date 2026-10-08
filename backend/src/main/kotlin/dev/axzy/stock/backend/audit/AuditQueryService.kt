@@ -124,7 +124,7 @@ class AuditQueryService(private val dataSource: DataSource) {
 
             st.executeQuery().use { rows ->
                 buildList {
-                    while (rows.next()) add(rows.aDto())
+                    while (rows.next()) add(rows.toAuditEntryDto())
                 }
             }
         }
@@ -274,54 +274,7 @@ class AuditQueryService(private val dataSource: DataSource) {
      * su sitio en el detalle de un registro (`PLAN_AUDITORIA.md` §7.5); lo que sí
      * viaja es `changed_fields`, que dice QUÉ campos cambiaron sin el contenido.
      */
-    private fun ResultSet.aDto(): AuditEntryDto = AuditEntryDto(
-        id = getLong("id"),
-        sequenceNo = getLong("sequence_no"),
-        occurredAt = getTimestamp("occurred_at").toInstant().toString(),
-        businessDate = getDate("business_date").toLocalDate().toString(),
-        userId = getLongOrNull("actor_user_id"),
-        username = getString("actor_username"),
-        userName = getString("actor_name"),
-        roles = textArray("actor_roles"),
-        action = getString("action"),
-        actionLevel = getString("action_level"),
-        entity = getString("entity_type"),
-        entityId = getString("entity_id"),
-        entityLabel = getString("entity_label"),
-        changedFields = textArray("changed_fields"),
-        channel = getString("source_channel"),
-        device = getString("source_device"),
-        ip = getString("source_ip"),
-        userAgent = getString("source_user_agent"),
-        permission = getString("permission_key"),
-        decision = getString("decision"),
-        result = getString("result"),
-        errorCode = getString("error_code"),
-        errorMessage = getString("error_message"),
-        reason = getString("reason"),
-        correlationId = getObject("correlation_id")?.toString(),
-        causationId = getObject("causation_id")?.toString(),
-        requestId = getString("request_id"),
-        prevHash = getString("prev_hash"),
-        recordHash = getString("record_hash"),
-    )
-
     /** `getLong` devuelve 0 para SQL NULL; aquí el nulo es un dato, no un cero. */
-    private fun ResultSet.getLongOrNull(column: String): Long? {
-        val value = getLong(column)
-        return if (wasNull()) null else value
-    }
-
-    /** `TEXT[]` de PostgreSQL (`actor_roles`, `changed_fields`) como lista. */
-    private fun ResultSet.textArray(column: String): List<String> {
-        val array = getArray(column) ?: return emptyList()
-        return try {
-            @Suppress("UNCHECKED_CAST")
-            (array.array as? Array<Any?>)?.mapNotNull { it?.toString() } ?: emptyList()
-        } finally {
-            array.free()
-        }
-    }
 
     companion object {
         /**
