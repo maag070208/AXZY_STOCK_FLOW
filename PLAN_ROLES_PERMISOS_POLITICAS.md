@@ -160,7 +160,7 @@ determina por la asignación de la persona, no por el rol.
 
 ## 2. Catálogo de permisos para el dominio de almacén
 
-Ocho módulos, **82 permisos**. Cada uno declara: clave, alcances admitidos, sensibilidad y estado.
+Ocho módulos, **76 permisos**. Cada uno declara: clave, alcances admitidos, sensibilidad y estado.
 
 ```txt
 ── MÓDULO: identidad
@@ -633,7 +633,7 @@ Cinco pantallas en el módulo `administración`, alineadas con lo que ya existe 
 - Lista con: nombre, acción, efecto (`ALLOW`/`DENY`), prioridad, roles, nº de condiciones, estado,
   modo observación.
 - **Editor de política** que es lo que hace usable ABAC. Debe guiar, no pedir JSON:
-  1. Elegir **acción** (buscador sobre los 82 permisos).
+  1. Elegir **acción** (buscador sobre los 76 permisos).
   2. Elegir **efecto** con advertencia visual: `DENY` en rojo, con la explicación de que
      *"deny gana siempre"*.
   3. Elegir **roles** (vacío = todos).
@@ -859,7 +859,7 @@ Todo corre en **JVM puro**, sin base de datos.
 
 | # | Caso | Assertion |
 |---|---|---|
-| A1 | Cada uno de los 5 roles × cada uno de los 82 permisos | El alcance efectivo coincide **exactamente** con la matriz de §3.1 (test generado desde la tabla) |
+| A1 | Cada uno de los 5 roles × cada uno de los 76 permisos | El alcance efectivo coincide **exactamente** con la matriz de §3.1 (test generado desde la tabla) |
 | A2 | Permiso sensible sin rol autorizado | Ningún rol salvo los previstos lo tiene |
 | A3 | `OPERADOR_ALMACEN` intenta `invoice.approve` | `Denied(PERMISSION_DENIED)` |
 | A4 | `AUDITOR` intenta cualquier escritura (los 40 permisos de escritura) | `Denied` en **todos** |
@@ -915,7 +915,7 @@ Cada una de las 12 políticas con un caso positivo y uno negativo:
 
 | # | Caso | Assertion |
 |---|---|---|
-| A35 | **Escalada por ABAC** | Ninguna combinación de políticas permite algo que RBAC negó. Test exhaustivo: para cada uno de los 82 permisos × 5 roles, añadir **todas** las políticas posibles con `ALLOW` y verificar que los que RBAC niega **siguen negados** |
+| A35 | **Escalada por ABAC** | Ninguna combinación de políticas permite algo que RBAC negó. Test exhaustivo: para cada uno de los 76 permisos × 5 roles, añadir **todas** las políticas posibles con `ALLOW` y verificar que los que RBAC niega **siguen negados** |
 | A36 | **Contra el `role === 1`** | Ningún rol obtiene acceso por su `id` numérico; solo por `key` y permisos |
 | A37 | Excepción sin motivo | Rechazada por la BD |
 | A38 | Excepción caducada | No concede acceso |
@@ -968,7 +968,7 @@ El legacy tiene **3 roles** (`admin`, `operaciones`, `almacen`), **25 permisos**
 | `roleId === 1` hardcodeado | `roles.key` estable | Eliminado |
 | `User.roleId` (uno solo) | `user_roles` (N:M) | Permite roles adicionales sin crear roles híbridos |
 | `RolePermission` (sin alcance) | `role_permissions.scope` | Migra como `ALL` por defecto, y luego se ajusta rol por rol |
-| 25 permisos planos | 82 permisos jerárquicos | **Los permisos viejos no mapean 1:1.** `location:read` cubría consultar, mover y ajustar: hay que descomponerlo |
+| 25 permisos planos | 76 permisos jerárquicos | **Los permisos viejos no mapean 1:1.** `location:read` cubría consultar, mover y ajustar: hay que descomponerlo |
 
 **El mapeo de los 25 permisos viejos es una tarea de la Fase 1** y necesita tu revisión, porque
 implica decidir qué puede hacer cada persona concreta. Propongo hacerlo en una hoja de cálculo:
@@ -1020,7 +1020,7 @@ Se integra en las fases de `PLAN_ALMACEN_INTEGRAL.md`, principalmente Fase 1 (ba
 
 | Fase | Entregable de roles/permisos |
 |---|---|
-| **Fase 0** | `stock-domain/access` con el motor de 3 etapas y sus tests puros. Catálogo de los 82 permisos tipado. **Los tests A1–A25 corren en JVM desde el primer día.** |
+| **Fase 0** | `stock-domain/access` con el motor de 3 etapas y sus tests puros. Catálogo de los 76 permisos tipado. **Los tests A1–A25 corren en JVM desde el primer día.** |
 | **Fase 1** | Esquema de §5, seed de los 5 roles y la matriz de §3.1, plugin de autorización en Ktor, endpoints de §7. **Eliminación del `role === 1`.** Tests A26–A43. |
 | **Fase 2** | Las políticas del dominio de almacén (§4.3) con sus tests. El probador de acceso. Tests A44–A46. |
 | **Fase 5 (web)** | Las 7 pantallas de §6, empezando por `/admin/roles` y `/admin/roles/:key` (la matriz), luego `/admin/policies` (el editor), después el probador y la bitácora. |

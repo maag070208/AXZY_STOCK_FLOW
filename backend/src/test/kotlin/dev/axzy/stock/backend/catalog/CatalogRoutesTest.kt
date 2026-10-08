@@ -84,7 +84,7 @@ class CatalogRoutesTest : DescribeSpec({
             // UNA sola vez. Antes se montaba `module(pool)` y ADEMAS un
             // `routing { catalogRoutes(...) }`, asi que las rutas quedaban
             // duplicadas y Ktor resolvia la del verificador que deniega todo.
-            module(pool, verificador)
+            module(dataSource = pool, permissionChecker = verificador)
         }
     }
 

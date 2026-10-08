@@ -524,7 +524,7 @@ roles            (id, name UNIQUE, ...)
 permissions      (id, key UNIQUE, module, resource, action, name, description,
                   scopes permission_scope[], sensitive, active, sort_order)
                  -- 'invoice.approve'. DISEÑO COMPLETO EN PLAN_ROLES_PERMISOS_POLITICAS.md
-                 -- (82 permisos, 4 alcances NONE|OWN|AREA|ALL, roles con clave estable,
+                 -- (76 permisos, 4 alcances NONE|OWN|AREA|ALL, roles con clave estable,
                  --  políticas ABAC, excepciones por persona, API keys de servicio)
 role_permissions (role_id, permission_id) PK compuesta
 refresh_tokens   (id, user_id FK, token_hash, expires_at, revoked_at, user_agent, ip)
@@ -1584,7 +1584,7 @@ y de por qué es un documento aparte:
 - **Pipeline de decisión en 3 etapas**: Identidad → RBAC → ABAC, con **default deny**. Esto
   reemplaza el bypass `if (role === 1) return next()` del legacy (hallazgo S2) y el rol admin sin
   permisos sembrados (hallazgo S3).
-- **82 permisos en 8 módulos**, con nomenclatura `recurso.accion` y **alcance**
+- **76 permisos en 8 módulos**, con nomenclatura `recurso.accion` y **alcance**
   (`NONE | OWN | AREA | ALL`) donde `AREA` es "su bodega" — lo que resuelve la multi-bodega **sin
   crear roles por bodega**.
 - **5 roles base**: `ADMIN`, `GERENTE_OPERACIONES`, `JEFE_BODEGA`, `OPERADOR_ALMACEN`, `AUDITOR`.
@@ -2237,7 +2237,7 @@ exhaustivo con rutas y números de línea. Son la evidencia de este plan:
 | [REPORTE_ARQUITECTURA_FSD_RESPONSIVA_WEB.md](REPORTE_ARQUITECTURA_FSD_RESPONSIVA_WEB.md) | Arquitectura y convenciones del repo de referencia FSD (~2.300 líneas): capas, boundaries, data fetching, RTK, routing/guards, UI kit, permisos, estilos, i18n, PDF/QR, testing, Docker/Electron, inventario de 79 rutas / 18 entidades / 56 slices / 74 páginas |
 | [PLAN_AUDITORIA.md](PLAN_AUDITORIA.md) | **Diseño de auditoría y trazabilidad**: las 6 dimensiones (quién/cuándo/dónde/de dónde/permiso/qué), 4 niveles de criticidad, el `AccessDecisionTrace` completo, cadena de hashes, particionado, 3 tablas nuevas, 11 endpoints, 6 pantallas y 28 casos de prueba |
 | [PLAN_REFACTOR_MEJORAS.md](PLAN_REFACTOR_MEJORAS.md) | **Estrategia del refactor**: 71 cambios identificados (R-01…R-71) en 3 clases (defecto técnico / contradicción interna / regla de negocio), metodología de propuesta, política de rollback con feature flags, priorización en 3 bloques y 15 mejoras por buenas prácticas |
-| [PLAN_ROLES_PERMISOS_POLITICAS.md](PLAN_ROLES_PERMISOS_POLITICAS.md) | **Diseño completo del control de acceso**: RBAC + ABAC, 82 permisos, 5 roles, 12 políticas, 9 tablas, 18 endpoints, 7 pantallas y 50 casos de prueba |
+| [PLAN_ROLES_PERMISOS_POLITICAS.md](PLAN_ROLES_PERMISOS_POLITICAS.md) | **Diseño completo del control de acceso**: RBAC + ABAC, 76 permisos, 5 roles, 12 políticas, 9 tablas, 18 endpoints, 7 pantallas y 50 casos de prueba |
 | [MOBILE_APP_INVENTORY_REPORT.md](MOBILE_APP_INVENTORY_REPORT.md) | Inventario del app Expo: 26 pantallas, 20 componentes, 20 endpoints, escáner, estados, y el checklist de 14 correcciones a aplicar al portar a KMP |
 
 > Nota: el inventario del backend y del frontend web legacy se entregó íntegro en la sesión de
