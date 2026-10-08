@@ -179,7 +179,22 @@ el camino de sincronización diferida con sus dos horas.
 - **Instantes**: ISO 8601 en UTC con `Z` → `"2026-10-07T21:24:37.688Z"`.
 - **Fechas operativas** (sin hora): `"2026-10-07"`. Para el turno de noche, la fecha de negocio, no
   la del reloj.
-- **Cantidades**: número decimal con **3 decimales**, nunca cadena → `100.000`, `0.500`.
+- **Cantidades**: **cadena** decimal con **3 decimales** → `"100.000"`, `"0.500"`.
+  ⚠️ **CORREGIDO: este documento decía «número decimal, nunca cadena» y era falso.** La
+  implementación las serializa como `BigDecimal.toPlainString()`, es decir **texto**.
+  Se comprobó con `curl` contra las rutas reales (`/v1/inventory/stock`,
+  `/v1/reports/kardex-vs-projection`, `/v1/products`).
+
+  **Por qué texto y no número, y es una decisión, no un descuido:** JSON no tiene
+  decimales de precisión arbitraria. Un `number` de JavaScript es un `double` de 64
+  bits, y `0.1 + 0.2` no es `0.3`. Mandar `5193.000` como número invita a que el cliente
+  lo sume en coma flotante y aparezcan centésimas fantasma. Como **cadena**, la
+  precisión viaja intacta y el cliente decide cómo parsearla.
+
+  **Consecuencia que hay que tener presente:** los tipos compartidos de `web/`
+  (`StockItem`, `KardexEntry`) declaran estos campos como `number`, y **están mal**. Las
+  pantallas que se conectaron tuvieron que declarar interfaces locales con la forma
+  real. Es una deuda pendiente: alinear `web/src/shared/api/types.ts`.
   El legacy mezclaba `Decimal` de Prisma con `number` de JSON, y de ahí venían los descuadres de
   redondeo.
 - **Identificadores**: número entero. Las claves de negocio (`productCode`) son cadena.
@@ -823,9 +838,11 @@ cuál**.
 
 ```json
 {
-  "checkedAt": "...", "productsChecked": 1398, "divergences": 0,
-  "items": [ { "productCode": "ABRAA1B", "ledgerNet": 5193.000,
-               "projected": 5193.000, "difference": 0.000 } ]
+  "checkedAt": "2026-10-08T03:24:02.709620Z", "cuadra": true,
+  "divergences": 0,
+  "items": [ { "productId": 1, "productCode": "ABRAA1B",
+               "totalEnBd": "5193.000", "totalEsperado": "5193.000",
+               "diferencia": "0.000" } ]
 }
 ```
 
