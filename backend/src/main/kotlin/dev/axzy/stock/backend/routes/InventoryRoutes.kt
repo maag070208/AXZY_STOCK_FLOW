@@ -228,9 +228,19 @@ fun Route.inventoryRoutes(
             limite = page.size,
         )
 
+        // **EL TOTAL SE CUENTA, NO SE ADIVINA.** Antes se pasaba `items.size`, así
+        // que el sobre decía «50 resultados» siempre y el cliente no podía pintar
+        // «1.064 existencias, 22 páginas». Lo encontró un agente al conectar la
+        // pantalla de inventario.
+        val total = servicio.contarExistencias(
+            productCode = call.request.queryParameters["productCode"],
+            locationCode = call.request.queryParameters["locationCode"],
+            soloConExistencia = call.request.queryParameters["onlyWithStock"]?.toBoolean() ?: true,
+        )
+
         call.respond(
             HttpStatusCode.OK,
-            Page(items, page.page, page.size, items.size.toLong()).aRespuesta { it },
+            Page(items, page.page, page.size, total).aRespuesta { it },
         )
     }
 

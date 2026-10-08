@@ -10,6 +10,12 @@ import { get, post } from "@shared/api";
  * factura no se podía ubicar nunca. La regla B1 necesita esta pantalla para no ser
  * un callejón sin salida.
  *
+ * **LAS RUTAS VAN SIN `/v1`, Y ES UN ERROR QUE COMETÍ AQUÍ.** `API_CONSTANTS.BASE_URL`
+ * ya vale `/v1`, así que escribir `/v1/invoices/...` compone `/v1/v1/invoices/...` y el
+ * backend responde 404. Lo encontró otro agente al copiar este archivo como patrón —yo
+ * lo di por bueno porque pasaba `tsc` y `eslint`, y **ninguno de los dos comprueba una
+ * URL en tiempo de ejecución**. Un error de ruta relativa solo se ve llamándola.
+ *
  * Dos cosas que la pantalla NO hace, a propósito:
  *
  *  1. **No aprueba línea a línea** (decisión R-86). Aprobar de una en una obliga al
@@ -56,7 +62,7 @@ export default function PendingApprovalPage() {
     setCargando(true);
     setError(null);
     try {
-      const respuesta = await get<{ items: Pendiente[] }>("/v1/invoices/pending-approval");
+      const respuesta = await get<{ items: Pendiente[] }>("/invoices/pending-approval");
       setPendientes(respuesta.items ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudieron cargar los pendientes.");
@@ -80,7 +86,7 @@ export default function PendingApprovalPage() {
     setEnviando(true);
     setAviso(null);
     try {
-      await post(`/v1/invoices/${invoiceId}/approve`, {
+      await post(`/invoices/${invoiceId}/approve`, {
         adjustmentReason: motivo,
         note: nota.trim() || null,
       });

@@ -231,7 +231,23 @@ class InventoryService(private val dataSource: DataSource) {
                 """.trimIndent(),
             )
             if (productCode != null) append(" AND p.product_code = ?")
-            if (locationCode != null) append(" AND (l.hall || l.code || l.\"position\") = ?")
+            if (locationCode != null) {
+                append(
+                    // Se aceptan las DOS formas en que el usuario puede nombrar una
+                    // ubicación, porque copia lo que ve en la pantalla: el nombre
+                    // visible (`SIN-UBICAR`) y las tres partes concatenadas
+                    // (`SINUBICAR`). **Sin `IN` sobre una lista fija**: la primera
+                    // versión hacía `UPPER(REPLACE(?,'-','')) IN ('SINUBICAR',
+                    // 'RECEPCION')`, y como `RECEPCION` está en esa lista, filtrar por
+                    // `RECEPCION` devolvía TODAS las filas. Un `IN` con valores
+                    // constantes no compara con el parámetro: lo usaba como permiso.
+                    " AND (UPPER(REPLACE(l.hall || l.code || l.\"position\", '-', '')) " +
+                        "= UPPER(REPLACE(?, '-', ' ')) " +
+                        "OR (CASE l.kind WHEN 'RECEIVING' THEN 'RECEPCION' " +
+                        "WHEN 'UNASSIGNED' THEN 'SINUBICAR' END) = " +
+                        "UPPER(REPLACE(?, '-', '')))",
+                )
+            }
             if (soloConExistencia) append(" AND s.quantity > 0")
             append(" ORDER BY p.product_code, l.hall, l.code, l.\"position\" LIMIT ? OFFSET ?")
         }
@@ -239,7 +255,15 @@ class InventoryService(private val dataSource: DataSource) {
         conexion.prepareStatement(sql).use { st ->
             var i = 1
             if (productCode != null) st.setString(i++, productCode)
-            if (locationCode != null) st.setString(i++, locationCode)
+            if (locationCode != null) {
+                // Tres parámetros: el nombre visible, y las tres columnas para
+                // componer el concatenado con el que se compara. Se pasan como
+                // literales vacíos porque la comparación real es contra las columnas
+                // de la fila; el `UPPER(REPLACE(?||?||?, '-',''))` recibe las tres.
+                // Dos parámetros, uno por cada forma de nombrar la ubicación.
+                st.setString(i++, locationCode)
+                st.setString(i++, locationCode)
+            }
             st.setInt(i++, limite)
             st.setInt(i, offset)
 
@@ -347,6 +371,67 @@ class InventoryService(private val dataSource: DataSource) {
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Conteo total de existencias, para el sobre de paginación.
+     *
+     * **ANTES NO EXISTÍA Y ERA UN BUG.** La ruta pasaba `items.size` como
+     * `totalItems`, así que la respuesta decía «50 resultados» siempre y el cliente
+     * no podía pintar «1.064 existencias, 22 páginas». Lo encontró un agente al
+     * conectar la pantalla de inventario: la paginación estaba mintiendo.
+     *
+     * El filtro por ubicación SÍ se aplica aquí. Antes la ruta lo ignoraba, así que
+     * pedir `locationCode=SIN-UBICAR` devolvía **cero** filas sin decir por qué.
+     */
+    fun contarExistencias(
+        productCode: String? = null,
+        locationCode: String? = null,
+        soloConExistencia: Boolean = true,
+    ): Long = dataSource.connection.use { conexion ->
+        val sql = buildString {
+            append(
+                """
+                SELECT count(*)
+                FROM stock_by_location s
+                JOIN products p ON p.id = s.product_id
+                JOIN locations l ON l.id = s.location_id
+                WHERE 1 = 1
+                """.trimIndent(),
+            )
+            if (productCode != null) append(" AND p.product_code = ?")
+            // El código de ubicación puede venir como `SIN-UBICAR` (el nombre
+            // visible) o como `SINUBICAR` (las tres partes concatenadas), así que se
+            // aceptan los dos: el usuario copia lo que ve en la pantalla.
+            if (locationCode != null) {
+                append(
+                    // Se aceptan las DOS formas en que el usuario puede nombrar una
+                    // ubicación, porque copia lo que ve en la pantalla: el nombre
+                    // visible (`SIN-UBICAR`) y las tres partes concatenadas
+                    // (`SINUBICAR`). **Sin `IN` sobre una lista fija**: la primera
+                    // versión hacía `UPPER(REPLACE(?,'-','')) IN ('SINUBICAR',
+                    // 'RECEPCION')`, y como `RECEPCION` está en esa lista, filtrar por
+                    // `RECEPCION` devolvía TODAS las filas. Un `IN` con valores
+                    // constantes no compara con el parámetro: lo usaba como permiso.
+                    " AND (UPPER(REPLACE(l.hall || l.code || l.\"position\", '-', '')) " +
+                        "= UPPER(REPLACE(?, '-', ' ')) " +
+                        "OR (CASE l.kind WHEN 'RECEIVING' THEN 'RECEPCION' " +
+                        "WHEN 'UNASSIGNED' THEN 'SINUBICAR' END) = " +
+                        "UPPER(REPLACE(?, '-', '')))",
+                )
+            }
+            if (soloConExistencia) append(" AND s.quantity > 0")
+        }
+
+        conexion.prepareStatement(sql).use { st ->
+            var i = 1
+            if (productCode != null) st.setString(i++, productCode)
+            if (locationCode != null) {
+                st.setString(i++, locationCode)
+                st.setString(i++, locationCode)
+            }
+            st.executeQuery().use { rs -> if (rs.next()) rs.getLong(1) else 0L }
         }
     }
 
