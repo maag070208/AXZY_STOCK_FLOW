@@ -38,12 +38,31 @@ if [ -z "$PW" ]; then
 fi
 
 # ── El secreto de firma de JWT ──────────────────────────────────────────────
-# Se genera uno nuevo en cada arranque si no se pasa. **Eso invalida los tokens
-# anteriores**, y es lo correcto para desarrollo: cada reinicio empieza limpio.
+# **Se lee de `infra/.env` para que los tokens SOBREVIVAN a un reinicio.**
 #
-# Para que los tokens sobrevivan a un reinicio, define STOCK_JWT_SECRET tú:
-#   export STOCK_JWT_SECRET="$(openssl rand -base64 48)"
-SECRETO="${STOCK_JWT_SECRET:-$(openssl rand -base64 48 | tr -d '\n')}"
+# La primera versión generaba uno nuevo en cada arranque. Es lo más seguro, pero
+# en la práctica significaba que **cada reinicio del backend cerraba la sesión de
+# todo el mundo**, y el usuario lo veía como un error de autenticación —
+# `{"code":"UNAUTHENTICATED"}`— sin entender por qué. Lo era, pero provocado por
+# nosotros.
+#
+# Con el secreto en el archivo, reiniciar el backend (para aplicar migraciones,
+# por ejemplo) no cierra ninguna sesión. El archivo está ignorado por git.
+SECRETO_ARCHIVO="$(grep '^STOCK_JWT_SECRET=' "$ENTORNO_INFRA" 2>/dev/null | cut -d= -f2- || true)"
+
+if [ -n "${STOCK_JWT_SECRET:-}" ]; then
+  SECRETO="$STOCK_JWT_SECRET"
+elif [ -n "$SECRETO_ARCHIVO" ]; then
+  SECRETO="$SECRETO_ARCHIVO"
+else
+  # Si no hay ninguno, se genera y SE AVISA: el usuario tiene que saber que sus
+  # sesiones no van a sobrevivir al siguiente reinicio.
+  SECRETO="$(openssl rand -base64 48 | tr -d '\n')"
+  echo "⚠  No hay STOCK_JWT_SECRET en infra/.env: se generó uno temporal."
+  echo "   Los tokens NO sobrevivirán al siguiente reinicio."
+  echo "   Para fijarlo:  echo \"STOCK_JWT_SECRET=$SECRETO\" >> infra/.env"
+  echo
+fi
 
 export STOCK_DB_HOST="${STOCK_DB_HOST:-127.0.0.1}"
 export STOCK_DB_PORT="${STOCK_DB_PORT:-5432}"
