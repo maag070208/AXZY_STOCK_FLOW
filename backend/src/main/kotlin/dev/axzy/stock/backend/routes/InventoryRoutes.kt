@@ -360,27 +360,6 @@ private suspend fun manejarTraslado(
     )
 }
 
-/**
- * El identificador del usuario del token, o `null`.
- *
- * Se lee del token verificado por el verificador de permisos. Si la ruta llegó
- * hasta aquí, el verificador ya autorizó, así que hay usuario.
- */
-private suspend fun io.ktor.server.application.ApplicationCall.usuarioDelToken(): Long? {
-    val cabecera = request.headers["Authorization"] ?: return null
-    if (!cabecera.startsWith("Bearer ", ignoreCase = true)) return null
-
-    // El `sub` del JWT es el id del usuario. Se lee sin volver a verificar la firma
-    // porque el verificador de permisos ya lo hizo en `exigir`.
-    val partes = cabecera.substring(7).trim().split('.')
-    if (partes.size != 3) return null
-
-    return runCatching {
-        val payload = String(java.util.Base64.getUrlDecoder().decode(partes[1]))
-        Regex("\"sub\":\"(\\d+)\"").find(payload)?.groupValues?.get(1)?.toLong()
-    }.getOrNull()
-}
-
 /** La cantidad como texto con 3 decimales, que es el formato del contrato. */
 private fun Quantity.unidadesTexto(): String =
     java.math.BigDecimal.valueOf(this.value).movePointLeft(3).toPlainString()

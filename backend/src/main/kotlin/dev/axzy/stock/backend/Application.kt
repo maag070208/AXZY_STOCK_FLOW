@@ -11,7 +11,9 @@ import dev.axzy.stock.backend.routes.authRoutes
 import dev.axzy.stock.backend.routes.claimsDeToken
 import dev.axzy.stock.backend.inventory.InventoryService
 import dev.axzy.stock.backend.routes.catalogRoutes
+import dev.axzy.stock.backend.receiving.ReceivingService
 import dev.axzy.stock.backend.routes.inventoryRoutes
+import dev.axzy.stock.backend.routes.receivingRoutes
 import dev.axzy.stock.backend.security.DenyAllPermissionChecker
 import dev.axzy.stock.backend.security.PermissionChecker
 import dev.axzy.stock.backend.routes.healthRoutes
@@ -240,6 +242,11 @@ fun Application.module(
         // permiso concedido no debe quedar abierta, pero tampoco debe faltar: un
         // 404 esconde que la funcionalidad existe y solo está sin autorizar.
         inventoryRoutes(InventoryService(dataSource), permissionChecker)
+
+        // ── Recepción ───────────────────────────────────────────────────────
+        // La regla B1 vive aquí: una línea con discrepancia no se puede ubicar
+        // hasta que un supervisor apruebe la factura.
+        receivingRoutes(ReceivingService(dataSource), permissionChecker)
 
         // ── Autenticación ───────────────────────────────────────────────────
         // Solo se monta si hay servicio de tokens. Sin él, el módulo sigue

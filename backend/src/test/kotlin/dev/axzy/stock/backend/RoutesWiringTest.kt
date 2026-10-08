@@ -265,6 +265,84 @@ class RoutesWiringTest : DescribeSpec({
             }
         }
 
+        it("las rutas de RECEPCIÓN están conectadas") {
+            // El flujo de recepción es el que la regla B1 protege. Si sus rutas no
+            // están conectadas, una discrepancia se queda bloqueada sin que exista
+            // la pantalla para aprobarla, y el inventario se atasca en silencio.
+            if (!hayBase) return@it
+
+            conPool { pool ->
+                testApplication {
+                    application { module(pool) }
+
+                    listOf(
+                        "/v1/invoices/999999",
+                        "/v1/invoices/pending-approval",
+                    ).forEach { ruta ->
+                        val respuesta = client.get(ruta)
+                        withClue(
+                            "GET '$ruta' no debe dar 404 (se obtuvo ${respuesta.status}). " +
+                                "Comprueba que receivingRoutes está invocada en Application.kt.",
+                        ) {
+                            (respuesta.status == HttpStatusCode.NotFound && ruta.contains("pending")) shouldBe false
+                        }
+                    }
+                }
+            }
+        }
+
+        it("`POST /v1/invoices/{id}/approve` existe: es la regla B1") {
+            // **Esta ruta es la que hace cumplir la regla B1.** Sin ella, una línea
+            // con discrepancia no se puede desbloquear: no se puede ubicar y no hay
+            // forma de aprobarla, así que la factura se queda atascada para siempre.
+            //
+            // Y tiene que ser POR FACTURA y no por línea (R-86): la variante por línea
+            // se eliminó del contrato a propósito.
+            if (!hayBase) return@it
+
+            conPool { pool ->
+                testApplication {
+                    application { module(pool) }
+                    val respuesta = client.post("/v1/invoices/999999/approve") {
+                        header(io.ktor.http.HttpHeaders.ContentType, "application/json")
+                        setBody("{}")
+                    }
+                    withClue("Debe dar 401 (falta token), no 404 ni 405 — se obtuvo ${respuesta.status}") {
+                        (respuesta.status == HttpStatusCode.NotFound) shouldBe false
+                        (respuesta.status == HttpStatusCode.MethodNotAllowed) shouldBe false
+                    }
+                }
+            }
+        }
+
+        it("`POST /v1/invoices` se puede crear y `capture` existe") {
+            if (!hayBase) return@it
+
+            conPool { pool ->
+                testApplication {
+                    application { module(pool) }
+
+                    val crear = client.post("/v1/invoices") {
+                        header(io.ktor.http.HttpHeaders.ContentType, "application/json")
+                        setBody("{}")
+                    }
+                    withClue("POST /v1/invoices debe existir") {
+                        (crear.status == HttpStatusCode.NotFound) shouldBe false
+                        (crear.status == HttpStatusCode.MethodNotAllowed) shouldBe false
+                    }
+
+                    val capturar = client.post("/v1/invoices/1/lines/1/capture") {
+                        header(io.ktor.http.HttpHeaders.ContentType, "application/json")
+                        setBody("{}")
+                    }
+                    withClue("POST .../capture debe existir") {
+                        (capturar.status == HttpStatusCode.NotFound) shouldBe false
+                        (capturar.status == HttpStatusCode.MethodNotAllowed) shouldBe false
+                    }
+                }
+            }
+        }
+
         it("`/v1/health` sigue respondiendo y es público") {
             // La única ruta que debe funcionar sin identidad. Si esto falla, algo
             // se rompió al conectar el catálogo.
