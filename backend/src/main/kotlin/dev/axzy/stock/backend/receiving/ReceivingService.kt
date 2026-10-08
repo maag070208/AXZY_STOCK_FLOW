@@ -38,6 +38,9 @@ import javax.sql.DataSource
  */
 class ReceivingService(private val dataSource: DataSource) {
 
+    /** El escritor de auditoría. Ver `AuditWriter` para la decisión de transacción. */
+    private val audit = dev.axzy.stock.backend.audit.AuditWriter(dataSource)
+
     // ═══════════════════════════════════════════════════════════════════════
     // FACTURAS
     // ═══════════════════════════════════════════════════════════════════════
@@ -392,6 +395,43 @@ class ReceivingService(private val dataSource: DataSource) {
             }
 
             refreshInvoiceStatus(connection, invoiceId)
+
+            // ── LA AUDITORÍA MÁS IMPORTANTE DEL SISTEMA ─────────────────────
+            //
+            // **Aprobar una discrepancia es el control interno central** (decisión
+            // R-74): es la acción que acepta que lo recibido no coincide con lo
+            // facturado. El registro tiene que permitir responder **«¿quién aceptó
+            // esta diferencia, cuándo y por qué?»** dentro de un año, cuando la
+            // diferencia ya no se pueda reconstruir de otra forma.
+            //
+            // Va en la MISMA transacción y antes del commit: si la aprobación se
+            // aplicara y su registro no, la diferencia quedaría aceptada **sin
+            // constancia de quién la autorizó**, que es exactamente el agujero que
+            // esta funcionalidad existe para cerrar.
+            //
+            // El `newState` lleva el MOTIVO además del estado: un registro que solo
+            // dijera «pasó a APPROVED» obligaría a cruzar con la tabla de líneas para
+            // saber por qué se aceptó, y esa tabla puede cambiar. La auditoría tiene
+            // que bastarse sola.
+            audit.record(
+                connection = connection,
+                actorUserId = approverId,
+                actorUsername = null,
+                channel = dev.axzy.stock.backend.audit.AuditWriter.Channel.WEB,
+                entityType = "invoice",
+                entityId = invoiceId.toString(),
+                action = "invoice.discrepancy.approve",
+                level = dev.axzy.stock.backend.audit.AuditWriter.Level.RELEVANT,
+                previousState = """{"status":"DISCREPANCY","pendingLines":${pending.size}}""",
+                newState = """{"status":"APPROVED","approvedLines":${pending.size},"adjustmentReason":"$reason"}""",
+                reason = reason,
+                note = note,
+                permissionKey = "invoice.approve",
+                decision = dev.axzy.stock.backend.audit.AuditWriter.Decision.ALLOWED,
+                result = dev.axzy.stock.backend.audit.AuditWriter.Result.SUCCESS,
+                businessDate = java.time.LocalDate.now(java.time.ZoneOffset.UTC),
+            )
+
             connection.commit()
             invoice(invoiceId)
         } catch (e: Exception) {
