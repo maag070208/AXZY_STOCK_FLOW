@@ -323,62 +323,62 @@ export default function KardexPage() {
               No hay movimientos que cumplan el filtro.
             </p>
           ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: "#E4EBF5", color: "#16315F", textAlign: "left" }}>
-                <th style={{ padding: 10 }}>Fecha</th>
-                <th style={{ padding: 10 }}>Producto</th>
-                <th style={{ padding: 10 }}>Tipo</th>
-                <th style={{ padding: 10, textAlign: "right" }}>Unidades</th>
-                <th style={{ padding: 10 }}>Origen → destino</th>
-                <th style={{ padding: 10 }}>Usuario</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filas.map((a) => (
-                <tr key={a.id} style={{ borderBottom: "1px solid #E4EBF5" }}>
-                  <td style={{ padding: 10, whiteSpace: "nowrap" }}>{formatearFecha(a.movedAt)}</td>
-                  <td style={{ padding: 10 }}>
-                    <div style={{ fontWeight: 600 }}>{a.productCode}</div>
-                    <div style={{ fontSize: 12, color: "#4A5A72" }}>{a.productName}</div>
-                  </td>
-                  <td style={{ padding: 10 }}>
-                    <div>{ETIQUETA_POR_TIPO.get(a.moveType) ?? a.moveType}</div>
-                    {/* Código crudo del contrato: quien audita lo busca tal cual,
-                        y el nombre traducido puede cambiar sin avisar. */}
-                    <div style={{ fontSize: 11, color: "#4A5A72" }}>{a.moveType}</div>
-                    {/* El motivo es lo que hace auditable un ajuste; sin él, un
-                        ADJUSTMENT_OUT es un agujero. Se pinta cuando existe. */}
-                    {a.adjustmentReason && (
-                      <div style={{ fontSize: 12, color: "#F28C28" }}>
-                        Motivo: {a.adjustmentReason}
-                      </div>
-                    )}
-                  </td>
-                  <td
-                    style={{
-                      padding: 10,
-                      textAlign: "right",
-                      fontVariantNumeric: "tabular-nums",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    <div style={{ fontWeight: 600 }}>{a.units}</div>
-                    {/* Saldo resultante que guarda el servidor. Se enseña como
-                        dato secundario de la misma celda para no inventar una
-                        columna que el contrato de la pantalla no pide. */}
-                    <div style={{ fontSize: 11, color: "#4A5A72" }}>saldo: {a.quantityAfter}</div>
-                  </td>
-                  <td style={{ padding: 10 }}>
-                    {(a.fromLocationDisplayName ?? "—") + " → " + (a.toLocationDisplayName ?? "—")}
-                  </td>
-                  <td style={{ padding: 10 }}>
-                    {a.userName ?? (a.userId != null ? `#${a.userId}` : "—")}
-                  </td>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: "#E4EBF5", color: "#16315F", textAlign: "left" }}>
+                  <th style={{ padding: 10 }}>Fecha</th>
+                  <th style={{ padding: 10 }}>Producto</th>
+                  <th style={{ padding: 10 }}>Tipo</th>
+                  <th style={{ padding: 10, textAlign: "right" }}>Unidades</th>
+                  <th style={{ padding: 10 }}>Origen → destino</th>
+                  <th style={{ padding: 10 }}>Usuario</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filas.map((a) => (
+                  <tr key={a.id} style={{ borderBottom: "1px solid #E4EBF5" }}>
+                    <td style={{ padding: 10, whiteSpace: "nowrap" }}>{formatearFecha(a.movedAt)}</td>
+                    <td style={{ padding: 10 }}>
+                      <div style={{ fontWeight: 600 }}>{a.productCode}</div>
+                      <div style={{ fontSize: 12, color: "#4A5A72" }}>{a.productName}</div>
+                    </td>
+                    <td style={{ padding: 10 }}>
+                      <div>{ETIQUETA_POR_TIPO.get(a.moveType) ?? a.moveType}</div>
+                      {/* Código crudo del contrato: quien audita lo busca tal cual,
+                          y el nombre traducido puede cambiar sin avisar. */}
+                      <div style={{ fontSize: 11, color: "#4A5A72" }}>{a.moveType}</div>
+                      {/* El motivo es lo que hace auditable un ajuste; sin él, un
+                          ADJUSTMENT_OUT es un agujero. Se pinta cuando existe. */}
+                      {a.adjustmentReason && (
+                        <div style={{ fontSize: 12, color: "#F28C28" }}>
+                          Motivo: {a.adjustmentReason}
+                        </div>
+                      )}
+                    </td>
+                    <td
+                      style={{
+                        padding: 10,
+                        textAlign: "right",
+                        fontVariantNumeric: "tabular-nums",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      <div style={{ fontWeight: 600 }}>{a.units}</div>
+                      {/* Saldo resultante que guarda el servidor. Se enseña como
+                          dato secundario de la misma celda para no inventar una
+                          columna que el contrato de la pantalla no pide. */}
+                      <div style={{ fontSize: 11, color: "#4A5A72" }}>saldo: {a.quantityAfter}</div>
+                    </td>
+                    <td style={{ padding: 10 }}>
+                      {(a.fromLocationDisplayName ?? "—") + " → " + (a.toLocationDisplayName ?? "—")}
+                    </td>
+                    <td style={{ padding: 10 }}>
+                      {a.userName ?? (a.userId != null ? `#${a.userId}` : "—")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
 
           {/*

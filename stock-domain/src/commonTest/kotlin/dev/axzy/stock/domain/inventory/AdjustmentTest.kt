@@ -125,6 +125,40 @@ class AdjustmentTest : DescribeSpec({
             }
         }
 
+        it("UNA CANTIDAD NEGATIVA SE RECHAZA: invertiría el movimiento") {
+            // **Éste era un agujero real, y lo encontró un agente leyendo el código.**
+            //
+            // Con una cantidad negativa y dirección DECREASE, el motor resta un
+            // número negativo, o sea SUMA inventario. Y `requiresApproval` mira la
+            // DIRECCIÓN, así que sería `false`: se podría aumentar el stock sin
+            // aprobación de nadie, que es justo lo que R-74 impide.
+            //
+            // El test que había solo cubría el CERO. `Quantity.ofScaled` no valida el
+            // signo, así que el negativo llegaba hasta aquí.
+            val resultado = crear(cantidad = -500, direccion = AdjustmentDirection.DECREASE)
+
+            val error = resultado.leftOrNull().shouldBeInstanceOf<DomainError.InvalidQuantity>()
+
+            withClue("El mensaje debe explicar que invertiría el movimiento") {
+                (error.message.contains("invertiría")) shouldBe true
+            }
+        }
+
+        it("una cantidad negativa tampoco se cuela como DECREASE con nota") {
+            // El caso completo del agujero: motivo que no exige nota, dirección que
+            // no pide aprobación, y cantidad negativa. Los tres juntos sumaban
+            // inventario sin que nadie aprobara nada.
+            val solicitud = crear(
+                cantidad = -1000,
+                direccion = AdjustmentDirection.DECREASE,
+                motivo = AdjustmentReason.SHORTAGE,
+            )
+
+            withClue("No debe construirse la solicitud") {
+                (solicitud.rightOrNull() == null) shouldBe true
+            }
+        }
+
         it("la dirección determina el tipo de movimiento del ledger") {
             // El ajuste no inventa un tipo nuevo: usa los que ya existen en la
             // matriz movimiento→efecto, que tiene sus propios tests.

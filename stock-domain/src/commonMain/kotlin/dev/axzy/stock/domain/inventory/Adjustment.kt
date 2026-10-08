@@ -182,14 +182,25 @@ data class AdjustmentRequest private constructor(
             requestedBy: Long,
             idempotencyKey: String? = null,
         ): DomainResult<AdjustmentRequest> {
-            // ── La cantidad tiene que ser positiva ──────────────────────────
-            // La dirección ya dice si suma o resta. Una cantidad negativa con
-            // dirección INCREASE sería una resta disfrazada, y es la clase de
-            // ambigüedad que hace que un inventario se descuadre.
-            if (quantity.isZero) {
+            // ── La cantidad tiene que ser POSITIVA, no solo distinta de cero ──
+            //
+            // **Comprobar `isZero` NO basta, y era un agujero real.** Con una cantidad
+            // NEGATIVA y dirección DECREASE, el movimiento resta un número negativo,
+            // o sea **SUMA inventario**, y además `requiresApproval` sería `false`
+            // porque mira la DIRECCIÓN. Resultado: se puede aumentar el stock sin
+            // aprobación de nadie, que es exactamente lo que la decisión R-74
+            // pretende impedir.
+            //
+            // Lo encontró un agente leyendo esta clase: `Quantity.ofScaled` no valida
+            // el signo, así que el valor negativo llegaba hasta aquí. Se valida en el
+            // TIPO y no en el endpoint: si dependiera de que cada ruta se acuerde,
+            // la próxima ruta que se añada tendría el mismo agujero.
+            if (quantity.isZero || quantity.isNegative) {
                 return DomainError.InvalidQuantity(
                     "La cantidad de un ajuste debe ser mayor que cero. " +
-                        "La dirección ya indica si suma o resta.",
+                        "La dirección ya indica si suma o resta: una cantidad negativa " +
+                        "invertiría el movimiento y aumentaría el inventario sin " +
+                        "necesitar aprobación.",
                 ).asLeft()
             }
 
