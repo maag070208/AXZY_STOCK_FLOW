@@ -2,9 +2,24 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Almacén Integral</title>
+
+    <!-- ── Iconos y PWA ──────────────────────────────────────────────────────
+      El `favicon.svg` CAMBIA con el modo claro/oscuro del sistema, así que no
+      hace falta un icono por tema: el propio SVG lleva las dos variantes y la
+      aplicación se ve correcta en las dos sin configuración extra.
+
+      Los `theme-color` con `media` son lo que tiñe la barra del navegador en
+      móvil. Sin ellos, la barra queda blanca sobre una aplicación azul marino y
+      el contraste se ve como un error de carga.
+    -->
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#F2F6FC" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0C1730" media="(prefers-color-scheme: dark)" />
     <!--
       Configuración en runtime: la misma imagen se despliega contra distintos
       backends sin recompilar (nginx sobreescribe `/config.js`). Se carga antes

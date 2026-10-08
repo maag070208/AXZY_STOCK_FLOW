@@ -68,8 +68,8 @@ pluginManagement {
     // Aquí no pasa porque los DOS módulos de este build aplican su plugin de AGP
     // (o ninguno, como `androidApp`, que no usa el bloque `android {}` de KMP).
     plugins {
-        id("com.android.application") version "9.0.1"
-        id("com.android.kotlin.multiplatform.library") version "9.0.1"
+        id("com.android.application") version "9.1.1"
+        id("com.android.kotlin.multiplatform.library") version "9.1.1"
         id("org.jetbrains.compose") version "1.11.1"
         id("org.jetbrains.kotlin.multiplatform") version "2.4.10"
         id("org.jetbrains.kotlin.plugin.compose") version "2.4.10"

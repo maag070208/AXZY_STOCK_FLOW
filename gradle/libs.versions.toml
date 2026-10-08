@@ -52,7 +52,7 @@ jwt = "4.6.1"
 # modulo KMP. Con AGP 8 habia que aplicar `com.android.library` aparte, que no
 # soporta KMP de forma nativa. Verificado contra el ejemplo de PuertoNuevoApp,
 # que ya usa AGP 9 en produccion.
-androidGradlePlugin = "9.0.1"
+androidGradlePlugin = "9.1.1"
 androidMinSdk = "24"
 androidCompileSdk = "36"
 

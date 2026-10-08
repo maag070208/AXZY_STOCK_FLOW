@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="StockFlow">
+  <rect width="1024" height="1024" fill="#F2F6FC"/>
+  <g transform="translate(512 512) scale(2.0) translate(-300 -120)">
+    <path fill="#16315F" d="M165,58 V51 a9,9 0 0 1 9,-9 H210 a9,9 0 0 1 9,9 V58 Z"/><path fill="#16315F" d="M165,65 H219 V87 a9,9 0 0 1 -9,9 H174 a9,9 0 0 1 -9,-9 Z"/><path fill="#F28C28" d="M273,58 V51 a9,9 0 0 1 9,-9 H318 a9,9 0 0 1 9,9 V58 Z"/><path fill="#F28C28" d="M273,65 H327 V87 a9,9 0 0 1 -9,9 H282 a9,9 0 0 1 -9,-9 Z"/><path fill="#3A86A8" d="M381,58 V51 a9,9 0 0 1 9,-9 H426 a9,9 0 0 1 9,9 V58 Z"/><path fill="#3A86A8" d="M381,65 H435 V87 a9,9 0 0 1 -9,9 H390 a9,9 0 0 1 -9,-9 Z"/>
+    <rect x="110" y="106" width="380" height="86" rx="43" fill="none" stroke="#16315F" stroke-width="12"/>
+    <path fill-rule="evenodd" fill="#16315F" d="M136,149 a17,17 0 1,0 34,0 a17,17 0 1,0 -34,0 M147,149 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0Z"/><path fill-rule="evenodd" fill="#16315F" d="M430,149 a17,17 0 1,0 34,0 a17,17 0 1,0 -34,0 M441,149 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0Z"/>
+    <g fill="none" stroke="#F28C28" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"><path d="M232,129 L252,149 L232,169"/><path d="M290,129 L310,149 L290,169"/><path d="M348,129 L368,149 L348,169"/></g>
+  </g>
+</svg>

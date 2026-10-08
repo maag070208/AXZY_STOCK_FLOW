@@ -9,31 +9,53 @@ import type { ReactNode } from "react";
  * sus colores de estas variables, así que cambiar la paleta aquí cambia toda la
  * aplicación y no hay clases sueltas que mantener.
  *
- * La paleta es deliberadamente distinta a la del proyecto de referencia (que es
- * azul hotelero): aquí el acento es verde industrial, para que el personal no
- * confunda las dos aplicaciones cuando las tiene abiertas a la vez.
+ * La paleta es la OFICIAL de StockFlow, la misma que usan el móvil, Android e iOS.
+ * Está en un solo sitio: cambiar un color aquí cambia toda la aplicación, porque
+ * cada componente del kit lee sus colores de estas variables.
+ */
+/**
+ * La paleta OFICIAL de StockFlow.
+ *
+ * **Antes esto era verde industrial y estaba mal.** El agente que construyó el
+ * scaffold no tenía los assets y eligió una paleta «para no confundirse con el
+ * proyecto de referencia». Ahora existe el manual de marca, así que la web, el
+ * móvil, Android e iOS usan LOS MISMOS colores:
+ *
+ *   azul marino  #16315F   primario: cabecera, sidebar, acciones principales
+ *   naranja      #F28C28   acento: lo que reclama atención
+ *   turquesa     #3A86A8   secundario: enlaces, estados informativos
+ *   fondo claro  #F2F6FC
+ *   fondo oscuro #0C1730
+ *
+ * El `favicon.svg` del kit ya cambia solo con el modo del sistema, así que el
+ * icono y la interfaz no se pueden desincronizar.
  */
 const ALMACEN_THEME: Partial<ITThemePalette> = {
-  primary: "#166534",
-  secondary: "#15803D",
-  ternary: "#F1F5F4",
-  alert: "#B45309",
-  warning: "#D97706",
-  danger: "#B91C1C",
-  info: "#1D4ED8",
-  success: "#15803D",
+  primary: "#16315F",
+  secondary: "#3A86A8",
+  ternary: "#F2F6FC",
+  // El naranja es el ACENTO y no el primario a propósito: un acento que se usa
+  // para todo deja de llamar la atención, y aquí tiene que señalizar lo urgente
+  // (una discrepancia sin aprobar, una etiqueta que falló al imprimir).
+  alert: "#F28C28",
+  warning: "#E8A33D",
+  danger: "#C0392B",
+  info: "#3A86A8",
+  success: "#2E7D5B",
   layout: {
-    sidebarBg: "#ffffff",
-    sidebarText: "#334155",
-    navbarBg: "#166534",
-    navbarText: "#ffffff",
+    sidebarBg: "#FFFFFF",
+    sidebarText: "#16315F",
+    navbarBg: "#16315F",
+    navbarText: "#FFFFFF",
   },
   table: {
-    headerBg: "#dcfce7",
-    headerText: "#14532d",
-    rowBg: "#ffffff",
-    rowText: "#0f172a",
-    rowHover: "#ecfdf5",
+    // El azul muy claro del fondo de la cabecera sale de aclarar el primario, no
+    // de un azul distinto: así la tabla parece parte de la misma familia.
+    headerBg: "#E4EBF5",
+    headerText: "#16315F",
+    rowBg: "#FFFFFF",
+    rowText: "#0F1E33",
+    rowHover: "#F2F6FC",
   },
 };
 
