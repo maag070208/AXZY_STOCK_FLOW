@@ -6,6 +6,9 @@ import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.shouldBe
 import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
 import java.io.File
@@ -188,6 +191,74 @@ class RoutesWiringTest : DescribeSpec({
                         val respuesta = client.get(ruta)
                         withClue("'$ruta' no debe devolver 404") {
                             (respuesta.status == HttpStatusCode.NotFound) shouldBe false
+                        }
+                    }
+                }
+            }
+        }
+
+        it("`/v1/inventory/stock` y `/v1/inventory/kardex` están conectados") {
+            // Las rutas de inventario son las últimas en llegar y las que más
+            // fácil es olvidar conectar: su servicio existe, compila y tiene
+            // lógica, así que nada falla hasta que alguien las llama.
+            if (!hayBase) return@it
+
+            conPool { pool ->
+                testApplication {
+                    application { module(pool) }
+
+                    listOf("/v1/inventory/stock", "/v1/inventory/kardex").forEach { ruta ->
+                        val respuesta = client.get(ruta)
+                        withClue(
+                            "'$ruta' no debe devolver 404 (se obtuvo ${respuesta.status}). " +
+                                "Un 404 significa que la ruta NO está conectada en Application.kt.",
+                        ) {
+                            (respuesta.status == HttpStatusCode.NotFound) shouldBe false
+                        }
+                    }
+                }
+            }
+        }
+
+        it("`/v1/reports/kardex-vs-projection` está conectado") {
+            // Es el reporte de reconciliación. Sin conectar, el descuadre de un
+            // inventario seguiría descubriéndose con un conteo físico, que es
+            // exactamente lo que este endpoint existe para evitar.
+            if (!hayBase) return@it
+
+            conPool { pool ->
+                testApplication {
+                    application { module(pool) }
+                    val respuesta = client.get("/v1/reports/kardex-vs-projection")
+                    withClue("No debe devolver 404") {
+                        (respuesta.status == HttpStatusCode.NotFound) shouldBe false
+                    }
+                }
+            }
+        }
+
+        it("las rutas de ESCRITURA de inventario existen y piden identidad") {
+            // `POST` a estas rutas debe dar 401 (falta token), NO 404 ni 405.
+            // Un 405 significaría que la ruta existe pero con otro verbo, que es
+            // un error silencioso muy fácil de cometer.
+            if (!hayBase) return@it
+
+            conPool { pool ->
+                testApplication {
+                    application { module(pool) }
+
+                    listOf(
+                        "/v1/inventory/adjustments",
+                        "/v1/inventory/locate",
+                        "/v1/inventory/move",
+                    ).forEach { ruta ->
+                        val respuesta = client.post(ruta) {
+                            header(io.ktor.http.HttpHeaders.ContentType, "application/json")
+                            setBody("{}")
+                        }
+                        withClue("POST '$ruta' debe dar 401, no ${respuesta.status}") {
+                            (respuesta.status == HttpStatusCode.NotFound) shouldBe false
+                            (respuesta.status == HttpStatusCode.MethodNotAllowed) shouldBe false
                         }
                     }
                 }

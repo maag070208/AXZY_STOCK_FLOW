@@ -9,7 +9,9 @@ import dev.axzy.stock.backend.error.StockException
 import dev.axzy.stock.backend.routes.aAccessUser
 import dev.axzy.stock.backend.routes.authRoutes
 import dev.axzy.stock.backend.routes.claimsDeToken
+import dev.axzy.stock.backend.inventory.InventoryService
 import dev.axzy.stock.backend.routes.catalogRoutes
+import dev.axzy.stock.backend.routes.inventoryRoutes
 import dev.axzy.stock.backend.security.DenyAllPermissionChecker
 import dev.axzy.stock.backend.security.PermissionChecker
 import dev.axzy.stock.backend.routes.healthRoutes
@@ -231,6 +233,13 @@ fun Application.module(
         // 401 hasta que se conecte la identidad. Es la postura correcta: una
         // ruta sin permiso concedido no debe quedar abierta mientras tanto.
         catalogRoutes(dataSource, permissionChecker)
+
+        // ── Inventario ──────────────────────────────────────────────────────
+        // Se conecta SIEMPRE, como el catálogo: el verificador por defecto deniega
+        // todo, así que las rutas responden 401 y **nunca 404**. Una ruta sin
+        // permiso concedido no debe quedar abierta, pero tampoco debe faltar: un
+        // 404 esconde que la funcionalidad existe y solo está sin autorizar.
+        inventoryRoutes(InventoryService(dataSource), permissionChecker)
 
         // ── Autenticación ───────────────────────────────────────────────────
         // Solo se monta si hay servicio de tokens. Sin él, el módulo sigue
