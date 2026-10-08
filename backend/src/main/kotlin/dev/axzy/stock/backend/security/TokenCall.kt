@@ -1,4 +1,4 @@
-package dev.axzy.stock.backend.routes
+package dev.axzy.stock.backend.security
 
 import io.ktor.server.application.ApplicationCall
 import java.util.Base64

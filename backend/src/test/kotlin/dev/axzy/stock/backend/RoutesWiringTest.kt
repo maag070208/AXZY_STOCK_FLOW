@@ -54,15 +54,23 @@ class RoutesWiringTest : DescribeSpec({
             )
     }
 
-    /** El directorio de las funciones de rutas. */
+    /**
+     * La raíz del código de producción del backend.
+     *
+     * **Ya no hay un directorio `routes/`.** Tras el refactor a paquetes por
+     * feature, cada `fun Route.algoRoutes` vive en la carpeta de su feature
+     * (`inventory/`, `catalog/`, `audit/`…), así que se recorre todo el árbol.
+     * El test sigue comprobando exactamente lo mismo —que ninguna función de
+     * rutas se quede sin conectar— sin atarse a dónde esté el archivo.
+     */
     fun directorioDeRutas(): File {
         val candidatos = listOf(
-            File("src/main/kotlin/dev/axzy/stock/backend/routes"),
-            File("backend/src/main/kotlin/dev/axzy/stock/backend/routes"),
-            File("../backend/src/main/kotlin/dev/axzy/stock/backend/routes"),
+            File("src/main/kotlin/dev/axzy/stock/backend"),
+            File("backend/src/main/kotlin/dev/axzy/stock/backend"),
+            File("../backend/src/main/kotlin/dev/axzy/stock/backend"),
         )
         return candidatos.firstOrNull { it.isDirectory }
-            ?: error("No se encontró el directorio de rutas")
+            ?: error("No se encontró el código de producción del backend")
     }
 
     describe("todas las funciones de rutas están conectadas en Application.kt") {
@@ -73,15 +81,16 @@ class RoutesWiringTest : DescribeSpec({
             // Se buscan las funciones de extensión sobre `Route` que declaran
             // rutas, por su convención de nombre.
             val funcionesDeRutas = directorioDeRutas()
-                .listFiles { f -> f.extension == "kt" }
-                ?.flatMap { archivo ->
+                .walkTopDown()
+                .filter { f -> f.isFile && f.extension == "kt" }
+                .flatMap { archivo ->
                     Regex("""fun\s+Route\.(\w+Routes)\s*\(""")
                         .findAll(archivo.readText())
                         .map { it.groupValues[1] }
                         .toList()
                 }
-                ?.distinct()
-                ?: emptyList()
+                .distinct()
+                .toList()
 
             withClue("Debe haber al menos una función de rutas que verificar") {
                 (funcionesDeRutas.isNotEmpty()) shouldBe true

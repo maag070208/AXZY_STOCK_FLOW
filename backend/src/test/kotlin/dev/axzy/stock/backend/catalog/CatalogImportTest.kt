@@ -1,7 +1,7 @@
 package dev.axzy.stock.backend.catalog
 
 import dev.axzy.stock.backend.module
-import dev.axzy.stock.backend.routes.catalogRoutes
+import dev.axzy.stock.backend.catalog.catalogRoutes
 import dev.axzy.stock.backend.security.AllowAllPermissionChecker
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.DescribeSpec

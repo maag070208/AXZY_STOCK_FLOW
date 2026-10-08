@@ -6,17 +6,20 @@ import dev.axzy.stock.backend.config.logger
 import dev.axzy.stock.backend.config.migrate
 import dev.axzy.stock.backend.error.ErrorResponse
 import dev.axzy.stock.backend.error.StockException
-import dev.axzy.stock.backend.routes.aAccessUser
-import dev.axzy.stock.backend.routes.authRoutes
-import dev.axzy.stock.backend.routes.claimsDeToken
+import dev.axzy.stock.backend.identity.aAccessUser
+import dev.axzy.stock.backend.identity.authRoutes
+import dev.axzy.stock.backend.identity.claimsDeToken
+import dev.axzy.stock.backend.audit.AuditQueryService
 import dev.axzy.stock.backend.inventory.InventoryService
-import dev.axzy.stock.backend.routes.catalogRoutes
+import dev.axzy.stock.backend.audit.auditRoutes
+import dev.axzy.stock.backend.catalog.catalogRoutes
 import dev.axzy.stock.backend.receiving.ReceivingService
-import dev.axzy.stock.backend.routes.inventoryRoutes
-import dev.axzy.stock.backend.routes.receivingRoutes
+import dev.axzy.stock.backend.inventory.inventoryRoutes
+import dev.axzy.stock.backend.receiving.receivingRoutes
 import dev.axzy.stock.backend.security.DenyAllPermissionChecker
 import dev.axzy.stock.backend.security.PermissionChecker
-import dev.axzy.stock.backend.routes.healthRoutes
+import dev.axzy.stock.backend.health.healthRoutes
+import dev.axzy.stock.backend.identity.identityAdminRoutes
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
@@ -247,6 +250,24 @@ fun Application.module(
         // La regla B1 vive aquí: una línea con discrepancia no se puede ubicar
         // hasta que un supervisor apruebe la factura.
         receivingRoutes(ReceivingService(dataSource), permissionChecker)
+
+        // ── Administración de identidad ─────────────────────────────────────
+        // Personas, roles y catálogo de permisos. Se conecta siempre, como el
+        // catálogo: el verificador por defecto deniega todo, así que las rutas
+        // responden 401 y **nunca 404**. Sin conectarlas, las pantallas de
+        // administración quedarían vacías con todo el módulo ya escrito.
+        identityAdminRoutes(dataSource, permissionChecker)
+
+        // ── Auditoría (SOLO LECTURA) ────────────────────────────────────────
+        // Se conecta siempre, como las demás: con el verificador por defecto las
+        // rutas responden 401 y **nunca 404**. Un 404 escondería que el endpoint
+        // existe y solo está sin autorizar, que es justo la confusión que el
+        // test estructural de conexión (`RoutesWiringTest`) existe para evitar.
+        //
+        // Aquí no hay `POST`, ni `PUT`, ni `DELETE`: el ledger es inmutable por
+        // disparadores y ofrecer una escritura sería prometer algo que la base
+        // rechaza a propósito.
+        auditRoutes(AuditQueryService(dataSource), permissionChecker)
 
         // ── Autenticación ───────────────────────────────────────────────────
         // Solo se monta si hay servicio de tokens. Sin él, el módulo sigue

@@ -1,10 +1,11 @@
-package dev.axzy.stock.backend.routes
+package dev.axzy.stock.backend.inventory
 
 import dev.axzy.stock.backend.catalog.Page
 import dev.axzy.stock.backend.catalog.PageRequest
 import dev.axzy.stock.backend.catalog.aRespuesta
 import dev.axzy.stock.backend.inventory.InventoryService
 import dev.axzy.stock.backend.security.PermissionDecision
+import dev.axzy.stock.backend.security.usuarioDelToken
 import dev.axzy.stock.backend.security.PermissionChecker
 import dev.axzy.stock.domain.common.Either
 import dev.axzy.stock.domain.inventory.AdjustmentDirection
@@ -286,7 +287,23 @@ fun Route.inventoryRoutes(
     // GET /v1/reports/kardex-vs-projection — la reconciliación
     // ═══════════════════════════════════════════════════════════════════════
     get("/v1/reports/kardex-vs-projection") {
-        exigir(call, "inventory.reconcile")
+        // **`report.view` Y NO `inventory.reconcile`, y era un desajuste real.**
+        //
+        // La ruta vive bajo `/v1/reports/`, y la web protege la pantalla
+        // `/reports` con `report.view`. Con `inventory.reconcile` aquí, **un
+        // usuario con permiso de reportes pero sin el de inventario entraba a la
+        // pantalla y recibía un 403**, que es la peor combinación: la ve, y falla al
+        // cargar. Lo encontró un agente al conectar la pantalla.
+        //
+        // La regla que se aplica: **el permiso de una ruta tiene que ser el mismo que
+        // el del guard que protege su pantalla.** Dos listas de permisos que deben
+        // coincidir acaban separándose, y el síntoma aparece solo en producción con
+        // un rol concreto.
+        //
+        // Si en el futuro se quiere restringir la reconciliación a ciertos roles, se
+        // crea un reporte aparte o se comprueba el rol explícitamente; no se cambia
+        // este permiso a uno que la pantalla no pide.
+        exigir(call, "report.view")
 
         val divergencias = servicio.divergencias()
 

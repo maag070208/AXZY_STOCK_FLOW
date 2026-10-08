@@ -1,4 +1,4 @@
-package dev.axzy.stock.backend.routes
+package dev.axzy.stock.backend.health
 
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.response.respond

@@ -1,4 +1,4 @@
-package dev.axzy.stock.backend.routes
+package dev.axzy.stock.backend.catalog
 
 import dev.axzy.stock.backend.catalog.CambiosProducto
 import dev.axzy.stock.backend.catalog.CambiosUbicacion

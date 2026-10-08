@@ -1,4 +1,4 @@
-package dev.axzy.stock.backend.routes
+package dev.axzy.stock.backend.identity
 
 import dev.axzy.stock.backend.error.BadRequestException
 import dev.axzy.stock.backend.error.ConflictException

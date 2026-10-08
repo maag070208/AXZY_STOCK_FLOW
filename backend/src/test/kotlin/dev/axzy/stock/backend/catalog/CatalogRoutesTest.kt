@@ -1,7 +1,7 @@
 package dev.axzy.stock.backend.catalog
 
 import dev.axzy.stock.backend.module
-import dev.axzy.stock.backend.routes.catalogRoutes
+import dev.axzy.stock.backend.catalog.catalogRoutes
 import dev.axzy.stock.backend.security.AllowAllPermissionChecker
 import dev.axzy.stock.backend.security.PermissionChecker
 import dev.axzy.stock.backend.security.PermissionDecision
