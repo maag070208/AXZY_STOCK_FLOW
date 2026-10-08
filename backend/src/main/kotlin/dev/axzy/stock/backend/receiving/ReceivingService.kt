@@ -206,34 +206,7 @@ class ReceivingService(
                 buildList {
                     while (rs.next()) {
                         add(
-                            InvoiceLineDto(
-                                id = rs.getLong("id"),
-                                productId = rs.getLong("product_id"),
-                                productCode = rs.getString("product_code"),
-                                productName = rs.getString("product_name"),
-                                container = rs.getString("container"),
-                                quantity = rs.getBigDecimal("quantity").toPlainString(),
-                                boxQuantity = rs.getBigDecimal("box_quantity").toPlainString(),
-                                unitsPerBox = rs.getBigDecimal("units_per_box")?.toPlainString(),
-                                physicalQuantity = rs.getBigDecimal("physical_quantity")?.toPlainString(),
-                                physicalBoxQuantity = rs.getBigDecimal("physical_box_quantity")?.toPlainString(),
-                                locatedQuantity = rs.getBigDecimal("located_quantity").toPlainString(),
-                                // `difference` viene de la BASE, de una columna generada.
-                                // No se calcula aquí, y es deliberado: en el legacy se
-                                // declaraba en cuatro sitios y siempre valía 0.
-                                difference = rs.getBigDecimal("difference")?.toPlainString(),
-                                status = rs.getString("status"),
-                                capturedBy = rs.getLong("captured_by").takeIf { !rs.wasNull() },
-                                capturedByName = rs.getString("captured_by_name"),
-                                capturedAt = rs.getTimestamp("captured_at")?.toInstant()?.toString(),
-                                approvedBy = rs.getLong("approved_by").takeIf { !rs.wasNull() },
-                                approvedByName = rs.getString("approved_by_name"),
-                                approvedAt = rs.getTimestamp("approved_at")?.toInstant()?.toString(),
-                                adjustmentReason = rs.getString("adjustment_reason"),
-                                locationDisplayName = rs.getString("hall")?.let {
-                                    displayNameFor(it, rs.getString("code"), rs.getString("position"), rs.getString("kind"))
-                                },
-                            ),
+                            rs.toInvoiceLineDto(),
                         )
                     }
                 }
@@ -652,14 +625,7 @@ class ReceivingService(
                 buildList {
                     while (rs.next()) {
                         add(
-                            PendingApprovalDto(
-                                invoiceId = rs.getLong("id"),
-                                invoiceNumber = rs.getString("invoice_number"),
-                                receiptDate = rs.getDate("receipt_date").toLocalDate().toString(),
-                                status = rs.getString("status"),
-                                pendingLines = rs.getInt("pending_lines"),
-                                totalDifference = rs.getBigDecimal("total_difference").toPlainString(),
-                            ),
+                            rs.toPendingApprovalDto(),
                         )
                     }
                 }
@@ -745,12 +711,6 @@ class ReceivingService(
         }
     }
 
-    private fun displayNameFor(hall: String, code: String, position: String, kind: String): String =
-        when (kind) {
-            "RECEIVING" -> "RECEPCION"
-            "UNASSIGNED" -> "SIN-UBICAR"
-            else -> "$hall-$code-$position"
-        }
 }
 
 /** Convierte a `BigDecimal` con 3 decimales, sin pasar por `Double`. */
