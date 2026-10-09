@@ -99,6 +99,21 @@ Errores de validación de campo (§422, con `details` por campo):
 | `UNKNOWN_WAREHOUSE` | la bodega no existe |
 | `IMPORT_INVALID_EXTERNAL_ID` | `external_id` no es numérico. **Se rechaza en lugar de guardarlo nulo**: perdería la referencia cruzada con el ERP en silencio |
 
+Errores de recurso inexistente (§404):
+
+| `code` | Situación |
+|---|---|
+| `NOT_FOUND` | la ruta no existe. Lo emite Ktor, no un handler |
+| `PRODUCT_NOT_FOUND` | el `{id}` de producto no corresponde a ningún producto |
+| `LOCATION_NOT_FOUND` | el `{id}` de ubicación no corresponde a ninguna ubicación |
+
+**`PRODUCT_NOT_FOUND` y `LOCATION_NOT_FOUND` se añadieron al catálogo el 2026-10-07, y llegaron
+tarde.** El código los emitía desde el principio y **no estaban aquí**: el propio documento de
+OpenAPI los listaba entre los códigos «que el código SÍ emite y el catálogo no incluye». Un cliente
+que decide con `code` no podía distinguir «el producto no existe» de «la ruta no existe», que para el
+usuario son dos mensajes distintos. Lo detectó un test unitario que comprueba contra este archivo que
+todo código emitido está en el catálogo — la regla de §1.3-bis, ahora **verificada y no solo escrita**.
+
 Errores de conflicto con el estado actual (§409):
 
 | `code` | Situación |
@@ -830,21 +845,43 @@ cuál**.
 
 `groupBy` inválido → `400 INVALID_PARAMETER` con los valores admitidos en `details.allowed`.
 
-### `GET /v1/reports/kardex/export?format=xlsx|csv`
-
 ### `GET /v1/reports/kardex-vs-projection`
 
 **El reporte de reconciliación.** Compara lo que dice el ledger con lo que dicen las proyecciones.
 
 ```json
 {
-  "checkedAt": "2026-10-08T03:24:02.709620Z", "cuadra": true,
+  "checkedAt": "2026-10-08T03:24:02.709620Z", "balanced": true,
   "divergences": 0,
   "items": [ { "productId": 1, "productCode": "ABRAA1B",
-               "totalEnBd": "5193.000", "totalEsperado": "5193.000",
-               "diferencia": "0.000" } ]
+               "projectedTotal": "5193.000", "ledgerTotal": "5193.000",
+               "difference": "0.000" } ]
 }
 ```
+
+| Campo | Tipo | Significado |
+|---|---|---|
+| `balanced` | booleano | `true` cuando **no hay ninguna divergencia**. Es el veredicto del servidor |
+| `divergences` | entero | Cuántos productos están descuadrados |
+| `items` | arreglo | **Solo los productos descuadrados**, no todos los comprobados |
+| `items[].projectedTotal` | cadena decimal | Lo que dice la proyección `product_stock` (valor derivado) |
+| `items[].ledgerTotal` | cadena decimal | Lo que dice el ledger, que es la **fuente de verdad** |
+| `items[].difference` | cadena decimal | `projectedTotal - ledgerTotal`. El signo importa |
+
+**`items` vacío con `balanced: true` es el estado sano**, y es la respuesta normal. El veredicto lo da el
+servidor y no se recalcula en el cliente: contar el arreglo en la pantalla sería un segundo cálculo que
+puede discrepar del primero, y entonces el descuadre sería el de la pantalla y no el del inventario.
+
+> ⚠️ **Esta sección mentía, y estuvo mintiendo hasta la corrección de la migración `V8`.** Prometía
+> `productsChecked`, `ledgerNet` y `projected`, y la ruta devolvía `cuadra`, `totalEnBd`,
+> `totalEsperado` y `diferencia` —unos nombres en español que además incumplían la regla de idioma de
+> `ARQUITECTURA.md` §5.1, porque **son campos de API pública**. Un cliente tipado contra lo prometido
+> leía `undefined` en cada campo, y el síntoma no aparecía hasta ejecutar la pantalla: `tsc` y `eslint`
+> no validan una URL ni un campo de respuesta en ejecución. Se corrigieron las dos partes: la
+> `RETURNS TABLE` de `comprobar_proyecciones()` (migración `V8`) y este documento.
+
+El permiso es **`report.view`**, no `inventory.reconcile`: es el mismo que el guard de la pantalla
+`/reports`, y esa coincidencia es obligatoria (§11).
 
 En el legacy esta comprobación no existía, y el descuadre solo se descubría con un conteo físico.
 
