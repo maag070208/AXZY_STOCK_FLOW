@@ -2,8 +2,8 @@ package dev.axzy.stock.backend.audit
 
 import dev.axzy.stock.backend.audit.AuditFilters
 import dev.axzy.stock.backend.audit.AuditQueryService
-import dev.axzy.stock.backend.catalog.Page
-import dev.axzy.stock.backend.catalog.PageRequest
+import dev.axzy.stock.backend.application.shared.Page
+import dev.axzy.stock.backend.application.shared.PageRequest
 import dev.axzy.stock.backend.catalog.aResponse
 import dev.axzy.stock.backend.error.BadRequestException
 import dev.axzy.stock.backend.error.ForbiddenException

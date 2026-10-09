@@ -1,7 +1,7 @@
 package dev.axzy.stock.backend.catalog.product
 
-import dev.axzy.stock.backend.catalog.Page
-import dev.axzy.stock.backend.catalog.PageRequest
+import dev.axzy.stock.backend.application.shared.Page
+import dev.axzy.stock.backend.application.shared.PageRequest
 import dev.axzy.stock.backend.catalog.Products
 import dev.axzy.stock.backend.catalog.StockByLocation
 import dev.axzy.stock.backend.catalog.StockInTransit

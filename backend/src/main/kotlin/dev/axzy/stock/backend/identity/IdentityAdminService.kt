@@ -1,7 +1,7 @@
 package dev.axzy.stock.backend.identity
 
-import dev.axzy.stock.backend.catalog.Page
-import dev.axzy.stock.backend.catalog.PageRequest
+import dev.axzy.stock.backend.application.shared.Page
+import dev.axzy.stock.backend.application.shared.PageRequest
 import dev.axzy.stock.domain.access.PermissionModule
 import java.sql.Connection
 import java.sql.PreparedStatement

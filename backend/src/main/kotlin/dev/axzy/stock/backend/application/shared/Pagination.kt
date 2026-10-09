@@ -1,4 +1,4 @@
-package dev.axzy.stock.backend.catalog
+package dev.axzy.stock.backend.application.shared
 
 import dev.axzy.stock.backend.error.BadRequestException
 

@@ -1,4 +1,6 @@
 package dev.axzy.stock.backend.catalog
+import dev.axzy.stock.backend.application.shared.PageRequest
+import dev.axzy.stock.backend.application.shared.Page
 
 import dev.axzy.stock.backend.error.BadRequestException
 import io.kotest.assertions.withClue

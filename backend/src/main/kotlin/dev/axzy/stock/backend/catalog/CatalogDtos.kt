@@ -1,4 +1,5 @@
 package dev.axzy.stock.backend.catalog
+import dev.axzy.stock.backend.application.shared. Page
 
 import dev.axzy.stock.domain.catalog.ImportReport
 import dev.axzy.stock.domain.catalog.RowRejection

@@ -10,7 +10,7 @@ import dev.axzy.stock.backend.security.PermissionChecker
 import dev.axzy.stock.backend.security.PermissionDecision
 import dev.axzy.stock.backend.catalog.DeleteReasonRequest
 import dev.axzy.stock.backend.catalog.location.LocationKind
-import dev.axzy.stock.backend.catalog.PageRequest
+import dev.axzy.stock.backend.application.shared.PageRequest
 import dev.axzy.stock.domain.value.ProductCode
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.PartData

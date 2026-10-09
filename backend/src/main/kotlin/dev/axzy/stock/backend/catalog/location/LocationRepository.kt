@@ -1,8 +1,8 @@
 package dev.axzy.stock.backend.catalog.location
 
 import dev.axzy.stock.backend.catalog.Locations
-import dev.axzy.stock.backend.catalog.Page
-import dev.axzy.stock.backend.catalog.PageRequest
+import dev.axzy.stock.backend.application.shared.Page
+import dev.axzy.stock.backend.application.shared.PageRequest
 import dev.axzy.stock.backend.catalog.StockByLocation
 import dev.axzy.stock.backend.catalog.Warehouses
 import dev.axzy.stock.backend.catalog.castToLocationKind

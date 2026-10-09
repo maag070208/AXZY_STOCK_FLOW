@@ -1,6 +1,6 @@
 package dev.axzy.stock.backend.identity
 
-import dev.axzy.stock.backend.catalog.PageRequest
+import dev.axzy.stock.backend.application.shared.PageRequest
 import dev.axzy.stock.backend.catalog.aResponse
 import dev.axzy.stock.backend.error.BadRequestException
 import dev.axzy.stock.backend.error.ForbiddenException

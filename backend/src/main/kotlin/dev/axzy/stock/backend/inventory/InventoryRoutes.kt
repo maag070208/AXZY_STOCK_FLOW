@@ -1,7 +1,7 @@
 package dev.axzy.stock.backend.inventory
 
-import dev.axzy.stock.backend.catalog.Page
-import dev.axzy.stock.backend.catalog.PageRequest
+import dev.axzy.stock.backend.application.shared.Page
+import dev.axzy.stock.backend.application.shared.PageRequest
 import dev.axzy.stock.backend.catalog.aResponse
 import dev.axzy.stock.backend.inventory.InventoryService
 import dev.axzy.stock.backend.security.PermissionDecision

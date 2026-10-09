@@ -109,8 +109,7 @@ rutas en verde. **Si el contrato y la ruta no coinciden hoy, la migración convi
 discrepancia en un bug importado** y ya no se sabrá de dónde vino. La corrección de las
 columnas de reconciliación con la migración V8 es la lección.
 
-**Fase 1 — Lo compartido sale de `catalog/`. Pendiente, y es la de más valor por línea
-movida.** `Pagination.kt` y `CatalogTables.kt` salen **los primeros** porque los usa todo el
+**Fase 1 — Lo compartido sale de `catalog/`. Parcial: `Pagination.kt` ya está en `application/shared/` (`Page`, `PageRequest`); `CatalogTables.kt` y `aResponse` (un mapeo a DTO, que se queda en `catalog/`) siguen pendientes.** Ver el estado al final. `Pagination.kt` y `CatalogTables.kt` salen **los primeros** porque los usa todo el
 backend: `Page`, `PageRequest` y los resultados de consulta van a `application/shared/`, y
 las tablas Exposed a `infrastructure/outbound/persistence/tables/`. **Hoy `identity/`,
 `audit/` e `inventory/` importan `Pagination` del catálogo**, que es acoplamiento accidental
