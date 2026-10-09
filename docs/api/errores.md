@@ -131,7 +131,7 @@ el cliente pueda contemplarlos. Proceden de las rutas y servicios de cada módul
 | `INVOICE_HAS_PENDING_LINES` | 422 | hay líneas que impiden cerrar: `details.pendingLines` |
 | `LINE_ALREADY_RESOLVED` | 409 | la línea ya está aprobada o ubicada y no se puede volver a capturar |
 | `NO_PENDING_APPROVAL` | 409 | la factura no tiene líneas en discrepancia que aprobar o rechazar |
-| `NOT_PENDING_APPROVAL` | 422 | el mismo hecho, declarado por el error de dominio |
+| `NOT_PENDING_APPROVAL` | — | **Solo en `stock-domain`**: una línea que no está en `PENDING_APPROVAL` no puede aprobarse. La API de recepción no lo emite; el caso de factura sin pendientes es `NO_PENDING_APPROVAL` |
 | `INVALID_TRANSITION` | 409 | el estado actual no admite la transición pedida |
 | `INVALID_QUANTITY` | 422 | la cantidad no es válida o no es positiva |
 | `INCONSISTENT_BOX_COUNT` | 422 | cajas y unidades no cuadran con `unitsPerBox` |
@@ -162,9 +162,9 @@ el cliente pueda contemplarlos. Proceden de las rutas y servicios de cada módul
 | `INTERNAL_ERROR` | 500 | error no controlado; el detalle **no** se filtra al cliente |
 | `RATE_LIMITED` | 429 | demasiados intentos. **Declarado en la lista cerrada; la implementación aún no tiene limitador de tasa** |
 
-## 5.5 Errores: catálogo cerrado (regla de `ARQUITECTURA.md`)
+## 5.5 Errores: catálogo cerrado (regla de `docs/historico/ARQUITECTURA.md`)
 
-> **Normativo (heredado de `ARQUITECTURA.md` §5.5).** Los códigos están en esta
+> **Normativo (heredado de `docs/historico/ARQUITECTURA.md` §5.5).** Los códigos están en esta
 > lista y **no se inventan**. Un error nuevo se añade al catálogo **antes** de
 > usarlo.
 

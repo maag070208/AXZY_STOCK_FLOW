@@ -107,10 +107,12 @@ la omisión sería silenciosa: todo pasaría y el APK quedaría sin construir.
 ./scripts/ios.sh      # genera MobileApp.framework
 ```
 
-Luego se abre `mobile-app/iosApp/iosApp.xcodeproj` en Xcode.
+El repo **no incluye un `.xcodeproj`**: `mobile-app/iosApp/` tiene las fuentes Swift y
+`Configuration/Config.xcconfig`, pero no el proyecto de Xcode. Para ejecutar en iOS hay
+que crearlo y enlazar el framework generado. Mientras no exista, el paso de iOS no se
+puede seguir tal cual.
 
-**Pendiente y sin verificar, y conviene saberlo:** el `pbxproj` se escribió a mano
-sin abrirlo nunca en Xcode, y **la cámara no se ha probado en un iPhone real**. El
+**Pendiente y sin verificar, y conviene saberlo:** **la cámara no se ha probado en un iPhone real**. El
 framework de Kotlin sí compila y enlaza, que es lo que valida el código compartido
 y el `actual` de AVFoundation, pero la conversión de coordenadas del escáner está
 razonada y comentada, **no ejecutada**. Es lo primero que hay que probar en
@@ -134,16 +136,17 @@ Login por el proxy de la web     → 200
 APK de Android                   → 44 MB generado
 ```
 
-**584 tests** en el monorepo (`./gradlew :stock-domain:check :backend:test`).
+**683 pruebas** en `:backend:test` y `:stock-domain:jvmTest`, con la caché de compilación
+desactivada: 0 fallos, 0 saltadas (ejecutadas de verdad, no servidas desde caché).
 
 ### NO verificado
 
 - **La cámara en un iPhone real** y **en un Android real**. El APK se genera, pero
   el escáner con cámara no se ha probado en dispositivo.
-- **El proyecto Xcode** (`iosApp`): el `pbxproj` se escribió sin abrirlo.
-- **Los flujos de negocio de la web**: 16 de las 17 pantallas son marcadores con
-  su permiso y sus endpoints. Solo la salud está implementada de verdad, y el
-  catálogo está vacío (hay que importar el Excel).
+- **El proyecto Xcode** (`iosApp`): no existe en el repo (ver arriba).
+- **Los flujos de negocio de la web**: las 19 pantallas de `web/src/pages/` son
+  reales (ya no hay marcadores `PhasePlaceholder`), pero no se ha recorrido cada flujo
+  contra el backend. El catálogo está vacío (hay que importar el Excel).
 
 ---
 

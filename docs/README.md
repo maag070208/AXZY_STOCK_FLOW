@@ -6,11 +6,9 @@
 ## ¿Primera vez aquí?
 
 1. [README.md](../README.md) — qué es el proyecto y cómo arrancarlo.
-2. [arquitectura/general.md](arquitectura/general.md) — las cuatro partes y por qué
-   cada una usa una arquitectura distinta.
-3. [guia/convenciones.md](guia/convenciones.md) — idioma, comentarios y estilo.
-4. La tabla de módulos de negocio de este mismo índice: qué capacidades existen y en
-   qué estado están (sus documentos se escriben en la fase 3).
+2. [arquitectura/general.md](arquitectura/general.md) — las cuatro partes y por qué cada una usa una arquitectura distinta.
+3. [guia/vision-alcance.md](guia/vision-alcance.md) — qué construye STOCK y qué queda fuera.
+4. [modulos/README.md](modulos/README.md) — las capacidades de negocio y su estado real.
 
 ## Convención de tipos de documento
 
@@ -23,100 +21,120 @@
 | **Referencia** | Material de consulta: contrato de API, diccionario de datos, mapa del legacy. | Nada |
 | **Histórico** | Lo ya ejecutado o descartado. Se conserva por trazabilidad. | Nada |
 
-Tres reglas que se derivan y que se verifican en cada documento nuevo:
+Reglas que se verifican en cada documento nuevo:
 
-1. **Un normativo gana sobre un plan.** Si un plan contradice un normativo, el plan
-   está equivocado.
+1. **Un normativo gana sobre un plan.** Si un plan contradice un normativo, el plan está equivocado.
 2. **Cada regla vive en un solo lugar.** Los demás documentos enlazan; no copian.
-3. **Cada afirmación técnica cita su archivo de código** (`backend/build.gradle.kts`),
-   o no entra en un normativo.
+3. **Cada afirmación técnica cita su archivo de código**, o no entra en un normativo.
 
 ## Estado por área
 
 | Área | Carpeta | Qué contiene | Estado |
 |---|---|---|---|
-| Guía | [guia/](guia/) | Visión, glosario, convenciones, roadmap | Convenciones y estado de verificación hechos; el resto, fase 3 |
+| Guía | [guia/](guia/) | Visión, glosario, convenciones, roadmap, lo no verificado | Hecho |
 | Arquitectura | [arquitectura/](arquitectura/) | Las cuatro partes, el stack y las reglas de dependencia | Hecho |
-| Modelo de datos | [modelo-datos/](modelo-datos/) | Entidad-relación y diccionario de datos | Fase 3 |
+| Modelo de datos | [modelo-datos/](modelo-datos/) | Entidad-relación y lista de tablas por migración | Hecho |
 | API | [api/](api/) | Contrato por recurso, convenciones, autenticación y errores | Hecho |
-| Seguridad | [seguridad/](seguridad/) | Roles y permisos, auditoría, OWASP | Roles, permisos y auditoría hechos; OWASP, fase 6 |
-| Módulos | [modulos/](modulos/) | Una carpeta por capacidad de negocio (M01…M09) | Fase 3 |
-| Migración | [migracion/](migracion/) | El legacy `BASE/`, el mapa al sistema nuevo y el corte | Fase 4 |
-| Operación | [operacion/](operacion/) | Entornos, despliegue, respaldos | Fase 6 |
-| Pruebas | [pruebas/](pruebas/) | Estrategia, verificación y lo que no está verificado | Hecho |
-| Decisiones | [adr/](adr/) | Un ADR por decisión, numerados | 0001 a 0007 escritos |
+| Seguridad | [seguridad/](seguridad/) | Roles y permisos, auditoría, hallazgos del legacy | Hecho |
+| Módulos | [modulos/](modulos/) | Un README por capacidad de negocio (M01…M09) | Hecho |
+| Migración | [migracion/](migracion/) | El legacy, el mapa de rutas, el catálogo del Excel y el corte | Hecho; corte pendiente |
+| Operación | [operacion/](operacion/) | Entornos, despliegue y respaldos | Hecho; respaldos y despliegue pendientes |
+| Pruebas | [pruebas/](pruebas/) | Estrategia y verificación | Hecho |
+| Decisiones | [adr/](adr/) | Un ADR por decisión, numerados | 0001 a 0013 |
 | Plantillas | [plantillas/](plantillas/) | La plantilla de módulo | Hecho |
-| Referencias | [referencias/](referencias/) | Material de otros proyectos | Fase 7 |
-| Histórico | [historico/](historico/) | Planes ejecutados, archivados | Fase 7 |
+| Referencias | [referencias/](referencias/) | Material de otro proyecto, para comparar | Hecho |
+| Histórico | [historico/](historico/) | Planes y documentos anteriores, archivados | Hecho |
 
 ## Guía
 
-| Documento | Tipo | Estado |
-|---|---|---|
-| [convenciones.md](guia/convenciones.md) | Normativo | Hecho |
-| [lo-no-verificado.md](guia/lo-no-verificado.md) | Referencia | Hecho |
-| vision-alcance.md | Normativo | Fase 3 |
-| glosario.md | Referencia | Fase 3 |
-| roadmap.md | Plan | Fase 3 |
+| Documento | Tipo |
+|---|---|
+| [vision-alcance.md](guia/vision-alcance.md) | Normativo |
+| [glosario.md](guia/glosario.md) | Referencia |
+| [convenciones.md](guia/convenciones.md) | Normativo |
+| [roadmap.md](guia/roadmap.md) | Plan |
+| [lo-no-verificado.md](guia/lo-no-verificado.md) | Referencia |
 
 ## Arquitectura
 
-| Documento | Tipo | Estado |
-|---|---|---|
-| [general.md](arquitectura/general.md) | Normativo | Hecho |
-| [api-ktor.md](arquitectura/api-ktor.md) | Normativo | Hecho |
-| [web-fsd.md](arquitectura/web-fsd.md) | Normativo | Hecho |
-| [app-kmp.md](arquitectura/app-kmp.md) | Normativo | Hecho |
-| [dominio-kmp.md](arquitectura/dominio-kmp.md) | Normativo | Hecho |
-| [stack.md](arquitectura/stack.md) | Referencia | Hecho |
-| [migracion-capas.md](arquitectura/migracion-capas.md) | Plan | En curso (la migración sigue abierta) |
+| Documento | Tipo |
+|---|---|
+| [general.md](arquitectura/general.md) | Normativo |
+| [api-ktor.md](arquitectura/api-ktor.md) | Normativo |
+| [web-fsd.md](arquitectura/web-fsd.md) | Normativo |
+| [app-kmp.md](arquitectura/app-kmp.md) | Normativo |
+| [dominio-kmp.md](arquitectura/dominio-kmp.md) | Normativo |
+| [stack.md](arquitectura/stack.md) | Referencia |
+| [migracion-capas.md](arquitectura/migracion-capas.md) | Plan |
+
+## Modelo de datos
+
+| Documento | Tipo |
+|---|---|
+| [entidad-relacion.md](modelo-datos/entidad-relacion.md) | Referencia |
+| [diccionario-datos.md](modelo-datos/diccionario-datos.md) | Referencia |
+
+El diccionario lista las tablas y su migración. Las columnas están en las propias migraciones.
 
 ## API
 
-| Documento | Tipo | Estado |
-|---|---|---|
-| [contrato.md](api/contrato.md) — índice, permisos por endpoint y lo que no existe | Referencia | Hecho |
-| [convenciones.md](api/convenciones.md) | Normativo | Hecho |
-| [autenticacion.md](api/autenticacion.md) | Referencia | Hecho |
-| [errores.md](api/errores.md) | Referencia | Hecho |
-| [catalogo.md](api/catalogo.md) | Referencia | Hecho |
-| [inventario.md](api/inventario.md) | Referencia | Hecho |
-| [recepcion.md](api/recepcion.md) | Referencia | Hecho |
-| [surtido.md](api/surtido.md) | Referencia | Hecho |
-| [traslados.md](api/traslados.md) | Referencia | Hecho |
-| [etiquetas.md](api/etiquetas.md) | Referencia | Hecho |
-| [reportes.md](api/reportes.md) | Referencia | Hecho |
-| [salud.md](api/salud.md) | Referencia | Hecho |
+| Documento | Tipo |
+|---|---|
+| [contrato.md](api/contrato.md) — índice, permisos por endpoint y lo que no existe | Referencia |
+| [convenciones.md](api/convenciones.md) | Normativo |
+| [autenticacion.md](api/autenticacion.md) | Referencia |
+| [errores.md](api/errores.md) | Referencia |
+| [catalogo.md](api/catalogo.md) | Referencia |
+| [inventario.md](api/inventario.md) | Referencia |
+| [recepcion.md](api/recepcion.md) | Referencia |
+| [surtido.md](api/surtido.md) | Referencia |
+| [traslados.md](api/traslados.md) | Referencia |
+| [etiquetas.md](api/etiquetas.md) | Referencia |
+| [reportes.md](api/reportes.md) | Referencia |
+| [salud.md](api/salud.md) | Referencia |
 
 ## Seguridad y pruebas
 
-| Documento | Tipo | Estado |
-|---|---|---|
-| [seguridad/roles-permisos.md](seguridad/roles-permisos.md) | Normativo | Hecho |
-| [seguridad/auditoria.md](seguridad/auditoria.md) | Normativo | Hecho |
-| seguridad/owasp.md | Referencia | Fase 6 |
-| [pruebas/estrategia-pruebas.md](pruebas/estrategia-pruebas.md) | Normativo | Hecho |
-| [pruebas/verificacion.md](pruebas/verificacion.md) | Normativo | Hecho |
+| Documento | Tipo |
+|---|---|
+| [seguridad/roles-permisos.md](seguridad/roles-permisos.md) | Normativo |
+| [seguridad/auditoria.md](seguridad/auditoria.md) | Normativo |
+| [seguridad/owasp.md](seguridad/owasp.md) | Referencia |
+| [pruebas/estrategia-pruebas.md](pruebas/estrategia-pruebas.md) | Normativo |
+| [pruebas/verificacion.md](pruebas/verificacion.md) | Normativo |
 
 ## Módulos de negocio
 
-Los nueve módulos, con su carpeta y su tabla de estado, se crean en la fase 3 con
-[plantillas/plantilla-modulo.md](plantillas/plantilla-modulo.md):
-
-| Módulo | Capacidad | Estado |
+| Módulo | Capacidad | Documento |
 |---|---|---|
-| M01 | Catálogo: productos, ubicaciones, bodegas, importación | Fase 3 |
-| M02 | Existencias: stock por ubicación, kardex, ajustes | Fase 3 |
-| M03 | Recepción: facturas, captura física, discrepancias | Fase 3 |
-| M04 | Surtido: órdenes y empaquetado | Fase 3 |
-| M05 | Traslados: entre ubicaciones y entre bodegas | Fase 3 |
-| M06 | Etiquetas: plantillas, impresión, reimpresión | Fase 3 |
-| M07 | Usuarios y accesos: roles, permisos, sesiones | Fase 3 |
-| M08 | Auditoría: bitácora y trazabilidad | Fase 3 |
-| M09 | Integración con el legacy y kardex | Fase 3 |
+| M01 | Catálogo: productos, ubicaciones, bodegas | [M01](modulos/M01-catalogo/README.md) |
+| M02 | Existencias, kardex, ajustes y reportes | [M02](modulos/M02-existencias/README.md) |
+| M03 | Recepción: facturas y discrepancias | [M03](modulos/M03-recepcion/README.md) |
+| M04 | Surtido: órdenes y empaquetado | [M04](modulos/M04-surtido/README.md) |
+| M05 | Traslados | [M05](modulos/M05-traslados/README.md) |
+| M06 | Etiquetas e impresión | [M06](modulos/M06-etiquetas/README.md) |
+| M07 | Usuarios y accesos | [M07](modulos/M07-usuarios-accesos/README.md) |
+| M08 | Auditoría | [M08](modulos/M08-auditoria/README.md) |
+| M09 | Integración externa: ERP y `kardo` | [M09](modulos/M09-integracion-externa/README.md) |
 
-Los módulos son capacidades de negocio de STOCK. La numeración sirve para enlazar y
-no implica orden de implementación.
+El estado de cada módulo está en [modulos/README.md](modulos/README.md).
+
+## Migración
+
+| Documento | Tipo |
+|---|---|
+| [legacy-inventario.md](migracion/legacy-inventario.md) | Referencia |
+| [mapa-legacy-nuevo.md](migracion/mapa-legacy-nuevo.md) | Referencia |
+| [catalogo-excel.md](migracion/catalogo-excel.md) | Referencia |
+| [cutover.md](migracion/cutover.md) | Plan |
+
+## Operación
+
+| Documento | Tipo |
+|---|---|
+| [entornos.md](operacion/entornos.md) | Normativo |
+| [despliegue.md](operacion/despliegue.md) | Plan |
+| [respaldos.md](operacion/respaldos.md) | Plan |
 
 ## Decisiones (ADR)
 
@@ -129,20 +147,31 @@ no implica orden de implementación.
 | [0005](adr/0005-errores-devuelto-no-lanzado.md) | Un error esperado se devuelve, no se lanza | Aceptada |
 | [0006](adr/0006-rbac-mas-abac-denegar-por-defecto.md) | RBAC + ABAC, denegar por defecto | Aceptada |
 | [0007](adr/0007-multi-bodega-desde-el-esquema.md) | Multi-bodega desde el esquema, operando con una | Aceptada |
+| [0008](adr/0008-discrepancias-y-merma.md) | Discrepancias y merma: una regla de ajuste, aprobada por factura | Aceptada |
+| [0009](adr/0009-ubicacion-de-recepcion-real.md) | La ubicación de recepción es una ubicación real | Aceptada |
+| [0010](adr/0010-rutas-de-servicio-con-api-key.md) | Rutas de sistema con clave de servicio, no con usuario | Aceptada |
+| [0011](adr/0011-catalogo-fuente-maestra.md) | El catálogo lo maneja la API; el Excel solo siembra | Aceptada |
+| [0012](adr/0012-conciliar-stock-heredado-con-conteo.md) | Reconciliar el stock heredado con conteo antes del corte | Aceptada; ejecución pendiente |
+| [0013](adr/0013-ordenes-al-erp-con-reintentos.md) | Órdenes al ERP con reintentos e idempotencia | Aceptada; envío pendiente |
 
-## Pendiente (fases 3 a 7)
+## Referencias e históricos
 
-| Fase | Qué falta |
+| Documento | Qué es |
 |---|---|
-| 3 | Documento por módulo (`modulos/M01…M09`), `modelo-datos/` con el diccionario generado de las migraciones, y `guia/vision-alcance.md`, `guia/glosario.md` y `guia/roadmap.md`. |
-| 4 | `migracion/`: inventario del legacy, mapa legacy → nuevo, catálogo del Excel y plan de corte. |
-| 5 | Los ADR de las decisiones de negocio (B3, B7, B8, R-71, R-73 y similares), que hoy viven en `PLAN_ALMACEN_INTEGRAL.md` y `PLAN_REFACTOR_MEJORAS.md`. |
-| 6 | `operacion/` a partir de `ARRANQUE.md` y `seguridad/owasp.md`. |
-| 7 | Archivar en `historico/` los planes ejecutados y los reportes de inventario, y **retirar de la raíz `ARQUITECTURA.md` y `CONTRATO_API.md`**, cuyo contenido ya vive aquí. Mientras sigan en la raíz hay dos copias de las mismas reglas: **mandan las de `docs/`**. |
+| [referencias/fsd-responsiva.md](referencias/fsd-responsiva.md) | Plantilla de arquitectura de otro proyecto (`RESPONSIVA/web`), para comparar. No describe STOCK |
+| [historico/ARQUITECTURA.md](historico/ARQUITECTURA.md) | Documento normativo original, partido en `arquitectura/` y `adr/`. Las citas `§` del código apuntan a este archivo |
+| [historico/CONTRATO_API.md](historico/CONTRATO_API.md) | Contrato original, partido en `api/`. Manda [api/contrato.md](api/contrato.md) |
+| [historico/PLAN_ALMACEN_INTEGRAL.md](historico/PLAN_ALMACEN_INTEGRAL.md) | Plan original del sistema y análisis del legacy. Sus tablas de progreso están desactualizadas |
+| [historico/PLAN_REFACTOR_MEJORAS.md](historico/PLAN_REFACTOR_MEJORAS.md) | Propuestas de refactor (R-xx) y decisiones que las cierran |
+| [historico/PLAN_ROLES_PERMISOS_POLITICAS.md](historico/PLAN_ROLES_PERMISOS_POLITICAS.md) | Diseño de roles y permisos, antes de [seguridad/roles-permisos.md](seguridad/roles-permisos.md) |
+| [historico/PLAN_AUDITORIA.md](historico/PLAN_AUDITORIA.md) | Diseño de auditoría, antes de [seguridad/auditoria.md](seguridad/auditoria.md) |
+| [historico/MOBILE_APP_INVENTORY_REPORT.md](historico/MOBILE_APP_INVENTORY_REPORT.md) | Inventario de la app del legacy |
+| [historico/PLAN_DOCUMENTACION.md](historico/PLAN_DOCUMENTACION.md) | Plan con el que se reordenó esta documentación |
+
+Cuando un documento histórico y uno normativo se contradicen, manda el normativo.
 
 ## Cómo se mantiene este índice
 
 - Un documento nuevo entra aquí en el mismo cambio que lo crea, con su tipo y su estado.
 - Cuando un documento pasa de plan a normativo, se actualiza su fila y su línea 2.
-- Los documentos sin verificar más de un mes llevan la fecha de verificación del
-  encabezado sin actualizar, y eso se ve en la revisión.
+- Los documentos sin verificar más de un mes llevan la fecha de verificación del encabezado sin actualizar, y eso se ve en la revisión.

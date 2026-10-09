@@ -146,7 +146,7 @@ surtido mandaría al ERP una salida que no existe. `404 ORDER_NOT_FOUND`.
 
 > **Estado de la integración.** La conexión real con el ERP no existe todavía: el
 > intento se registra como enviado y el envío efectivo es la pieza que falta
-> (`ARQUITECTURA.md` §8). La respuesta no incluye `nextRetryAt`.
+> (`docs/historico/ARQUITECTURA.md` §8). La respuesta no incluye `nextRetryAt`.
 
 ## `POST /v1/orders/{id}/shortage`
 

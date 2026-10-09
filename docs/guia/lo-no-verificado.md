@@ -28,7 +28,7 @@
 
 | Qué | Estado |
 |---|---|
-| **API completa** | El contrato entero, endpoint a endpoint contra `CONTRATO_API.md` |
+| **API completa** | El contrato entero, endpoint a endpoint contra `docs/historico/CONTRATO_API.md` |
 | **Web conectada** | Todas las pantallas contra la API real. No queda ninguna maqueta ni placeholder; las altas de orden de surtido y de plantilla de etiqueta están en la interfaz |
 | **Un mapper leído por nombre de columna tiene test contra la función real** | `backend/src/test/kotlin/dev/axzy/stock/backend/inventory/DivergenceMapperTest.kt` ejercita la función PL/pgSQL y su nombre de columna |
 | **Un test unitario comprueba que todo código de error emitido está en el catálogo del contrato** | `backend/src/test/kotlin/dev/axzy/stock/backend/docs/OpenApiDocumentationTest.kt` |

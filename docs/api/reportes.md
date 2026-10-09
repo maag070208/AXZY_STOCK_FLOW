@@ -111,7 +111,7 @@ la pantalla sería un segundo cálculo que puede discrepar del primero, y entonc
 descuadre sería el de la pantalla y no el del inventario.
 
 Los nombres de campo van **en inglés** porque son campos de la API pública
-(`ARQUITECTURA.md` §5.1). Hasta la migración `V8` la ruta devolvía `cuadra`,
+(`docs/historico/ARQUITECTURA.md` §5.1). Hasta la migración `V8` la ruta devolvía `cuadra`,
 `totalEnBd`, `totalEsperado` y `diferencia` —las columnas del `RETURNS TABLE` de
 `comprobar_proyecciones()`—, que no coincidían con lo que el contrato prometía. La
 misma migración renombró las columnas y alineó las dos partes. Los nombres de

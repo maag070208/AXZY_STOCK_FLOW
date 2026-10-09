@@ -22,8 +22,8 @@ Tres comandos, en tres terminales, sin configurar nada a mano:
 | App | `mobile-app/` | Android e iOS, KMP + Compose | Vertical slice |
 | Legacy | `BASE/` | El sistema anterior (Node + React + Expo) | — |
 
-`BASE/` no se construye ni se ejecuta: es la fuente de la migración. Lo que hay
-que traer de ahí está en `docs/migracion/`.
+`BASE/` es el sistema anterior y no forma parte de los builds del monorepo: es la
+fuente de la migración. Lo que hay que traer de ahí está en `docs/migracion/`.
 
 ## Documentación
 
@@ -37,15 +37,16 @@ Tres reglas que resumen cómo está escrita:
 2. Cada regla vive en **un solo lugar**; los demás documentos enlazan.
 3. Cada afirmación técnica cita el archivo de código que la sostiene.
 
-El plan que rige la reorganización de esta documentación es
-[docs/PLAN_DOCUMENTACION.md](docs/PLAN_DOCUMENTACION.md) y se retira cuando
-termine.
+El plan con el que se reorganizó esta documentación está archivado en
+[docs/historico/PLAN_DOCUMENTACION.md](docs/historico/PLAN_DOCUMENTACION.md).
 
 ## Estado, en corto
 
-- El **catálogo está vacío**: los productos del Excel todavía no se han
-  importado. El stock del archivo no se carga al inventario a propósito, porque
-  viene sin ubicación y hay que decidir dónde va.
+- La carga inicial del **catálogo** (el Excel de 1.398 productos) no está
+  verificada en el entorno local. Ver [ARRANQUE.md](ARRANQUE.md) y
+  [docs/migracion/catalogo-excel.md](docs/migracion/catalogo-excel.md). El stock
+  del archivo entra a `SIN-UBICAR`, no a una ubicación física, porque el archivo
+  no trae el desglose ([ADR-0012](docs/adr/0012-conciliar-stock-heredado-con-conteo.md)).
 - La **API y el dominio** están cubiertos por tests que se ejecutan con
   `GRADLE_USER_HOME=.gradle-home ./gradlew :backend:test :stock-domain:jvmTest`.
 - Lo que **no** está verificado en dispositivo (cámara, proyecto de iOS) y lo que

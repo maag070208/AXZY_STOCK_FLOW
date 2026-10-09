@@ -101,7 +101,7 @@ Además, `GET /v1/invoices/pending-approval` devuelve `{ "items": [...] }` y
 `GET /v1/transfers/in-transit` devuelve un arreglo: son bandejas acotadas, no
 listados paginables.
 
-### El total se CUENTA, no se adivina (regla de `ARQUITECTURA.md` §5.6)
+### El total se CUENTA, no se adivina (regla de `docs/historico/ARQUITECTURA.md` §5.6)
 
 ```kotlin
 Page(items, page.page, page.size, total)   // total de un SELECT count(*)
