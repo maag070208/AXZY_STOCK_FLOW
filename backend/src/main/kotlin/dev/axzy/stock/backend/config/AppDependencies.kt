@@ -1,73 +1,52 @@
 package dev.axzy.stock.backend.config
 
-import dev.axzy.stock.backend.audit.AuditWriter
+import dev.axzy.stock.backend.application.transfer.TransferUseCases
+import dev.axzy.stock.backend.infrastructure.outbound.persistence.audit.AuditWriter
+import dev.axzy.stock.backend.infrastructure.outbound.persistence.transfer.JdbcTransferRepository
 import dev.axzy.stock.backend.inventory.InventoryService
 import dev.axzy.stock.backend.receiving.ReceivingService
 import javax.sql.DataSource
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * CONTENEDOR DE DEPENDENCIAS — instancias ÚNICAS, construidas en un solo sitio
+ * COMPOSICIÓN — el único sitio donde se decide quién existe y cuántas veces
  *
- * **POR QUÉ EXISTE.** Antes, cada servicio construía lo que necesitaba por su cuenta:
+ * Aquí se une cada caso de uso con el adaptador que cumple su puerto. **Es el único archivo
+ * que conoce las dos mitades**: la aplicación no importa infraestructura, y la infraestructura
+ * no decide con qué se monta. Si alguien pregunta «¿de qué depende este backend?», la
+ * respuesta es este archivo.
  *
- *     class InventoryService(dataSource) {
- *         private val audit = AuditWriter(dataSource)   // ← su propia instancia
- *     }
- *     class ReceivingService(dataSource) {
- *         private val audit = AuditWriter(dataSource)   // ← y otra
- *     }
+ * ## `by lazy` y no `val` a secas
  *
- * Con dos servicios eran **dos `AuditWriter`**. Con cinco, cinco. Y ninguna era un
- * error visible —`AuditWriter` no guarda estado, así que funcionaba— pero el día que
- * necesitara caché, una métrica o un contador, **cada copia tendría el suyo** y el
- * total sería la suma de partes que no se ven entre sí.
+ * Unas dependencias necesitan a otras. Si se construyeran todas en el constructor, el orden de
+ * las líneas decidiría si la dependencia ya existe, y reordenar dos propiedades rompería la
+ * aplicación sin tocar la lógica. Con `by lazy` cada una se construye la primera vez que se
+ * pide, y sigue siendo única: `lazy` cachea el resultado.
  *
- * Eso es exactamente lo que el patrón **Singleton** evita, y no se consigue con
- * `object`: se consigue **decidiendo en un sitio quién existe y cuántas veces**.
- *
- * **El contenedor es la lista de lo que la aplicación necesita para funcionar.** Si
- * alguien pregunta «¿de qué depende este backend?», la respuesta es este archivo.
- *
- * ---
- *
- * ## `by lazy` Y NO `val` A SECAS: el orden de construcción importa
- *
- * Los servicios dependen del `AuditWriter`. Si se construyeran todos en el constructor
- * del contenedor, el orden de las líneas decidiría si la dependencia ya existe — y
- * **reordenar dos propiedades rompería la aplicación sin tocar la lógica**.
- *
- * Con `by lazy` cada dependencia se construye **la primera vez que se pide**, así que el
- * orden deja de importar. Y sigue siendo única: `lazy` cachea el resultado.
- *
- * ## `SYNCHRONIZED` (el valor por defecto) Y NO `NONE`
+ * ## `SYNCHRONIZED` (el valor por defecto) y no `NONE`
  *
  * Ktor atiende peticiones en paralelo. Con `LazyThreadSafetyMode.NONE`, dos peticiones
- * simultáneas podrían construir **dos** instancias y el singleton se perdería justo
- * cuando nadie mira. El coste de `SYNCHRONIZED` se paga **una vez**, en la primera
- * petición, y a cambio la unicidad está garantizada.
+ * simultáneas podrían construir dos instancias y la unicidad se perdería justo cuando nadie
+ * mira. El coste de `SYNCHRONIZED` se paga una vez, en la primera petición.
+ *
+ * ## Nunca `object`
+ *
+ * Un `object` no se puede sustituir en una prueba ni acepta un `DataSource`. Las pruebas montan
+ * este mismo contenedor con su propia base, así que prueban el cableado real.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 class AppDependencies(private val dataSource: DataSource) {
 
     /**
-     * El escritor de auditoría: **uno para toda la aplicación**.
-     *
-     * Es el que más importa que sea único. Si hubiera varias instancias y algún día
-     * llevara un contador de registros o una caché del último hash, cada una tendría su
-     * propia verdad — y la cadena de auditoría depende de que **haya una sola**.
-     *
-     * (La cadena en sí la garantiza el `pg_advisory_xact_lock` de la base, no esta
-     * línea. Pero tener una instancia única evita tener que razonar sobre el problema
-     * dos veces.)
+     * El escritor de auditoría: **uno para toda la aplicación**. La cadena de hash la garantiza
+     * el `pg_advisory_xact_lock` de la base, no esta línea; pero una instancia única evita tener
+     * que razonar sobre el problema dos veces.
      */
     val auditWriter: AuditWriter by lazy { AuditWriter(dataSource) }
 
-    val inventoryService: InventoryService by lazy {
-        InventoryService(dataSource, auditWriter)
-    }
+    val inventoryService: InventoryService by lazy { InventoryService(dataSource, auditWriter) }
 
-    val receivingService: ReceivingService by lazy {
-        ReceivingService(dataSource, auditWriter)
-    }
+    val receivingService: ReceivingService by lazy { ReceivingService(dataSource, auditWriter) }
+
+    val transfer: TransferUseCases by lazy { TransferUseCases(JdbcTransferRepository(dataSource, auditWriter)) }
 }

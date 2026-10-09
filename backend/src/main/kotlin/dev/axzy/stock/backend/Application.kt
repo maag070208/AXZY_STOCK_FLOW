@@ -120,7 +120,7 @@ fun main() {
         },
         // **Una sola instancia del escritor**, como pide `AppDependencies`: la
         // cadena de hashes depende de que haya un único punto de escritura.
-        auditWriter = dev.axzy.stock.backend.audit.AuditWriter(pool),
+        denialLog = dev.axzy.stock.backend.infrastructure.outbound.persistence.audit.AuditWriter(pool),
     )
 
     embeddedServer(Netty, port = port, host = "0.0.0.0") {
@@ -294,7 +294,7 @@ fun Application.module(
         // ── Traslados entre bodegas (§7) ────────────────────────────────────
         // La invariante vive aquí: `Σ ubicaciones + Σ tránsito` se conserva en
         // cada transición, y la mercancía en el camión SIGUE contando.
-        transferRoutes(dataSource, permissionChecker)
+        transferRoutes(dependencies.transfer, permissionChecker)
 
         // ── Surtido (§6) ────────────────────────────────────────────────────
         // `supplied_quantity` es SIEMPRE lo ya descontado del inventario: empacar

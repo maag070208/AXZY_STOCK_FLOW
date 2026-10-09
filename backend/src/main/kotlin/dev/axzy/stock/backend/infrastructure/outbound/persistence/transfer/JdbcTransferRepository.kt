@@ -1,44 +1,47 @@
 package dev.axzy.stock.backend.infrastructure.outbound.persistence.transfer
 
+import dev.axzy.stock.backend.application.audit.AuditEntry
 import dev.axzy.stock.backend.application.transfer.ActiveProduct
-import dev.axzy.stock.backend.application.transfer.InTransitRow
+import dev.axzy.stock.backend.application.transfer.InTransitTransferResponse
 import dev.axzy.stock.backend.application.transfer.OpenTransit
-import dev.axzy.stock.backend.application.transfer.TransferDetail
+import dev.axzy.stock.backend.application.transfer.TransferDetailResponse
 import dev.axzy.stock.backend.application.transfer.TransferFilter
-import dev.axzy.stock.backend.application.transfer.TransferHeader
-import dev.axzy.stock.backend.application.transfer.TransferLineView
+import dev.axzy.stock.backend.application.transfer.TransferLineResponse
 import dev.axzy.stock.backend.application.transfer.TransferRepository
+import dev.axzy.stock.backend.application.transfer.TransferResponse
 import dev.axzy.stock.backend.application.transfer.TransferRoute
 import dev.axzy.stock.backend.application.transfer.TransferWork
-import dev.axzy.stock.backend.audit.AuditWriter
+import dev.axzy.stock.backend.infrastructure.outbound.persistence.audit.AuditWriter
+import dev.axzy.stock.backend.infrastructure.outbound.persistence.shared.setNullableLong
+import dev.axzy.stock.backend.infrastructure.outbound.persistence.shared.toDecimal
+import dev.axzy.stock.backend.infrastructure.outbound.persistence.shared.transactional
 import dev.axzy.stock.domain.transfer.TransferLine
 import dev.axzy.stock.domain.transfer.TransferStatus
 import dev.axzy.stock.domain.value.Quantity
 import java.math.BigDecimal
 import java.sql.Connection
 import java.sql.ResultSet
-import java.sql.Types
 import java.time.LocalDate
 import javax.sql.DataSource
 
 /**
  * Persistencia de traslados en PostgreSQL.
  *
- * El SQL y el motor (`registrar_movimiento`, `recalcular_total_producto`) son los mismos que
- * tenía el servicio: aquí solo cambian de sitio. La transacción conserva el patrón de siempre:
- * una conexión con `autoCommit = false`, commit al final, rollback ante cualquier fallo.
+ * El SQL y el motor (`registrar_movimiento`, `recalcular_total_producto`) son los mismos de
+ * siempre: aquí solo viven. La transacción conserva el patrón del proyecto: una conexión con
+ * `autoCommit = false`, commit al final, rollback ante cualquier fallo.
  */
 class JdbcTransferRepository(
     private val dataSource: DataSource,
-    private val writer: AuditWriter = AuditWriter(dataSource),
+    private val auditWriter: AuditWriter = AuditWriter(dataSource),
 ) : TransferRepository {
 
-    override fun find(id: Long): TransferDetail? = dataSource.connection.use { connection ->
+    override fun find(id: Long): TransferDetailResponse? = dataSource.connection.use { connection ->
         val header = readHeader(connection, id) ?: return@use null
-        TransferDetail(header, readViews(connection, id))
+        TransferDetailResponse(header, readRawLines(connection, id).map { it.toResponse() })
     }
 
-    override fun list(filter: TransferFilter, offset: Int, limit: Int): List<TransferHeader> =
+    override fun list(filter: TransferFilter, offset: Int, limit: Int): List<TransferResponse> =
         dataSource.connection.use { connection ->
             val sql = buildString {
                 append(HEADER_SELECT)
@@ -57,7 +60,7 @@ class JdbcTransferRepository(
                 }
                 st.setInt(i++, limit)
                 st.setInt(i, offset)
-                st.executeQuery().use { rs -> buildList { while (rs.next()) add(rs.toHeader()) } }
+                st.executeQuery().use { rs -> buildList { while (rs.next()) add(rs.toTransferResponse()) } }
             }
         }
 
@@ -78,7 +81,12 @@ class JdbcTransferRepository(
         }
     }
 
-    override fun inTransit(): List<InTransitRow> = dataSource.connection.use { connection ->
+    /**
+     * Los traslados despachados y NO recibidos, con sus días transcurridos. **Un traslado nunca
+     * recibido es una deuda visible**: por eso el orden es por antigüedad, y el que lleva más
+     * días en el camino sale primero.
+     */
+    override fun inTransit(): List<InTransitTransferResponse> = dataSource.connection.use { connection ->
         val sql = """
             SELECT t.id, t.code, t.status,
                    wo.code AS from_code, wd.code AS to_code,
@@ -103,16 +111,15 @@ class JdbcTransferRepository(
                 buildList {
                     while (rs.next()) {
                         add(
-                            InTransitRow(
+                            InTransitTransferResponse(
                                 id = rs.getLong("id"),
                                 code = rs.getString("code"),
                                 fromWarehouseCode = rs.getString("from_code"),
                                 toWarehouseCode = rs.getString("to_code"),
                                 status = rs.getString("status"),
                                 lineCount = rs.getInt("line_count"),
-                                totalUnits = rs.getBigDecimal("total_units"),
-                                // Solo entran estados despachados: la fecha siempre existe.
-                                dispatchedAt = rs.getTimestamp("dispatched_at").toInstant(),
+                                totalUnits = rs.getBigDecimal("total_units").setScale(3).toPlainString(),
+                                dispatchedAt = rs.getTimestamp("dispatched_at")?.toInstant().toString(),
                                 daysInTransit = rs.getLong("days_in_transit"),
                                 dispatchedBy = rs.getLong("dispatched_by").takeIf { !rs.wasNull() },
                                 dispatchedByName = rs.getString("dispatched_by_name"),
@@ -124,36 +131,13 @@ class JdbcTransferRepository(
         }
     }
 
-    override fun <T> inTransaction(work: TransferWork.() -> T): T = dataSource.connection.use { connection ->
-        connection.autoCommit = false
-        try {
-            val result = JdbcTransferWork(connection, writer).work()
-            connection.commit()
-            result
-        } catch (e: Exception) {
-            connection.rollback()
-            throw e
-        }
-    }
+    override fun <T> inTransaction(work: TransferWork.() -> T): T =
+        dataSource.transactional { connection -> JdbcTransferWork(connection, auditWriter).work() }
 
-    private fun readHeader(connection: Connection, id: Long): TransferHeader? =
+    private fun readHeader(connection: Connection, id: Long): TransferResponse? =
         connection.prepareStatement("$HEADER_SELECT WHERE t.id = ?").use { st ->
             st.setLong(1, id)
-            st.executeQuery().use { rs -> if (rs.next()) rs.toHeader() else null }
-        }
-
-    private fun readViews(connection: Connection, transferId: Long): List<TransferLineView> =
-        readRawLines(connection, transferId).map {
-            TransferLineView(
-                id = it.id,
-                productId = it.productId,
-                productCode = it.productCode,
-                productName = it.productName,
-                quantity = it.quantity,
-                fromLocationId = it.fromLocationId,
-                fromLocationDisplay = it.fromDisplay,
-                note = it.note,
-            )
+            st.executeQuery().use { rs -> if (rs.next()) rs.toTransferResponse() else null }
         }
 
     private companion object {
@@ -182,44 +166,13 @@ class JdbcTransferRepository(
     }
 }
 
-/** Una línea leída de la base, con su origen ya formateado. */
-private data class RawLine(
-    val id: Long,
-    val productId: Long,
-    val productCode: String,
-    val productName: String,
-    val quantity: BigDecimal,
-    val fromLocationId: Long?,
-    val fromDisplay: String?,
-    val note: String?,
-)
-
-private fun ResultSet.toHeader(): TransferHeader = TransferHeader(
-    id = getLong("id"),
-    code = getString("code"),
-    fromWarehouseId = getLong("from_warehouse_id"),
-    fromWarehouseCode = getString("from_code"),
-    toWarehouseId = getLong("to_warehouse_id"),
-    toWarehouseCode = getString("to_code"),
-    status = getString("status"),
-    lineCount = getInt("line_count"),
-    totalUnits = getBigDecimal("total_units"),
-    note = getString("note"),
-    dispatchedBy = getLong("dispatched_by").takeIf { !wasNull() },
-    dispatchedByName = getString("dispatched_by_name"),
-    dispatchedAt = getTimestamp("dispatched_at")?.toInstant(),
-    receivedBy = getLong("received_by").takeIf { !wasNull() },
-    receivedByName = getString("received_by_name"),
-    receivedAt = getTimestamp("received_at")?.toInstant(),
-)
-
 /**
  * Las operaciones de [TransferWork] sobre una conexión. Vive y muere con la transacción que la
  * crea: no guarda nada entre llamadas.
  */
 private class JdbcTransferWork(
     private val connection: Connection,
-    private val writer: AuditWriter,
+    private val auditWriter: AuditWriter,
 ) : TransferWork {
 
     override fun status(id: Long): TransferStatus? =
@@ -279,7 +232,7 @@ private class JdbcTransferWork(
         code: String,
         route: TransferRoute,
         note: String?,
-        actorId: Long?,
+        userId: Long?,
         lines: List<TransferLine>,
     ): Long {
         val id = connection.prepareStatement(
@@ -290,7 +243,7 @@ private class JdbcTransferWork(
             st.setLong(2, route.fromWarehouseId)
             st.setLong(3, route.toWarehouseId)
             st.setString(4, note)
-            st.setNullableLong(5, actorId)
+            st.setNullableLong(5, userId)
             st.executeQuery().use { rs -> rs.next(); rs.getLong(1) }
         }
 
@@ -302,7 +255,7 @@ private class JdbcTransferWork(
                 st.setLong(1, id)
                 st.setLong(2, line.productId)
                 st.setNullableLong(3, line.fromLocationId)
-                st.setBigDecimal(4, BigDecimal.valueOf(line.quantity.value).movePointLeft(3))
+                st.setBigDecimal(4, line.quantity.toDecimal())
                 st.setString(5, line.note)
                 st.executeUpdate()
             }
@@ -316,9 +269,9 @@ private class JdbcTransferWork(
      * 2. Se inserta la fila de tránsito.
      * Después se recalcula el total: el resultado es el mismo número que antes de despachar.
      */
-    override fun moveOut(transferId: Long, route: TransferRoute, line: TransferLine, actorId: Long?) {
-        val units = BigDecimal.valueOf(line.quantity.value).movePointLeft(3)
-        recordMovement(line.productId, route.fromWarehouseId, "TRANSFER_OUT", units, line.fromLocationId, null, transferId, actorId)
+    override fun moveOut(transferId: Long, route: TransferRoute, line: TransferLine, userId: Long?) {
+        val units = line.quantity.toDecimal()
+        recordMovement(line.productId, route.fromWarehouseId, "TRANSFER_OUT", units, line.fromLocationId, null, transferId, userId)
 
         connection.prepareStatement(
             "INSERT INTO stock_in_transit " +
@@ -334,7 +287,7 @@ private class JdbcTransferWork(
             st.executeUpdate()
         }
 
-        recalcularTotal(line.productId)
+        recalculateTotal(line.productId)
     }
 
     override fun openTransit(transferId: Long): List<OpenTransit> =
@@ -364,36 +317,36 @@ private class JdbcTransferWork(
      * cierra: el total no cambia porque el tránsito deja de contar en el mismo paso en que la
      * mercancía entra en la ubicación.
      */
-    override fun land(transit: OpenTransit, transferId: Long, warehouseId: Long, toLocation: Long?, actorId: Long?) {
+    override fun land(transit: OpenTransit, transferId: Long, warehouseId: Long, toLocation: Long?, userId: Long?) {
         // Sin origen: la mercancía en tránsito no está en ninguna ubicación. Pasarle el destino como
         // origen haría `0 - n` y la base lo rechazaría con `stock_non_negative`.
-        recordMovement(transit.productId, warehouseId, "TRANSFER_IN", transit.quantity, null, toLocation, transferId, actorId)
+        recordMovement(transit.productId, warehouseId, "TRANSFER_IN", transit.quantity, null, toLocation, transferId, userId)
 
         connection.prepareStatement("UPDATE stock_in_transit SET received_at = now() WHERE id = ?").use { st ->
             st.setLong(1, transit.transitId)
             st.executeUpdate()
         }
 
-        recalcularTotal(transit.productId)
+        recalculateTotal(transit.productId)
     }
 
-    override fun markDispatched(id: Long, actorId: Long?) {
+    override fun markDispatched(id: Long, userId: Long?) {
         connection.prepareStatement(
             "UPDATE transfers SET status = 'DISPATCHED', dispatched_by = ?, dispatched_at = now(), " +
                 "updated_at = now() WHERE id = ?",
         ).use { st ->
-            st.setNullableLong(1, actorId)
+            st.setNullableLong(1, userId)
             st.setLong(2, id)
             st.executeUpdate()
         }
     }
 
-    override fun markReceived(id: Long, actorId: Long?) {
+    override fun markReceived(id: Long, userId: Long?) {
         connection.prepareStatement(
             "UPDATE transfers SET status = 'RECEIVED', received_by = ?, received_at = now(), " +
                 "updated_at = now() WHERE id = ?",
         ).use { st ->
-            st.setNullableLong(1, actorId)
+            st.setNullableLong(1, userId)
             st.setLong(2, id)
             st.executeUpdate()
         }
@@ -406,25 +359,7 @@ private class JdbcTransferWork(
         }
     }
 
-    /**
-     * Registra la transición en la bitácora, dentro de esta conexión: si la operación se revierte,
-     * el registro también. Sin usuario no hay acción humana que atribuir: la base exige actor para
-     * los canales humanos, así que se registra como SYSTEM.
-     */
-    override fun audit(id: Long, actorId: Long?, action: String, previous: TransferStatus?, next: TransferStatus) {
-        writer.record(
-            connection = connection,
-            actorUserId = actorId,
-            actorUsername = null,
-            channel = if (actorId != null) AuditWriter.Channel.WEB else AuditWriter.Channel.SYSTEM,
-            entityType = "transfer",
-            entityId = id.toString(),
-            action = action,
-            level = AuditWriter.Level.RELEVANT,
-            previousState = previous?.let { """{"status":"${it.name}"}""" },
-            newState = """{"status":"${next.name}"}""",
-        )
-    }
+    override fun audit(entry: AuditEntry): Long = auditWriter.record(connection, entry)
 
     /**
      * Llama a `registrar_movimiento`, la MISMA función que usa el resto del sistema: duplicar su
@@ -438,7 +373,7 @@ private class JdbcTransferWork(
         fromLocation: Long?,
         toLocation: Long?,
         transferId: Long,
-        actorId: Long?,
+        userId: Long?,
     ) {
         connection.prepareStatement(
             """
@@ -453,24 +388,42 @@ private class JdbcTransferWork(
             st.setBigDecimal(4, units)
             st.setNullableLong(5, fromLocation)
             st.setNullableLong(6, toLocation)
-            st.setNullableLong(7, actorId)
+            st.setNullableLong(7, userId)
             st.setString(8, "Traslado #$transferId")
             st.executeQuery().use { rs -> rs.next() }
         }
     }
 
-    private fun recalcularTotal(productId: Long) {
+    private fun recalculateTotal(productId: Long) {
         connection.prepareStatement("SELECT recalcular_total_producto(?)").use { st ->
             st.setLong(1, productId)
             st.executeQuery().use { rs -> rs.next() }
         }
     }
-
-    private fun java.sql.PreparedStatement.setNullableLong(index: Int, value: Long?) {
-        if (value != null) setLong(index, value) else setNull(index, Types.BIGINT)
-    }
 }
 
+/** Una línea leída de la base, con su origen ya formateado. */
+private data class RawLine(
+    val id: Long,
+    val productId: Long,
+    val productCode: String,
+    val productName: String,
+    val quantity: BigDecimal,
+    val fromLocationId: Long?,
+    val fromDisplay: String?,
+    val note: String?,
+) {
+    fun toResponse() = TransferLineResponse(
+        id = id,
+        productId = productId,
+        productCode = productCode,
+        productName = productName,
+        quantity = quantity.setScale(3).toPlainString(),
+        fromLocationId = fromLocationId,
+        fromLocationDisplayName = fromDisplay,
+        note = note,
+    )
+}
 
 private fun readRawLines(connection: Connection, transferId: Long): List<RawLine> = connection.prepareStatement(
     """
@@ -509,3 +462,21 @@ private fun readRawLines(connection: Connection, transferId: Long): List<RawLine
     }
 }
 
+private fun ResultSet.toTransferResponse(): TransferResponse = TransferResponse(
+    id = getLong("id"),
+    code = getString("code"),
+    fromWarehouseId = getLong("from_warehouse_id"),
+    fromWarehouseCode = getString("from_code"),
+    toWarehouseId = getLong("to_warehouse_id"),
+    toWarehouseCode = getString("to_code"),
+    status = getString("status"),
+    lineCount = getInt("line_count"),
+    totalUnits = getBigDecimal("total_units").setScale(3).toPlainString(),
+    note = getString("note"),
+    dispatchedBy = getLong("dispatched_by").takeIf { !wasNull() },
+    dispatchedByName = getString("dispatched_by_name"),
+    dispatchedAt = getTimestamp("dispatched_at")?.toInstant()?.toString(),
+    receivedBy = getLong("received_by").takeIf { !wasNull() },
+    receivedByName = getString("received_by_name"),
+    receivedAt = getTimestamp("received_at")?.toInstant()?.toString(),
+)

@@ -46,8 +46,8 @@ import javax.sql.DataSource
  */
 class InventoryService(
     private val dataSource: DataSource,
-    private val audit: dev.axzy.stock.backend.audit.AuditWriter =
-        dev.axzy.stock.backend.audit.AuditWriter(dataSource),
+    private val audit: dev.axzy.stock.backend.infrastructure.outbound.persistence.audit.AuditWriter =
+        dev.axzy.stock.backend.infrastructure.outbound.persistence.audit.AuditWriter(dataSource),
 ) {
 
 
@@ -160,7 +160,7 @@ class InventoryService(
                         connection = connection,
                         actorUserId = request.requestedBy,
                         actorUsername = null,
-                        channel = dev.axzy.stock.backend.audit.AuditWriter.Channel.WEB,
+                        channel = dev.axzy.stock.backend.application.audit.AuditChannel.WEB,
                         sourceIp = ip,
                         entityType = "product",
                         entityId = productId.toString(),
@@ -190,7 +190,7 @@ class InventoryService(
                         // a la función**, y eso está pendiente. Dejarlo aquí sin decirlo
                         // sería lo peor: parecería una decisión en lugar de una
                         // limitación.
-                        level = dev.axzy.stock.backend.audit.AuditWriter.Level.RELEVANT,
+                        level = dev.axzy.stock.backend.application.audit.AuditLevel.RELEVANT,
                         // El total ANTERIOR se deriva del delta en lugar de leerlo
                         // antes del movimiento. `readTotal` se llama después (el saldo
                         // ya está aplicado), y añadir una lectura previa costaría una
@@ -207,8 +207,8 @@ class InventoryService(
                         reason = request.reason.name,
                         note = request.note,
                         permissionKey = permissionForAdjustment(request.direction, request.reason),
-                        decision = dev.axzy.stock.backend.audit.AuditWriter.Decision.ALLOWED,
-                        result = dev.axzy.stock.backend.audit.AuditWriter.Result.SUCCESS,
+                        decision = dev.axzy.stock.backend.application.audit.AuditDecision.ALLOWED,
+                        result = dev.axzy.stock.backend.application.audit.AuditResult.SUCCESS,
                         idempotencyKey = request.idempotencyKey,
                         businessDate = java.time.LocalDate.now(java.time.ZoneOffset.UTC),
                     )
@@ -292,17 +292,17 @@ class InventoryService(
                 connection = connection,
                 actorUserId = userId,
                 actorUsername = null,
-                channel = dev.axzy.stock.backend.audit.AuditWriter.Channel.WEB,
+                channel = dev.axzy.stock.backend.application.audit.AuditChannel.WEB,
                 entityType = "product",
                 entityId = productId.toString(),
                 entityLabel = productCode.value,
                 action = "inventory.locate",
-                level = dev.axzy.stock.backend.audit.AuditWriter.Level.RELEVANT,
+                level = dev.axzy.stock.backend.application.audit.AuditLevel.RELEVANT,
                 previousState = """{"location":"${from.value}"}""",
                 newState = """{"location":"${until.value}","units":"${quantity.unitsText()}"}""",
                 permissionKey = "invoice.locate",
-                decision = dev.axzy.stock.backend.audit.AuditWriter.Decision.ALLOWED,
-                result = dev.axzy.stock.backend.audit.AuditWriter.Result.SUCCESS,
+                decision = dev.axzy.stock.backend.application.audit.AuditDecision.ALLOWED,
+                result = dev.axzy.stock.backend.application.audit.AuditResult.SUCCESS,
                 idempotencyKey = key,
                 businessDate = java.time.LocalDate.now(java.time.ZoneOffset.UTC),
             )

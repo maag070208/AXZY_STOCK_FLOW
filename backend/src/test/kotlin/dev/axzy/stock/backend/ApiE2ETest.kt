@@ -198,7 +198,7 @@ class ApiE2ETest : DescribeSpec({
     fun realChecker(tokens: TokenService, pool: DataSource) = AccessEnginePermissionChecker(
         engine = AccessEngine(),
         currentUser = { call -> call.tokenClaims(tokens)?.aAccessUser() },
-        auditWriter = dev.axzy.stock.backend.audit.AuditWriter(pool),
+        denialLog = dev.axzy.stock.backend.infrastructure.outbound.persistence.audit.AuditWriter(pool),
     )
 
     val json = Json { ignoreUnknownKeys = true }

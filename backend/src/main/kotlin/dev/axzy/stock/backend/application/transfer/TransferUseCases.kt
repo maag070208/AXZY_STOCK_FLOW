@@ -1,5 +1,6 @@
 package dev.axzy.stock.backend.application.transfer
 
+import dev.axzy.stock.backend.application.audit.AuditEntry
 import dev.axzy.stock.backend.error.ConflictException
 import dev.axzy.stock.backend.error.NotFoundException
 import dev.axzy.stock.backend.error.UnprocessableException
@@ -23,54 +24,52 @@ import java.math.BigDecimal
  */
 class TransferUseCases(private val repository: TransferRepository) {
 
-    fun byId(id: Long): TransferDetail? = repository.find(id)
+    fun byId(id: Long): TransferDetailResponse? = repository.find(id)
 
-    fun list(filter: TransferFilter, offset: Int, limit: Int): List<TransferHeader> =
+    fun list(filter: TransferFilter, offset: Int, limit: Int): List<TransferResponse> =
         repository.list(filter, offset, limit)
 
     fun count(filter: TransferFilter): Long = repository.count(filter)
 
-    fun inTransit(): List<InTransitRow> = repository.inTransit()
+    fun inTransit(): List<InTransitTransferResponse> = repository.inTransit()
 
     /** Crea un traslado en `DRAFT`. No mueve inventario: es una intención. */
-    fun create(input: NewTransfer, userId: Long?): TransferDetail {
+    fun create(request: TransferCreateRequest, userId: Long?): TransferDetailResponse {
         val id = repository.inTransaction {
-            val lines = input.lines.map { resolveLine(it) }
+            val lines = request.lines.map { resolveLine(it) }
 
             // Las reglas del dominio antes de tocar la base: dan un 422 que señala el campo.
-            Transfer.validate(input.fromWarehouseId, input.toWarehouseId, lines)
+            Transfer.validate(request.fromWarehouseId, request.toWarehouseId, lines)
                 .errorOrNull()?.let { throw it.toUnprocessable() }
 
-            val route = TransferRoute(input.fromWarehouseId, input.toWarehouseId)
+            val route = TransferRoute(request.fromWarehouseId, request.toWarehouseId)
             val code = nextCode()
-            val draftId = insertDraft(code, route, input.note?.trim()?.takeIf { it.isNotEmpty() }, userId, lines)
+            val draftId = insertDraft(code, route, request.note?.trim()?.takeIf { it.isNotEmpty() }, userId, lines)
 
-            audit(draftId, userId, "transfer.create", previous = null, next = TransferStatus.DRAFT)
+            audit(transition(draftId, userId, "transfer.create", previous = null, next = TransferStatus.DRAFT))
             draftId
         }
         return repository.find(id)!!
     }
 
-    fun dispatch(id: Long, userId: Long?): TransferDetail {
+    fun dispatch(id: Long, userId: Long?): TransferDetailResponse {
         repository.inTransaction {
             val current = status(id) ?: throw notFound(id)
-            val transfer = aggregate(id, current, lines(id))
-            transfer.dispatch(userId ?: 0L).errorOrNull()?.let { throw it.toUnprocessable() }
+            aggregate(id, current, lines(id)).dispatch(userId ?: 0L).errorOrNull()?.let { throw it.toUnprocessable() }
 
             val route = route(id)
             for (line in lines(id)) moveOut(id, route, line, userId)
 
-            audit(id, userId, "transfer.dispatch", previous = current, next = TransferStatus.DISPATCHED)
+            audit(transition(id, userId, "transfer.dispatch", previous = current, next = TransferStatus.DISPATCHED))
             markDispatched(id, userId)
         }
         return repository.find(id)!!
     }
 
-    fun receive(id: Long, userId: Long?): TransferDetail {
+    fun receive(id: Long, userId: Long?): TransferDetailResponse {
         repository.inTransaction {
             val current = status(id) ?: throw notFound(id)
-            val transfer = aggregate(id, current, lines(id))
-            transfer.receive(userId ?: 0L).errorOrNull()?.let { throw it.toUnprocessable() }
+            aggregate(id, current, lines(id)).receive(userId ?: 0L).errorOrNull()?.let { throw it.toUnprocessable() }
 
             val route = route(id)
             // La mercancía llega a la ubicación de recepción de la bodega de destino, de donde
@@ -95,7 +94,7 @@ class TransferUseCases(private val repository: TransferRepository) {
                 )
             }
 
-            audit(id, userId, "transfer.receive", previous = current, next = TransferStatus.RECEIVED)
+            audit(transition(id, userId, "transfer.receive", previous = current, next = TransferStatus.RECEIVED))
             markReceived(id, userId)
         }
         return repository.find(id)!!
@@ -106,11 +105,10 @@ class TransferUseCases(private val repository: TransferRepository) {
      * mercancía al origen en la misma transacción, para no dejarla en un limbo que ningún reporte
      * explica.
      */
-    fun cancel(id: Long, userId: Long?): TransferDetail {
+    fun cancel(id: Long, userId: Long?): TransferDetailResponse {
         repository.inTransaction {
             val current = status(id) ?: throw notFound(id)
-            val transfer = aggregate(id, current, emptyList())
-            transfer.cancel().errorOrNull()?.let { throw it.toUnprocessable() }
+            aggregate(id, current, emptyList()).cancel().errorOrNull()?.let { throw it.toUnprocessable() }
 
             val route = route(id)
             for (transit in openTransit(id)) {
@@ -119,50 +117,51 @@ class TransferUseCases(private val repository: TransferRepository) {
                 land(transit, id, route.fromWarehouseId, transit.fromLocationId, userId)
             }
 
-            audit(id, userId, "transfer.cancel", previous = current, next = TransferStatus.CANCELLED)
+            audit(transition(id, userId, "transfer.cancel", previous = current, next = TransferStatus.CANCELLED))
             markCancelled(id)
         }
         return repository.find(id)!!
     }
 
-    // ── Piezas dentro de la transacción ───────────────────────────────────────
+    // ── Piezas ────────────────────────────────────────────────────────────────
 
-    /** Las operaciones de [TransferWork] se llaman dentro de un bloque; estas las reexponen. */
-    private fun TransferWork.resolveLine(input: NewTransferLine): TransferLine {
-        val product = activeProduct(input.productCode.trim())
+    /** Valida una línea pedida y la convierte en la línea del dominio. */
+    private fun TransferWork.resolveLine(request: TransferLineRequest): TransferLine {
+        val product = activeProduct(request.productCode.trim())
             ?: throw UnprocessableException(
                 code = "PRODUCT_NOT_FOUND",
-                message = "El producto '${input.productCode}' no existe o está inactivo.",
-                details = mapOf("productCode" to input.productCode),
+                message = "El producto '${request.productCode}' no existe o está inactivo.",
+                details = mapOf("productCode" to request.productCode),
             )
 
-        val parsed = runCatching { BigDecimal(input.quantity.trim()) }.getOrElse {
+        val parsed = runCatching { BigDecimal(request.quantity.trim()) }.getOrElse {
             throw UnprocessableException(
                 code = "INVALID_QUANTITY",
-                message = "La cantidad '${input.quantity}' no es un número.",
-                details = mapOf("quantity" to input.quantity),
+                message = "La cantidad '${request.quantity}' no es un número.",
+                details = mapOf("quantity" to request.quantity),
             )
         }
         if (parsed <= BigDecimal.ZERO) {
             throw UnprocessableException(
                 code = "INVALID_QUANTITY",
-                message = "La cantidad del traslado debe ser positiva. Se recibió '${input.quantity}'.",
-                details = mapOf("quantity" to input.quantity),
+                message = "La cantidad del traslado debe ser positiva. Se recibió '${request.quantity}'.",
+                details = mapOf("quantity" to request.quantity),
             )
         }
 
         return TransferLine(
             id = 0,
             productId = product.id,
-            productCode = input.productCode.trim(),
+            productCode = request.productCode.trim(),
             productName = product.name,
             quantity = Quantity.ofScaled(parsed.movePointRight(3).toLong()),
-            fromLocationId = input.fromLocationId,
-            note = input.note?.trim()?.takeIf { it.isNotEmpty() },
+            fromLocationId = request.fromLocationId,
+            note = request.note?.trim()?.takeIf { it.isNotEmpty() },
         )
     }
 
-    private fun TransferWork.aggregate(id: Long, status: TransferStatus, lines: List<TransferLine>) = Transfer(
+    /** El agregado del dominio solo necesita el estado y las líneas para decidir la transición. */
+    private fun aggregate(id: Long, status: TransferStatus, lines: List<TransferLine>) = Transfer(
         id = id,
         code = "",
         fromWarehouseId = 0,
@@ -170,6 +169,21 @@ class TransferUseCases(private val repository: TransferRepository) {
         status = status,
         lines = lines,
     )
+
+    /**
+     * El registro de bitácora de una transición. Lleva el estado anterior y el nuevo: un
+     * traslado que cambia de estado sin dejar rastro de quién lo hizo no es auditable.
+     */
+    private fun transition(id: Long, userId: Long?, action: String, previous: TransferStatus?, next: TransferStatus) =
+        AuditEntry(
+            actorUserId = userId,
+            channel = AuditEntry.channelFor(userId),
+            entityType = "transfer",
+            entityId = id.toString(),
+            action = action,
+            previousState = previous?.let { """{"status":"${it.name}"}""" },
+            newState = """{"status":"${next.name}"}""",
+        )
 
     private fun notFound(id: Long) = NotFoundException("El traslado $id no existe.", "TRANSFER_NOT_FOUND")
 }

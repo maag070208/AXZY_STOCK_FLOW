@@ -1,7 +1,7 @@
 package dev.axzy.stock.backend.transfer
 
-import dev.axzy.stock.backend.application.transfer.NewTransfer
-import dev.axzy.stock.backend.application.transfer.NewTransferLine
+import dev.axzy.stock.backend.application.transfer.TransferCreateRequest
+import dev.axzy.stock.backend.application.transfer.TransferLineRequest
 import dev.axzy.stock.backend.application.transfer.TransferUseCases
 import dev.axzy.stock.backend.infrastructure.outbound.persistence.transfer.JdbcTransferRepository
 
@@ -199,12 +199,12 @@ class TransferInvariantTest : DescribeSpec({
     fun DataSource.dispatchTransfer(scenario: Scenario): Pair<Long, String> {
         val service = TransferUseCases(JdbcTransferRepository(this))
         val creado = service.create(
-            NewTransfer(
+            TransferCreateRequest(
                 fromWarehouseId = 1,
                 toWarehouseId = scenario.destinationWarehouseId,
                 note = "prueba de invariante",
                 lines = listOf(
-                    NewTransferLine(
+                    TransferLineRequest(
                         productCode = "TRF1",
                         quantity = "400.000",
                         fromLocationId = scenario.shelfLocationId,
@@ -226,11 +226,11 @@ class TransferInvariantTest : DescribeSpec({
                 val antes = pool.totalUnits(scenario.productId)
 
                 TransferUseCases(JdbcTransferRepository(pool)).create(
-                    NewTransfer(
+                    TransferCreateRequest(
                         fromWarehouseId = 1,
                         toWarehouseId = scenario.destinationWarehouseId,
                         lines = listOf(
-                            NewTransferLine(
+                            TransferLineRequest(
                                 productCode = "TRF1",
                                 quantity = "400.000",
                                 fromLocationId = scenario.shelfLocationId,
@@ -315,11 +315,11 @@ class TransferInvariantTest : DescribeSpec({
 
                 val service = TransferUseCases(JdbcTransferRepository(pool))
                 val creado = service.create(
-                    NewTransfer(
+                    TransferCreateRequest(
                         fromWarehouseId = 1,
                         toWarehouseId = scenario.destinationWarehouseId,
                         lines = listOf(
-                            NewTransferLine(
+                            TransferLineRequest(
                                 productCode = "TRF1",
                                 quantity = "400.000",
                                 fromLocationId = scenario.shelfLocationId,
@@ -365,11 +365,11 @@ class TransferInvariantTest : DescribeSpec({
 
                 val service = TransferUseCases(JdbcTransferRepository(pool))
                 val creado = service.create(
-                    NewTransfer(
+                    TransferCreateRequest(
                         fromWarehouseId = 1,
                         toWarehouseId = scenario.destinationWarehouseId,
                         lines = listOf(
-                            NewTransferLine(
+                            TransferLineRequest(
                                 productCode = "TRF1",
                                 quantity = "400.000",
                                 fromLocationId = scenario.shelfLocationId,
@@ -405,11 +405,11 @@ class TransferInvariantTest : DescribeSpec({
 
                 val inicial = pool.totalUnits(scenario.productId)
                 val creado = service.create(
-                    NewTransfer(
+                    TransferCreateRequest(
                         fromWarehouseId = 1,
                         toWarehouseId = scenario.destinationWarehouseId,
                         lines = listOf(
-                            NewTransferLine(
+                            TransferLineRequest(
                                 productCode = "TRF1",
                                 quantity = "400.000",
                                 fromLocationId = scenario.shelfLocationId,

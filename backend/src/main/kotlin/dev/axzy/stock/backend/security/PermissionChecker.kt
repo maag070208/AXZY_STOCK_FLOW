@@ -1,6 +1,8 @@
 package dev.axzy.stock.backend.security
 
-import dev.axzy.stock.backend.audit.AuditWriter
+import dev.axzy.stock.backend.application.audit.AccessDenial
+import dev.axzy.stock.backend.application.audit.AccessDenialLog
+import dev.axzy.stock.backend.application.audit.AuditChannel
 import dev.axzy.stock.domain.access.AccessDecision
 import dev.axzy.stock.domain.access.AccessEngine
 import dev.axzy.stock.domain.access.AccessUser
@@ -113,7 +115,7 @@ class AccessEnginePermissionChecker(
      * Es `null` por defecto para que las pruebas de ruta, que usan verificadores
      * que permiten todo, no arrastren una dependencia de base de datos.
      */
-    private val auditWriter: AuditWriter? = null,
+    private val denialLog: AccessDenialLog? = null,
 ) : PermissionChecker {
 
     override suspend fun check(call: ApplicationCall, permission: String): PermissionDecision {
@@ -150,16 +152,18 @@ class AccessEnginePermissionChecker(
         // correcta: si la auditoría no puede escribir, el acceso se sigue
         // denegando. Que un fallo de auditoría ABRIERA el acceso sería convertir
         // un problema de registro en un agujero de seguridad.
-        if (outcome is PermissionDecision.Denied && auditWriter != null) {
-            auditWriter.recordDeniedAccessSafely(
-                actorUserId = user?.id,
-                actorUsername = user?.username,
-                channel = call.aChannel(),
-                sourceIp = context.ip,
-                permissionKey = permission,
-                entityType = "http_route",
-                entityId = "${call.request.local.method.value} ${call.request.path()}",
-                reason = outcome.message,
+        if (outcome is PermissionDecision.Denied && denialLog != null) {
+            denialLog.recordDenied(
+                AccessDenial(
+                    actorUserId = user?.id,
+                    actorUsername = user?.username,
+                    channel = call.auditChannel(),
+                    sourceIp = context.ip,
+                    permissionKey = permission,
+                    entityType = "http_route",
+                    entityId = "${call.request.local.method.value} ${call.request.path()}",
+                    reason = outcome.message,
+                ),
             )
         }
 
@@ -180,11 +184,11 @@ class AccessEnginePermissionChecker(
  * vendrán de la credencial de servicio y no de una cabecera que el cliente elige:
  * **una cabecera no es una identidad**.
  */
-private fun ApplicationCall.aChannel(): AuditWriter.Channel =
+internal fun ApplicationCall.auditChannel(): AuditChannel =
     when (request.headers["X-Client-Channel"]?.trim()?.uppercase()) {
-        "MOBILE" -> AuditWriter.Channel.MOBILE
-        "MOBILE_OFFLINE" -> AuditWriter.Channel.MOBILE_OFFLINE
-        else -> AuditWriter.Channel.WEB
+        "MOBILE" -> AuditChannel.MOBILE
+        "MOBILE_OFFLINE" -> AuditChannel.MOBILE_OFFLINE
+        else -> AuditChannel.WEB
     }
 
 /** Traduce la decisión del dominio al contrato de error de la API (§1.3). */

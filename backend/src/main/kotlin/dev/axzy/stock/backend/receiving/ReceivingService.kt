@@ -47,8 +47,8 @@ import javax.sql.DataSource
  */
 class ReceivingService(
     private val dataSource: DataSource,
-    private val audit: dev.axzy.stock.backend.audit.AuditWriter =
-        dev.axzy.stock.backend.audit.AuditWriter(dataSource),
+    private val audit: dev.axzy.stock.backend.infrastructure.outbound.persistence.audit.AuditWriter =
+        dev.axzy.stock.backend.infrastructure.outbound.persistence.audit.AuditWriter(dataSource),
 ) {
 
 
@@ -470,17 +470,17 @@ class ReceivingService(
                 connection = connection,
                 actorUserId = userId,
                 actorUsername = null,
-                channel = dev.axzy.stock.backend.audit.AuditWriter.Channel.WEB,
+                channel = dev.axzy.stock.backend.application.audit.AuditChannel.WEB,
                 entityType = "invoice_line",
                 entityId = lineId.toString(),
                 entityLabel = "invoice #$invoiceId",
                 action = "invoice.line.capture",
-                level = dev.axzy.stock.backend.audit.AuditWriter.Level.RELEVANT,
+                level = dev.axzy.stock.backend.application.audit.AuditLevel.RELEVANT,
                 previousState = """{"status":"PENDING","invoiced":"${line.quantity}"}""",
                 newState = """{"status":"$newStatus","physical":"${java.math.BigDecimal.valueOf(quantityPhysical.value).movePointLeft(dev.axzy.stock.domain.value.Quantity.SCALE).toPlainString()}"}""",
                 permissionKey = "invoice.capture",
-                decision = dev.axzy.stock.backend.audit.AuditWriter.Decision.ALLOWED,
-                result = dev.axzy.stock.backend.audit.AuditWriter.Result.SUCCESS,
+                decision = dev.axzy.stock.backend.application.audit.AuditDecision.ALLOWED,
+                result = dev.axzy.stock.backend.application.audit.AuditResult.SUCCESS,
                 businessDate = java.time.LocalDate.now(java.time.ZoneOffset.UTC),
             )
 
@@ -607,18 +607,18 @@ class ReceivingService(
                 connection = connection,
                 actorUserId = approverId,
                 actorUsername = null,
-                channel = dev.axzy.stock.backend.audit.AuditWriter.Channel.WEB,
+                channel = dev.axzy.stock.backend.application.audit.AuditChannel.WEB,
                 entityType = "invoice",
                 entityId = invoiceId.toString(),
                 action = "invoice.discrepancy.approve",
-                level = dev.axzy.stock.backend.audit.AuditWriter.Level.RELEVANT,
+                level = dev.axzy.stock.backend.application.audit.AuditLevel.RELEVANT,
                 previousState = """{"status":"DISCREPANCY","pendingLines":${pending.size}}""",
                 newState = """{"status":"APPROVED","approvedLines":${pending.size},"adjustmentReason":"$reason"}""",
                 reason = reason,
                 note = note,
                 permissionKey = "invoice.approve",
-                decision = dev.axzy.stock.backend.audit.AuditWriter.Decision.ALLOWED,
-                result = dev.axzy.stock.backend.audit.AuditWriter.Result.SUCCESS,
+                decision = dev.axzy.stock.backend.application.audit.AuditDecision.ALLOWED,
+                result = dev.axzy.stock.backend.application.audit.AuditResult.SUCCESS,
                 businessDate = java.time.LocalDate.now(java.time.ZoneOffset.UTC),
             )
 
@@ -743,19 +743,19 @@ class ReceivingService(
             audit.record(
                 connection = connection,
                 actorUserId = rejectedBy,
-                channel = dev.axzy.stock.backend.audit.AuditWriter.Channel.WEB,
+                channel = dev.axzy.stock.backend.application.audit.AuditChannel.WEB,
                 entityType = "invoice",
                 entityId = invoiceId.toString(),
                 actorUsername = null,
                 action = "invoice.discrepancy.reject",
-                level = dev.axzy.stock.backend.audit.AuditWriter.Level.RELEVANT,
+                level = dev.axzy.stock.backend.application.audit.AuditLevel.RELEVANT,
                 previousState = """{"status":"DISCREPANCY","pendingLines":${pending.size}}""",
                 newState = """{"status":"CANCELLED","cancelledLines":${pending.size},"adjustmentReason":"$reason"}""",
                 reason = reason,
                 note = note,
                 permissionKey = "invoice.reject",
-                decision = dev.axzy.stock.backend.audit.AuditWriter.Decision.ALLOWED,
-                result = dev.axzy.stock.backend.audit.AuditWriter.Result.SUCCESS,
+                decision = dev.axzy.stock.backend.application.audit.AuditDecision.ALLOWED,
+                result = dev.axzy.stock.backend.application.audit.AuditResult.SUCCESS,
                 businessDate = java.time.LocalDate.now(java.time.ZoneOffset.UTC),
             )
 
