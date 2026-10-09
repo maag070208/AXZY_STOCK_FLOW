@@ -1,4 +1,4 @@
-package dev.axzy.stock.backend.inventory
+package dev.axzy.stock.backend.infrastructure.outbound.persistence.inventory
 
 import dev.axzy.stock.backend.config.DatabaseConfig
 import dev.axzy.stock.backend.config.buildDataSource

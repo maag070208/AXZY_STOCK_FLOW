@@ -1,5 +1,9 @@
-package dev.axzy.stock.backend.inventory
+package dev.axzy.stock.backend.infrastructure.outbound.persistence.inventory
 
+import dev.axzy.stock.backend.application.inventory.DivergenceDto
+import dev.axzy.stock.backend.application.inventory.KardexDto
+import dev.axzy.stock.backend.application.inventory.StockByLocationDto
+import dev.axzy.stock.backend.application.shared.locationDisplayName
 import java.sql.ResultSet
 
 /**
@@ -147,10 +151,3 @@ internal fun ResultSet.toDivergenceDto(): DivergenceDto = DivergenceDto(
     ledgerTotal = getBigDecimal("ledger_total").toPlainString(),
     difference = getBigDecimal("difference").toPlainString(),
 )
-
-internal fun locationDisplayName(hall: String, code: String, position: String, kind: String): String =
-    when (kind) {
-        "RECEIVING" -> "RECEPCION"
-        "UNASSIGNED" -> "SIN-UBICAR"
-        else -> "$hall-$code-$position"
-    }

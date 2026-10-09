@@ -1,4 +1,4 @@
-package dev.axzy.stock.backend.inventory
+package dev.axzy.stock.backend.infrastructure.outbound.persistence.inventory
 
 import dev.axzy.stock.backend.config.DatabaseConfig
 import dev.axzy.stock.backend.config.buildDataSource
@@ -156,7 +156,7 @@ class DivergenceMapperTest : DescribeSpec({
             withDatabase { pool ->
                 prepareDivergence(pool)
 
-                val service = InventoryService(pool, dev.axzy.stock.backend.infrastructure.outbound.persistence.audit.AuditWriter(pool))
+                val service = JdbcInventoryRepository(pool)
                 val divergences = service.divergences()
 
                 // Lo primero: la divergencia EXISTE. Si la consulta no devolviera
@@ -197,7 +197,7 @@ class DivergenceMapperTest : DescribeSpec({
                     }
                 }
 
-                val service = InventoryService(pool, dev.axzy.stock.backend.infrastructure.outbound.persistence.audit.AuditWriter(pool))
+                val service = JdbcInventoryRepository(pool)
                 val divergences = service.divergences()
 
                 // **UNA sola fila**, y es el corazón del test. `comprobar_proyecciones()`
@@ -227,7 +227,7 @@ class DivergenceMapperTest : DescribeSpec({
                     }
                 }
 
-                val service = InventoryService(pool, dev.axzy.stock.backend.infrastructure.outbound.persistence.audit.AuditWriter(pool))
+                val service = JdbcInventoryRepository(pool)
 
                 // Cero filas ⇒ `balanced = true`. Es la respuesta NORMAL, y por eso
                 // el reporte publica un booleano explícito en vez de obligar al

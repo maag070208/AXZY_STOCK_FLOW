@@ -11,11 +11,10 @@ import dev.axzy.stock.backend.identity.aAccessUser
 import dev.axzy.stock.backend.identity.authRoutes
 import dev.axzy.stock.backend.identity.tokenClaims
 import dev.axzy.stock.backend.audit.AuditQueryService
-import dev.axzy.stock.backend.inventory.InventoryService
 import dev.axzy.stock.backend.audit.auditRoutes
 import dev.axzy.stock.backend.catalog.catalogRoutes
 import dev.axzy.stock.backend.receiving.ReceivingService
-import dev.axzy.stock.backend.inventory.inventoryRoutes
+import dev.axzy.stock.backend.infrastructure.inbound.http.inventory.inventoryRoutes
 import dev.axzy.stock.backend.receiving.receivingRoutes
 import dev.axzy.stock.backend.reports.reportRoutes
 import dev.axzy.stock.backend.label.labelRoutes
@@ -259,7 +258,7 @@ fun Application.module(
         // `AuditWriter` y había tantas instancias como servicios.
         val dependencies = AppDependencies(dataSource)
 
-        inventoryRoutes(dependencies.inventoryService, permissionChecker)
+        inventoryRoutes(dependencies.inventory, permissionChecker)
 
         // ── Recepción ───────────────────────────────────────────────────────
         // La regla B1 vive aquí: una línea con discrepancia no se puede ubicar

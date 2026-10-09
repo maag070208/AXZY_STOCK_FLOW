@@ -1,5 +1,6 @@
-package dev.axzy.stock.backend.inventory
+package dev.axzy.stock.backend.infrastructure.outbound.persistence.inventory
 
+import dev.axzy.stock.backend.application.shared.locationDisplayName
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.shouldBe

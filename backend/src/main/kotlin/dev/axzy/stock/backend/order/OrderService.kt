@@ -4,7 +4,8 @@ import dev.axzy.stock.backend.error.BadRequestException
 import dev.axzy.stock.backend.error.ConflictException
 import dev.axzy.stock.backend.error.NotFoundException
 import dev.axzy.stock.backend.error.UnprocessableException
-import dev.axzy.stock.backend.inventory.InventoryService
+import dev.axzy.stock.backend.application.inventory.InventoryUseCases
+import dev.axzy.stock.backend.infrastructure.outbound.persistence.inventory.JdbcInventoryRepository
 import dev.axzy.stock.domain.inventory.AdjustmentDirection
 import dev.axzy.stock.domain.inventory.AdjustmentOrigin
 import dev.axzy.stock.domain.inventory.AdjustmentReason
@@ -48,7 +49,7 @@ import javax.sql.DataSource
  */
 class OrderService(
     private val dataSource: DataSource,
-    private val inventory: InventoryService = InventoryService(dataSource),
+    private val inventory: InventoryUseCases = InventoryUseCases(JdbcInventoryRepository(dataSource)),
 ) {
 
     // ═════════════════════════════════════════════════════════════════════════
