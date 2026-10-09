@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
  * ═══════════════════════════════════════════════════════════════════════════
  * SALUD — DTOs de `/v1/health`
  *
- * Contrato: CONTRATO_API.md §10. Es el único endpoint **público, sin
+ * Contrato: docs/historico/CONTRATO_API.md §10. Es el único endpoint **público, sin
  * autenticación**, y el que la pantalla de configuración del móvil usa para
  * probar la URL del servidor antes de pedir credenciales.
  * ═══════════════════════════════════════════════════════════════════════════

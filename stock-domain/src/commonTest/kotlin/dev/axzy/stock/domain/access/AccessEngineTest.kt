@@ -14,7 +14,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
  * seguridad. **Todos los casos negativos están incluidos**: no basta con que el
  * flujo feliz funcione, hay que demostrar que el control bloquea.
  *
- * Numeración tomada de PLAN_ROLES_PERMISOS_POLITICAS.md §9 para poder trazar
+ * Numeración tomada de docs/historico/PLAN_ROLES_PERMISOS_POLITICAS.md §9 para poder trazar
  * cada test contra el diseño.
  * ═══════════════════════════════════════════════════════════════════════════
  */

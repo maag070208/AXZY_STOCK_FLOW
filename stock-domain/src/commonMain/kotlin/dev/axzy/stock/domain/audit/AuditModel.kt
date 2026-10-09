@@ -22,7 +22,7 @@ package dev.axzy.stock.domain.audit
  * tampoco sirve como registro histórico. La consecuencia es que el sistema
  * legacy **no puede responder "quién hizo esto"** para casi nada.
  *
- * Referencia: PLAN_AUDITORIA.md.
+ * Referencia: docs/historico/PLAN_AUDITORIA.md.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 

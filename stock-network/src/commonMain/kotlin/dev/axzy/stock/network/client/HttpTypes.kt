@@ -6,7 +6,7 @@ import kotlin.random.Random
  * ═══════════════════════════════════════════════════════════════════════════
  * PIEZAS DE TRANSPORTE QUE NO SON DTOs
  *
- * Contrato: CONTRATO_API.md §1.5 y §1.6.
+ * Contrato: docs/historico/CONTRATO_API.md §1.5 y §1.6.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 

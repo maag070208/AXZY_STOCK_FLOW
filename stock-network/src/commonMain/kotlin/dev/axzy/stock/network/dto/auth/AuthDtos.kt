@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
  * ═══════════════════════════════════════════════════════════════════════════
  * AUTENTICACIÓN — DTOs de `/v1/auth` y sus acciones
  *
- * Contrato: CONTRATO_API.md §2.
+ * Contrato: docs/historico/CONTRATO_API.md §2.
  *
  * Los tokens viajan en el cuerpo del login y del refresh, y **nunca se
  * registran en un log**: [dev.axzy.stock.network.error.ApiError] y los mappers

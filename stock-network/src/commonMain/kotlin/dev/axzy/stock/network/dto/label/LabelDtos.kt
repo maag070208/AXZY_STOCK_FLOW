@@ -8,7 +8,7 @@ import kotlinx.serialization.json.JsonElement
  * ═══════════════════════════════════════════════════════════════════════════
  * ETIQUETAS E IMPRESIÓN — DTOs de `/v1/label-templates`, `/v1/labels`, `/v1/prints`
  *
- * Contrato: CONTRATO_API.md §8.
+ * Contrato: docs/historico/CONTRATO_API.md §8.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 

@@ -11,7 +11,7 @@
 //
 // stock-domain vive en la RAÍZ a propósito: es un ciudadano de primera clase,
 // consumido por el backend Y por el móvil. No es un detalle de implementación
-// de ninguno de los dos. Ver PLAN_ALMACEN_INTEGRAL.md §3.1 y §3.2-bis.
+// de ninguno de los dos. Ver docs/historico/PLAN_ALMACEN_INTEGRAL.md §3.1 y §3.2-bis.
 // ============================================================================
 
 rootProject.name = "stock"
@@ -138,4 +138,4 @@ include(":backend")
 // ── Web (React JS, proyecto aparte) ────────────────────────────────────────
 // NO es un módulo de Gradle: es un proyecto de pnpm en `web/`. Se deja
 // constancia aquí para que quien lea el grafo sepa que existe y de quién depende
-// (consume el contrato de CONTRATO_API.md).
+// (consume el contrato de docs/historico/CONTRATO_API.md).

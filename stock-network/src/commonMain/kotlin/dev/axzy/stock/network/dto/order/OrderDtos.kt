@@ -8,7 +8,7 @@ import kotlinx.serialization.Serializable
  * ═══════════════════════════════════════════════════════════════════════════
  * SURTIDO — DTOs de `/v1/orders`
  *
- * Contrato: CONTRATO_API.md §6.
+ * Contrato: docs/historico/CONTRATO_API.md §6.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 

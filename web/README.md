@@ -1,7 +1,7 @@
 # Web — Almacén Integral
 
 Web de React + Vite + TypeScript con arquitectura **Feature-Sliced Design (FSD)**.
-Consume el contrato HTTP de [`CONTRATO_API.md`](../CONTRATO_API.md), que es la
+Consume el contrato HTTP de [`docs/api/contrato.md`](../docs/api/contrato.md), que es la
 **fuente de verdad única**: si algo de este cliente no coincide con el contrato,
 el que está mal es el cliente.
 
@@ -219,7 +219,7 @@ La protección es de **tres niveles** y el backend revalida siempre:
 |---|---|
 | **Sin Redux** | El único estado global es la sesión, y el cliente HTTP tiene que leerla fuera de React antes del primer render. Un store externo + `useSession` cumple eso con menos piezas. Las dependencias de Redux se retiraron para no arrastrarlas. |
 | **`scopes` (mapa) en vez de `permissions` (arreglo)** | El contrato entrega `{ "invoice.approve": "AREA" }`. El plan exige distinguir alcances; un arreglo plano pierde esa información. |
-| **`refreshToken` + `expiresIn`** | El contrato devuelve `accessToken`/`refreshToken` y un refresh rotado. El proyecto de referencia usa `data.token` y otro endpoint; aquí manda `CONTRATO_API.md §2`. |
+| **`refreshToken` + `expiresIn`** | El contrato devuelve `accessToken`/`refreshToken` y un refresh rotado. El proyecto de referencia usa `data.token` y otro endpoint; aquí manda `docs/historico/CONTRATO_API.md §2`. |
 | **`TOKEN_REUSED` como caso propio** | El contrato lo separa de `INVALID_CREDENTIALS` porque el mensaje al usuario es distinto. El cliente cancela la sesión sin llamar a `/auth/logout`. |
 | **Paleta verde industrial** | El acento del proyecto de referencia es azul hotelero. Las dos aplicaciones conviven en las mismas terminales y no deben confundirse. |
 | **`PageShell` y `PhasePlaceholder` en `shared/ui`** | Las 16 pantallas pendientes comparten texto y estados; tenerlos en un componente evita el defecto del legacy (menú duplicado en dos archivos que se desincronizan). |

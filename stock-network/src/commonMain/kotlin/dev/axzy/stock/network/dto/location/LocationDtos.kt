@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
  * ═══════════════════════════════════════════════════════════════════════════
  * ALMACÉN FÍSICO — DTOs de `/v1/locations` y `/v1/warehouses`
  *
- * Contrato: CONTRATO_API.md §3.
+ * Contrato: docs/historico/CONTRATO_API.md §3.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 

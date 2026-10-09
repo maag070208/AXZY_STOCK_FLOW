@@ -28,7 +28,7 @@ import javax.sql.DataSource
  * exportación, **que es el mismo que el guard de la pantalla `/reports`**. Esa
  * coincidencia es obligatoria: con permiso distinto, un usuario entra a la
  * pantalla y recibe un `403` al cargar — el desajuste que ya costó una corrección
- * en la reconciliación (§5.4 de `ARQUITECTURA.md`).
+ * en la reconciliación (§5.4 de `docs/historico/ARQUITECTURA.md`).
  * ═══════════════════════════════════════════════════════════════════════════
  */
 fun Route.reportRoutes(

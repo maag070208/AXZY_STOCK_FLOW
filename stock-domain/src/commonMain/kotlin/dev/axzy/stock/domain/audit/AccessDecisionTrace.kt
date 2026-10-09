@@ -19,7 +19,7 @@ package dev.axzy.stock.domain.audit
  *     responde por qué una decisión pasada fue válida con las reglas de
  *     entonces.
  *
- * Referencia: PLAN_AUDITORIA.md §3.1.
+ * Referencia: docs/historico/PLAN_AUDITORIA.md §3.1.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 

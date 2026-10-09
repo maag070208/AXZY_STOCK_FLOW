@@ -64,7 +64,7 @@ import kotlinx.coroutines.runBlocking
  *
  * ── EL FALLO QUE ESTE TEST HABRÍA CAZADO ───────────────────────────────────
  *
- * La corrección de `CONTRATO_API.md` §9 necesitó un cambio en el `RETURNS TABLE`
+ * La corrección de `docs/historico/CONTRATO_API.md` §9 necesitó un cambio en el `RETURNS TABLE`
  * de una función PL/pgSQL **y** en el mapper que lo lee por nombre de columna. La
  * suite entera —501 tests— pasó sin leer esa función ni una vez, porque sin token
  * la ruta responde 401 **antes** de llegar al mapper. Un mapper mal escrito no
@@ -275,7 +275,7 @@ class ApiE2ETest : DescribeSpec({
             // resto (403), pero inventario y auditoría lanzaban 403 para todo. La
             // MISMA falta de token daba un estado distinto según la ruta.
             //
-            // `CONTRATO_API.md` §1.2 es explícito: 401 = «sin identidad válida»,
+            // `docs/historico/CONTRATO_API.md` §1.2 es explícito: 401 = «sin identidad válida»,
             // 403 = «identidad sin autorización». Al cliente le importa: ante un
             // 401 manda a iniciar sesión; ante un 403, a pedir un permiso. Con 403
             // para todo, manda a iniciar sesión a quien ya la tiene abierta.
@@ -1023,7 +1023,7 @@ class ApiE2ETest : DescribeSpec({
                 // `AuditWriter.recordDeniedAccessSafely` **existía y nadie la
                 // llamaba**. El método estaba escrito, la tabla tenía sus seis
                 // dimensiones y la bitácora quedaba **en cero filas**: la fachada
-                // que el propio `ARQUITECTURA.md` denunciaba.
+                // que el propio `docs/historico/ARQUITECTURA.md` denunciaba.
                 //
                 // Esta prueba es la que impide que vuelva a quedar así.
                 testApplication {

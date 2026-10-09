@@ -47,4 +47,4 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 
 -- Comentario de documentación del clúster.
 COMMENT ON DATABASE stock IS
-  'Almacen Integral. El ledger (kardex) y la auditoria (audit_log) son append-only: ver PLAN_AUDITORIA.md';
+  'Almacen Integral. El ledger (kardex) y la auditoria (audit_log) son append-only: ver docs/historico/PLAN_AUDITORIA.md';

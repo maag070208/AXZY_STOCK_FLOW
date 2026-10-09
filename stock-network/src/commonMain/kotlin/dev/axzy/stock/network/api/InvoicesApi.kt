@@ -18,7 +18,7 @@ import kotlinx.serialization.encodeToString
  * ═══════════════════════════════════════════════════════════════════════════
  * `/v1/invoices` — recepción
  *
- * Contrato: CONTRATO_API.md §5.
+ * Contrato: docs/historico/CONTRATO_API.md §5.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 class InvoicesApi internal constructor(private val http: StockHttpClient) {

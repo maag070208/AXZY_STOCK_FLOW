@@ -30,7 +30,7 @@ import kotlinx.serialization.json.longOrNull
  * devuelven `null` en vez de lanzar: un `details` de forma inesperada debe
  * degradar, no tumbar la pantalla en mitad del manejo del error.
  *
- * Contrato: CONTRATO_API.md §1.3 y §1.7.
+ * Contrato: docs/historico/CONTRATO_API.md §1.3 y §1.7.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 @Serializable

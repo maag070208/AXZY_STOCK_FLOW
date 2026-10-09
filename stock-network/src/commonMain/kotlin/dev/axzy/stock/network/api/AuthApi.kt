@@ -18,7 +18,7 @@ import kotlinx.serialization.encodeToString
  * ═══════════════════════════════════════════════════════════════════════════
  * `/v1/auth` — sesión
  *
- * Contrato: CONTRATO_API.md §2.
+ * Contrato: docs/historico/CONTRATO_API.md §2.
  *
  * El login y el refresh **persisten la sesión** en el
  * [dev.axzy.stock.network.client.TokenStorePort] del cliente. Es lo que hace

@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
  * ═══════════════════════════════════════════════════════════════════════════
  * CATÁLOGO — DTOs de `/v1/products`
  *
- * Contrato: CONTRATO_API.md §3.
+ * Contrato: docs/historico/CONTRATO_API.md §3.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 

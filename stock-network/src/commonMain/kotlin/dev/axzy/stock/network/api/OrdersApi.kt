@@ -17,7 +17,7 @@ import kotlinx.serialization.encodeToString
  * ═══════════════════════════════════════════════════════════════════════════
  * `/v1/orders` — surtido
  *
- * Contrato: CONTRATO_API.md §6.
+ * Contrato: docs/historico/CONTRATO_API.md §6.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 class OrdersApi internal constructor(private val http: StockHttpClient) {

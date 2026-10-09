@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
  * construir**. Es la primera línea de defensa y la razón por la que el dominio
  * puede confiar en sus propios datos sin revalidar.
  *
- * Referencia: PLAN_ALMACEN_INTEGRAL.md §3.2-ter y §2.4.
+ * Referencia: docs/historico/PLAN_ALMACEN_INTEGRAL.md §3.2-ter y §2.4.
  */
 
 /** Identificador de una entidad persistida. */

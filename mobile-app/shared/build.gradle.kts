@@ -11,7 +11,7 @@
 //   · NO tiene reglas de negocio: el escáner, las máquinas de estado y los casos
 //     de uso vienen de `stock-domain`. Duplicarlos aquí garantizaría que el móvil
 //     y el backend decidan distinto, que es justo lo que el módulo compartido
-//     existe para evitar (PLAN_ALMACEN_INTEGRAL.md §3.2-bis).
+//     existe para evitar (docs/historico/PLAN_ALMACEN_INTEGRAL.md §3.2-bis).
 //
 // VERTICAL SLICE, NO CAPAS (§3.4): todo lo de "capturar factura" vive en
 // `feature/invoices/`, no repartido entre una carpeta `ui/` y otra `model/`

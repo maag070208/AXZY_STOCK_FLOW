@@ -17,7 +17,7 @@ package dev.axzy.stock.domain.access
  *                          que el legacy hardcodeaba en cuatro puntos (§S2).
  *   4. [Policy]          — BAJO QUÉ CONDICIONES se permite o deniega (ABAC).
  *
- * Referencia: PLAN_ROLES_PERMISOS_POLITICAS.md.
+ * Referencia: docs/historico/PLAN_ROLES_PERMISOS_POLITICAS.md.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 

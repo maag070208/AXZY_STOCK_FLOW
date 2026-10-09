@@ -15,7 +15,7 @@ import kotlinx.serialization.Serializable
  * productos y meses de kardex, el listado de inventario cargaba la tabla entera
  * en el móvil y en la web.
  *
- * Contrato: CONTRATO_API.md §1.4.
+ * Contrato: docs/historico/CONTRATO_API.md §1.4.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 @Serializable

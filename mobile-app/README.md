@@ -3,7 +3,7 @@
 UI **compartida** para Android e iOS, escrita una sola vez, más los dos puntos de
 entrada de plataforma. La lógica de negocio **no está aquí**: vive en
 [`../stock-domain`](../stock-domain), que es Kotlin puro y lo consumen también el
-backend y los tests (ver `PLAN_ALMACEN_INTEGRAL.md` §3.2-bis).
+backend y los tests (ver `docs/historico/PLAN_ALMACEN_INTEGRAL.md` §3.2-bis).
 
 > **`mobile-app` es un build de Gradle propio.** Se abre y se compila desde este
 > directorio, no desde la raíz del monorepo. El porqué y el precio están en §5 y §9.
@@ -12,7 +12,7 @@ backend y los tests (ver `PLAN_ALMACEN_INTEGRAL.md` §3.2-bis).
 
 ## 1. Estructura
 
-Vertical slice, no capas (`PLAN_ALMACEN_INTEGRAL.md` §3.4): todo lo de «capturar
+Vertical slice, no capas (`docs/historico/PLAN_ALMACEN_INTEGRAL.md` §3.4): todo lo de «capturar
 factura» está en `feature/invoices/`, no repartido entre una carpeta `ui/` y otra
 `model/` globales. Así se ve de un golpe qué existe y se borra un flujo completo sin
 dejar huérfanos.
@@ -428,7 +428,7 @@ suspend fun printJobs(status: String? = null): List<PrintJobDto>
 **Lo que `stock-network` debe resolver y el móvil necesita que sea explícito:**
 
 1. **`ApiError.code` como enum sellado**, no como `String`. El cliente decide con
-   `code`, nunca con `message` (CONTRATO_API.md §1.3), y los cinco códigos de
+   `code`, nunca con `message` (docs/historico/CONTRATO_API.md §1.3), y los cinco códigos de
    autorización exigen **cinco acciones distintas** del usuario:
    `UNAUTHENTICATED` → entrar; `PERMISSION_DENIED` → pedir permiso;
    `SCOPE_INSUFFICIENT` → pedir acceso a esa bodega; `POLICY_DENIED` → cambiar el

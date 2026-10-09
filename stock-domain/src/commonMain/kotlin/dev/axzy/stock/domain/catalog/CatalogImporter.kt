@@ -22,7 +22,7 @@ import dev.axzy.stock.domain.value.Quantity
  * informe **sin escribir nada**. Sin eso, la primera ejecución sobre datos
  * reales es un acto de fe.
  *
- * Referencia: PLAN_ALMACEN_INTEGRAL.md §3.5.
+ * Referencia: docs/historico/PLAN_ALMACEN_INTEGRAL.md §3.5.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 

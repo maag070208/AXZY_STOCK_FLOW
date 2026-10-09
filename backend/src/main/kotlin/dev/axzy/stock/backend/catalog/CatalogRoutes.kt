@@ -20,7 +20,7 @@ import javax.sql.DataSource
  *
  * `products`, `locations` y `warehouses` vivían aquí como tres funciones
  * `private fun Route.*`, junto con **14 helpers de validación** y las consultas
- * de los 7 handlers. El diagnóstico está en `ARQUITECTURA.md` §«Migración a
+ * de los 7 handlers. El diagnóstico está en `docs/historico/ARQUITECTURA.md` §«Migración a
  * capas»: un fichero de 741 líneas no lo lee nadie entero, y tocar una ruta de
  * productos obligaba a recorrer las de ubicaciones y bodegas.
  *

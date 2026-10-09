@@ -19,7 +19,7 @@ import kotlinx.serialization.encodeToString
  * ═══════════════════════════════════════════════════════════════════════════
  * `/v1/locations` y `/v1/warehouses` — almacén físico
  *
- * Contrato: CONTRATO_API.md §3.
+ * Contrato: docs/historico/CONTRATO_API.md §3.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 class LocationsApi internal constructor(private val http: StockHttpClient) {

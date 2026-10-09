@@ -448,7 +448,7 @@ class OrderService(
      * **No hay ERP conectado todavía, y eso se dice en vez de simularse.** El
      * intento se registra con `SENT` porque el contrato pide un resultado, pero el
      * envío real es una integración que no existe: se marca en el propio código y
-     * queda anotado como deuda en `ARQUITECTURA.md` §8. Fingir un fallo aleatorio
+     * queda anotado como deuda en `docs/historico/ARQUITECTURA.md` §8. Fingir un fallo aleatorio
      * sería peor: haría pasar tests que no prueban nada y escondería que falta la
      * integración.
      */

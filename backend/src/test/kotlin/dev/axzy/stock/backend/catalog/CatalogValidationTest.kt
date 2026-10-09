@@ -26,7 +26,7 @@ import java.io.File
  * ejercitaba de refilón y en unos pocos casos.
  *
  * Y son justo las funciones donde un error se paga caro, porque **deciden el
- * código de error que ve el cliente**. `CONTRATO_API.md` §1.3-bis es un catálogo
+ * código de error que ve el cliente**. `docs/api/errores.md` es un catálogo
  * CERRADO: si un helper empieza a lanzar un código que no está en el catálogo, el
  * cliente cae al mensaje genérico y el usuario no sabe qué corregir. Eso no lo
  * detecta `tsc`, ni el compilador, ni un test de rutas que solo mira el estado.
@@ -304,7 +304,7 @@ class CatalogValidationTest : DescribeSpec({
             // Un `409` y no un `422`: la petición es válida, es el ESTADO el que
             // lo impide. Y el mensaje compone `hall-code-position`, que es la
             // misma forma que muestra la interfaz — el servidor compone el nombre
-            // visible, el cliente nunca lo concatena (ARQUITECTURA.md §2.3).
+            // visible, el cliente nunca lo concatena (docs/historico/ARQUITECTURA.md §2.3).
             val error = locationDuplicated("04", "B", "C", "PRINCIPAL")
 
             error.shouldBeInstanceOf<ConflictException>()
@@ -317,17 +317,16 @@ class CatalogValidationTest : DescribeSpec({
 
     describe("los códigos que emiten estos helpers están en el catálogo cerrado") {
 
-        it("todos los códigos usados aquí existen en CONTRATO_API.md §1.3-bis") {
+        it("todos los códigos usados aquí existen en docs/api/errores.md") {
             // **Esta es la guardia que ata el código al contrato.** Un código de
             // error nuevo que nadie añade al catálogo es invisible para el
             // cliente, que cae al mensaje genérico. Es la clase de desajuste que
             // ya costó una corrección entera en §9.
             val contrato = listOf(
-                File("../CONTRATO_API.md"),
-                File("CONTRATO_API.md"),
-                File("../../CONTRATO_API.md"),
+                File("../docs/api/errores.md"),
+                File("docs/api/errores.md"),
             ).firstOrNull { it.exists() }
-                ?: error("No se encontró CONTRATO_API.md: el test no puede verificar nada y no debe pasar")
+                ?: error("No se encontró docs/api/errores.md: el test no puede verificar nada y no debe pasar")
 
             val texto = contrato.readText()
 

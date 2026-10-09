@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
  * ═══════════════════════════════════════════════════════════════════════════
  * REPORTES — DTOs de `/v1/reports` y sus variantes
  *
- * Contrato: CONTRATO_API.md §9. Todos devuelven el mismo sobre de paginación,
+ * Contrato: docs/historico/CONTRATO_API.md §9. Todos devuelven el mismo sobre de paginación,
  * salvo las exportaciones, que devuelven un archivo.
  * ═══════════════════════════════════════════════════════════════════════════
  */

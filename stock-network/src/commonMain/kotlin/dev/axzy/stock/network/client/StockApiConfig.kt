@@ -7,7 +7,7 @@ import kotlinx.datetime.TimeZone
  * ═══════════════════════════════════════════════════════════════════════════
  * CONFIGURACIÓN DEL CLIENTE HTTP
  *
- * Contrato: CONTRATO_API.md §1.6.
+ * Contrato: docs/historico/CONTRATO_API.md §1.6.
  *
  * Lo que **no** entra aquí, a propósito: el token. La configuración es inmutable
  * y compartible; el token cambia en cada refresh. Mezclarlos obligaría a

@@ -45,7 +45,7 @@ import kotlin.test.assertTrue
  * ═══════════════════════════════════════════════════════════════════════════
  * LOS DTOs CONTRA EL CONTRATO
  *
- * Cada JSON de este archivo está copiado **literalmente** de `CONTRATO_API.md`.
+ * Cada JSON de este archivo está copiado **literalmente** de `docs/historico/CONTRATO_API.md`.
  * No es un adorno: es la única forma de que el contrato sea la fuente de verdad
  * de verdad. Un DTO que se desvía del documento y solo se prueba contra un JSON
  * propio pasa los tests y falla en la integración, que es el peor sitio para

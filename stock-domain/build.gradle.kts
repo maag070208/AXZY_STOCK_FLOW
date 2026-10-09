@@ -14,7 +14,7 @@
 //   ✗ Ktor  ✗ Exposed  ✗ SQLDelight  ✗ Compose  ✗ androidx  ✗ ninguna BD
 //
 // Sin esta regla, el dominio se contamina y deja de poder compartirse entre
-// backend, móvil y tests. Ver PLAN_ALMACEN_INTEGRAL.md §3.2-bis.
+// backend, móvil y tests. Ver docs/historico/PLAN_ALMACEN_INTEGRAL.md §3.2-bis.
 // ============================================================================
 
 plugins {
@@ -132,7 +132,7 @@ kotlin {
         // y el modelo de qué hacer con lo escaneado, que es idéntico en Android
         // e iOS y está cubierto por 16 tests en JVM. La implementación con
         // CameraX y ML Kit va en un módulo de móvil, que es donde le
-        // corresponde. Ver PLAN_ALMACEN_INTEGRAL.md §3.2-bis.
+        // corresponde. Ver docs/historico/PLAN_ALMACEN_INTEGRAL.md §3.2-bis.
 
         commonMain.dependencies {
             // ── LO ÚNICO PERMITIDO ───────────────────────────────────────────
@@ -298,7 +298,7 @@ tasks.register("verifyDomainPurity") {
                     appendLine()
                     appendLine("Un uso de JVM sin calificar compila en JVM y ROMPE el build de iOS.")
                     appendLine("Se detecta aquí para no depender de tener Xcode instalado.")
-                    appendLine("Ver PLAN_ALMACEN_INTEGRAL.md §3.2-bis.")
+                    appendLine("Ver docs/historico/PLAN_ALMACEN_INTEGRAL.md §3.2-bis.")
                     appendLine("════════════════════════════════════════════════════════════════")
                 }
             )
@@ -342,7 +342,7 @@ tasks.register("forbidJvmMainSourceSet") {
                     appendLine()
                     appendLine("Razón: `jvmMain` es la puerta por la que entraría Exposed y con ello")
                     appendLine("la imposibilidad de compartir el dominio con el móvil.")
-                    appendLine("Ver PLAN_ALMACEN_INTEGRAL.md §3.2-bis.")
+                    appendLine("Ver docs/historico/PLAN_ALMACEN_INTEGRAL.md §3.2-bis.")
                     appendLine("════════════════════════════════════════════════════════════════")
                 }
             )

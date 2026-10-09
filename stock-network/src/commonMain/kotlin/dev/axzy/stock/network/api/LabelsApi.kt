@@ -21,7 +21,7 @@ import kotlinx.serialization.encodeToString
  * ═══════════════════════════════════════════════════════════════════════════
  * `/v1/label-templates` y `/v1/labels` — etiquetas e impresión
  *
- * Contrato: CONTRATO_API.md §8.
+ * Contrato: docs/historico/CONTRATO_API.md §8.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 class LabelsApi internal constructor(private val http: StockHttpClient) {

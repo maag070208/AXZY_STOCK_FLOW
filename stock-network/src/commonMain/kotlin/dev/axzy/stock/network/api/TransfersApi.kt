@@ -16,7 +16,7 @@ import kotlinx.serialization.encodeToString
  * ═══════════════════════════════════════════════════════════════════════════
  * `/v1/transfers` — traslados entre bodegas
  *
- * Contrato: CONTRATO_API.md §7.
+ * Contrato: docs/historico/CONTRATO_API.md §7.
  *
  * Ninguna de estas llamadas lleva `Idempotency-Key` porque el contrato **no las
  * lista** entre las que lo exigen, y aquí no se añade por iniciativa propia: la

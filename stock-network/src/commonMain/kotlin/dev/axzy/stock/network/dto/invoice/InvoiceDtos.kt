@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
  * ═══════════════════════════════════════════════════════════════════════════
  * RECEPCIÓN — DTOs de `/v1/invoices`
  *
- * Contrato: CONTRATO_API.md §5.
+ * Contrato: docs/historico/CONTRATO_API.md §5.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 

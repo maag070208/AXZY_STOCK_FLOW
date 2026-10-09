@@ -14,7 +14,7 @@ package dev.axzy.stock.domain.access
  *      literalmente el mismo código. La UI es una pista; el servidor es la
  *      autoridad, pero ambos coinciden.
  *   3. **Reproducir** una decisión histórica con la versión de la matriz y de
- *      las políticas que estaba vigente (§3.3 de PLAN_AUDITORIA.md).
+ *      las políticas que estaba vigente (§3.3 de docs/historico/PLAN_AUDITORIA.md).
  *
  * **La regla que sostiene todo es `DEFAULT DENY`:** si nada permite
  * explícitamente, se niega. El legacy hacía lo contrario — `if (role === 1)

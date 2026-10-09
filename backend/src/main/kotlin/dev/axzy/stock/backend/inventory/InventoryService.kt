@@ -32,7 +32,7 @@ import javax.sql.DataSource
  * fallo a mitad deja el inventario descuadrado, y nadie lo sabría hasta el conteo
  * físico.
  *
- * Referencia: `PLAN_ALMACEN_INTEGRAL.md` §2.4 a §2.7.
+ * Referencia: `docs/historico/PLAN_ALMACEN_INTEGRAL.md` §2.4 a §2.7.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 /**
@@ -812,14 +812,14 @@ data class KardexDto(
  * coincide con lo que dice el ledger.
  *
  * **Los tres totales van como cadena decimal** (`"5193.000"`), no como número, por
- * lo mismo que el resto de cantidades del contrato (`CONTRATO_API.md` §1.7), y aquí
+ * lo mismo que el resto de cantidades del contrato (`docs/historico/CONTRATO_API.md` §1.7), y aquí
  * importa más que en ningún sitio: este endpoint existe **precisamente para detectar
  * descuadres**, y un `Double` compararía `5193.000` contra `5193` como iguales. Un
  * reporte de reconciliación que redondea dice que todo cuadra cuando la diferencia
  * está por debajo de la precisión del `double`.
  *
  * **Los nombres van en inglés** porque son campos de la API pública
- * (`ARQUITECTURA.md` §5.1). Antes eran `totalEnBd`, `totalEsperado` y `diferencia`,
+ * (`docs/historico/ARQUITECTURA.md` §5.1). Antes eran `totalEnBd`, `totalEsperado` y `diferencia`,
  * y llegaban así al JSON: eran las columnas del `RETURNS TABLE` de
  * `comprobar_proyecciones()`, que el mapper lee por nombre. La migración `V8` las
  * renombró y este DTO se alineó con ellas.

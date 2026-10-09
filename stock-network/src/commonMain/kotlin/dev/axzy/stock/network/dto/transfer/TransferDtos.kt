@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
  * ═══════════════════════════════════════════════════════════════════════════
  * TRASLADOS ENTRE BODEGAS — DTOs de `/v1/transfers`
  *
- * Contrato: CONTRATO_API.md §7.
+ * Contrato: docs/historico/CONTRATO_API.md §7.
  *
  * La invariante que estos DTOs representan: `Σ stock_by_location +
  * Σ stock_in_transit` **se conserva en cada transición**. La mercancía en el

@@ -28,7 +28,7 @@ import java.time.Instant
  * ═══════════════════════════════════════════════════════════════════════════
  * RUTAS DE INVENTARIO
  *
- * Los seis endpoints de `CONTRATO_API.md` §4 y §9.
+ * Los seis endpoints de `docs/historico/CONTRATO_API.md` §4 y §9.
  *
  * **Ninguna ruta mueve stock por su cuenta.** Todas delegan en [InventoryService],
  * que a su vez pasa por el motor SQL. Es lo que garantiza que las tres cosas que
@@ -89,7 +89,7 @@ fun Route.inventoryRoutes(
      * **`UNAUTHENTICATED` es 401, no 403, y esto era un defecto real.** Esta
      * función lanzaba `ForbiddenException` para CUALQUIER denegación, así que
      * pedir una ruta de inventario sin token devolvía `403` mientras el catálogo
-     * —que sí distingue los dos casos— devolvía `401`. `CONTRATO_API.md` §1.2 es
+     * —que sí distingue los dos casos— devolvía `401`. `docs/historico/CONTRATO_API.md` §1.2 es
      * explícito: `401` «sin identidad válida», `403` «identidad sin autorización».
      *
      * La diferencia le importa al cliente: ante un `401` debe mandar al usuario a
@@ -353,7 +353,7 @@ data class ReconciliationReport(
      * Veredicto explícito del servidor: `true` cuando **no hay ninguna divergencia**.
      *
      * Se llama `balanced` y no `cuadra` porque es un campo de la API pública y los
-     * identificadores van en inglés (`ARQUITECTURA.md` §5.1). El nombre anterior,
+     * identificadores van en inglés (`docs/historico/ARQUITECTURA.md` §5.1). El nombre anterior,
      * `cuadra`, llegaba al JSON tal cual, junto con `totalEnBd`, `totalEsperado` y
      * `diferencia` en `DivergenceDto`. La migración `V8` alineó los nombres de
      * columna del `RETURNS TABLE` de `comprobar_proyecciones()` y con ellos los del

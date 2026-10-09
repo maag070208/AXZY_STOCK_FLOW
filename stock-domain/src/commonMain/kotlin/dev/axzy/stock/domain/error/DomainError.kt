@@ -16,8 +16,8 @@ import kotlinx.serialization.Serializable
  *     mensaje mostrar. Un "acceso denegado" genérico no es accionable; "no
  *     tienes permiso sobre esta bodega" sí.
  *
- * Referencia: PLAN_ALMACEN_INTEGRAL.md §4 (códigos de error) y
- * PLAN_REFACTOR_MEJORAS.md R-20 (el legacy devolvía HTTP 200 en errores de
+ * Referencia: docs/historico/PLAN_ALMACEN_INTEGRAL.md §4 (códigos de error) y
+ * docs/historico/PLAN_REFACTOR_MEJORAS.md R-20 (el legacy devolvía HTTP 200 en errores de
  * negocio y 500 con cuerpo `{}`).
  */
 @Serializable
@@ -206,7 +206,7 @@ sealed interface DomainError {
         override val code = "NOT_FOUND"
     }
 
-    // ── Acceso (detalle en PLAN_ROLES_PERMISOS_POLITICAS.md) ────────────────
+    // ── Acceso (detalle en docs/historico/PLAN_ROLES_PERMISOS_POLITICAS.md) ────────────────
 
     /** RBAC no alcanza: el usuario no tiene el permiso. */
     data class PermissionDenied(

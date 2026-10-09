@@ -6,7 +6,7 @@
 //
 // En la Fase 0 este módulo está deliberadamente casi vacío: primero se escribe
 // y se prueba el dominio, que es donde está el riesgo. La infraestructura HTTP
-// llega en la Fase 1 (ver PLAN_ALMACEN_INTEGRAL.md §5).
+// llega en la Fase 1 (ver docs/historico/PLAN_ALMACEN_INTEGRAL.md §5).
 // ============================================================================
 
 plugins {

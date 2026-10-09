@@ -9,7 +9,7 @@ import dev.axzy.stock.network.error.ApiOutcome
  * ═══════════════════════════════════════════════════════════════════════════
  * `/v1/health` — salud
  *
- * Contrato: CONTRATO_API.md §10.
+ * Contrato: docs/historico/CONTRATO_API.md §10.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 class HealthApi internal constructor(private val http: StockHttpClient) {

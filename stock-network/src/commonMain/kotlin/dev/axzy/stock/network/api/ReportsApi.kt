@@ -15,7 +15,7 @@ import kotlinx.serialization.json.JsonElement
  * ═══════════════════════════════════════════════════════════════════════════
  * `/v1/reports` — reportes
  *
- * Contrato: CONTRATO_API.md §9.
+ * Contrato: docs/historico/CONTRATO_API.md §9.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 class ReportsApi internal constructor(private val http: StockHttpClient) {

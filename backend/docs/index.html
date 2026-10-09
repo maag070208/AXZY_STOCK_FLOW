@@ -1012,7 +1012,7 @@
       "description" : "Detalles por campo o por contexto (`available`, `until`, `stock`, `pendingLines`, `allowed`…). Su forma depende del código."
     }
   },
-  "description" : "Cuerpo de error común a TODOS los endpoints (CONTRATO_API.md §1.3). Los códigos de autorización se distinguen para que el usuario sepa si debe iniciar sesión, pedir un permiso, pedir acceso a una bodega, cambiar cómo lo hace o llamar a otra persona."
+  "description" : "Cuerpo de error común a TODOS los endpoints (docs/historico/CONTRATO_API.md §1.3). Los códigos de autorización se distinguen para que el usuario sepa si debe iniciar sesión, pedir un permiso, pedir acceso a una bodega, cambiar cómo lo hace o llamar a otra persona."
 };
             defs["ExistenciaDto"] = {
   "required" : [ "locationDisplayName", "locationId", "productCode", "productId", "quantity" ],
@@ -3510,7 +3510,7 @@ No va en el cuerpo: va en la cabecera.</p>
 <h2>Fechas y números</h2>
 <p>Instantes en ISO-8601 UTC con <code>Z</code>; fechas operativas como <code>AAAA-MM-DD</code>.</p>
 <p><strong>Las cantidades viajan como cadena decimal de 3 decimales</strong> (<code>&quot;100.000&quot;</code>), no
-como número, y <code>CONTRATO_API.md</code> §1.7 ya lo documenta igual. <strong>No es un descuido:</strong>
+como número, y <code>docs/historico/CONTRATO_API.md</code> §1.7 ya lo documenta igual. <strong>No es un descuido:</strong>
 JSON no tiene decimales de precisión arbitraria, y un <code>number</code> de JavaScript
 invitaría al cliente a sumar en coma flotante y producir centésimas fantasma.</p>
 </div>
@@ -6313,7 +6313,7 @@ except ApiException as e:
                         <p></p>
                         <p class="marked">**Sin sobre de paginación y sin límite de 200**, y es deliberado: son un catálogo cerrado y diminuto que la interfaz necesita COMPLETO para poblar un desplegable. Lo que lo hace seguro es que exige permiso de administración sobre un conjunto que solo crece cuando un administrador lo decide.
 
-El permiso es &#x60;location.view&#x60;: &#x60;CONTRATO_API.md&#x60; §11 no lista esta ruta, y dejarla sin permiso sería repetir el defecto del legacy (rutas que parecían protegidas y no lo estaban).</p>
+El permiso es &#x60;location.view&#x60;: &#x60;docs/historico/CONTRATO_API.md&#x60; §11 no lista esta ruta, y dejarla sin permiso sería repetir el defecto del legacy (rutas que parecían protegidas y no lo estaban).</p>
                         <p></p>
                         <br />
                         <pre class="prettyprint language-html prettyprinted" data-type="get"><code><span class="pln">/v1/warehouses</span></code></pre>
@@ -26057,7 +26057,7 @@ except ApiException as e:
                         <div class="pull-right"></div>
                         <div class="clearfix"></div>
                         <p></p>
-                        <p class="marked">**No hay &#x60;GET&#x60; de listado en esta versión**: &#x60;CONTRATO_API.md&#x60; §5 promete &#x60;GET|POST /v1/invoices&#x60;, pero el listado no está implementado (ver &#x60;x-contract-divergences&#x60;).
+                        <p class="marked">**No hay &#x60;GET&#x60; de listado en esta versión**: &#x60;docs/historico/CONTRATO_API.md&#x60; §5 promete &#x60;GET|POST /v1/invoices&#x60;, pero el listado no está implementado (ver &#x60;x-contract-divergences&#x60;).
 
 La respuesta de la creación es la REFERENCIA (&#x60;id&#x60; + &#x60;invoiceNumber&#x60;), no la factura completa: para el detalle hay que pedir &#x60;GET /v1/invoices/{id}&#x60;. Una factura necesita al menos una línea: &#x60;400 FIELD_REQUIRED&#x60; si viene vacía, porque una factura sin líneas no se puede capturar ni ubicar y bloquea el flujo.</p>
                         <p></p>
@@ -34198,7 +34198,7 @@ except ApiException as e:
 
 &#x60;409 ORDER_NOT_CONVERTED&#x60; si aún no se confirmó: exportar algo que no se ha surtido mandaría al ERP una salida que no existe.
 
-**La integración con el ERP no existe todavía** (ver &#x60;ARQUITECTURA.md&#x60; §8): el intento se registra como enviado y el envío real es la pieza que falta. Se dice en vez de simularse.</p>
+**La integración con el ERP no existe todavía** (ver &#x60;docs/historico/ARQUITECTURA.md&#x60; §8): el intento se registra como enviado y el envío real es la pieza que falta. Se dice en vez de simularse.</p>
                         <p></p>
                         <br />
                         <pre class="prettyprint language-html prettyprinted" data-type="post"><code><span class="pln">/v1/orders/{id}/export</span></code></pre>

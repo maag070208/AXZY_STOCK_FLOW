@@ -23,7 +23,7 @@ import java.io.File
  * ═══════════════════════════════════════════════════════════════════════════
  * DOCUMENTACIÓN DE LA API — OpenAPI 3.0.3 + Swagger UI
  *
- * `PLAN_ALMACEN_INTEGRAL.md` §0 declara «OpenAPI generado desde el código» como
+ * `docs/historico/PLAN_ALMACEN_INTEGRAL.md` §0 declara «OpenAPI generado desde el código» como
  * estándar del proyecto. Esto es su implementación.
  *
  * ── POR QUÉ EL DOCUMENTO SE CONSTRUYE AQUÍ Y NO SE ANOTA RUTA A RUTA ───────
@@ -58,7 +58,7 @@ import java.io.File
  * ── FIDELIDAD ──────────────────────────────────────────────────────────────
  *
  * Los campos de cada respuesta son los que **el código devuelve hoy**, leídos de
- * los DTO de `backend/`, no los que promete `CONTRATO_API.md`. Las divergencias
+ * los DTO de `backend/`, no los que promete `docs/historico/CONTRATO_API.md`. Las divergencias
  * encontradas están listadas en [DIVERGENCIAS_CONTRATO] y viajan en el propio
  * documento como extensión `x-contract-divergences`, para que el desajuste no se
  * pierda.
@@ -314,13 +314,13 @@ private val API_DESCRIPTION = """
     Instantes en ISO-8601 UTC con `Z`; fechas operativas como `AAAA-MM-DD`.
 
     **Las cantidades viajan como cadena decimal de 3 decimales** (`"100.000"`), no
-    como número, y `CONTRATO_API.md` §1.7 ya lo documenta igual. **No es un descuido:**
+    como número, y `docs/historico/CONTRATO_API.md` §1.7 ya lo documenta igual. **No es un descuido:**
     JSON no tiene decimales de precisión arbitraria, y un `number` de JavaScript
     invitaría al cliente a sumar en coma flotante y producir centésimas fantasma.
 """.trimIndent()
 
 /**
- * Divergencias reales entre `CONTRATO_API.md` y la implementación, encontradas
+ * Divergencias reales entre `docs/historico/CONTRATO_API.md` y la implementación, encontradas
  * leyendo las rutas y los DTO. Se publican en el documento para que un cliente
  * que se genere a partir de aquí no herede la promesa equivocada.
  */
@@ -1168,7 +1168,7 @@ private fun errorSchema(): JsonObject = objectSchema(
             "`pendingLines`, `allowed`…). Su forma depende del código.",
     ),
     required = listOf("code", "message"),
-    description = "Cuerpo de error común a TODOS los endpoints (CONTRATO_API.md §1.3). " +
+    description = "Cuerpo de error común a TODOS los endpoints (docs/historico/CONTRATO_API.md §1.3). " +
         "Los códigos de autorización se distinguen para que el usuario sepa si debe iniciar " +
         "sesión, pedir un permiso, pedir acceso a una bodega, cambiar cómo lo hace o llamar " +
         "a otra persona.",
@@ -1177,7 +1177,7 @@ private fun errorSchema(): JsonObject = objectSchema(
 /**
  * Catálogo de códigos de error.
  *
- * Los primeros son la lista cerrada de `CONTRATO_API.md` §1.3-bis (más los de
+ * Los primeros son la lista cerrada de `docs/historico/CONTRATO_API.md` §1.3-bis (más los de
  * autenticación de §2 y los de inventario/recepción de §4 y §5). Los últimos,
  * marcados aparte, son códigos que **el código emite hoy y el contrato no
  * lista**: se incluyen aquí porque el cliente tiene que poder contemplarlos, y
@@ -1382,7 +1382,7 @@ private fun header(name: String, description: String, schema: JsonObject = strin
     }
 
 /**
- * Paginación de `CONTRATO_API.md` §1.4, generada desde los campos ordenables
+ * Paginación de `docs/historico/CONTRATO_API.md` §1.4, generada desde los campos ordenables
  * REALES de cada repositorio.
  */
 private fun pagination(fieldsSortable: List<String>, defaultOrder: String): List<JsonObject> = listOf(
@@ -1860,7 +1860,7 @@ private val ENDPOINTS: List<Operation> = listOf(
             "catálogo cerrado y diminuto que la interfaz necesita COMPLETO para poblar un " +
             "desplegable. Lo que lo hace seguro es que exige permiso de administración sobre un " +
             "conjunto que solo crece cuando un administrador lo decide.\n\nEl permiso es " +
-            "`location.view`: `CONTRATO_API.md` §11 no lista esta ruta, y dejarla sin permiso " +
+            "`location.view`: `docs/historico/CONTRATO_API.md` §11 no lista esta ruta, y dejarla sin permiso " +
             "sería repetir el defecto del legacy (rutas que parecían protegidas y no lo estaban).",
         permission = "location.view",
         parameters = listOf(search(), activeFilter()),
@@ -2035,7 +2035,7 @@ private val ENDPOINTS: List<Operation> = listOf(
         route = "/v1/invoices",
         label = TAG_INVOICES,
         resumen = "Crear factura de recepción",
-        description = "**No hay `GET` de listado en esta versión**: `CONTRATO_API.md` §5 promete " +
+        description = "**No hay `GET` de listado en esta versión**: `docs/historico/CONTRATO_API.md` §5 promete " +
             "`GET|POST /v1/invoices`, pero el listado no está implementado (ver " +
             "`x-contract-divergences`).\n\nLa respuesta de la creación es la REFERENCIA " +
             "(`id` + `invoiceNumber`), no la factura completa: para el detalle hay que pedir " +
@@ -2522,7 +2522,7 @@ private val ENDPOINTS: List<Operation> = listOf(
             "se exportó, esto no crea una segunda salida; solo cuenta el intento.\n\n`409 " +
             "ORDER_NOT_CONVERTED` si aún no se confirmó: exportar algo que no se ha surtido " +
             "mandaría al ERP una salida que no existe.\n\n**La integración con el ERP no existe " +
-            "todavía** (ver `ARQUITECTURA.md` §8): el intento se registra como enviado y el envío " +
+            "todavía** (ver `docs/historico/ARQUITECTURA.md` §8): el intento se registra como enviado y el envío " +
             "real es la pieza que falta. Se dice en vez de simularse.",
         permission = "order.convert",
         parameters = listOf(route("id", integer())) + clientHeaders,

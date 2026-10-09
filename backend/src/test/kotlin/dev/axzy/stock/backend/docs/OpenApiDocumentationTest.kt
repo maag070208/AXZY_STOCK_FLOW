@@ -223,7 +223,7 @@ class OpenApiDocumentationTest {
         val schemas = document["components"]!!.jsonObject["schemas"]!!.jsonObject
         val properties = schemas["ReconciliationReport"]!!.jsonObject["properties"]!!.jsonObject
 
-        // `CONTRATO_API.md` §9 prometía estos tres y la ruta NUNCA los devolvió. El
+        // `docs/historico/CONTRATO_API.md` §9 prometía estos tres y la ruta NUNCA los devolvió. El
         // contrato ya se corrigió, así que esta comprobación ya no vigila una mentira
         // viva: **vigila que no vuelva**. Si alguien reintroduce los nombres del
         // contrato viejo, el esquema publicado dejaría de coincidir con el DTO.

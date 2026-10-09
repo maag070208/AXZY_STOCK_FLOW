@@ -39,7 +39,7 @@ import dev.axzy.stock.domain.value.Quantity
  *     R-74). Es el control interno que impide que una persona cubra su propio
  *     error sin que nadie lo revise.
  *
- * Referencia: PLAN_ALMACEN_INTEGRAL.md §2.9 y las decisiones B2, B3 y R-74.
+ * Referencia: docs/historico/PLAN_ALMACEN_INTEGRAL.md §2.9 y las decisiones B2, B3 y R-74.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 

@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
  * ═══════════════════════════════════════════════════════════════════════════
  * INVENTARIO — DTOs de `/v1/inventory` y sus acciones
  *
- * Contrato: CONTRATO_API.md §4.
+ * Contrato: docs/historico/CONTRATO_API.md §4.
  *
  * Regla del contrato que condiciona el diseño entero de estos DTOs: **el kardex
  * es append-only**. No existe `PUT` ni `DELETE` sobre un movimiento; las

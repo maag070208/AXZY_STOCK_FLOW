@@ -287,7 +287,7 @@ jobs:
   #
   # Consecuencia que hay que cubrir explícitamente: el APK **no participa** en
   # `./gradlew build` de la raíz. Sin este job, el CI pasaría en verde con el APK
-  # sin compilar, y esa omisión es SILENCIOSA. Ver PLAN_ALMACEN_INTEGRAL.md §10-bis.
+  # sin compilar, y esa omisión es SILENCIOSA. Ver docs/historico/PLAN_ALMACEN_INTEGRAL.md §10-bis.
   # ==========================================================================
   apk-android:
     name: APK de Android (build aparte)

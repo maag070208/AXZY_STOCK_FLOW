@@ -14,7 +14,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
  * TESTS DE LA MATRIZ MOVIMIENTO → EFECTO EN STOCK
  *
  * Estos tests son la red de seguridad contra el defecto más grave del legacy:
- * el doble descuento al ubicar mercancía (PLAN_ALMACEN_INTEGRAL.md §2.7).
+ * el doble descuento al ubicar mercancía (docs/historico/PLAN_ALMACEN_INTEGRAL.md §2.7).
  *
  * El test más importante es `el total solo cambia por entradas y salidas
  * autorizadas`, porque fija la propiedad estructural que hace imposible el bug:

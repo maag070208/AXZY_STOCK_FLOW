@@ -19,7 +19,7 @@ import kotlinx.serialization.encodeToString
  * ═══════════════════════════════════════════════════════════════════════════
  * `/v1/inventory` — existencias, kardex y movimientos
  *
- * Contrato: CONTRATO_API.md §4.
+ * Contrato: docs/historico/CONTRATO_API.md §4.
  *
  * **Los tres métodos que mueven inventario exigen `Idempotency-Key`**, y el
  * `idempotencyKey` del [AdjustmentRequest]/[LocateRequest]/[MoveRequest] viaja

@@ -33,7 +33,7 @@ import javax.sql.DataSource
  * **invita a aprobar lo propio sin darse cuenta**. Con una sola acción sobre el
  * documento, la segregación de funciones es evidente.
  *
- * Referencia: `PLAN_ALMACEN_INTEGRAL.md` §5 y las decisiones B1, R-74 y R-86.
+ * Referencia: `docs/historico/PLAN_ALMACEN_INTEGRAL.md` §5 y las decisiones B1, R-74 y R-86.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 /**

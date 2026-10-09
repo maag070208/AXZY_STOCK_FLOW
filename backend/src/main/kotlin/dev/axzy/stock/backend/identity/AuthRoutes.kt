@@ -38,7 +38,7 @@ import java.time.Instant
  * ═══════════════════════════════════════════════════════════════════════════
  * AUTENTICACIÓN
  *
- * Las cuatro rutas de `CONTRATO_API.md` §2. Es la pieza que desbloquea todo lo
+ * Las cuatro rutas de `docs/historico/CONTRATO_API.md` §2. Es la pieza que desbloquea todo lo
  * demás: sin identidad, el catálogo responde 401 y la aplicación no se puede usar
  * más allá de la pantalla de acceso.
  *

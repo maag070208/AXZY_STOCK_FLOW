@@ -3,7 +3,7 @@ import type { PermissionScope } from "@shared/api";
 /**
  * Catálogo de permisos del dominio de almacén.
  *
- * Fuente: `PLAN_ROLES_PERMISOS_POLITICAS.md` §2 (ocho módulos, 82 permisos).
+ * Fuente: `docs/historico/PLAN_ROLES_PERMISOS_POLITICAS.md` §2 (ocho módulos, 82 permisos).
  * **El catálogo real lo sirve la base de datos** y viaja en
  * `user.permissions`/`user.scopes`; esta lista existe para dos cosas concretas:
  *

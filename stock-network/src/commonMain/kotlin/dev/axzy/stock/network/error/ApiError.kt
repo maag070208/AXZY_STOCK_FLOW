@@ -17,7 +17,7 @@ import kotlinx.serialization.json.JsonObject
  * pedir un permiso, esperar, o llamar a otra persona. Aquí son cinco casos
  * distintos porque **la acción del usuario es distinta en cada uno**.
  *
- * Contrato: CONTRATO_API.md §1.2, §1.3 y §2.
+ * Contrato: docs/historico/CONTRATO_API.md §1.2, §1.3 y §2.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 sealed class ApiError(

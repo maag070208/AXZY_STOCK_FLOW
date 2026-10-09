@@ -8,7 +8,7 @@ import kotlin.math.round
  * LA CAPA DE MAPPERS — POR QUÉ EXISTE
  *
  * Los DTOs son **contratos de transporte**: describen exactamente lo que viaja
- * por el cable, y su forma la manda `CONTRATO_API.md`, no el modelo de negocio.
+ * por el cable, y su forma la manda `docs/historico/CONTRATO_API.md`, no el modelo de negocio.
  * El dominio, en cambio, describe lo que el sistema **sabe**: objetos de valor
  * que no se pueden construir mal.
  *

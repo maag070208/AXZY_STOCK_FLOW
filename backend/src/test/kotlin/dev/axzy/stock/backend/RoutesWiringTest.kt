@@ -101,7 +101,7 @@ class RoutesWiringTest : DescribeSpec({
                     // ── POR QUÉ TAMBIÉN SE EXCLUYE `internal` ──────────────────
                     //
                     // Al partir `catalog/` en un fichero por recurso (ver
-                    // ARQUITECTURA.md §«Migración a capas»), los tres recursos
+                    // docs/historico/ARQUITECTURA.md §«Migración a capas»), los tres recursos
                     // viven en ficheros DISTINTOS y los invoca `catalogRoutes()`
                     // desde un cuarto. **`private` en Kotlin, a nivel de fichero,
                     // significa privado de ESE fichero**, así que `private` no

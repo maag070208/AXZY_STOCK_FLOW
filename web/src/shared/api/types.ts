@@ -1,5 +1,5 @@
 /**
- * DTOs del contrato HTTP (CONTRATO_API.md).
+ * DTOs del contrato HTTP (docs/historico/CONTRATO_API.md).
  *
  * Reglas que se respetan aquí y conviene no "mejorar":
  * - Las cantidades son `number` con 3 decimales, nunca `string` (§1.7). El legacy
@@ -810,13 +810,13 @@ export interface MovementsSummary {
  * El reporte de reconciliación: ledger contra proyección. No existía en el legacy.
  *
  * **ESTA INTERFAZ ESTUVO MAL, y es el motivo por el que se corrigió el contrato.**
- * Declaraba la forma que `CONTRATO_API.md` §9 *prometía*
+ * Declaraba la forma que `docs/historico/CONTRATO_API.md` §9 *prometía*
  * (`productsChecked`/`ledgerNet`/`projected`) y **la ruta nunca devolvió eso**:
  * respondía `cuadra`/`totalEnBd`/`totalEsperado`/`diferencia`, con los campos en
  * español. Un cliente tipado contra esta interfaz leía `undefined` en cada campo.
  *
  * Hoy coinciden los tres lados —contrato, ruta y este tipo— y los identificadores
- * van en inglés (`ARQUITECTURA.md` §5.1). **Los totales son `string` y no `number`**:
+ * van en inglés (`docs/historico/ARQUITECTURA.md` §5.1). **Los totales son `string` y no `number`**:
  * el servidor manda `"5193.000"` (§1.7) y leerlos como número perdería la precisión
  * que precisamente este reporte existe para comprobar.
  */

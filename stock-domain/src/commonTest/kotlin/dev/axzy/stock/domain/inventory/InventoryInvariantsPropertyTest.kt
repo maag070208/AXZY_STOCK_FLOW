@@ -32,7 +32,7 @@ import io.kotest.property.checkAll
  * prueba aparte con casos concretos.
  *
  * Cada invariante lleva su identificador (I1…I10) para poder trazarla contra
- * PLAN_ALMACEN_INTEGRAL.md §3.6.
+ * docs/historico/PLAN_ALMACEN_INTEGRAL.md §3.6.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 class InventoryInvariantsPropertyTest : DescribeSpec({

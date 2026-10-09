@@ -27,7 +27,7 @@
 // build del monorepo, que a su vez consumen el backend y los tests de negocio.
 // Duplicarlo aquí sería tener dos definiciones de las reglas de negocio, que es
 // exactamente lo que el módulo compartido existe para evitar
-// (PLAN_ALMACEN_INTEGRAL.md §3.2-bis). Se consume como BUILD INCLUIDO
+// (docs/historico/PLAN_ALMACEN_INTEGRAL.md §3.2-bis). Se consume como BUILD INCLUIDO
 // (`includeBuild("..")`), que es la forma canónica de Gradle de componer dos
 // builds independientes sin publicar nada en un repositorio Maven.
 //

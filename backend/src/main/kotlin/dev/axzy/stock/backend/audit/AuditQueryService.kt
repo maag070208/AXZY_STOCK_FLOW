@@ -15,7 +15,7 @@ import javax.sql.DataSource
  * Este archivo es la mitad de lectura del ledger de auditoría. El esquema existe
  * desde la migración `V2__audit_and_traceability.sql`; lo que **no existía** era
  * la forma de leerlo, así que la pantalla de auditoría de la web estaba vacía y
- * el endpoint devolvía 404 con el contrato (`CONTRATO_API.md` §11) ya firmado.
+ * el endpoint devolvía 404 con el contrato (`docs/historico/CONTRATO_API.md` §11) ya firmado.
  *
  * Responde las seis dimensiones del requisito original —quién, cuándo, desde
  * dónde, sobre qué, qué y con qué permiso— mapeadas a las columnas REALES de la
@@ -60,10 +60,10 @@ import javax.sql.DataSource
  *    hace *tamper-evident*. Se expone la terna en cada item para que quien
  *    consuma la API pueda comprobar la cadena por su cuenta. **Lo que NO existe
  *    hoy en el proyecto es la verificación**: ni función de PostgreSQL, ni
- *    endpoint, ni job. `PLAN_AUDITORIA.md` §7.6 y §8 especifican
+ *    endpoint, ni job. `docs/historico/PLAN_AUDITORIA.md` §7.6 y §8 especifican
  *    `GET /v1/audit/integrity` (permiso `report.audit`, que sí está sembrado) y
  *    ese endpoint no está implementado; `report.audit` es hoy un permiso huérfano,
- *    justo la clase de defecto que `CONTRATO_API.md` §11 denuncia. Con los hashes
+ *    justo la clase de defecto que `docs/historico/CONTRATO_API.md` §11 denuncia. Con los hashes
  *    en la respuesta, una verificación externa es posible; la interna sigue
  *    pendiente.
  *
@@ -271,7 +271,7 @@ class AuditQueryService(private val dataSource: DataSource) {
      * `previous_state` y `new_state` (JSONB) **no** se incluyen a propósito: son
      * el diff completo de cada cambio y en un listado de 200 registros con
      * facturas de 30 líneas convierten la respuesta en megabytes. El diff tiene
-     * su sitio en el detalle de un registro (`PLAN_AUDITORIA.md` §7.5); lo que sí
+     * su sitio en el detalle de un registro (`docs/historico/PLAN_AUDITORIA.md` §7.5); lo que sí
      * viaja es `changed_fields`, que dice QUÉ campos cambiaron sin el contenido.
      */
     /** `getLong` devuelve 0 para SQL NULL; aquí el nulo es un dato, no un cero. */

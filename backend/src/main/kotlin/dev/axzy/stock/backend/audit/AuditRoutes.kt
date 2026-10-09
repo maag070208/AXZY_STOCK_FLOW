@@ -22,7 +22,7 @@ import java.util.UUID
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * RUTAS DE AUDITORÍA — `CONTRATO_API.md` §11, `PLAN_AUDITORIA.md` §8
+ * RUTAS DE AUDITORÍA — `docs/historico/CONTRATO_API.md` §11, `docs/historico/PLAN_AUDITORIA.md` §8
  *
  * Un solo endpoint por ahora: `GET /v1/audit/log`, la bitácora general con sus
  * filtros y su paginación resuelta en la base.
@@ -41,7 +41,7 @@ import java.util.UUID
  * `audit.view`, con alcance `ALL` (§11). La auditoría contiene quién hizo qué y
  * desde qué IP: es el dato más sensible del sistema. El rol `AUDITOR` lo tiene
  * (es uno de sus 20 permisos) y ese es exactamente el rol para el que existe este
- * endpoint. `CONTRATO_API.md` §11 recuerda que el legacy tenía siete permisos
+ * endpoint. `docs/historico/CONTRATO_API.md` §11 recuerda que el legacy tenía siete permisos
  * sembrados que ninguna ruta exigía; aquí se exige el que corresponde.
  * ═══════════════════════════════════════════════════════════════════════════
  */
@@ -53,7 +53,7 @@ fun Route.auditRoutes(
     get("/v1/audit/log") {
         when (val decision = permissionChecker.check(call, "audit.view")) {
             is PermissionDecision.Permitted -> Unit
-            // `UNAUTHENTICATED` es 401, no 403 (`CONTRATO_API.md` §1.2). El
+            // `UNAUTHENTICATED` es 401, no 403 (`docs/historico/CONTRATO_API.md` §1.2). El
             // catálogo y la administración de identidad ya distinguen los dos
             // casos; aquí se lanzaba 403 para todo, así que la MISMA falta de
             // token daba un estado distinto según la ruta. El e2e de la API lo

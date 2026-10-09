@@ -12,7 +12,7 @@
 #
 # Con AGP 9, `com.android.application` y el plugin de KMP no pueden coexistir en el
 # MISMO build, y el fallo tumba la configuración de todo el proyecto. Por eso el
-# móvil vive aparte. Ver PLAN_ALMACEN_INTEGRAL.md §10-bis y el README del móvil.
+# móvil vive aparte. Ver docs/historico/PLAN_ALMACEN_INTEGRAL.md §10-bis y el README del móvil.
 #
 # **ESTE SCRIPT ESTUVO ROTO Y ERA UN FALLO MÍO.** La reestructuración eliminó el
 # `gradlew` de `androidApp` (colgaba de `../../gradlew` y daba

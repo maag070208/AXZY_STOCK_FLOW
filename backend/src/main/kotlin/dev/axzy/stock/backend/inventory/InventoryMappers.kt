@@ -128,7 +128,7 @@ internal fun ResultSet.toStockByLocationDto(): StockByLocationDto = StockByLocat
  * Convierte una fila de `comprobar_proyecciones()` en su DTO.
  *
  * Los tres totales van como **cadena** con `toPlainString()`, igual que el resto de
- * cantidades del contrato (`CONTRATO_API.md` §1.7). Aquí importa más que en ningún otro
+ * cantidades del contrato (`docs/historico/CONTRATO_API.md` §1.7). Aquí importa más que en ningún otro
  * sitio: este endpoint **existe precisamente para detectar descuadres**, y devolver los
  * totales como número invitaría a que el cliente los comparara en coma flotante.
  * **Un reporte de reconciliación que redondea es peor que no tenerlo**, porque dice que
@@ -142,7 +142,7 @@ internal fun ResultSet.toDivergenceDto(): DivergenceDto = DivergenceDto(
     // coinciden, esto no falla con un mensaje que lo diga:** `getBigDecimal`
     // devuelve `null` y `toPlainString()` revienta con un `NullPointerException`
     // que no nombra la columna que falta. Es la trampa que documenta
-    // `ARQUITECTURA.md` §1.7: un mapper mal escrito no rompe, miente.
+    // `docs/historico/ARQUITECTURA.md` §1.7: un mapper mal escrito no rompe, miente.
     projectedTotal = getBigDecimal("projected_total").toPlainString(),
     ledgerTotal = getBigDecimal("ledger_total").toPlainString(),
     difference = getBigDecimal("difference").toPlainString(),

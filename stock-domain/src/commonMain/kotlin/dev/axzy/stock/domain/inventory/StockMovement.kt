@@ -23,7 +23,7 @@ import dev.axzy.stock.domain.value.Quantity
  *   3. El tránsito entre bodegas es explícito ([StockEffect.EnterTransit] y
  *      [StockEffect.LeaveTransit]) en lugar de un efecto colateral.
  *
- * Referencia: PLAN_ALMACEN_INTEGRAL.md §2.7 (el bug verificado) y §3.2-ter.
+ * Referencia: docs/historico/PLAN_ALMACEN_INTEGRAL.md §2.7 (el bug verificado) y §3.2-ter.
  * Decisión R-65: ubicar NO baja el total.
  * ═══════════════════════════════════════════════════════════════════════════
  */
