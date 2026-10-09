@@ -1,7 +1,8 @@
 # Plan de documentación — STOCK (Almacén Integral)
 
-> Documento de trabajo. Propone cómo reordenar la documentación de STOCK tomando como
-> referencia la de CYC (`~/DEV/CYC/docs`). Se elimina o se archiva cuando se ejecute.
+> **Plan.** Documento de trabajo: propone cómo reordenar la documentación de STOCK
+> tomando como referencia la de CYC (`~/DEV/CYC/docs`). Se elimina o se archiva cuando
+> se ejecute. Última actualización: 2026-10-09.
 
 ---
 
@@ -143,6 +144,15 @@ usa solo para enlazar y se fija en la fase 3.
 arrancar, entiende qué módulos existen y su estado, y puede ver el mapa del legacy. Cada
 enlace funciona y ningún documento normativo contradice al código.
 
+### Estado de ejecución (2026-10-09)
+
+| Fase | Estado |
+|---|---|
+| 0. Congelar | **Hecho.** `c3d1236` (refactor de código) y `70cc7cc` (plan y normas). Tests: `:backend:test` y `:stock-domain:jvmTest`, 683 pruebas, 0 fallos, 0 saltadas, ejecutadas con la caché desactivada. |
+| 1. Esqueleto | **Hecho.** `README.md`, `docs/README.md`, las carpetas y `plantillas/plantilla-modulo.md`. |
+| 2. Normativos | **Hecho.** `ARQUITECTURA.md` partido en 13 documentos y `CONTRATO_API.md` en 12; los ADR 0001-0007 escritos. Verificado: todos los enlaces del índice resuelven, no queda narrativa de conversación y las rutas de código citadas existen. |
+| 3 a 7 | Pendientes. Ya no están bloqueadas por ninguna decisión. |
+
 ---
 
 ## 6. Decisiones que necesito de ti
@@ -156,5 +166,11 @@ enlace funciona y ningún documento normativo contradice al código.
 3. **¿Los códigos con sufijo `N` son el mismo producto?** Son 201 productos del Excel
    (§3.5). Hay que resolverlo antes de documentar la migración del catálogo.
 
-Puedo ejecutar las fases 0 a 2 sin esperar estas respuestas. Las fases 3 a 5 necesitan
-las respuestas 2 y 3 para no documentar algo que luego cambia.
+   **Resuelto el 2026-10-09:** `PLAN_REFACTOR_MEJORAS.md` R-71 ya lo cerraba como
+   decisión de negocio —**son dos SKUs distintos** y se importan los 1.398 tal cual, sin
+   fusionar— con el riesgo aceptado y por escrito: si algún día resultaran ser el mismo
+   producto, el stock quedaría duplicado. Confirmado por quien decide.
+
+**Estado de las respuestas:** la 1 (TypeScript) y la 2 (habrá más de una bodega) están
+confirmadas; la 3 quedó resuelta por R-71. Ninguna fase queda bloqueada por ellas. El
+trabajo autorizado por ahora son las fases 0 a 2.
