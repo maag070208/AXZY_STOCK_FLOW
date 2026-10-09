@@ -1,4 +1,4 @@
-package dev.axzy.stock.backend.transfer
+package dev.axzy.stock.backend.infrastructure.inbound.http.transfer
 
 import kotlinx.serialization.Serializable
 

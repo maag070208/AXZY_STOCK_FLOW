@@ -1,5 +1,10 @@
 package dev.axzy.stock.backend.transfer
 
+import dev.axzy.stock.backend.application.transfer.NewTransfer
+import dev.axzy.stock.backend.application.transfer.NewTransferLine
+import dev.axzy.stock.backend.application.transfer.TransferUseCases
+import dev.axzy.stock.backend.infrastructure.outbound.persistence.transfer.JdbcTransferRepository
+
 import dev.axzy.stock.backend.config.DatabaseConfig
 import dev.axzy.stock.backend.config.buildDataSource
 import dev.axzy.stock.backend.config.migrate
@@ -192,14 +197,14 @@ class TransferInvariantTest : DescribeSpec({
     }
 
     fun DataSource.dispatchTransfer(scenario: Scenario): Pair<Long, String> {
-        val service = TransferService(this)
+        val service = TransferUseCases(JdbcTransferRepository(this))
         val creado = service.create(
-            TransferCreateRequest(
+            NewTransfer(
                 fromWarehouseId = 1,
                 toWarehouseId = scenario.destinationWarehouseId,
                 note = "prueba de invariante",
                 lines = listOf(
-                    TransferLineRequest(
+                    NewTransferLine(
                         productCode = "TRF1",
                         quantity = "400.000",
                         fromLocationId = scenario.shelfLocationId,
@@ -220,12 +225,12 @@ class TransferInvariantTest : DescribeSpec({
                 val scenario = pool.scenario()
                 val antes = pool.totalUnits(scenario.productId)
 
-                TransferService(pool).create(
-                    TransferCreateRequest(
+                TransferUseCases(JdbcTransferRepository(pool)).create(
+                    NewTransfer(
                         fromWarehouseId = 1,
                         toWarehouseId = scenario.destinationWarehouseId,
                         lines = listOf(
-                            TransferLineRequest(
+                            NewTransferLine(
                                 productCode = "TRF1",
                                 quantity = "400.000",
                                 fromLocationId = scenario.shelfLocationId,
@@ -245,7 +250,7 @@ class TransferInvariantTest : DescribeSpec({
             withDatabase { pool ->
                 val scenario = pool.scenario()
                 val (id, _) = pool.dispatchTransfer(scenario)
-                TransferService(pool).receive(id, userId = null)
+                TransferUseCases(JdbcTransferRepository(pool)).receive(id, userId = null)
 
                 // Se leen del mismo modo que lo vería la bitácora: acción y estados como texto.
                 val registros = pool.connection.use { c ->
@@ -308,13 +313,13 @@ class TransferInvariantTest : DescribeSpec({
                 val scenario = pool.scenario()
                 val antes = pool.totalUnits(scenario.productId)
 
-                val service = TransferService(pool)
+                val service = TransferUseCases(JdbcTransferRepository(pool))
                 val creado = service.create(
-                    TransferCreateRequest(
+                    NewTransfer(
                         fromWarehouseId = 1,
                         toWarehouseId = scenario.destinationWarehouseId,
                         lines = listOf(
-                            TransferLineRequest(
+                            NewTransferLine(
                                 productCode = "TRF1",
                                 quantity = "400.000",
                                 fromLocationId = scenario.shelfLocationId,
@@ -358,13 +363,13 @@ class TransferInvariantTest : DescribeSpec({
                 val scenario = pool.scenario()
                 val antes = pool.totalUnits(scenario.productId)
 
-                val service = TransferService(pool)
+                val service = TransferUseCases(JdbcTransferRepository(pool))
                 val creado = service.create(
-                    TransferCreateRequest(
+                    NewTransfer(
                         fromWarehouseId = 1,
                         toWarehouseId = scenario.destinationWarehouseId,
                         lines = listOf(
-                            TransferLineRequest(
+                            NewTransferLine(
                                 productCode = "TRF1",
                                 quantity = "400.000",
                                 fromLocationId = scenario.shelfLocationId,
@@ -396,15 +401,15 @@ class TransferInvariantTest : DescribeSpec({
         it("la invariante aguanta el ciclo COMPLETO: 1000 → despachar → recibir → 1000") {
             withDatabase { pool ->
                 val scenario = pool.scenario()
-                val service = TransferService(pool)
+                val service = TransferUseCases(JdbcTransferRepository(pool))
 
                 val inicial = pool.totalUnits(scenario.productId)
                 val creado = service.create(
-                    TransferCreateRequest(
+                    NewTransfer(
                         fromWarehouseId = 1,
                         toWarehouseId = scenario.destinationWarehouseId,
                         lines = listOf(
-                            TransferLineRequest(
+                            NewTransferLine(
                                 productCode = "TRF1",
                                 quantity = "400.000",
                                 fromLocationId = scenario.shelfLocationId,

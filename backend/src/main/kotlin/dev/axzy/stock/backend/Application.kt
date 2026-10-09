@@ -20,7 +20,7 @@ import dev.axzy.stock.backend.receiving.receivingRoutes
 import dev.axzy.stock.backend.reports.reportRoutes
 import dev.axzy.stock.backend.label.labelRoutes
 import dev.axzy.stock.backend.order.orderRoutes
-import dev.axzy.stock.backend.transfer.transferRoutes
+import dev.axzy.stock.backend.infrastructure.inbound.http.transfer.transferRoutes
 import dev.axzy.stock.backend.security.DenyAllPermissionChecker
 import dev.axzy.stock.backend.security.PermissionChecker
 import dev.axzy.stock.backend.health.healthRoutes

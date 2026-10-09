@@ -1,4 +1,4 @@
-package dev.axzy.stock.backend.transfer
+package dev.axzy.stock.backend.infrastructure.inbound.http.transfer
 
 import dev.axzy.stock.backend.error.BadRequestException
 import dev.axzy.stock.backend.error.ForbiddenException
@@ -14,6 +14,9 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
+import dev.axzy.stock.backend.application.transfer.TransferFilter
+import dev.axzy.stock.backend.application.transfer.TransferUseCases
+import dev.axzy.stock.backend.infrastructure.outbound.persistence.transfer.JdbcTransferRepository
 import javax.sql.DataSource
 
 /**
@@ -26,7 +29,7 @@ fun Route.transferRoutes(
     dataSource: DataSource,
     permissionChecker: PermissionChecker,
 ) {
-    val service = TransferService(dataSource)
+    val useCases = TransferUseCases(JdbcTransferRepository(dataSource))
 
     route("/v1/transfers") {
 
@@ -37,7 +40,7 @@ fun Route.transferRoutes(
             // crear traslados. Usar el genérico dejaría el permiso específico sin
             // usar, que es la señal de que la ruta no lo respeta.
             call.requireTransferPermission(permissionChecker, "transit.view")
-            call.respond(HttpStatusCode.OK, service.inTransit())
+            call.respond(HttpStatusCode.OK, useCases.inTransit().map { it.toResponse() })
         }
 
         get {
@@ -54,8 +57,8 @@ fun Route.transferRoutes(
             }
             val warehouseId = call.request.queryParameters["warehouseId"]?.toLongOrNull()
 
-            val items = service.list(status, warehouseId, page.offset, page.size)
-            val total = service.count(status, warehouseId)
+            val items = useCases.list(TransferFilter(status, warehouseId), page.offset, page.size).map { it.toResponse() }
+            val total = useCases.count(TransferFilter(status, warehouseId))
 
             call.respond(
                 HttpStatusCode.OK,
@@ -72,7 +75,7 @@ fun Route.transferRoutes(
         get("/{id}") {
             call.requireTransferPermission(permissionChecker, "transfer.view")
             val id = call.transferId()
-            val detalle = service.byId(id)
+            val detalle = useCases.byId(id)?.toResponse()
                 ?: throw dev.axzy.stock.backend.error.NotFoundException(
                     "El traslado $id no existe.",
                     "TRANSFER_NOT_FOUND",
@@ -84,25 +87,25 @@ fun Route.transferRoutes(
             call.requireTransferPermission(permissionChecker, "transfer.create")
             val request = call.receive<TransferCreateRequest>()
             // `201` con el recurso: el cliente necesita el `id` para despacharlo.
-            call.respond(HttpStatusCode.Created, service.create(request, call.transferUser()))
+            call.respond(HttpStatusCode.Created, useCases.create(request.toNew(), call.transferUser()).toResponse())
         }
 
         post("/{id}/dispatch") {
             call.requireTransferPermission(permissionChecker, "transfer.dispatch")
             val id = call.transferId()
-            call.respond(HttpStatusCode.OK, service.dispatch(id, call.transferUser()))
+            call.respond(HttpStatusCode.OK, useCases.dispatch(id, call.transferUser()).toResponse())
         }
 
         post("/{id}/receive") {
             call.requireTransferPermission(permissionChecker, "transfer.receive")
             val id = call.transferId()
-            call.respond(HttpStatusCode.OK, service.receive(id, call.transferUser()))
+            call.respond(HttpStatusCode.OK, useCases.receive(id, call.transferUser()).toResponse())
         }
 
         post("/{id}/cancel") {
             call.requireTransferPermission(permissionChecker, "transfer.cancel")
             val id = call.transferId()
-            call.respond(HttpStatusCode.OK, service.cancel(id, call.transferUser()))
+            call.respond(HttpStatusCode.OK, useCases.cancel(id, call.transferUser()).toResponse())
         }
     }
 }
