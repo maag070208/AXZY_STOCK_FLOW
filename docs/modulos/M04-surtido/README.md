@@ -61,4 +61,4 @@ Empaquetado, confirmación, exportación y faltante escriben en `audit_log`.
 
 - [x] La máquina de estados rechaza transiciones ilegales (`OrderStateMachineTest`).
 - [ ] La exportación llega al ERP y se reintenta si falla ([ADR-0013](../../adr/0013-ordenes-al-erp-con-reintentos.md)).
-- [ ] La web recorre surtido completo contra el backend.
+- [x] Listado, alta y empaque con prueba de navegador (`web/e2e/flow.spec.ts`). La confirmación y el envío no están cubiertos.

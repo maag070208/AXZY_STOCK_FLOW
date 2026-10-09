@@ -72,4 +72,4 @@ Reglas en `stock-domain` (`catalog/`, con `CatalogImporterTest`). Rutas en
 ## 9. Criterios de aceptación
 
 - [ ] La importación del Excel inicial carga 1.398 productos sin rechazos. El plan de 2026-10-07 la da por hecha; no se ha reverificado en el entorno local ([migracion/catalogo-excel.md](../../migracion/catalogo-excel.md)).
-- [ ] La web recorre alta, edición y baja contra el backend.
+- [ ] Prueba de navegador de alta, edición y baja. Hoy no existe (`web/e2e/flow.spec.ts` no cubre catálogo).

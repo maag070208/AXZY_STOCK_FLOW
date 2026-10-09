@@ -144,9 +144,10 @@ desactivada: 0 fallos, 0 saltadas (ejecutadas de verdad, no servidas desde cach�
 - **La cámara en un iPhone real** y **en un Android real**. El APK se genera, pero
   el escáner con cámara no se ha probado en dispositivo.
 - **El proyecto Xcode** (`iosApp`): no existe en el repo (ver arriba).
-- **Los flujos de negocio de la web**: las 19 pantallas de `web/src/pages/` son
-  reales (ya no hay marcadores `PhasePlaceholder`), pero no se ha recorrido cada flujo
-  contra el backend. El catálogo está vacío (hay que importar el Excel).
+- **Los flujos de la web**: `web/e2e/flow.spec.ts` tiene 18 pruebas de navegador contra el
+  backend real. No se ejecutaron en esta revisión y no están en CI. No cubren catálogo ni
+  recepción de facturas. El catálogo se carga con el Excel, y esa carga no está verificada
+  en local.
 
 ---
 

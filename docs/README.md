@@ -51,6 +51,7 @@ Reglas que se verifican en cada documento nuevo:
 |---|---|
 | [vision-alcance.md](guia/vision-alcance.md) | Normativo |
 | [glosario.md](guia/glosario.md) | Referencia |
+| [identidad-visual.md](guia/identidad-visual.md) | Referencia |
 | [convenciones.md](guia/convenciones.md) | Normativo |
 | [roadmap.md](guia/roadmap.md) | Plan |
 | [lo-no-verificado.md](guia/lo-no-verificado.md) | Referencia |

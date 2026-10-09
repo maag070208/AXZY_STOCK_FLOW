@@ -66,4 +66,4 @@ Captura, aprobación, rechazo y cierre escriben en `audit_log`.
 ## 9. Criterios de aceptación
 
 - [x] Una línea en discrepancia no se puede ubicar (`InvoiceLineStateMachineTest`).
-- [ ] La web recorre captura, aprobación y cierre contra el backend.
+- [ ] Prueba de navegador de captura, aprobación y cierre. No existe.

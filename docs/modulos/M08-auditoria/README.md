@@ -61,4 +61,5 @@ Este módulo es la bitácora. Su propia consulta también se registra como acces
 ## 9. Criterios de aceptación
 
 - [x] La bitácora no admite modificaciones (disparadores de `V2`).
-- [ ] Verificación de la cadena de integridad desde la web.
+- [x] Bitácora con canal, permiso y filtro, probada en navegador (`web/e2e/flow.spec.ts`).
+- [ ] Verificación de la cadena de integridad desde la web. No hay prueba.

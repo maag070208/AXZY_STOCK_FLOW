@@ -74,4 +74,5 @@ Invariantes de conservación en `stock-domain` (`InventoryInvariantsPropertyTest
 ## 9. Criterios de aceptación
 
 - [x] Las invariantes I1–I10 se cumplen en las pruebas de propiedades.
-- [ ] La web recorre existencias, kardex y ajustes contra el backend.
+- [x] Reportes y alarma de descuadre con prueba de navegador (`web/e2e/flow.spec.ts`).
+- [ ] Prueba de navegador de existencias, kardex y ajustes. No existe.

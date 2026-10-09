@@ -62,4 +62,4 @@ Cada cambio de estado escribe en `audit_log`.
 ## 9. Criterios de aceptación
 
 - [x] Un traslado entre la misma bodega se rechaza (`TransferStateMachineTest`).
-- [ ] La web recorre el traslado completo contra el backend.
+- [x] Deuda en tránsito y despacho con prueba de navegador (`web/e2e/flow.spec.ts`). La recepción no está cubierta.

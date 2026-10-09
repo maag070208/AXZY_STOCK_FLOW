@@ -60,4 +60,4 @@ Cada impresión y reimpresión escribe en `audit_log`.
 
 - [x] La etiqueta queda `PENDING` hasta la confirmación (`LabelResolverTest`).
 - [ ] Una impresión real confirmada desde la impresora (no verificado).
-- [ ] La web recorre impresión y reimpresión contra el backend.
+- [x] Cola, plantillas y previsualización con prueba de navegador (`web/e2e/flow.spec.ts`). La reimpresión no está cubierta.

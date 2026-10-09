@@ -69,4 +69,4 @@ escriban en la bitácora: esas rutas todavía no existen. Ver
 
 - [x] Un refresh token reusado revoca la familia (`SessionModelTest`).
 - [ ] Altas, edición, asignación de roles y restablecimiento de contraseña por admin (sin rutas hoy).
-- [ ] Recorrido de la pantalla de usuarios contra el backend (hoy solo lectura).
+- [x] Pantalla de usuarios en modo consulta, probada en navegador (`web/e2e/flow.spec.ts`).

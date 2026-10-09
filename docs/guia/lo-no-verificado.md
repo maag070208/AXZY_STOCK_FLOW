@@ -20,6 +20,7 @@
 | **Cámara del móvil** | Sin probar en dispositivo real |
 | **Móvil ↔ API** | Los módulos `stock-network` / `stock-database` / `stock-datastore` **no están conectados a las pantallas** |
 | **E2E del móvil** | No hay ninguno |
+| **Animación de intro** | Los JSON de intro están en `web/src/shared/assets/lottie/`, pero ninguna pantalla los usa ([identidad-visual.md](identidad-visual.md)) |
 | **Cobertura de `receiving/` e `identity/` por HTTP con RBAC real** | Parcial: `ApiE2ETest` cubre token, 401/403, catálogo, paginación y reconciliación; **no** el flujo de captura y aprobación de facturas |
 | **E2E de navegador en CI** | `./scripts/e2e-web.sh` **no está en el workflow**: necesita navegador y dos servidores. Se ejecuta a mano ([estrategia-pruebas.md](../pruebas/estrategia-pruebas.md)) |
 | **Swagger / OpenAPI** | El documento se construye en código (`backend/src/main/kotlin/dev/axzy/stock/backend/docs/OpenApiDocumentation.kt`) y se sirve; la generación desde el árbol de rutas no existe en Ktor 3.1.1 ([stack.md](../arquitectura/stack.md)) |

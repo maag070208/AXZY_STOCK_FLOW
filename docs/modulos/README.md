@@ -23,6 +23,23 @@
 | [M08](M08-auditoria/README.md) | Auditoría | Sí | Sí | `AuditPage` | No hay |
 | [M09](M09-integracion-externa/README.md) | Integración externa: ERP y `kardo` | Parcial | No | No aplica | No aplica |
 
+## Cobertura en navegador
+
+`web/e2e/flow.spec.ts` tiene 18 pruebas contra el backend real. No están en CI y no se
+ejecutaron al escribir esto. Por módulo:
+
+| Módulo | Pruebas | Qué cubren |
+|---|---|---|
+| M02 | 2 | Reportes con datos del servidor; alarma de descuadre |
+| M04 | 4 | Listado, alta de orden, empaque sin tocar inventario |
+| M05 | 2 | Deuda visible en tránsito; traslado despachado |
+| M06 | 3 | Cola de etiquetas; validación de plantilla; previsualización |
+| M07 | 1 | Usuarios en modo consulta |
+| M08 | 2 | Bitácora con canal y permiso; filtro |
+| Acceso | 4 | Sesión, credenciales, recarga |
+
+M01 (catálogo) y M03 (recepción) no tienen prueba de navegador.
+
 ## Lo que no está en esta tabla
 
 - **Salud del sistema** (`GET /v1/health`): infraestructura, no un módulo. Ver [api/salud.md](../api/salud.md).
