@@ -264,7 +264,9 @@ class OpenApiDocumentationTest {
         // Los cinco de autorización, que el cliente DEBE distinguir.
         assertTrue(codes.containsAll(listOf("UNAUTHENTICATED", "PERMISSION_DENIED", "SCOPE_INSUFFICIENT", "POLICY_DENIED")))
         // Los que el código emite y el contrato NO lista: se documentan igual.
-        assertTrue(codes.containsAll(listOf("PRODUCT_NOT_FOUND", "INVALID_LOCATION_CODE", "NOT_PENDING_APPROVAL")))
+        assertTrue(codes.containsAll(listOf("PRODUCT_NOT_FOUND", "INVALID_LOCATION_CODE")))
+        // Lo que emite ReceivingService cuando nada está pendiente (coincide con el contrato §5).
+        assertTrue(codes.contains("NO_PENDING_APPROVAL"))
         assertTrue(codes.contains("NOT_FOUND") && codes.contains("INTERNAL_ERROR"))
     }
 

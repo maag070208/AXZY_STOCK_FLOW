@@ -333,14 +333,11 @@ internal val CONTRACT_DIVERGENCES: List<String> = listOf(
     "§4: POST /v1/inventory/locate documenta {invoiceLineId, toLocationId, quantity, idempotencyKey}; la implementación recibe {productCode, fromLocationCode, toLocationCode, quantity}. No existe invoiceLineId.",
     "§4: POST /v1/inventory/move recibe {productCode, fromLocationCode, toLocationCode, quantity}, no {productId, fromLocationId, toLocationId, quantity}.",
     "§4: GET /v1/inventory/stock filtra por productCode, locationCode y onlyWithStock (por defecto true), no por productId/locationId/warehouseId.",
-    "§5: GET /v1/invoices (listado) NO existe: solo hay POST (crear). Tampoco existen POST /v1/invoices/{id}/reject-discrepancy ni /close.",
     "§5: POST /v1/invoices responde 201 con {id, invoiceNumber}, no con la factura completa.",
-    "§5: el código de error real cuando nada está pendiente de aprobar es NOT_PENDING_APPROVAL (dominio). El contrato §5 dice NO_PENDING_APPROVAL.",
     "§11: GET /v1/inventory/kardex exige el permiso kardex.view; el contrato le asigna inventory.view.",
     "§11: GET /v1/reports/kardex-vs-projection exige report.view y NO está en la tabla §11.",
     "§11: faltan en la tabla GET /v1/warehouses (location.view), GET /v1/users (user.view), GET /v1/roles (role.manage) y GET /v1/permissions (role.manage).",
     "§1.3-bis: la lista cerrada no incluye códigos que el código SÍ emite: INVALID_FILTER, INVALID_FILTER_RANGE, INVALID_FILTER_DATE, INVALID_LOCATION_CODE, PRODUCT_NOT_FOUND, LOCATION_NOT_FOUND, DUPLICATE_WAREHOUSE_CODE, DUPLICATE_KEY, SAME_PASSWORD, WEAK_PASSWORD, NOT_FOUND, INTERNAL_ERROR.",
-    "§4/§5: las rutas de surtido (/v1/orders), traslados (/v1/transfers), etiquetas (/v1/labels, /v1/print-jobs) y los reportes de §9 (inventory, kardex/export, movements-summary) NO están implementados todavía.",
 )
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1206,7 +1203,7 @@ internal val ERROR_CODES_CATALOG: List<String> = listOf(
     "SAME_PASSWORD", "WEAK_PASSWORD",
     // Inventario y recepción (§4, §5)
     "REASON_REQUIRED", "INSUFFICIENT_STOCK", "SAME_SOURCE_AND_DESTINATION",
-    "DISCREPANCY_NOT_APPROVED", "NOT_PENDING_APPROVAL", "HAS_PENDING_LINES",
+    "DISCREPANCY_NOT_APPROVED", "NO_PENDING_APPROVAL", "HAS_PENDING_LINES",
     "INVALID_QUANTITY", "INCONSISTENT_BOX_COUNT", "BOXES_DO_NOT_DIVIDE_EVENLY",
     "EXCEEDS_LINE_QUANTITY", "INVALID_TRANSITION", "INVOICE_CLOSED",
     "CANNOT_DELETE_WITH_INVENTORY_EFFECT", "ACCESS_DENIED",
@@ -2089,7 +2086,7 @@ private val ENDPOINTS: List<Operation> = listOf(
             Response("409", "No hay ninguna línea en discrepancia.", ref("ErrorResponse")),
             Response("422", "Falta el motivo.", ref("ErrorResponse")),
         ),
-        errorCodes = listOf("REASON_REQUIRED", "NOT_PENDING_APPROVAL", "INVALID_ID"),
+        errorCodes = listOf("REASON_REQUIRED", "NO_PENDING_APPROVAL", "INVALID_ID"),
     ),
 
     Operation(
@@ -2135,8 +2132,8 @@ private val ENDPOINTS: List<Operation> = listOf(
             "aprobar lo propio sin darse cuenta.\n\n`422 SEGREGATION_OF_DUTIES` si quien aprueba " +
             "capturó ALGUNA de las líneas pendientes; el mensaje indica CUÁLES para que el " +
             "supervisor sepa qué reasignar. La base impone la regla con un `CHECK`: es imposible " +
-            "que una línea llegue a `APPROVED` sin `approved_by`.\n\nSi no hay nada pendiente, el " +
-            "código real es `NOT_PENDING_APPROVAL` (el contrato dice `NO_PENDING_APPROVAL`).",
+            "que una línea llegue a `APPROVED` sin `approved_by`.\n\nSi no hay nada pendiente, " +
+            "responde `409 NO_PENDING_APPROVAL`.",
         permission = "invoice.approve",
         parameters = listOf(route("id", integer())) + clientHeaders,
         body = ref("AprobarFacturaRequest"),
@@ -2145,7 +2142,7 @@ private val ENDPOINTS: List<Operation> = listOf(
             Response("409", "No hay ninguna línea pendiente de aprobar.", ref("ErrorResponse")),
             Response("422", "Falta el motivo, o quien aprueba capturó alguna línea pendiente.", ref("ErrorResponse")),
         ),
-        errorCodes = listOf("REASON_REQUIRED", "SEGREGATION_OF_DUTIES", "NOT_PENDING_APPROVAL", "INVALID_ID"),
+        errorCodes = listOf("REASON_REQUIRED", "SEGREGATION_OF_DUTIES", "NO_PENDING_APPROVAL", "INVALID_ID"),
     ),
 
     // ── Identidad ───────────────────────────────────────────────────────────
