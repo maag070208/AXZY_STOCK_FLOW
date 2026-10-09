@@ -1,4 +1,6 @@
 package dev.axzy.stock.backend.catalog
+import dev.axzy.stock.backend.catalog.location.LocationService
+import dev.axzy.stock.backend.catalog.product.ProductService
 
 import dev.axzy.stock.backend.catalog.location.LocationRepository
 import dev.axzy.stock.backend.catalog.location.locationRoutes
@@ -66,7 +68,7 @@ fun Route.catalogRoutes(
     val units = UnitOfMeasureRepository(db)
     val importService = CatalogImportService(db, products, units)
 
-    productRoutes(products, units, importService, permissionChecker)
-    locationRoutes(locations, warehouses, permissionChecker)
+    productRoutes(ProductService(products, units), importService, permissionChecker)
+    locationRoutes(LocationService(locations, warehouses), permissionChecker)
     warehouseRoutes(warehouses, permissionChecker)
 }

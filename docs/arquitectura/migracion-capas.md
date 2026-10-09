@@ -115,8 +115,7 @@ las tablas Exposed a `infrastructure/outbound/persistence/tables/`. **Hoy `ident
 `audit/` e `inventory/` importan `Pagination` del catálogo**, que es acoplamiento accidental
 entre features: un módulo depende de otro por un detalle de paginación.
 
-**Fase 2 — `catalog/`, recurso a recurso. Mitad hecha** (la partición, arriba). Falta la otra
-mitad: crear `ProductService`/`LocationService`/`WarehouseService` y que las rutas deleguen.
+**Fase 2 — `catalog/`, recurso a recurso. Hecha.** La partición está arriba, y las reglas están en `ProductService` y `LocationService`: las rutas traducen HTTP y nada más. `WarehouseService` no existe a propósito: la bodega solo lista y lee, sin reglas que sostengan un servicio. El `PUT` consulta el recurso antes de leer el cuerpo, para conservar el orden 404 → 400.
 Es lo que llena el hueco de «no hay dónde poner una regla que afecte a más de un recurso».
 
 **Fase 3 — `inventory/` y `receiving/`.** Son los que llevan el motor PL/pgSQL y su propia
