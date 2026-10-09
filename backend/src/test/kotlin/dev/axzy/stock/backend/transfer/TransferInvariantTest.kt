@@ -241,6 +241,34 @@ class TransferInvariantTest : DescribeSpec({
             }
         }
 
+        it("cada transición deja su registro en la bitácora, con el estado anterior y el nuevo") {
+            withDatabase { pool ->
+                val scenario = pool.scenario()
+                val (id, _) = pool.dispatchTransfer(scenario)
+                TransferService(pool).receive(id, userId = null)
+
+                // Se leen del mismo modo que lo vería la bitácora: acción y estados como texto.
+                val registros = pool.connection.use { c ->
+                    c.createStatement().use { st ->
+                        st.executeQuery(
+                            "SELECT action, previous_state::text, new_state::text FROM audit_log " +
+                                "WHERE entity_type = 'transfer' AND entity_id = '$id' ORDER BY id",
+                        ).use { rs ->
+                            buildList {
+                                while (rs.next()) add(Triple(rs.getString(1), rs.getString(2), rs.getString(3)))
+                            }
+                        }
+                    }
+                }
+
+                registros.map { it.first } shouldBe listOf("transfer.create", "transfer.dispatch", "transfer.receive")
+                // El despacho muestra DRAFT → DISPATCHED: el registro dice de dónde venía,
+                // no solo a dónde fue.
+                registros[1].second shouldBe """{"status": "DRAFT"}"""
+                registros[1].third shouldBe """{"status": "DISPATCHED"}"""
+            }
+        }
+
         it("DESPACHAR conserva el total: sale de la ubicación y entra en tránsito") {
             withDatabase { pool ->
                 val scenario = pool.scenario()

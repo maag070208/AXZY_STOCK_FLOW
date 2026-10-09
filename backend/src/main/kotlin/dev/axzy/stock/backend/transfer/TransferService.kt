@@ -1,5 +1,6 @@
 package dev.axzy.stock.backend.transfer
 
+import dev.axzy.stock.backend.audit.AuditWriter
 import dev.axzy.stock.backend.error.ConflictException
 import dev.axzy.stock.backend.error.NotFoundException
 import dev.axzy.stock.backend.error.UnprocessableException
@@ -44,7 +45,10 @@ import javax.sql.DataSource
  * que el movimiento.
  * ═══════════════════════════════════════════════════════════════════════════
  */
-class TransferService(private val dataSource: DataSource) {
+class TransferService(
+    private val dataSource: DataSource,
+    private val audit: AuditWriter = AuditWriter(dataSource),
+) {
 
     /** Un traslado con su detalle, o `null` si no existe. */
     fun byId(id: Long): TransferDetailResponse? = dataSource.connection.use { connection ->
@@ -220,6 +224,8 @@ class TransferService(private val dataSource: DataSource) {
                     }
                 }
 
+                auditTransition(connection, userId, id, "transfer.create", previous = null, next = TransferStatus.DRAFT)
+
                 connection.commit()
                 byId(id)!!
             } catch (e: Exception) {
@@ -271,6 +277,8 @@ class TransferService(private val dataSource: DataSource) {
                 for (line in linesRead) {
                     dispatchLine(connection, id, line, fromWarehouse, toWarehouse, userId)
                 }
+
+                auditTransition(connection, userId, id, "transfer.dispatch", previous = currentStatus, next = TransferStatus.DISPATCHED)
 
                 connection.prepareStatement(
                     "UPDATE transfers SET status = 'DISPATCHED', dispatched_by = ?, dispatched_at = now(), " +
@@ -391,6 +399,8 @@ class TransferService(private val dataSource: DataSource) {
                     )
                 }
 
+                auditTransition(connection, userId, id, "transfer.receive", previous = currentStatus, next = TransferStatus.RECEIVED)
+
                 connection.prepareStatement(
                     "UPDATE transfers SET status = 'RECEIVED', received_by = ?, received_at = now(), " +
                         "updated_at = now() WHERE id = ?",
@@ -492,6 +502,8 @@ class TransferService(private val dataSource: DataSource) {
                     recalcularTotal(connection, productId)
                 }
 
+                auditTransition(connection, userId, id, "transfer.cancel", previous = currentStatus, next = TransferStatus.CANCELLED)
+
                 connection.prepareStatement(
                     "UPDATE transfers SET status = 'CANCELLED', updated_at = now() WHERE id = ?",
                 ).use { st ->
@@ -518,6 +530,36 @@ class TransferService(private val dataSource: DataSource) {
      * Y después se recalcula el total, que vuelve a sumar: el resultado es el
      * mismo número que antes de despachar. **Esa igualdad es la invariante.**
      */
+    /**
+     * Registra la transición en la bitácora, **dentro de la conexión del llamador**: si la
+     * operación se revierte, el registro también. Un traslado que cambia de estado sin dejar
+     * rastro de quién lo hizo no es auditable.
+     */
+    private fun auditTransition(
+        connection: Connection,
+        userId: Long?,
+        id: Long,
+        action: String,
+        previous: TransferStatus?,
+        next: TransferStatus,
+    ) {
+        audit.record(
+            connection = connection,
+            actorUserId = userId,
+            actorUsername = null,
+            // Sin usuario no hay acción humana que atribuir: la base exige actor para
+            // los canales humanos (`audit_human_has_actor`), así que se registra como SYSTEM.
+            // Las rutas siempre pasan un usuario autenticado.
+            channel = if (userId != null) AuditWriter.Channel.WEB else AuditWriter.Channel.SYSTEM,
+            entityType = "transfer",
+            entityId = id.toString(),
+            action = action,
+            level = AuditWriter.Level.RELEVANT,
+            previousState = previous?.let { """{"status":"${it.name}"}""" },
+            newState = """{"status":"${next.name}"}""",
+        )
+    }
+
     private fun dispatchLine(
         connection: Connection,
         transferId: Long,
