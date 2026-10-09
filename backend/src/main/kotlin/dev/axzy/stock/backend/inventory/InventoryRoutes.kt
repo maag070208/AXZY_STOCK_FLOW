@@ -83,6 +83,24 @@ fun Route.inventoryRoutes(
 ) {
 
     /** Comprueba el permiso y corta con el código correcto si no lo tiene. */
+    /**
+     * Exige un permiso y traduce la denegación al estado que dice el contrato.
+     *
+     * **`UNAUTHENTICATED` es 401, no 403, y esto era un defecto real.** Esta
+     * función lanzaba `ForbiddenException` para CUALQUIER denegación, así que
+     * pedir una ruta de inventario sin token devolvía `403` mientras el catálogo
+     * —que sí distingue los dos casos— devolvía `401`. `CONTRATO_API.md` §1.2 es
+     * explícito: `401` «sin identidad válida», `403` «identidad sin autorización».
+     *
+     * La diferencia le importa al cliente: ante un `401` debe mandar al usuario a
+     * iniciar sesión, y ante un `403` debe decirle que pida un permiso. Con el
+     * `403` para todo, el cliente manda a iniciar sesión a quien ya tiene sesión
+     * abierta, y el usuario no entiende por qué.
+     *
+     * Lo encontró el test e2e de la API, no un test de ruta: los tests de ruta
+     * usan `AllowAllPermissionChecker`, así que **nunca ejercitaban una denegación
+     * de verdad**.
+     */
     suspend fun require(
         call: io.ktor.server.application.ApplicationCall,
         permission: String,
@@ -90,7 +108,17 @@ fun Route.inventoryRoutes(
         when (val decision = permissionChecker.check(call, permission)) {
             is PermissionDecision.Permitted -> Unit
             is PermissionDecision.Denied ->
-                throw dev.axzy.stock.backend.error.ForbiddenException(decision.code, decision.message)
+                if (decision.code == "UNAUTHENTICATED") {
+                    throw dev.axzy.stock.backend.error.UnauthorizedException(
+                        decision.code,
+                        decision.message,
+                    )
+                } else {
+                    throw dev.axzy.stock.backend.error.ForbiddenException(
+                        decision.code,
+                        decision.message,
+                    )
+                }
         }
     }
 
@@ -311,7 +339,7 @@ fun Route.inventoryRoutes(
             checkedAt = Instant.now().toString(),
             // Cero divergencias es el estado sano, y el reporte lo dice con un
             // booleano explícito en lugar de obligar a contar el arreglo.
-            cuadra = divergences.isEmpty(),
+            balanced = divergences.isEmpty(),
             divergences = divergences.size,
             items = divergences,
         ))
@@ -321,7 +349,20 @@ fun Route.inventoryRoutes(
 @Serializable
 data class ReconciliationReport(
     val checkedAt: String,
-    val cuadra: Boolean,
+    /**
+     * Veredicto explícito del servidor: `true` cuando **no hay ninguna divergencia**.
+     *
+     * Se llama `balanced` y no `cuadra` porque es un campo de la API pública y los
+     * identificadores van en inglés (`ARQUITECTURA.md` §5.1). El nombre anterior,
+     * `cuadra`, llegaba al JSON tal cual, junto con `totalEnBd`, `totalEsperado` y
+     * `diferencia` en `DivergenceDto`. La migración `V8` alineó los nombres de
+     * columna del `RETURNS TABLE` de `comprobar_proyecciones()` y con ellos los del
+     * contrato, que hasta entonces prometía campos que la ruta no devolvía.
+     *
+     * Es un booleano y no un `items.isEmpty()` en el cliente **a propósito**: contar
+     * el arreglo en el cliente es otro cálculo que puede divergir del del servidor.
+     */
+    val balanced: Boolean,
     val divergences: Int,
     val items: List<dev.axzy.stock.backend.inventory.DivergenceDto>,
 )

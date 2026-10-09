@@ -243,4 +243,123 @@ sealed interface DomainError {
     ) : DomainError {
         override val code = "POLICY_REQUIRED"
     }
+
+    // ── Traslados entre bodegas ─────────────────────────────────────────────
+
+    /**
+     * Un traslado con la misma bodega de origen y de destino.
+     *
+     * La base lo impone con dos `CHECK` (en `transfers` y en `stock_in_transit`),
+     * y el dominio lo comprueba **antes** de tocar la base para poder dar un
+     * `422` que explique el campo en lugar de un error de restricción.
+     *
+     * **Por qué importa de verdad:** un traslado de una bodega a sí misma se
+     * despacha, la mercancía queda «en tránsito» hacia el mismo sitio, y el total
+     * del inventario **no cambia** — así que ningún reporte lo detecta. La
+     * mercancía desaparece de las ubicaciones y no llega a ninguna parte, sin que
+     * nada se ponga en rojo.
+     */
+    data class SameWarehouse(
+        override val message: String =
+            "El traslado debe ir a una bodega distinta de la de origen.",
+    ) : DomainError {
+        override val code = "SAME_WAREHOUSE"
+    }
+
+    /**
+     * Un traslado sin líneas.
+     *
+     * Despachar un traslado vacío crea una deuda visible en `in-transit` que no
+     * corresponde a ninguna mercancía: aparece en el informe de tránsito y nunca
+     * se puede cerrar de forma útil.
+     */
+    data class EmptyTransfer(
+        override val message: String = "El traslado no tiene ninguna línea.",
+    ) : DomainError {
+        override val code = "EMPTY_TRANSFER"
+    }
+
+    // ── Surtido de órdenes ──────────────────────────────────────────────────
+
+    /**
+     * La orden ya estaba confirmada (contrato §6, `ORDER_ALREADY_CONFIRMED`).
+     *
+     * **Confirmar dos veces descontaría el stock dos veces**: la primera deja las
+     * líneas sin cantidad pendiente y la segunda volvería a restar. El total del
+     * producto bajaría el doble y el descuadre parecería una venta.
+     */
+    data class OrderAlreadyConfirmed(
+        val orderNumber: String,
+        override val message: String =
+            "La orden $orderNumber ya estaba confirmada. Confirmarla otra vez " +
+                "descontaría el stock dos veces.",
+    ) : DomainError {
+        override val code = "ORDER_ALREADY_CONFIRMED"
+    }
+
+    /**
+     * Se intentó exportar una orden que todavía no se confirmó.
+     *
+     * Exportar al ERP algo que aún no se ha surtido mandaría al sistema externo
+     * una salida que no existe.
+     */
+    data class OrderNotConverted(
+        val orderNumber: String,
+        override val message: String =
+            "La orden $orderNumber no está confirmada: no hay nada que exportar.",
+    ) : DomainError {
+        override val code = "ORDER_NOT_CONVERTED"
+    }
+
+    /**
+     * Se pidió empacar más de lo que queda pendiente en la línea.
+     *
+     * La base lo impone con `order_lines_supplied_not_exceeds`
+     * (`supplied_quantity <= quantity`), pero el dominio lo comprueba antes para
+     * poder decir **cuánto queda**, que es lo que el operador necesita saber.
+     */
+    data class ExceedsPendingQuantity(
+        val requested: Long,
+        val pending: Long,
+        override val message: String =
+            "Se intentaron surtir $requested unidades y solo quedan $pending pendientes " +
+                "en la línea.",
+    ) : DomainError {
+        override val code = "EXCEEDS_PENDING_QUANTITY"
+    }
+
+    // ── Etiquetas ───────────────────────────────────────────────────────────
+
+    /**
+     * Falta un dato que la plantilla necesita para imprimir.
+     *
+     * **No se resuelve dejando el marcador ni sustituyéndolo por vacío.** Lo
+     * primero imprime `{{productCode}}` en la etiqueta del estante; lo segundo
+     * imprime una etiqueta que **parece correcta y no lo está**, con un hueco que
+     * nadie distingue de una plantilla mal diseñada.
+     */
+    data class MissingLabelField(
+        val fields: List<String>,
+        override val message: String =
+            "Faltan datos para la etiqueta: ${fields.joinToString(", ")}. " +
+                "La plantilla los necesita y no se imprimen etiquetas incompletas.",
+    ) : DomainError {
+        override val code = "MISSING_LABEL_FIELD"
+    }
+
+    /**
+     * Una etiqueta ya impresa no se imprime otra vez por un reintento.
+     *
+     * El contrato lo exige con `409` en `PATCH /v1/print-jobs/{id}`: si la
+     * impresora reintenta una llamada que ya funcionó, el trabajo no se marca dos
+     * veces ni se gasta una segunda etiqueta.
+     */
+    data class LabelAlreadyPrinted(
+        val jobId: Long,
+        override val message: String =
+            "El trabajo de impresión $jobId ya está marcado como impreso; " +
+                "un reintento no debe imprimir dos veces.",
+    ) : DomainError {
+        override val code = "LABEL_ALREADY_PRINTED"
+    }
 }

@@ -5,6 +5,7 @@ export {
   exportOrder,
   fetchOrder,
   fetchOrders,
+  fetchOrdersByStatus,
   packageOrderLine,
   registerOrderShortage,
 } from "./api/fulfillmentApi";
@@ -16,4 +17,4 @@ export type {
   OrderSummaryDto,
   PackageLinePayload,
 } from "./model/types";
-export type { OrderExportStatus, OrderStatus } from "@shared/api";
+export type { OrderExportStatus, OrderLineStatus, OrderStatus } from "@shared/api";

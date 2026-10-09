@@ -83,12 +83,44 @@ fun Route.receivingRoutes(
     permissionChecker: PermissionChecker,
 ) {
 
+    /**
+     * Exige un permiso traduciendo la denegación al estado del contrato.
+     *
+     * **`UNAUTHENTICATED` es `401` y el resto `403` (§1.2), y esto era un defecto
+     * real en toda la recepción.** Lanzaba `403` para cualquier denegación, así
+     * que pedir una ruta de facturas sin token devolvía un estado distinto del que
+     * devolvían el catálogo y los traslados. **La misma falta de token daba
+     * respuestas distintas según la ruta.**
+     *
+     * Al cliente le importa: ante un `401` manda al usuario a iniciar sesión, y
+     * ante un `403` a pedir un permiso. Con `403` para todo, manda a iniciar
+     * sesión a quien ya la tiene abierta.
+     *
+     * Lo encontró el e2e de la API, que ahora recorre las rutas de todos los
+     * módulos exigiendo el MISMO estado. Los tests de ruta no podían verlo: usan
+     * un verificador que permite todo y nunca ejercitan una denegación real.
+     */
     suspend fun require(call: io.ktor.server.application.ApplicationCall, permission: String) {
-        when (val d = permissionChecker.check(call, permission)) {
+        when (val decision = permissionChecker.check(call, permission)) {
             is PermissionDecision.Permitted -> Unit
-            is PermissionDecision.Denied -> throw ForbiddenException(d.code, d.message)
+            is PermissionDecision.Denied ->
+                if (decision.code == "UNAUTHENTICATED") {
+                    throw UnauthorizedException(decision.code, decision.message)
+                } else {
+                    throw ForbiddenException(decision.code, decision.message)
+                }
         }
     }
+
+    /**
+     * Los estados de una factura, para validar el filtro contra el enum real.
+     *
+     * Escritos a mano y no derivados del enum porque el enum del dominio
+     * (`InvoiceStatus`) vive en `stock-domain` y esta lista tiene que coincidir con
+     * el tipo `invoice_status` de PostgreSQL. Añadir un estado al enum sin añadirlo
+     * a la migración rompería igual, así que la lista es la del ESQUEMA.
+     */
+    val INVOICE_STATUSES = listOf("PENDING", "IN_PROGRESS", "PENDING_TO_LOCATE", "COMPLETED", "CANCELLED")
 
     suspend fun user(call: io.ktor.server.application.ApplicationCall): Long =
         call.userFromToken() ?: throw UnauthorizedException()
@@ -98,6 +130,68 @@ fun Route.receivingRoutes(
         Quantity.ofScaled(java.math.BigDecimal.valueOf(v).movePointRight(3).toLong())
 
     route("/v1/invoices") {
+
+        // ── Listado ────────────────────────────────────────────────────────
+        get {
+            require(call, "invoice.view")
+
+            val brutoPagina = call.request.queryParameters["page"]
+            val brutoTamano = call.request.queryParameters["size"]
+            val pagina = brutoPagina?.toIntOrNull() ?: 0
+            val tamano = brutoTamano?.toIntOrNull() ?: 50
+
+            if (pagina < 0) {
+                throw BadRequestException(
+                    "INVALID_PAGINATION",
+                    "El parámetro 'page' empieza en 0. Se recibió '$brutoPagina'.",
+                )
+            }
+            // Se RECHAZA en lugar de recortar: recortar hace creer al cliente que
+            // tiene todos los datos (§1.4).
+            if (tamano < 1 || tamano > 200) {
+                throw BadRequestException(
+                    "INVALID_PAGINATION",
+                    "El parámetro 'size' admite de 1 a 200. Se recibió '$brutoTamano'.",
+                )
+            }
+
+            val status = call.request.queryParameters["status"]?.trim()?.uppercase()?.takeIf { it.isNotEmpty() }
+            if (status != null && status !in INVOICE_STATUSES) {
+                throw BadRequestException(
+                    "INVALID_PARAMETER",
+                    "El parámetro 'status' no admite el valor '$status'.",
+                    mapOf("status" to status, "allowed" to INVOICE_STATUSES.joinToString(", ")),
+                )
+            }
+            val search = call.request.queryParameters["q"]
+
+            val items = service.list(status, search, pagina * tamano, tamano)
+            val total = service.count(status, search)
+
+            call.respond(
+                HttpStatusCode.OK,
+                InvoicePageResponse(
+                    items = items,
+                    page = pagina,
+                    size = tamano,
+                    totalItems = total,
+                    totalPages = if (tamano == 0) 0 else ((total + tamano - 1) / tamano).toInt(),
+                ),
+            )
+        }
+
+        // ── Cerrar ─────────────────────────────────────────────────────────
+        post("/{id}/close") {
+            require(call, "invoice.close")
+            val invoiceId = call.parameters["id"]?.toLongOrNull()
+                ?: throw BadRequestException("INVALID_ID", "El identificador no es un número.")
+
+            // **La regla la aplica el servicio con el criterio del DOMINIO**
+            // (`InvoiceLineStatus.blocksInvoiceClosing`): la ruta no repite los
+            // estados. Duplicarlos aquí es cómo se acaba cerrando una factura con
+            // una discrepancia viva.
+            call.respond(HttpStatusCode.OK, service.close(invoiceId, user(call)))
+        }
 
         // ── Crear ──────────────────────────────────────────────────────────
         post {

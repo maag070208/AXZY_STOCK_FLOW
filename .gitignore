@@ -118,3 +118,12 @@ playwright-report/
 *.xls
 *.csv
 !docs/**/*.example.csv
+
+# ── Navegadores de Playwright para el e2e de la web ────────────────────────
+# Se instalan DENTRO del workspace (`PLAYWRIGHT_BROWSERS_PATH`), no en
+# ~/Library/Caches, porque el sandbox de escritura bloquea la caché de usuario.
+# Son ~100 MB por navegador: no van al repositorio.
+web/.browsers/
+
+# Caché nativa de SWC que usa el dev server de la web.
+web/.cache/

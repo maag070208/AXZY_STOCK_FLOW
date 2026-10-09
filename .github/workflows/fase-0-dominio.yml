@@ -173,6 +173,112 @@ jobs:
           echo "✓ Esquema de auditoría: particionado, inmutable y con triggers por partición"
 
   # ==========================================================================
+  # API — TESTS DEL BACKEND, QUE NO SE EJECUTABAN EN CI
+  #
+  # **Este trabajo existía como hueco y era un falso verde.** El CI corría
+  # `:stock-domain:check` —los tests del dominio— y aplicaba las migraciones con
+  # `psql` a mano, pero **`backend/` no se probaba nunca**: sus 212 tests (unidad,
+  # integración y e2e de API) solo se ejecutaban en la máquina de quien se
+  # acordaba. Un test que no corre en CI no vigila nada.
+  #
+  # ── POR QUÉ SE COMPRUEBAN LOS XML Y ADEMÁS QUE NO HAYA SALTADOS ───────────
+  #
+  # Dos trampas que este proyecto ya pagó, y las dos son silenciosas:
+  #
+  #  1. **Gradle reporta «BUILD SUCCESSFUL» con 0 tests ejecutados.** Se leen los
+  #     XML de JUnit y se exige un mínimo: si el filtro o la configuración se
+  #     rompen, el trabajo falla en lugar de dar verde con la suite vacía.
+  #  2. **Los tests se SALTAN si no hay base de datos** —a propósito, para que en
+  #     local no molesten—. En CI eso convertiría este trabajo en decorativo: se
+  #     ejecutaría, no probaría nada y saldría verde. **Un test saltado en CI es
+  #     un fallo**, así que se cuentan y se falla si hay uno.
+  # ==========================================================================
+  api-backend:
+    name: API (Kotest + PostgreSQL real)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: stock_test
+          POSTGRES_USER: stock_app
+          POSTGRES_PASSWORD: clave_de_ci
+          POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U stock_app -d stock_test -q"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # La contraseña va por variable de entorno: los tests NO llevan credenciales
+      # escritas, leen `STOCK_TEST_DB_PASSWORD` o `infra/.env` (que no existe en
+      # CI, y no debe existir).
+      - name: Tests de la API (unidad, integración y e2e)
+        env:
+          STOCK_TEST_DB_USER: stock_app
+          STOCK_TEST_DB_PASSWORD: clave_de_ci
+          STOCK_TEST_DB_URL: jdbc:postgresql://127.0.0.1:5432/stock_test
+        run: ./gradlew :backend:test --console=plain
+
+      # ── La comprobación que convierte lo anterior en una guardia de verdad ──
+      - name: Verificar los resultados (0 fallos, 0 saltados, y que corrieron)
+        if: always()
+        run: |
+          set -euo pipefail
+          python3 - <<'PYTHON'
+          import glob, sys, xml.etree.ElementTree as ET
+
+          rutas = glob.glob("backend/build/test-results/**/TEST-*.xml", recursive=True)
+          if not rutas:
+              sys.exit("::error::No se generó ningún XML de tests: la suite NO se ejecutó.")
+
+          tests = fallos = errores = saltados = 0
+          for p in rutas:
+              r = ET.parse(p).getroot()
+              tests += int(r.get("tests", 0))
+              fallos += int(r.get("failures", 0))
+              errores += int(r.get("errors", 0))
+              saltados += int(r.get("skipped", 0))
+
+          print(f"{tests} tests, {fallos} fallos, {errores} errores, {saltados} saltados")
+
+          # Un mínimo, para que borrar tests o romper el descubrimiento no pase.
+          # El número es un SUELO, no el total: crecer no debe romper el CI.
+          if tests < 180:
+              sys.exit(f"::error::Solo {tests} tests ejecutados (mínimo 180): la suite se está perdiendo.")
+          if saltados:
+              sys.exit(
+                  f"::error::{saltados} tests SALTADOS. En CI no hay base que falte: "
+                  "un test saltado aquí es un test que no vigila."
+              )
+          if fallos or errores:
+              sys.exit(f"::error::{fallos} fallos y {errores} errores.")
+          PYTHON
+
+      - name: Publicar el informe de tests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: informe-tests-api
+          path: backend/build/reports/tests/
+          retention-days: 7
+
+  # ==========================================================================
   # APK DE ANDROID — PASO SEPARADO Y OBLIGATORIO
   #
   # `mobile-app/androidApp` es un build de Gradle INDEPENDIENTE, porque con

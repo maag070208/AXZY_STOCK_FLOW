@@ -1,12 +1,14 @@
 import { api, get } from "@shared/api";
 import type {
   LabelJob,
+  LabelJobPage,
   LabelPrintRequest,
   LabelPrintResponse,
   LabelPreviewRequest,
   LabelPreviewResponse,
   LabelTemplate,
-  Page,
+  LabelTemplateCreateRequest,
+  LabelTemplateUpdateRequest,
   PageParams,
 } from "@shared/api";
 
@@ -19,20 +21,28 @@ import type {
  * etiqueta se perdía para siempre.
  */
 
-/** El listado **omite `zpl`** (es grande): sólo el detalle lo trae. */
-export const fetchLabelTemplates = (): Promise<Page<LabelTemplate>> =>
-  get<Page<LabelTemplate>>("/label-templates", { params: { size: 200 } });
+/**
+ * El listado de plantillas.
+ *
+ * **Devuelve un ARRAY, no un sobre de paginación.** Estaba declarado como
+ * `Page<LabelTemplate>`, así que `pagina.items` habría sido `undefined` y la
+ * pantalla habría salido vacía **sin fallar** — el mismo defecto que tenía el
+ * informe de reconciliación. El listado **omite `zpl`** (es grande): solo el
+ * detalle lo trae.
+ */
+export const fetchLabelTemplates = (onlyActive = false): Promise<LabelTemplate[]> =>
+  get<LabelTemplate[]>("/label-templates", { params: onlyActive ? { onlyActive: true } : {} });
 
 export const fetchLabelTemplate = (id: number): Promise<LabelTemplate> =>
   get<LabelTemplate>(`/label-templates/${id}`);
 
 export const createLabelTemplate = (
-  body: Partial<LabelTemplate>
+  body: LabelTemplateCreateRequest
 ): Promise<LabelTemplate> => api.post<LabelTemplate>("/label-templates", body);
 
 export const updateLabelTemplate = (
   id: number,
-  body: Partial<LabelTemplate>
+  body: LabelTemplateUpdateRequest
 ): Promise<LabelTemplate> => api.put<LabelTemplate>(`/label-templates/${id}`, body);
 
 /** ZPL resuelto **sin imprimir**. Lo usan web y móvil para el preview. */
@@ -48,9 +58,18 @@ export const fetchLabelJob = (id: number): Promise<LabelJob> =>
 
 export const fetchLabelJobs = (
   params: PageParams & { status?: string } = {}
-): Promise<Page<LabelJob>> =>
-  get<Page<LabelJob>>("/labels/jobs", { params: { size: 50, ...params } });
+): Promise<LabelJobPage> =>
+  get<LabelJobPage>("/labels/jobs", { params: { size: 50, ...params } });
 
 /** Genera un **trabajo nuevo** enlazado al original; exige motivo. */
-export const reprintLabelJob = (id: number, reason: string): Promise<LabelPrintResponse> =>
-  api.post<LabelPrintResponse>(`/labels/jobs/${id}/reprint`, { reason });
+/**
+ * Reimprime: **crea un trabajo NUEVO enlazado al original.**
+ *
+ * **Devuelve el trabajo nuevo, no un `jobIds`.** La API responde `202` con el
+ * trabajo de reimpresión; declararlo como `LabelPrintResponse` habría hecho leer
+ * `jobIds` de un objeto que no lo tiene, y la pantalla no podría decir qué trabajo
+ * se creó. El motivo es obligatorio: la trazabilidad exige saber quién pidió la
+ * reimpresión y por qué.
+ */
+export const reprintLabelJob = (id: number, reason: string): Promise<LabelJob> =>
+  api.post<LabelJob>(`/labels/jobs/${id}/reprint`, { reason });

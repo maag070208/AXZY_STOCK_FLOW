@@ -9,6 +9,7 @@ export {
   receiveTransfer,
 } from "./api/transferApi";
 export type {
+  InTransitParams,
   InTransitTransferDto,
   TransferCreatePayload,
   TransferDto,

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { ApiError, get } from "@shared/api";
+import { ApiError } from "@shared/api";
+import { fetchKardexVsProjection } from "@entities/report/api/reportApi";
+import type { KardexVsProjectionReport } from "@shared/api";
 import { PageShell } from "@shared/ui/page-shell";
 
 /**
@@ -18,8 +20,8 @@ import { PageShell } from "@shared/ui/page-shell";
  * conteo físico, es decir, cuando ya nadie sabía cuándo ni cómo se rompió. Por eso
  * el resultado se enseña como un **veredicto**, no como una tabla más:
  *
- *  - `cuadra: true`  → verde y tranquilizador: no hay nada que investigar;
- *  - `cuadra: false` → **rojo y alarmante**: significa que el inventario no
+ *  - `balanced: true`  → verde y tranquilizador: no hay nada que investigar;
+ *  - `balanced: false` → **rojo y alarmante**: significa que el inventario no
  *    cuadra, y las diferencias hay que investigarlas **antes** de seguir
  *    operando, porque cualquier ajuste posterior se calcularía sobre un total
  *    equivocado.
@@ -30,40 +32,19 @@ import { PageShell } from "@shared/ui/page-shell";
  *     manda con `BigDecimal.toPlainString()` (`"5193.000"`), que en JSON es una
  *     cadena con 3 decimales. Leerlos como `number` compila igual y pinta mal el
  *     valor (como en el kardex, donde `units` también es cadena).
- *  2. **El tipo sigue lo que el servidor manda de verdad**, no lo que documenta
- *     `CONTRATO_API.md` §9. El contrato promete
- *     `productsChecked`/`ledgerNet`/`projected`/`difference`; la ruta responde
- *     `cuadra`/`totalEnBd`/`totalEsperado`/`diferencia` (comprobado con `curl`).
- *     Tipar el contrato en vez de la respuesta pintaría `undefined`. Los campos
- *     del contrato que faltan se reportan al backend; la web no puede inventarlos.
+ *  2. **El tipo sigue lo que el servidor manda de verdad.** Estuvo mal en los dos
+ *     lados: el contrato §9 prometía `productsChecked`/`ledgerNet`/`projected` y la
+ *     ruta respondía `cuadra`/`totalEnBd`/`totalEsperado`/`diferencia`, unos campos
+ *     en español que además incumplían la norma de idioma. Se corrigieron la ruta
+ *     (migración `V8` más el DTO) y el contrato: hoy son
+ *     `balanced`/`projectedTotal`/`ledgerTotal`/`difference`, y **este tipo tiene
+ *     que coincidir con ellos**. Tipar el contrato en vez de la respuesta pinta
+ *     `undefined`, y al revés rompe al cliente en el siguiente despliegue.
  *  3. **No se recalcula nada en el cliente.** Sumar ubicaciones en el navegador
  *     produciría un segundo cálculo que puede discrepar del primero, y entonces el
  *     descuadre sería el de la pantalla, no el del inventario.
  * ═══════════════════════════════════════════════════════════════════════════
  */
-
-/**
- * Una divergencia, con los nombres de campo que envía la ruta
- * (`InventoryService.divergencias()`), no los del contrato.
- */
-interface Divergencia {
-  productId: number;
-  productCode: string;
-  /** Total que guarda la proyección del producto, como cadena decimal. */
-  totalEnBd: string;
-  /** Suma de las existencias de sus ubicaciones, como cadena decimal. */
-  totalEsperado: string;
-  /** `totalEnBd - totalEsperado`; el signo importa y se conserva. */
-  diferencia: string;
-}
-
-interface Reconciliacion {
-  checkedAt: string;
-  /** Veredicto explícito del servidor: contar el arreglo en el cliente sería otro cálculo. */
-  cuadra: boolean;
-  divergences: number;
-  items: Divergencia[];
-}
 
 /** Instante ISO en UTC → fecha y hora del reloj del usuario. */
 function formatearFechaHora(iso: string): string {
@@ -74,7 +55,7 @@ function formatearFechaHora(iso: string): string {
 }
 
 export default function ReportsPage() {
-  const [reporte, setReporte] = useState<Reconciliacion | null>(null);
+  const [reporte, setReporte] = useState<KardexVsProjectionReport | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // Un 403 no es un fallo de red: es un permiso que falta. Se distingue para
@@ -89,7 +70,7 @@ export default function ReportsPage() {
     try {
       // Repetir la comprobación es barato y útil: el reporte es una foto del
       // momento, no un histórico, así que se vuelve a pedir y no se cachea.
-      const respuesta = await get<Reconciliacion>("/reports/kardex-vs-projection");
+      const respuesta = await fetchKardexVsProjection();
       setReporte(respuesta);
     } catch (e) {
       // El veredicto anterior se descarta: dejarlo en pantalla después de un
@@ -147,10 +128,10 @@ export default function ReportsPage() {
             así escondido en una línea de texto no se lee.
           */}
           <section
-            role={reporte.cuadra ? "status" : "alert"}
+            role={reporte.balanced ? "status" : "alert"}
             style={{
-              background: reporte.cuadra ? "#E8F5EE" : "#FDECEA",
-              borderLeft: `6px solid ${reporte.cuadra ? "#2E7D5B" : "#C0392B"}`,
+              background: reporte.balanced ? "#E8F5EE" : "#FDECEA",
+              borderLeft: `6px solid ${reporte.balanced ? "#2E7D5B" : "#C0392B"}`,
               padding: 20,
               marginBottom: 16,
             }}
@@ -159,18 +140,18 @@ export default function ReportsPage() {
               style={{
                 margin: 0,
                 fontSize: 22,
-                color: reporte.cuadra ? "#2E7D5B" : "#C0392B",
+                color: reporte.balanced ? "#2E7D5B" : "#C0392B",
               }}
             >
-              {reporte.cuadra ? "El inventario cuadra" : "El inventario NO cuadra"}
+              {reporte.balanced ? "El inventario cuadra" : "El inventario NO cuadra"}
             </h2>
             <p
               style={{
                 margin: "8px 0 0",
-                color: reporte.cuadra ? "#2E7D5B" : "#C0392B",
+                color: reporte.balanced ? "#2E7D5B" : "#C0392B",
               }}
             >
-              {reporte.cuadra
+              {reporte.balanced
                 ? "El total de cada producto coincide con la suma de sus ubicaciones. No hay descuadre que investigar."
                 : `El total de ${reporte.divergences} producto(s) no coincide con la suma de sus ubicaciones. Hay que investigar las diferencias de la tabla antes de seguir operando: un ajuste calculado sobre un total equivocado solo tapa el problema.`}
             </p>
@@ -192,7 +173,7 @@ export default function ReportsPage() {
             </button>
           </p>
 
-          {!reporte.cuadra && reporte.items.length === 0 && (
+          {!reporte.balanced && reporte.items.length === 0 && (
             // Cinturón y tirantes: si el servidor dice que hay divergencias pero
             // no manda ninguna fila, callarlo dejaría un «no cuadra» sin nada que
             // mirar. Es un fallo del reporte y se dice como tal.
@@ -230,7 +211,7 @@ export default function ReportsPage() {
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {d.totalEnBd}
+                      {d.projectedTotal}
                     </td>
                     <td
                       style={{
@@ -240,7 +221,7 @@ export default function ReportsPage() {
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {d.totalEsperado}
+                      {d.ledgerTotal}
                     </td>
                     <td
                       style={{
@@ -252,7 +233,7 @@ export default function ReportsPage() {
                         fontWeight: 600,
                       }}
                     >
-                      {d.diferencia}
+                      {d.difference}
                     </td>
                   </tr>
                 ))}

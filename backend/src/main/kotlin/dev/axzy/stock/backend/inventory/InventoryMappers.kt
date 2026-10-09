@@ -137,9 +137,15 @@ internal fun ResultSet.toStockByLocationDto(): StockByLocationDto = StockByLocat
 internal fun ResultSet.toDivergenceDto(): DivergenceDto = DivergenceDto(
     productId = getLong("product_id"),
     productCode = getString("product_code"),
-    totalEnBd = getBigDecimal("total_en_bd").toPlainString(),
-    totalEsperado = getBigDecimal("total_esperado").toPlainString(),
-    diferencia = getBigDecimal("diferencia").toPlainString(),
+    // Los nombres de columna están en INGLÉS desde la migración `V8` y tienen que
+    // coincidir con el `RETURNS TABLE` de `comprobar_proyecciones()`. **Si no
+    // coinciden, esto no falla con un mensaje que lo diga:** `getBigDecimal`
+    // devuelve `null` y `toPlainString()` revienta con un `NullPointerException`
+    // que no nombra la columna que falta. Es la trampa que documenta
+    // `ARQUITECTURA.md` §1.7: un mapper mal escrito no rompe, miente.
+    projectedTotal = getBigDecimal("projected_total").toPlainString(),
+    ledgerTotal = getBigDecimal("ledger_total").toPlainString(),
+    difference = getBigDecimal("difference").toPlainString(),
 )
 
 internal fun locationDisplayName(hall: String, code: String, position: String, kind: String): String =

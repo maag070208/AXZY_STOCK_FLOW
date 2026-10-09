@@ -84,12 +84,12 @@ class RoutesWiringTest : DescribeSpec({
                 .walkTopDown()
                 .filter { f -> f.isFile && f.extension == "kt" }
                 .flatMap { file ->
-                    // ── SOLO las funciones PÚBLICAS ────────────────────────
+                    // ── SOLO las funciones que `Application.kt` DEBE invocar ──
                     //
-                    // `private fun Route.algoRoutes(...)` es IMPLEMENTACIÓN
-                    // INTERNA: la llama otra función de rutas del mismo archivo,
-                    // no `Application.kt`, y eso es correcto. Exigirle un
-                    // `Application.kt` sería un falso positivo.
+                    // `private` e `internal` son IMPLEMENTACIÓN INTERNA: las llama
+                    // otra función de rutas del mismo módulo, no `Application.kt`,
+                    // y eso es correcto. Exigirles un `Application.kt` sería un
+                    // falso positivo.
                     //
                     // Se descubrió porque el renombrado extrajo `productRoutes`,
                     // `locationRoutes` y `warehouseRoutes` como privadas dentro de
@@ -98,9 +98,27 @@ class RoutesWiringTest : DescribeSpec({
                     // avisar y se equivocaba en el diagnóstico**: la distinción que
                     // le faltaba era la visibilidad.
                     //
+                    // ── POR QUÉ TAMBIÉN SE EXCLUYE `internal` ──────────────────
+                    //
+                    // Al partir `catalog/` en un fichero por recurso (ver
+                    // ARQUITECTURA.md §«Migración a capas»), los tres recursos
+                    // viven en ficheros DISTINTOS y los invoca `catalogRoutes()`
+                    // desde un cuarto. **`private` en Kotlin, a nivel de fichero,
+                    // significa privado de ESE fichero**, así que `private` no
+                    // compila: quien los llama es otro fichero. La visibilidad
+                    // mínima que funciona es `internal`, y es la correcta: dentro
+                    // del módulo, fuera de la API pública.
+                    //
+                    // Sin esta exclusión el test pedía que `Application.kt`
+                    // montara `productRoutes` **y además** `catalogRoutes`, que ya
+                    // las monta: las rutas quedarían registradas DOS VECES. Es el
+                    // mismo defecto que documenta `Application.kt` sobre el
+                    // verificador de permisos —un duplicado que Ktor resuelve por
+                    // la primera— y que ya hizo fallar 49 tests una vez.
+                    //
                     // Sigue vigilando lo que importa: una función PÚBLICA de rutas
                     // que nadie invoca da 404 en producción con los tests en verde.
-                    Regex("""(?<!private\s)fun\s+Route\.(\w+Routes)\s*\(""")
+                    Regex("""(?<!\b(?:private|internal)\s)fun\s+Route\.(\w+Routes)\s*\(""")
                         .findAll(file.readText())
                         .map { it.groupValues[1] }
                         .toList()

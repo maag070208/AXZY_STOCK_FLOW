@@ -1,11 +1,13 @@
 package dev.axzy.stock.backend.security
 
+import dev.axzy.stock.backend.audit.AuditWriter
 import dev.axzy.stock.domain.access.AccessDecision
 import dev.axzy.stock.domain.access.AccessEngine
 import dev.axzy.stock.domain.access.AccessUser
 import dev.axzy.stock.domain.access.RequestContext
 import dev.axzy.stock.domain.access.ResourceContext
 import io.ktor.server.application.ApplicationCall
+import io.ktor.server.request.path
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -99,6 +101,19 @@ class AccessEnginePermissionChecker(
     private val engine: AccessEngine,
     private val currentUser: suspend (ApplicationCall) -> AccessUser?,
     private val requestContext: (ApplicationCall) -> RequestContext = { RequestContext() },
+    /**
+     * El escritor de auditoría, o `null` para no registrar.
+     *
+     * **Registrar una denegación no es telemetría: es control de acceso.** Un
+     * sistema que niega sin dejar constancia no puede responder a la única pregunta
+     * que importa después de un incidente —«¿cuántas veces lo intentó y desde
+     * dónde?»—, y un ataque de fuerza contra permisos es indistinguible de un
+     * usuario que se equivocó de pantalla.
+     *
+     * Es `null` por defecto para que las pruebas de ruta, que usan verificadores
+     * que permiten todo, no arrastren una dependencia de base de datos.
+     */
+    private val auditWriter: AuditWriter? = null,
 ) : PermissionChecker {
 
     override suspend fun check(call: ApplicationCall, permission: String): PermissionDecision {
@@ -108,16 +123,69 @@ class AccessEnginePermissionChecker(
         // son de alcance `ALL` (§11), así que no hay bodega concreta que
         // comprobar aquí. Cuando una ruta necesite alcance por bodega, se pasa
         // su `ResourceContext` y el motor resuelve la escalera.
+        val context = requestContext(call)
         val decision = engine.decide(
             user = user,
             permissionKey = permission,
             resource = ResourceContext(),
-            context = requestContext(call),
+            context = context,
         )
 
-        return decision.toPermissionDecision()
+        val outcome = decision.toPermissionDecision()
+
+        // ── LA DENEGACIÓN SE REGISTRA ───────────────────────────────────────
+        //
+        // `recordDeniedAccessSafely` **ya existía y nadie la llamaba**: el
+        // escritor tenía el método, la tabla tenía las columnas y la bitácora
+        // quedaba en cero. Un método de auditoría sin llamadas es una fachada, y
+        // este era el requisito central del proyecto sin cumplir.
+        //
+        // Las 6 dimensiones salen de aquí sin trabajo extra: quién (`user`), qué
+        // (`access.denied` + el permiso), sobre qué (la ruta), cuándo (el
+        // servidor), **desde dónde** (canal y IP, que es lo que el legacy no
+        // guardaba) y con qué decisión.
+        //
+        // **Un fallo al registrar NO cambia la decisión**: `recordDenied...` usa
+        // `runCatching` y devuelve `null`. Es deliberado y en la dirección
+        // correcta: si la auditoría no puede escribir, el acceso se sigue
+        // denegando. Que un fallo de auditoría ABRIERA el acceso sería convertir
+        // un problema de registro en un agujero de seguridad.
+        if (outcome is PermissionDecision.Denied && auditWriter != null) {
+            auditWriter.recordDeniedAccessSafely(
+                actorUserId = user?.id,
+                actorUsername = user?.username,
+                channel = call.aChannel(),
+                sourceIp = context.ip,
+                permissionKey = permission,
+                entityType = "http_route",
+                entityId = "${call.request.local.method.value} ${call.request.path()}",
+                reason = outcome.message,
+            )
+        }
+
+        return outcome
     }
 }
+
+/**
+ * El canal de la petición, según la cabecera que manda el cliente.
+ *
+ * **Un valor desconocido cae a `WEB`, y no es un descuido:** un canal inventado
+ * **no se registra** como si fuera válido —eso llenaría la bitácora de canales que
+ * no existen y haría imposible contar por canal— pero tampoco se pierde el
+ * registro. `WEB` es el caso mayoritario y el cliente que no manda cabecera es,
+ * casi siempre, la web.
+ *
+ * En el futuro, cuando la impresora y el ERP escriban su auditoría, sus canales
+ * vendrán de la credencial de servicio y no de una cabecera que el cliente elige:
+ * **una cabecera no es una identidad**.
+ */
+private fun ApplicationCall.aChannel(): AuditWriter.Channel =
+    when (request.headers["X-Client-Channel"]?.trim()?.uppercase()) {
+        "MOBILE" -> AuditWriter.Channel.MOBILE
+        "MOBILE_OFFLINE" -> AuditWriter.Channel.MOBILE_OFFLINE
+        else -> AuditWriter.Channel.WEB
+    }
 
 /** Traduce la decisión del dominio al contrato de error de la API (§1.3). */
 private fun AccessDecision.toPermissionDecision(): PermissionDecision = when (this) {

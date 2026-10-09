@@ -1,5 +1,8 @@
 package dev.axzy.stock.backend.catalog
 
+import dev.axzy.stock.backend.catalog.product.ImportRow
+import dev.axzy.stock.backend.catalog.product.ProductRepository
+
 import dev.axzy.stock.backend.config.logger
 import dev.axzy.stock.backend.error.UnprocessableException
 import dev.axzy.stock.domain.catalog.CatalogImporter

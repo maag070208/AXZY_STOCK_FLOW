@@ -143,17 +143,6 @@ data class ProductResponse(
     val stock: JsonQuantity,
 )
 
-fun ProductRecord.aDto() = ProductResponse(
-    id = id,
-    productCode = productCode,
-    name = name,
-    description = description,
-    unitMeasure = unitMeasure,
-    externalId = externalId,
-    active = active,
-    stock = JsonQuantity.fromDecimal(stock),
-)
-
 /** Alta de producto. */
 @Serializable
 data class ProductCreateRequest(
@@ -211,19 +200,6 @@ data class LocationResponse(
     val displayName: String,
 )
 
-fun LocationRecord.aDto() = LocationResponse(
-    id = id,
-    warehouseId = warehouseId,
-    warehouseCode = warehouseCode,
-    hall = hall,
-    code = code,
-    position = position,
-    levels = levels,
-    kind = kind,
-    active = active,
-    displayName = displayName,
-)
-
 /** Alta de ubicación. */
 @Serializable
 data class LocationCreateRequest(
@@ -278,14 +254,6 @@ data class WarehouseResponse(
 @Serializable
 data class WarehouseListResponse(
     val items: List<WarehouseResponse>,
-)
-
-fun WarehouseRecord.aDto() = WarehouseResponse(
-    id = id,
-    code = code,
-    name = name,
-    isDefault = isDefault,
-    active = active,
 )
 
 // ── Importación del catálogo ────────────────────────────────────────────────

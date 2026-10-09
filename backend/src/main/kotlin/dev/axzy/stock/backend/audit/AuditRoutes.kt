@@ -7,6 +7,7 @@ import dev.axzy.stock.backend.catalog.PageRequest
 import dev.axzy.stock.backend.catalog.aResponse
 import dev.axzy.stock.backend.error.BadRequestException
 import dev.axzy.stock.backend.error.ForbiddenException
+import dev.axzy.stock.backend.error.UnauthorizedException
 import dev.axzy.stock.backend.security.PermissionChecker
 import dev.axzy.stock.backend.security.PermissionDecision
 import io.ktor.http.HttpStatusCode
@@ -52,7 +53,18 @@ fun Route.auditRoutes(
     get("/v1/audit/log") {
         when (val decision = permissionChecker.check(call, "audit.view")) {
             is PermissionDecision.Permitted -> Unit
-            is PermissionDecision.Denied -> throw ForbiddenException(decision.code, decision.message)
+            // `UNAUTHENTICATED` es 401, no 403 (`CONTRATO_API.md` §1.2). El
+            // catálogo y la administración de identidad ya distinguen los dos
+            // casos; aquí se lanzaba 403 para todo, así que la MISMA falta de
+            // token daba un estado distinto según la ruta. El e2e de la API lo
+            // destapó porque los tests de ruta usan un verificador que permite
+            // todo y nunca ejercitaban una denegación real.
+            is PermissionDecision.Denied ->
+                if (decision.code == "UNAUTHENTICATED") {
+                    throw UnauthorizedException(decision.code, decision.message)
+                } else {
+                    throw ForbiddenException(decision.code, decision.message)
+                }
         }
 
         // **El orden por defecto es DESCENDENTE, y `PageRequest` no lo hace solo.**

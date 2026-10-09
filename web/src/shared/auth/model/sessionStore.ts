@@ -1,4 +1,5 @@
 import { authApi } from "@shared/auth/api/authApi";
+import { setSessionHooks } from "@shared/api";
 import type { AuthTokensResponse, AuthUser } from "@shared/api";
 import {
   clearStoredSession,
@@ -39,15 +40,6 @@ export interface SessionState {
 }
 
 type Listener = () => void;
-
-/**
- * Marca de arranque en vuelo.
- *
- * Vive fuera del estado porque **no** debe provocar renders: existe sólo para
- * que un segundo montaje (React 19 en `StrictMode` monta dos veces en
- * desarrollo) no dispare un `/auth/me` duplicado.
- */
-let bootstrapInFlight = false;
 
 const buildInitialState = (): SessionState => {
   const stored: PersistedSession = readSession();
@@ -92,15 +84,6 @@ export const sessionStore = {
 
   getRefreshToken(): string | null {
     return state.refreshToken;
-  },
-
-  /** ¿Hay un arranque de sesión en curso? (evita el `/auth/me` duplicado) */
-  isBootstrapping(): boolean {
-    return bootstrapInFlight;
-  },
-
-  markBootstrapping(value: boolean): void {
-    bootstrapInFlight = value;
   },
 
   /* ------------------------------------------------------------- acciones */
@@ -176,3 +159,54 @@ export const sessionStore = {
     emit();
   },
 };
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * EL PUENTE CON EL CLIENTE HTTP — y por qué esta llamada faltaba
+ *
+ * `shared/api/session.ts` declara los ganchos que el cliente HTTP usa para leer
+ * el token, pero **son variables con valores por defecto vacíos**:
+ *
+ *     let getToken: () => string | null = () => null;   // ← sin conectar
+ *
+ * Alguien tiene que rellenarlas, y **nadie lo hacía**: `setSessionHooks` estaba
+ * definido y exportado, y no se invocaba en ningún punto del proyecto. El
+ * resultado era que `getSessionToken()` devolvía `null` **siempre**, así que
+ * ninguna petición llevaba la cabecera `Authorization`.
+ *
+ * ── EL SÍNTOMA, QUE NO SE PARECÍA A LA CAUSA ──────────────────────────────
+ *
+ * Entrar funcionaba (el login no necesita token) y navegar por dentro de la
+ * aplicación también, porque las pantallas ya tenían los datos. **Al recargar,
+ * la sesión se perdía**: `useSessionBootstrap` veía el token guardado y pedía
+ * `/auth/me`, esa petición salía **sin** cabecera, el servidor respondía `401`,
+ * y el cliente HTTP interpretaba el `401` como «la sesión ya no vale» y la
+ * cerraba.
+ *
+ * Es **exactamente lo contrario** de lo que se decidió al elegir `localStorage`
+ * en `tokenStorage.ts`: «el turno de noche recarga la web a media operación y
+ * perder la sesión obliga a volver a teclear credenciales en una terminal de
+ * piso». La decisión estaba escrita y el mecanismo no estaba conectado.
+ *
+ * Lo encontró el e2e de navegador, y **ningún otro test podía encontrarlo**:
+ *
+ *   · `tsc` compila: los ganchos tienen valores por defecto válidos.
+ *   · `eslint` no ve un import sin usar, porque `setSessionHooks` no se
+ *     importaba en ningún sitio: su ausencia no es un error de lint.
+ *   · Los tests de API no tocan el navegador ni `localStorage`.
+ *
+ * Se conecta **aquí** y no en `main.tsx` para que sea imposible montar el store
+ * sin el puente: el estado de sesión y su cableado con el HTTP viven juntos.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+setSessionHooks({
+  tokenGetter: () => sessionStore.getAccessToken(),
+  refreshTokenGetter: () => sessionStore.getRefreshToken(),
+  tokensSetter: (tokens) => sessionStore.setTokens(tokens),
+  unauthorizedHandler: () => {
+    // El `401` lo resolvió el cliente HTTP; aquí solo se refleja el cierre para
+    // que la interfaz deje de creer que hay sesión.
+    void sessionStore.logout({ notifyServer: false });
+  },
+  tokensRevokedHandler: (code) => sessionStore.setError(code),
+});

@@ -19,13 +19,25 @@ export interface TransferQueryParams extends PageParams {
 }
 
 /**
- * Alta de traslado. El contrato no detalla el cuerpo más allá del ejemplo de
- * respuesta; se declara lo mínimo que la UI necesita enviar y se deja abierto
- * para las líneas, que la Fase 5 cerrará contra el backend.
+ * Alta de traslado (§7).
+ *
+ * **Las líneas van por `productCode` y la cantidad es CADENA decimal**, que es lo
+ * que acepta la API. Estaba declarado con `productId` y `quantity: number`, y
+ * ninguna de las dos cosas existe en la ruta: el servidor habría devuelto `422`
+ * por producto inexistente y por cantidad ilegible.
+ *
+ * Se usa el código y no el id porque **el código es lo que el operador tiene en
+ * la mano** —el de la etiqueta del estante— y obligar a la UI a resolver antes un
+ * id añadiría una petición por línea.
  */
 export interface TransferCreatePayload {
   fromWarehouseId: number;
   toWarehouseId: number;
-  lines: Array<{ productId: number; quantity: number }>;
   note?: string | null;
+  lines: Array<{ productCode: string; quantity: string; fromLocationId?: number | null }>;
+}
+
+/** Filtros del listado de tránsito. */
+export interface InTransitParams {
+  warehouseId?: number;
 }

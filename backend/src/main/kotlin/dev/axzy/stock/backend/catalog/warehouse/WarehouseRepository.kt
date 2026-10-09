@@ -1,5 +1,7 @@
-package dev.axzy.stock.backend.catalog
+package dev.axzy.stock.backend.catalog.warehouse
 
+import dev.axzy.stock.backend.catalog.Warehouses
+import dev.axzy.stock.backend.catalog.withFilter
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.Op
 import org.jetbrains.exposed.sql.SortOrder

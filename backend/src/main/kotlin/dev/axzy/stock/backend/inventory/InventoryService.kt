@@ -807,13 +807,33 @@ data class KardexDto(
     val note: String? = null,
 )
 
+/**
+ * Una fila del reporte de reconciliación: un producto cuyo saldo proyectado no
+ * coincide con lo que dice el ledger.
+ *
+ * **Los tres totales van como cadena decimal** (`"5193.000"`), no como número, por
+ * lo mismo que el resto de cantidades del contrato (`CONTRATO_API.md` §1.7), y aquí
+ * importa más que en ningún sitio: este endpoint existe **precisamente para detectar
+ * descuadres**, y un `Double` compararía `5193.000` contra `5193` como iguales. Un
+ * reporte de reconciliación que redondea dice que todo cuadra cuando la diferencia
+ * está por debajo de la precisión del `double`.
+ *
+ * **Los nombres van en inglés** porque son campos de la API pública
+ * (`ARQUITECTURA.md` §5.1). Antes eran `totalEnBd`, `totalEsperado` y `diferencia`,
+ * y llegaban así al JSON: eran las columnas del `RETURNS TABLE` de
+ * `comprobar_proyecciones()`, que el mapper lee por nombre. La migración `V8` las
+ * renombró y este DTO se alineó con ellas.
+ */
 @Serializable
 data class DivergenceDto(
     val productId: Long,
     val productCode: String,
-    val totalEnBd: String,
-    val totalEsperado: String,
-    val diferencia: String,
+    /** Lo que dice la proyección `product_stock`, que es un valor derivado. */
+    val projectedTotal: String,
+    /** Lo que dice el ledger, que es la **fuente de verdad**. */
+    val ledgerTotal: String,
+    /** `projectedTotal - ledgerTotal`. El signo importa y se conserva. */
+    val difference: String,
 )
 
 /**

@@ -17,6 +17,10 @@ import dev.axzy.stock.backend.catalog.catalogRoutes
 import dev.axzy.stock.backend.receiving.ReceivingService
 import dev.axzy.stock.backend.inventory.inventoryRoutes
 import dev.axzy.stock.backend.receiving.receivingRoutes
+import dev.axzy.stock.backend.reports.reportRoutes
+import dev.axzy.stock.backend.label.labelRoutes
+import dev.axzy.stock.backend.order.orderRoutes
+import dev.axzy.stock.backend.transfer.transferRoutes
 import dev.axzy.stock.backend.security.DenyAllPermissionChecker
 import dev.axzy.stock.backend.security.PermissionChecker
 import dev.axzy.stock.backend.health.healthRoutes
@@ -114,6 +118,9 @@ fun main() {
             val claims = call.tokenClaims(tokens)
             claims?.let { it.aAccessUser() }
         },
+        // **Una sola instancia del escritor**, como pide `AppDependencies`: la
+        // cadena de hashes depende de que haya un único punto de escritura.
+        auditWriter = dev.axzy.stock.backend.audit.AuditWriter(pool),
     )
 
     embeddedServer(Netty, port = port, host = "0.0.0.0") {
@@ -276,6 +283,32 @@ fun Application.module(
         // disparadores y ofrecer una escritura sería prometer algo que la base
         // rechaza a propósito.
         auditRoutes(AuditQueryService(dataSource), permissionChecker)
+
+        // ── Reportes (§9) ───────────────────────────────────────────────────
+        // Existencias, resumen de movimientos y exportación del kardex. El
+        // permiso es `report.view` y `report.export`, los MISMOS que los guards
+        // de las pantallas: un permiso distinto hace que el usuario entre a la
+        // pantalla y reciba 403 al cargarla.
+        reportRoutes(dataSource, permissionChecker)
+
+        // ── Traslados entre bodegas (§7) ────────────────────────────────────
+        // La invariante vive aquí: `Σ ubicaciones + Σ tránsito` se conserva en
+        // cada transición, y la mercancía en el camión SIGUE contando.
+        transferRoutes(dataSource, permissionChecker)
+
+        // ── Surtido (§6) ────────────────────────────────────────────────────
+        // `supplied_quantity` es SIEMPRE lo ya descontado del inventario: empacar
+        // descuenta lo empacado y confirmar descuenta LO QUE FALTA. Confirmar
+        // `quantity` entera dejaría el stock corto y el descuadre se confundiría
+        // con una merma.
+        orderRoutes(dataSource, permissionChecker)
+
+        // ── Etiquetas (§8) ──────────────────────────────────────────────────
+        // Una etiqueta NO está impresa hasta que la impresora lo confirma por
+        // `PATCH /v1/print-jobs/{id}` con `X-Service-Key`. El sistema no se
+        // autocertifica: es lo que evita perder etiquetas cuando la Zebra está
+        // apagada, que es lo que hacía el legacy.
+        labelRoutes(dataSource, permissionChecker)
 
         // ── Autenticación ───────────────────────────────────────────────────
         // Solo se monta si hay servicio de tokens. Sin él, el módulo sigue

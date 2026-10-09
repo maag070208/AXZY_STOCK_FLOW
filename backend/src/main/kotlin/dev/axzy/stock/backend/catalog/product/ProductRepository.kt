@@ -1,5 +1,14 @@
-package dev.axzy.stock.backend.catalog
+package dev.axzy.stock.backend.catalog.product
 
+import dev.axzy.stock.backend.catalog.Page
+import dev.axzy.stock.backend.catalog.PageRequest
+import dev.axzy.stock.backend.catalog.Products
+import dev.axzy.stock.backend.catalog.StockByLocation
+import dev.axzy.stock.backend.catalog.StockInTransit
+import dev.axzy.stock.backend.catalog.UnitsOfMeasure
+import dev.axzy.stock.backend.catalog.page
+import dev.axzy.stock.backend.catalog.productCode
+import dev.axzy.stock.backend.catalog.withFilter
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.JoinType
 import org.jetbrains.exposed.sql.Op

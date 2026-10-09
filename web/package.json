@@ -12,7 +12,8 @@
     "preview": "SWC_NATIVE_BINDING_CACHE=\"$PWD/.cache/swc\" vite preview --port 5173 --strictPort --host 127.0.0.1",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings=0",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "e2e": "cd .. && ./scripts/e2e-web.sh"
   },
   "dependencies": {
     "@axzydev/axzy_ui_system": "1.3.6",
@@ -26,6 +27,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.19.0",
+    "@playwright/test": "^1.64.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^22.13.5",
     "@types/react": "19.0.8",

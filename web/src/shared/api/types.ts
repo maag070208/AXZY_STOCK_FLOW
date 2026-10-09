@@ -435,33 +435,65 @@ export type OrderStatus =
 export interface OrderSummary {
   id: number;
   orderNumber: string;
-  packagingDate: OperationalDate;
+  /** `null` mientras nadie le puso fecha de empaque. */
+  packagingDate: OperationalDate | null;
   status: OrderStatus;
   customerCode: string | null;
   concept: string | null;
+  /** `true` cuando el ERP ya la recibió. */
   converted: boolean;
   convertedAt: Instant | null;
-  exportStatus: OrderExportStatus | null;
+  exportStatus: string | null;
   exportAttempts: number;
   exportLastError: string | null;
   totalLines: number;
+  /** Líneas COMPLETAS. */
   packagedLines: number;
 }
+
+/**
+ * Un estado de LÍNEA de surtido, y **no es el de factura**.
+ *
+ * **Este campo estaba declarado como `InvoiceLineStatus`**, que es la unión de la
+ * RECEPCIÓN: estados como `DISCREPANCY` o `APPROVED`, que en una orden de surtido
+ * no existen. Tipar contra la unión ajena hacía que comparar un estado real diera
+ * un error de compilación por un valor que sí era válido, y —peor— que el código
+ * tratara `SUPPLIED` como un estado de factura desconocido.
+ *
+ * La unión correcta la declara el dominio (`OrderLineStatus`).
+ */
+export type OrderLineStatus =
+  | "PENDING"
+  | "ASSIGNED"
+  | "SUPPLIED"
+  | "VERIFIED"
+  | "CANCELLED";
 
 export interface OrderLine {
   id: number;
   productId: number;
   productCode: string;
   productName: string;
-  quantity: number;
-  packagedQuantity: number;
   unitMeasure: string;
+  /** Cadena decimal de 3 decimales (§1.7). */
+  quantity: string;
+  /**
+   * **Lo YA descontado del inventario.** No es «lo empacado»: es el acumulado que
+   * el inventario ya refleja. Confirmar la orden descuenta
+   * `quantity - suppliedQuantity`, nunca `quantity` — hacerlo dos veces dejaría
+   * el stock corto y el descuadre se confundiría con una merma.
+   */
+  suppliedQuantity: string;
+  supplied: boolean;
+  status: OrderLineStatus;
+  assignedUserId: number | null;
+  assignedUserName: string | null;
   locationId: number | null;
   locationDisplayName: string | null;
-  status: InvoiceLineStatus;
 }
 
-export interface OrderDetail extends Omit<OrderSummary, "totalLines" | "packagedLines"> {
+/** El detalle: la cabecera CON sus líneas. Solo este endpoint las trae. */
+export interface OrderDetail extends OrderSummary {
   lines: OrderLine[];
 }
 
@@ -469,28 +501,61 @@ export interface OrderListParams extends PageParams {
   status?: OrderStatus;
 }
 
-export interface PackageLineRequest {
-  quantity: number;
-  locationId: number;
+/**
+ * El alta de una orden.
+ *
+ * **Las líneas van por `productCode` y la cantidad es CADENA decimal**, que es lo
+ * que acepta la ruta. Mandar ids y números —como se declaraba antes— habría dado
+ * `422` por producto inexistente y por cantidad ilegible.
+ *
+ * `orderNumber` es opcional: si no se manda, el servidor lo genera como
+ * `ORD-AAAA-NNNN`. Que lo genere el servidor evita que dos clientes inventen el
+ * mismo número.
+ */
+export interface OrderCreatePayload {
+  orderNumber?: string | null;
+  packagingDate?: string | null;
+  customerCode?: string | null;
+  concept?: string | null;
+  lines: Array<{ productCode: string; quantity: string }>;
+}
+
+export interface PackageLinePayload {
+  /** Cuánto se empaca AHORA. Se valida contra lo PENDIENTE, no contra `quantity`. */
+  quantity: string;
+  /** De qué ubicación sale. Sin él, la de la línea. */
+  locationId?: number | null;
   idempotencyKey?: string;
 }
 
 /** Faltante de surtido: delega en la regla única de ajuste, no en un flujo nuevo. */
-export interface OrderShortageRequest {
+export interface OrderShortagePayload {
   lineId: number;
-  quantity: number;
-  reason: AdjustmentReason;
+  quantity: string;
+  reason?: AdjustmentReason;
   note?: string | null;
 }
 
+/**
+ * El estado de la exportación al ERP.
+ *
+ * `CONFIRMED` es el estado final: el ERP la recibió. Los demás son intentos, y
+ * solo `FAILED` exige que alguien pulse «reintentar» — que es manual a propósito.
+ */
 export type OrderExportStatus = "PENDING" | "SENT" | "FAILED" | "CONFIRMED";
 
-/** Resultado de `POST /v1/orders/{id}/export`. Es idempotente por `orderNumber`. */
+/**
+ * Lo que devuelve un intento de exportación al ERP.
+ *
+ * **No hay `nextRetryAt`.** El campo estaba declarado y la API no lo manda: quien
+ * lo leyera obtendría `undefined` y una cuenta atrás que nunca avanza. El
+ * reintento es **manual**, que es lo que el contrato dice.
+ */
 export interface OrderExportResult {
+  /** Intentos acumulados, incluido este. */
   attempts: number;
   status: OrderExportStatus;
   lastError: string | null;
-  nextRetryAt: Instant | null;
 }
 
 /* --------------------------------------------------------------- traslados */
@@ -498,6 +563,19 @@ export interface OrderExportResult {
 /** `DRAFT → DISPATCHED → IN_TRANSIT → RECEIVED`, con `CANCELLED` en cualquier punto. */
 export type TransferStatus = "DRAFT" | "DISPATCHED" | "IN_TRANSIT" | "RECEIVED" | "CANCELLED";
 
+/**
+ * Un traslado entre bodegas (§7).
+ *
+ * **LOS TIPOS DE ESTA SECCIÓN ESTABAN MAL, y por el mismo motivo que el del
+ * informe de reconciliación:** declaraban lo que el contrato *prometía* y la ruta
+ * devolvía otra cosa. `totalUnits` estaba como `number` cuando la API manda
+ * **cadena decimal de 3 decimales** (`"150.000"`, §1.7), y `lineCount` tampoco
+ * era el campo del contrato.
+ *
+ * Un cliente tipado contra esto leería `undefined` en los totales y pintaría
+ * `NaN` al sumarlos. Se corrigió contra el DTO REAL del backend
+ * (`TransferResponse`), no contra el ejemplo del contrato.
+ */
 export interface Transfer {
   id: number;
   code: string;
@@ -507,21 +585,62 @@ export interface Transfer {
   toWarehouseCode: string;
   status: TransferStatus;
   lineCount: number;
-  totalUnits: number;
+  /** **Cadena decimal de 3 decimales** (`"150.000"`), no un número (§1.7). */
+  totalUnits: string;
+  note: string | null;
   dispatchedBy: number | null;
+  dispatchedByName: string | null;
   dispatchedAt: Instant | null;
   receivedBy: number | null;
+  receivedByName: string | null;
   receivedAt: Instant | null;
 }
 
-/** Un traslado sin recibir es deuda visible: lleva responsable y días transcurridos. */
-export interface InTransitTransfer extends Transfer {
-  responsibleName: string | null;
+/**
+ * Un traslado sin recibir, con su responsable y los días transcurridos.
+ *
+ * **No extiende `Transfer`**: la respuesta de `/transfers/in-transit` no tiene los
+ * mismos campos —no lleva los ids de bodega ni la nota— y declararlo como una
+ * extensión obligaría al servidor a mandar campos de relleno o al cliente a
+ * mentir. `daysInTransit` lo calcula el SERVIDOR: contarlo con el reloj del
+ * equipo daría un número distinto en cada máquina.
+ */
+export interface InTransitTransfer {
+  id: number;
+  code: string;
+  fromWarehouseCode: string;
+  toWarehouseCode: string;
+  status: "DISPATCHED" | "IN_TRANSIT";
+  lineCount: number;
+  /** Cadena decimal de 3 decimales (§1.7). */
+  totalUnits: string;
+  dispatchedAt: Instant;
   daysInTransit: number;
+  dispatchedBy: number | null;
+  dispatchedByName: string | null;
+}
+
+export interface TransferLine {
+  id: number;
+  productId: number;
+  productCode: string;
+  productName: string;
+  /** Cadena decimal de 3 decimales (§1.7). */
+  quantity: string;
+  fromLocationId: number | null;
+  fromLocationDisplayName: string | null;
+  note: string | null;
+}
+
+/** El detalle de un traslado: la cabecera CON sus líneas. */
+export interface TransferDetail {
+  transfer: Transfer;
+  lines: TransferLine[];
 }
 
 export interface TransferListParams extends PageParams {
   status?: TransferStatus;
+  warehouseId?: number;
 }
 
 /* --------------------------------------------------------------- etiquetas */
@@ -542,16 +661,45 @@ export interface LabelTemplate {
   code: string;
   name: string;
   description: string | null;
-  size: string;
+  /** **Nulo si la plantilla no lo declara**: la API lo admite y cae a `4x6`. */
+  size: string | null;
   isActive: boolean;
   fieldSchema: LabelFieldSchema;
-  /** Sólo llega en el detalle: el listado lo omite porque es grande. */
+  /** **Solo llega en el DETALLE.** El listado lo omite porque es grande. */
   zpl?: string;
+}
+
+/**
+ * El alta de una plantilla.
+ *
+ * `zpl` es obligatorio y **tiene que llevar `^XA` y `^XZ`**: la API lo valida al
+ * guardar y responde `422 INVALID_ZPL`. Se valida ahí y no al imprimir porque una
+ * plantilla sin cierre no da error en la impresora — deja la etiqueta en blanco o
+ * el trabajo en la cola, y eso se descubre gastando papel.
+ */
+export interface LabelTemplateCreateRequest {
+  code: string;
+  name: string;
+  description?: string | null;
+  zpl: string;
+  size?: string | null;
+  fieldSchema?: LabelFieldSchema;
+  isActive?: boolean;
+}
+
+/** La actualización: lo que no se envía queda como estaba. */
+export interface LabelTemplateUpdateRequest {
+  name?: string;
+  description?: string | null;
+  zpl?: string;
+  size?: string | null;
+  fieldSchema?: LabelFieldSchema;
+  isActive?: boolean;
 }
 
 export interface LabelPreviewRequest {
   templateId: number;
-  data: Record<string, string | number | boolean>;
+  data: Record<string, string>;
 }
 
 export interface LabelPreviewResponse {
@@ -565,27 +713,58 @@ export interface LabelPreviewResponse {
 
 export interface LabelPrintRequest {
   templateId: number;
-  copies: number;
-  data: Array<Record<string, string | number | boolean>>;
+  /** Por defecto 1. La API admite de 1 a 100. */
+  copies?: number;
+  /** **Un juego de datos por etiqueta.** Tiene que traer al menos uno. */
+  data: Array<Record<string, string>>;
 }
 
 /** `202 Accepted`: el trabajo queda `PENDING` hasta que la impresora confirma. */
 export interface LabelPrintResponse {
   jobIds: number[];
-  status: LabelJobStatus;
+  status: string;
 }
 
 export type LabelJobStatus = "PENDING" | "SENT" | "PRINTED" | "FAILED";
 
+/**
+ * Un trabajo de impresión.
+ *
+ * **`status` es `string` y no la unión cerrada.** Se declara como unión porque es
+ * lo que la interfaz compara, pero el tipo del contrato tiene cuatro valores y el
+ * backend podría añadir uno; tiparlo como `string` en la respuesta evita que un
+ * valor nuevo rompa el cliente. Donde importa —el filtro— la interfaz usa
+ * `LabelJobStatus`.
+ */
 export interface LabelJob {
   id: number;
   templateCode: string;
   copies: number;
-  status: LabelJobStatus;
+  status: string;
   attempts: number;
   lastError: string | null;
   printedAt: Instant | null;
   createdAt: Instant;
+}
+
+export interface LabelJobPage {
+  items: LabelJob[];
+  page: number;
+  size: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+/** Lo que la impresora reporta por `PATCH /v1/print-jobs/{id}`. */
+export interface PrintJobUpdateRequest {
+  status: "PRINTED" | "FAILED";
+  error?: string | null;
+}
+
+export interface PrintJobUpdateResponse {
+  jobId: number;
+  status: string;
+  error: string | null;
 }
 
 export interface LabelReprintRequest {
@@ -627,17 +806,36 @@ export interface MovementsSummary {
   to: OperationalDate;
 }
 
-/** El reporte de reconciliación: ledger contra proyección. No existía en el legacy. */
+/**
+ * El reporte de reconciliación: ledger contra proyección. No existía en el legacy.
+ *
+ * **ESTA INTERFAZ ESTUVO MAL, y es el motivo por el que se corrigió el contrato.**
+ * Declaraba la forma que `CONTRATO_API.md` §9 *prometía*
+ * (`productsChecked`/`ledgerNet`/`projected`) y **la ruta nunca devolvió eso**:
+ * respondía `cuadra`/`totalEnBd`/`totalEsperado`/`diferencia`, con los campos en
+ * español. Un cliente tipado contra esta interfaz leía `undefined` en cada campo.
+ *
+ * Hoy coinciden los tres lados —contrato, ruta y este tipo— y los identificadores
+ * van en inglés (`ARQUITECTURA.md` §5.1). **Los totales son `string` y no `number`**:
+ * el servidor manda `"5193.000"` (§1.7) y leerlos como número perdería la precisión
+ * que precisamente este reporte existe para comprobar.
+ */
 export interface KardexVsProjectionItem {
+  productId: number;
   productCode: string;
-  ledgerNet: number;
-  projected: number;
-  difference: number;
+  /** Lo que dice la proyección `product_stock`, como cadena decimal. */
+  projectedTotal: string;
+  /** Lo que dice el ledger, que es la fuente de verdad, como cadena decimal. */
+  ledgerTotal: string;
+  /** `projectedTotal - ledgerTotal`; el signo importa. */
+  difference: string;
 }
 
 export interface KardexVsProjectionReport {
   checkedAt: Instant;
-  productsChecked: number;
+  /** Veredicto explícito del servidor: `true` cuando no hay ninguna divergencia. */
+  balanced: boolean;
+  /** Cuántos productos están descuadrados. `items` trae solo ésos. */
   divergences: number;
   items: KardexVsProjectionItem[];
 }
@@ -659,25 +857,175 @@ export interface HealthResponse {
 
 /* ------------------------------------------------------------------ acceso */
 
+/**
+ * Una entrada de la bitácora (`GET /v1/audit/log`).
+ *
+ * **El tipo estaba muy incompleto**: declaraba ocho campos cuando el DTO real
+ * tiene veinticinco. Faltaban justo los que hacen útil la pantalla —`actionLevel`,
+ * `businessDate`, `decision`, `result`, `errorCode`— y la dimensión que el legacy
+ * no tenía: **el canal y el `requestId`**, que es lo que permite cruzar una
+ * pantalla con su movimiento.
+ *
+ * Los nulos se omiten del JSON (`explicitNulls = false`), así que un registro del
+ * sistema —sin usuario— no trae `userId`: de ahí que casi todo sea opcional.
+ */
 export interface AuditLogEntry {
   id: number;
+  /** Orden total del ledger entre particiones. */
+  sequenceNo: number;
   occurredAt: Instant;
-  userId: number | null;
-  userName: string | null;
+  /** Fecha de NEGOCIO. Un cierre capturado de madrugada es del día anterior. */
+  businessDate: OperationalDate;
+
+  // ── Quién. Es un SNAPSHOT: el histórico se lee igual aunque el usuario se
+  //    renombre o se desactive después.
+  userId?: number;
+  username?: string;
+  userName?: string;
+  roles?: string[];
+
+  // ── Qué
   action: string;
-  resource: string;
-  resourceId: string | null;
-  channel: "WEB" | "MOBILE" | "MOBILE_OFFLINE";
-  requestId: string | null;
-  allowed: boolean;
-  errorCode: string | null;
-  detail: Record<string, unknown> | null;
+  /** `INFO`, `WARN`, `CRITICAL`… para poder filtrar lo que importa. */
+  actionLevel: string;
+
+  // ── Sobre qué
+  entity: string;
+  entityId?: string;
+  entityLabel?: string;
+  changedFields?: string[];
+
+  // ── Desde dónde: la dimensión que el legacy no tenía
+  channel: string;
+  device?: string;
+  ip?: string;
+  userAgent?: string;
+
+  // ── Con qué permiso y con qué resultado
+  permission?: string;
+  decision?: string;
+  result: string;
+  errorCode?: string;
+  errorMessage?: string;
+  reason?: string;
+
+  // ── El flujo
+  correlationId?: string;
+  causationId?: string;
+  requestId?: string;
+
+  // ── Integridad: la cadena de hashes, expuesta para poder verificarla
+  prevHash?: string;
+  recordHash: string;
 }
 
+/**
+ * Los filtros de la bitácora.
+ *
+ * **Los que la ruta acepta, no los que la pantalla imaginaba.** Aquí se declaraba
+ * `from`/`to`/`allowed` y el backend espera `from`/`to`, `userId`, `entity`,
+ * `entityId`, `action`, `correlationId`, `decision`, `result` y `actionLevel`.
+ * Un filtro que la ruta ignora **no filtra y no falla**: devuelve todo, y el
+ * usuario cree que no hay más registros de los que ve.
+ */
 export interface AuditLogParams extends PageParams {
+  /** ISO-8601. */
+  from?: string;
+  to?: string;
   userId?: number;
+  entity?: string;
+  entityId?: string;
   action?: string;
-  from?: Instant;
-  to?: Instant;
-  allowed?: boolean;
+  correlationId?: string;
+  decision?: string;
+  result?: string;
+  actionLevel?: string;
+}
+
+/* --------------------------------------------------------------- identidad */
+
+/**
+ * Un usuario del sistema (`GET /v1/users`).
+ *
+ * **`roles` es una lista de CLAVES, no de nombres**: es lo que devuelve la API y
+ * lo que la interfaz necesita para comparar. El nombre visible de cada rol se
+ * resuelve contra el catálogo de `GET /v1/roles`.
+ */
+export interface UserAdmin {
+  id: number;
+  username: string;
+  name: string;
+  roles: string[];
+  active: boolean;
+  /** ISO-8601 en UTC, o `null` si nunca ha entrado. */
+  lastLoginAt: string | null;
+}
+
+/**
+ * Un rol y **cuántos permisos y usuarios tiene**.
+ *
+ * Los dos contadores los calcula el servidor, y son la razón de que esta pantalla
+ * sirva: un rol con cero usuarios es un rol que se puede retirar, y uno con
+ * muchísimos permisos es el que hay que revisar. Contarlos en el cliente exigiría
+ * traerse la matriz entera.
+ */
+export interface RoleAdmin {
+  id: number;
+  /** La clave estable (`admin`, `warehouse`). Es lo que va en `roles`. */
+  key: string;
+  name: string;
+  description: string | null;
+  /** Los roles de sistema no se pueden borrar. */
+  isSystem: boolean;
+  active: boolean;
+  sortOrder: number;
+  permissionCount: number;
+  userCount: number;
+}
+
+/** Un permiso del catálogo, con **su alcance** (`OWN` | `AREA` | `ALL`). */
+export interface PermissionAdmin {
+  key: string;
+  module: string;
+  resource: string;
+  action: string;
+  name: string;
+  description: string | null;
+  /** Los alcances que este permiso admite. Una lista vacía significa «ninguno». */
+  scopes: string[];
+  /** Un permiso sensible es el que no se concede por defecto a nadie. */
+  sensitive: boolean;
+  active: boolean;
+  sortOrder: number;
+}
+
+export interface PermissionModuleAdmin {
+  module: string;
+  moduleName: string;
+  permissions: PermissionAdmin[];
+}
+
+/**
+ * El catálogo de permisos, **entero y sin paginar**.
+ *
+ * Viaja agrupado por módulo (`modules`) y también plano (`items`): es el mismo
+ * dato, y un selector de permisos no tiene por qué recorrer los módulos. El
+ * contrato lo exceptúa de la paginación a propósito (§1.4): es la matriz de la
+ * pantalla de roles, y paginarla obligaría a pedir todas las páginas antes de
+ * poder dibujar nada.
+ */
+export interface PermissionCatalog {
+  totalItems: number;
+  modules: PermissionModuleAdmin[];
+  items: PermissionAdmin[];
+}
+
+/** Filtros del listado de usuarios. */
+export interface UserListParams extends PageParams {
+  active?: boolean;
+}
+
+/** Filtros del listado de roles. */
+export interface RoleListParams extends PageParams {
+  active?: boolean;
 }

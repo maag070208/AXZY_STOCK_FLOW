@@ -43,7 +43,20 @@ class OpenApiDocumentationTest {
      */
     private val bearerScheme = "bearerAuth"
 
-    /** Rutas que el backend expone HOY, leídas de los `*Routes.kt`. */
+    /**
+     * Rutas que el backend expone HOY.
+     *
+     * **ESTA LISTA ES MANUAL Y ESO ES UN RIESGO CONOCIDO**: el test comprueba que
+     * el documento y el servidor digan lo mismo, pero la lista que usa como
+     * verdad intermedia alguien tiene que mantenerla. Se descubrió al añadir los
+     * reportes: el test falló —correctamente— porque el documento iba por delante.
+     *
+     * Se deja manual a propósito mientras siga habiendo pocas rutas: leer las
+     * rutas del árbol con un regex es lo que **ya falló** en otro test de este
+     * proyecto (confundía `get {` con `get(` y no veía las rutas anidadas en
+     * `route(...)`). Una lista explícita que falla cuando no coincide es más
+     * honesta que un descubrimiento automático que acierta a veces.
+     */
     private val realRoutes = setOf(
         "/v1/auth/login", "/v1/auth/refresh", "/v1/auth/logout", "/v1/auth/me",
         "/v1/auth/change-password",
@@ -53,15 +66,26 @@ class OpenApiDocumentationTest {
         "/v1/inventory/stock", "/v1/inventory/kardex", "/v1/inventory/adjustments",
         "/v1/inventory/locate", "/v1/inventory/move",
         "/v1/invoices", "/v1/invoices/{id}", "/v1/invoices/pending-approval",
+        "/v1/invoices/{id}/close",
         "/v1/invoices/{id}/lines/{lineId}/capture", "/v1/invoices/{id}/approve",
         "/v1/users", "/v1/roles", "/v1/permissions",
+        "/v1/invoices/{id}/reject-discrepancy",
+        "/v1/label-templates", "/v1/label-templates/{id}",
+        "/v1/labels/preview", "/v1/labels/print",
+        "/v1/labels/jobs", "/v1/labels/jobs/{id}", "/v1/labels/jobs/{id}/reprint",
+        "/v1/print-jobs/{id}",
+        "/v1/orders", "/v1/orders/{id}", "/v1/orders/{id}/lines/{lineId}/package",
+        "/v1/orders/{id}/confirm", "/v1/orders/{id}/export", "/v1/orders/{id}/shortage",
+        "/v1/transfers", "/v1/transfers/{id}", "/v1/transfers/in-transit",
+        "/v1/transfers/{id}/dispatch", "/v1/transfers/{id}/receive", "/v1/transfers/{id}/cancel",
         "/v1/audit/log",
+        "/v1/reports/inventory", "/v1/reports/movements-summary", "/v1/reports/kardex/export",
         "/v1/reports/kardex-vs-projection",
         "/v1/health",
     )
 
     /** Operaciones declaradas en `OpenApiDocumentation.kt`. */
-    private val declaredOperations = 33
+    private val declaredOperations = 63
 
     @Test
     fun `el document OpenAPI se sirve y declara la API y su seguridad`() = testApplication {
@@ -144,15 +168,42 @@ class OpenApiDocumentationTest {
                 val identityOnly = route.startsWith("/v1/auth/")
                 val requiresBearer = op["security"]?.jsonArray
                     ?.firstOrNull()?.jsonObject?.containsKey(bearerScheme) == true
+
+                // ── La excepción: la ruta de la IMPRESORA ───────────────────────
+                //
+                // `PATCH /v1/print-jobs/{id}` la llama la Zebra con
+                // `X-Service-Key`, **no con un JWT de usuario**: no hay persona
+                // detrás. Exigirle Bearer sería exigirle una credencial que no
+                // tiene, y el contrato lo separa a propósito para que en los
+                // registros se distinga «lo hizo la impresora» de «lo hizo
+                // alguien».
+                //
+                // **`X-Service-Key` y no `Authorization`**, y por eso el esquema es
+                // otro. El legacy tenía esta ruta ABIERTA sin credencial.
+                val isServiceKey = op["security"]?.jsonArray
+                    ?.firstOrNull()?.jsonObject?.containsKey("serviceKey") == true
+
                 if (isPublic) {
                     assertFalse(requiresBearer, "$method $route es público y declara seguridad.")
+                } else if (route == "/v1/print-jobs/{id}") {
+                    assertTrue(
+                        isServiceKey,
+                        "$method $route tiene que declarar la credencial de servicio (serviceKey), " +
+                            "que es la que usa la impresora.",
+                    )
                 } else {
                     assertTrue(requiresBearer, "$method $route no declara la seguridad Bearer.")
                 }
-                if (isPublic || identityOnly) {
+                if (isPublic || identityOnly || isServiceKey) {
+                    // **La ruta de la impresora no lleva permiso y no es un
+                    // descuido:** la autoriza la CREDENCIAL DE SERVICIO, no un rol
+                    // de usuario. Exigirle un `x-required-permission` obligaría a
+                    // inventar un permiso que ninguna persona tiene, y el `403`
+                    // resultante culparía al rol equivocado.
                     assertFalse(
                         op.containsKey("x-required-permission"),
-                        "$method $route solo exige identidad y no debe declarar permiso.",
+                        "$method $route se autoriza con credencial de servicio y no debe " +
+                            "declarar un permiso de usuario.",
                     )
                 } else {
                     assertNotNull(
@@ -165,27 +216,34 @@ class OpenApiDocumentationTest {
     }
 
     @Test
-    fun `la reconciliacion documenta los fields reales y no los que promete el contrato`() = testApplication {
+    fun `la reconciliacion documenta los fields reales y no los que prometia el contrato`() = testApplication {
         application { installOpenApiDocumentation() }
 
         val document = Json.parseToJsonElement(client.get(OPENAPI_JSON_PATH).bodyAsText()).jsonObject
         val schemas = document["components"]!!.jsonObject["schemas"]!!.jsonObject
-        val properties = schemas["ReporteReconciliacion"]!!.jsonObject["properties"]!!.jsonObject
+        val properties = schemas["ReconciliationReport"]!!.jsonObject["properties"]!!.jsonObject
 
-        // CONTRATO_API.md §9 promete estos tres; la ruta no los devuelve.
+        // `CONTRATO_API.md` §9 prometía estos tres y la ruta NUNCA los devolvió. El
+        // contrato ya se corrigió, así que esta comprobación ya no vigila una mentira
+        // viva: **vigila que no vuelva**. Si alguien reintroduce los nombres del
+        // contrato viejo, el esquema publicado dejaría de coincidir con el DTO.
         assertFalse(properties.containsKey("productsChecked"), "§9: `productsChecked` no existe en la ruta.")
         assertFalse(properties.containsKey("ledgerNet"), "§9: `ledgerNet` no existe en la ruta.")
         assertFalse(properties.containsKey("projected"), "§9: `projected` no existe en la ruta.")
 
-        // Lo que la ruta devuelve de verdad.
-        assertTrue(properties.containsKey("cuadra"), "Falta `cuadra`, que es lo que devuelve la ruta.")
+        // Lo que la ruta devuelve de verdad. El booleano se llamaba `cuadra` hasta la
+        // migración V8: era un campo de API pública con identificador en español, y
+        // `totalEnBd`/`totalEsperado`/`diferencia` llegaban así al JSON porque son las
+        // columnas del `RETURNS TABLE` de `comprobar_proyecciones()`.
+        assertTrue(properties.containsKey("balanced"), "Falta `balanced`, que es lo que devuelve la ruta.")
         assertTrue(properties.containsKey("divergences"))
         assertTrue(properties.containsKey("checkedAt"))
+        assertFalse(properties.containsKey("cuadra"), "`cuadra` es el nombre VIEJO: no debe volver.")
 
-        val divergence = schemas["DivergenciaDto"]!!.jsonObject["properties"]!!.jsonObject
-        assertTrue(divergence.containsKey("totalEnBd"), "Falta `totalEnBd`.")
-        assertTrue(divergence.containsKey("totalEsperado"))
-        assertTrue(divergence.containsKey("diferencia"))
+        val divergence = schemas["DivergenceDto"]!!.jsonObject["properties"]!!.jsonObject
+        assertTrue(divergence.containsKey("projectedTotal"), "Falta `projectedTotal`.")
+        assertTrue(divergence.containsKey("ledgerTotal"))
+        assertTrue(divergence.containsKey("difference"))
 
         // Y las divergencias viajan en el propio documento.
         val divergences = assertNotNull(document["x-contract-divergences"]).jsonArray

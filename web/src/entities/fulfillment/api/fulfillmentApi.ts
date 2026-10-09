@@ -1,5 +1,6 @@
 import { api, get } from "@shared/api";
 import type {
+  OrderCreatePayload,
   OrderDetail,
   OrderExportResult,
   OrderListParams,
@@ -20,10 +21,28 @@ import type { OrderShortagePayload, PackageLinePayload } from "../model/types";
 export const fetchOrders = (params: OrderListParams = {}): Promise<Page<OrderSummary>> =>
   get<Page<OrderSummary>>("/orders", { params: { size: 50, ...params } });
 
+/** Listado de órdenes con el filtro de estado, para la pantalla de surtido. */
+export const fetchOrdersByStatus = (
+  status?: string,
+  page = 0,
+  size = 50
+): Promise<Page<OrderSummary>> =>
+  get<Page<OrderSummary>>("/orders", {
+    params: status ? { status, page, size } : { page, size },
+  });
+
 export const fetchOrder = (id: number): Promise<OrderDetail> => get<OrderDetail>(`/orders/${id}`);
 
-export const createOrder = (body: Record<string, unknown>): Promise<OrderSummary> =>
-  api.post<OrderSummary>("/orders", body);
+/**
+ * Crea una orden.
+ *
+ * **Devuelve el DETALLE, con sus líneas.** El backend responde `201` con la orden
+ * completa porque la pantalla necesita los `id` de línea para poder empacar, y
+ * pedirlos después sería una segunda petición inmediata. Estaba declarado como
+ * `OrderSummary` —sin líneas— así que el cliente habría visto `lines: undefined`.
+ */
+export const createOrder = (body: OrderCreatePayload): Promise<OrderDetail> =>
+  api.post<OrderDetail>("/orders", body);
 
 /**
  * Empaqueta una línea. Si no alcanza el stock responde
@@ -51,4 +70,8 @@ export const exportOrder = (orderId: number): Promise<OrderExportResult> =>
 export const registerOrderShortage = (
   orderId: number,
   body: OrderShortagePayload
-): Promise<void> => api.requestVoid("post", `/orders/${orderId}/shortage`, body);
+): Promise<OrderDetail> =>
+  // Devuelve la orden actualizada y no `void`: el `422 INSUFFICIENT_STOCK` ya se
+  // resolvió con el ajuste, así que la pantalla tiene que repintar la línea con su
+  // `suppliedQuantity` nuevo. Con `void` habría que recargar aparte.
+  api.post<OrderDetail>(`/orders/${orderId}/shortage`, body);

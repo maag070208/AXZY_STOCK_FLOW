@@ -182,6 +182,183 @@ class ReceivingService(
         )
     }
 
+
+    /**
+     * Listado de facturas, paginado (contrato §5: `GET /v1/invoices`).
+     *
+     * **Devuelve solo la cabecera**, con los contadores de líneas calculados en la
+     * base. Traer las líneas de cada factura de la página sería un N+1 disfrazado;
+     * quien las necesita pide el detalle.
+     */
+    fun list(
+        status: String?,
+        search: String?,
+        offset: Int,
+        limit: Int,
+    ): List<InvoiceSummary> = dataSource.connection.use { connection ->
+        val sql = buildString {
+            append(SUMMARY_SELECT)
+            append(" WHERE NOT i.deleted ")
+            if (status != null) append(" AND i.status = ?::invoice_status ")
+            if (!search.isNullOrBlank()) {
+                append(" AND (i.invoice_number ILIKE ? OR i.concept ILIKE ? OR i.customer_code ILIKE ?) ")
+            }
+            append(" ORDER BY i.receipt_date DESC, i.id DESC LIMIT ? OFFSET ?")
+        }
+        connection.prepareStatement(sql).use { st ->
+            var i = 1
+            if (status != null) st.setString(i++, status)
+            if (!search.isNullOrBlank()) {
+                val patron = "%${search.trim()}%"
+                st.setString(i++, patron)
+                st.setString(i++, patron)
+                st.setString(i++, patron)
+            }
+            st.setInt(i++, limit)
+            st.setInt(i, offset)
+            st.executeQuery().use { rs ->
+                buildList { while (rs.next()) add(rs.toInvoiceSummary()) }
+            }
+        }
+    }
+
+    /** Cuántas facturas cumplen el filtro: alimenta el `totalItems` del sobre. */
+    fun count(status: String?, search: String?): Long = dataSource.connection.use { connection ->
+        val sql = buildString {
+            append("SELECT count(*) FROM invoices i WHERE NOT i.deleted ")
+            if (status != null) append(" AND i.status = ?::invoice_status ")
+            if (!search.isNullOrBlank()) {
+                append(" AND (i.invoice_number ILIKE ? OR i.concept ILIKE ? OR i.customer_code ILIKE ?) ")
+            }
+        }
+        connection.prepareStatement(sql).use { st ->
+            var i = 1
+            if (status != null) st.setString(i++, status)
+            if (!search.isNullOrBlank()) {
+                val patron = "%${search.trim()}%"
+                st.setString(i++, patron)
+                st.setString(i++, patron)
+                st.setString(i++, patron)
+            }
+            st.executeQuery().use { rs -> if (rs.next()) rs.getLong(1) else 0L }
+        }
+    }
+
+    /**
+     * Cierra la factura (contrato §5: `POST /v1/invoices/{id}/close`).
+     *
+     * ── LA REGLA, y es la del DOMINIO ──────────────────────────────────────
+     *
+     * **No se cierra una factura con líneas que bloquean.** El dominio ya define
+     * cuáles son: `InvoiceLineStatus.blocksInvoiceClosing` —`PENDING` (sin
+     * capturar), `DISCREPANCY` (diferencia sin aprobar) y `ASSIGNED` (trabajo a
+     * medias)—. Cerrar con una de ellas dejaría mercancía sin ubicar y una
+     * diferencia sin autorizar, y **el cierre es lo que declara el trabajo
+     * terminado**: a partir de ahí nadie vuelve a mirarla.
+     *
+     * La consulta al dominio se hace aquí y no con un `if` con los nombres de
+     * estado escritos a mano: los estados son del dominio, y duplicarlos en el
+     * backend es cómo se acaba cerrando una factura con una discrepancia viva.
+     */
+    fun close(invoiceId: Long, userId: Long?): InvoiceDetail = dataSource.connection.use { connection ->
+        connection.autoCommit = false
+        try {
+            val actual = connection.prepareStatement(
+                "SELECT status FROM invoices WHERE id = ? AND NOT deleted FOR UPDATE",
+            ).use { st ->
+                st.setLong(1, invoiceId)
+                st.executeQuery().use { rs -> if (rs.next()) rs.getString(1) else null }
+            } ?: throw NotFoundException("La factura $invoiceId no existe.", "INVOICE_NOT_FOUND")
+
+            if (actual == "COMPLETED") {
+                // Cerrar dos veces no es un fallo del cliente: es que ya está
+                // cerrada. Un `409` con el código del contrato lo dice mejor que un
+                // `200` que haría creer que este cierre hizo algo.
+                throw ConflictException(
+                    code = "INVOICE_ALREADY_CLOSED",
+                    message = "La factura $invoiceId ya está cerrada.",
+                )
+            }
+
+            if (actual == "CANCELLED") {
+                throw ConflictException(
+                    code = "INVALID_TRANSITION",
+                    message = "Una factura anulada no se puede cerrar.",
+                    details = mapOf("status" to actual),
+                )
+            }
+
+            // Las líneas que IMPIDEN cerrar, según el dominio. Se leen con su
+            // estado y se pregunta al enum, no a una lista escrita aquí.
+            val estados = connection.prepareStatement(
+                "SELECT status FROM invoice_lines WHERE invoice_id = ? AND NOT deleted",
+            ).use { st ->
+                st.setLong(1, invoiceId)
+                st.executeQuery().use { rs ->
+                    buildList { while (rs.next()) add(rs.getString(1)) }
+                }
+            }
+
+            val bloqueantes = estados.filter { nombre ->
+                runCatching { InvoiceLineStatus.valueOf(nombre) }
+                    .getOrNull()?.blocksInvoiceClosing ?: true
+            }
+
+            if (bloqueantes.isNotEmpty()) {
+                throw UnprocessableException(
+                    code = "INVOICE_HAS_PENDING_LINES",
+                    message = "No se puede cerrar: hay ${bloqueantes.size} línea(s) que bloquean el " +
+                        "cierre. Una línea sin capturar, con una diferencia sin aprobar o con trabajo " +
+                        "asignado a medias impide declarar la recepción terminada.",
+                    details = mapOf(
+                        "pendingLines" to bloqueantes.size.toString(),
+                        "statuses" to bloqueantes.distinct().joinToString(", "),
+                    ),
+                )
+            }
+
+            connection.prepareStatement(
+                "UPDATE invoices SET status = 'COMPLETED', reviewed_by = ?, reviewed_at = now(), " +
+                    "updated_at = now() WHERE id = ?",
+            ).use { st ->
+                if (userId != null) st.setLong(1, userId) else st.setNull(1, java.sql.Types.BIGINT)
+                st.setLong(2, invoiceId)
+                st.executeUpdate()
+            }
+
+            connection.commit()
+            invoice(invoiceId)
+        } catch (e: Exception) {
+            connection.rollback()
+            throw e
+        }
+    }
+
+    private companion object {
+        /**
+         * La cabecera con sus contadores, para el listado.
+         *
+         * `pendingApprovalLines` cuenta las líneas que **bloquean** el cierre, que
+         * es lo que el usuario necesita saber para decidir si puede cerrar. Es el
+         * mismo criterio que aplica `close`, así que la lista y la acción no pueden
+         * discrepar.
+         */
+        const val SUMMARY_SELECT = """
+            SELECT i.id, i.invoice_number, i.receipt_date, i.invoice_type, i.status,
+                   i.customer_code, i.concept, i.created_at,
+                   COALESCE(l.total_lines, 0) AS total_lines,
+                   COALESCE(l.pending_lines, 0) AS pending_lines
+            FROM invoices i
+            LEFT JOIN (
+                SELECT invoice_id,
+                       count(*) AS total_lines,
+                       count(*) FILTER (WHERE status IN ('PENDING', 'DISCREPANCY', 'ASSIGNED'))
+                           AS pending_lines
+                FROM invoice_lines WHERE NOT deleted GROUP BY invoice_id
+            ) l ON l.invoice_id = i.id
+        """
+    }
+
     private fun readLines(connection: Connection, invoiceId: Long): List<InvoiceLineDto> =
         connection.prepareStatement(
             """
@@ -729,6 +906,36 @@ data class NewInvoiceLine(
     val unitsPerBox: Quantity? = null,
 )
 
+/**
+ * Una factura del listado: cabecera y contadores, **sin líneas**.
+ *
+ * Traer las líneas de cada factura de la página sería un N+1 disfrazado; quien las
+ * necesita pide el detalle.
+ */
+@Serializable
+data class InvoiceSummary(
+    val id: Long,
+    val invoiceNumber: String,
+    val receiptDate: String,
+    val invoiceType: String,
+    val status: String,
+    val customerCode: String? = null,
+    val concept: String? = null,
+    val totalLines: Int,
+    /** Líneas que IMPIDEN cerrar: sin capturar, con diferencia sin aprobar o asignadas. */
+    val pendingApprovalLines: Int,
+    val createdAt: String,
+)
+
+@Serializable
+data class InvoicePageResponse(
+    val items: List<InvoiceSummary>,
+    val page: Int,
+    val size: Int,
+    val totalItems: Long,
+    val totalPages: Int,
+)
+
 @Serializable
 data class InvoiceDetail(
     val id: Long,
@@ -777,4 +984,18 @@ data class PendingApprovalDto(
     val status: String,
     val pendingLines: Int,
     val totalDifference: String,
+)
+
+/** Mapea una fila del listado de facturas a su DTO. */
+private fun java.sql.ResultSet.toInvoiceSummary(): InvoiceSummary = InvoiceSummary(
+    id = getLong("id"),
+    invoiceNumber = getString("invoice_number"),
+    receiptDate = getDate("receipt_date").toLocalDate().toString(),
+    invoiceType = getString("invoice_type"),
+    status = getString("status"),
+    customerCode = getString("customer_code"),
+    concept = getString("concept"),
+    totalLines = getInt("total_lines"),
+    pendingApprovalLines = getInt("pending_lines"),
+    createdAt = getTimestamp("created_at").toInstant().toString(),
 )
