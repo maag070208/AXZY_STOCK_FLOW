@@ -1,14 +1,15 @@
 package dev.axzy.stock.backend.catalog.product
 
+import dev.axzy.stock.backend.infrastructure.outbound.persistence.tables.Products
+
 import dev.axzy.stock.backend.application.shared.Page
 import dev.axzy.stock.backend.application.shared.PageRequest
-import dev.axzy.stock.backend.catalog.Products
-import dev.axzy.stock.backend.catalog.StockByLocation
-import dev.axzy.stock.backend.catalog.StockInTransit
-import dev.axzy.stock.backend.catalog.UnitsOfMeasure
+import dev.axzy.stock.backend.infrastructure.outbound.persistence.tables.StockByLocation
+import dev.axzy.stock.backend.infrastructure.outbound.persistence.tables.StockInTransit
+import dev.axzy.stock.backend.infrastructure.outbound.persistence.tables.UnitsOfMeasure
 import dev.axzy.stock.backend.catalog.page
 import dev.axzy.stock.backend.catalog.productCode
-import dev.axzy.stock.backend.catalog.withFilter
+import dev.axzy.stock.backend.infrastructure.outbound.persistence.tables.withFilter
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.JoinType
 import org.jetbrains.exposed.sql.Op

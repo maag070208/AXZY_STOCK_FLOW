@@ -1,5 +1,7 @@
 package dev.axzy.stock.backend.catalog
 
+import dev.axzy.stock.backend.infrastructure.outbound.persistence.tables.UnitsOfMeasure
+
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction

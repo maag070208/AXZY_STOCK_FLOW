@@ -1,13 +1,14 @@
 package dev.axzy.stock.backend.catalog.location
 
-import dev.axzy.stock.backend.catalog.Locations
+import dev.axzy.stock.backend.infrastructure.outbound.persistence.tables.Locations
+
 import dev.axzy.stock.backend.application.shared.Page
 import dev.axzy.stock.backend.application.shared.PageRequest
-import dev.axzy.stock.backend.catalog.StockByLocation
-import dev.axzy.stock.backend.catalog.Warehouses
-import dev.axzy.stock.backend.catalog.castToLocationKind
+import dev.axzy.stock.backend.infrastructure.outbound.persistence.tables.StockByLocation
+import dev.axzy.stock.backend.infrastructure.outbound.persistence.tables.Warehouses
+import dev.axzy.stock.backend.infrastructure.outbound.persistence.tables.castToLocationKind
 import dev.axzy.stock.backend.catalog.page
-import dev.axzy.stock.backend.catalog.withFilter
+import dev.axzy.stock.backend.infrastructure.outbound.persistence.tables.withFilter
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.JoinType
 import org.jetbrains.exposed.sql.Op

@@ -1,4 +1,4 @@
-package dev.axzy.stock.backend.catalog
+package dev.axzy.stock.backend.infrastructure.outbound.persistence.tables
 
 import org.jetbrains.exposed.sql.Expression
 import org.jetbrains.exposed.sql.Op
