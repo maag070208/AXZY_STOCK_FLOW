@@ -2266,7 +2266,7 @@ exhaustivo con rutas y números de línea. Son la evidencia de este plan:
 
 | Documento | Contenido |
 |---|---|
-| [REPORTE_ARQUITECTURA_FSD_RESPONSIVA_WEB.md](REPORTE_ARQUITECTURA_FSD_RESPONSIVA_WEB.md) | Arquitectura y convenciones del repo de referencia FSD (~2.300 líneas): capas, boundaries, data fetching, RTK, routing/guards, UI kit, permisos, estilos, i18n, PDF/QR, testing, Docker/Electron, inventario de 79 rutas / 18 entidades / 56 slices / 74 páginas |
+| [REPORTE_ARQUITECTURA_FSD_RESPONSIVA_WEB.md](../referencias/fsd-responsiva.md) | Arquitectura y convenciones del repo de referencia FSD (~2.300 líneas): capas, boundaries, data fetching, RTK, routing/guards, UI kit, permisos, estilos, i18n, PDF/QR, testing, Docker/Electron, inventario de 79 rutas / 18 entidades / 56 slices / 74 páginas |
 | [PLAN_AUDITORIA.md](PLAN_AUDITORIA.md) | **Diseño de auditoría y trazabilidad**: las 6 dimensiones (quién/cuándo/dónde/de dónde/permiso/qué), 4 niveles de criticidad, el `AccessDecisionTrace` completo, cadena de hashes, particionado, 3 tablas nuevas, 11 endpoints, 6 pantallas y 28 casos de prueba |
 | [PLAN_REFACTOR_MEJORAS.md](PLAN_REFACTOR_MEJORAS.md) | **Estrategia del refactor**: 71 cambios identificados (R-01…R-71) en 3 clases (defecto técnico / contradicción interna / regla de negocio), metodología de propuesta, política de rollback con feature flags, priorización en 3 bloques y 15 mejoras por buenas prácticas |
 | [PLAN_ROLES_PERMISOS_POLITICAS.md](PLAN_ROLES_PERMISOS_POLITICAS.md) | **Diseño completo del control de acceso**: RBAC + ABAC, 76 permisos, 5 roles, 12 políticas, 9 tablas, 18 endpoints, 7 pantallas y 50 casos de prueba |

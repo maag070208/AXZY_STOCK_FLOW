@@ -151,7 +151,18 @@ enlace funciona y ningún documento normativo contradice al código.
 | 0. Congelar | **Hecho.** `c3d1236` (refactor de código) y `70cc7cc` (plan y normas). Tests: `:backend:test` y `:stock-domain:jvmTest`, 683 pruebas, 0 fallos, 0 saltadas, ejecutadas con la caché desactivada. |
 | 1. Esqueleto | **Hecho.** `README.md`, `docs/README.md`, las carpetas y `plantillas/plantilla-modulo.md`. |
 | 2. Normativos | **Hecho.** `ARQUITECTURA.md` partido en 13 documentos y `CONTRATO_API.md` en 12; los ADR 0001-0007 escritos. Verificado: todos los enlaces del índice resuelven, no queda narrativa de conversación y las rutas de código citadas existen. |
-| 3 a 7 | Pendientes. Ya no están bloqueadas por ninguna decisión. |
+| 3. Módulos | **Hecho.** `modulos/M01…M09` con la plantilla y `modulos/README.md` con el estado derivado del código. |
+| 4. Migración | **Hecho.** `migracion/`: legado, mapa de las rutas del legacy, cada una con destino, pendiente o descarte, catálogo y corte. |
+| 5. Decisiones | **Hecho.** ADR 0008 a 0013 (B1–B3, B7, B8, R-71, R-72, R-73, R-86 y R-74/R-75). |
+| 6. Operación y pruebas | **Hecho.** `operacion/` (entornos, despliegue, respaldos) y `seguridad/owasp.md`. Los respaldos **no existen** en el repo: queda como pendiente. |
+| 7. Archivo | **Hecho.** Los documentos anteriores pasan a `docs/historico/` con `git mv`; el reporte de FSD a `docs/referencias/`. Las citas del código y del build se actualizaron (sin tocar las migraciones, cuyo checksum de Flyway no debe cambiar). |
+
+**Hallazgos durante la ejecución de 3 a 7** (los corregí o los dejé anotados):
+
+- Las divergencias del OpenAPI decían que varios endpoints no existían; estaban implementados. Corregido en un commit aparte.
+- El código de «nada pendiente de aprobar» es `NO_PENDING_APPROVAL` en la API. `NOT_PENDING_APPROVAL` solo existe en el dominio y la API no lo emite. El OpenAPI decía lo contrario.
+- La administración de usuarios de la API es solo de lectura. El mapa del legacy y M07 lo reflejan.
+- `ARRANQUE.md` no podía abrir un `.xcodeproj` que no existe en el repo: corregido.
 
 ---
 
