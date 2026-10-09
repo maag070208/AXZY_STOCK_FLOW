@@ -1,12 +1,17 @@
-package dev.axzy.stock.backend.receiving
+package dev.axzy.stock.backend.infrastructure.outbound.persistence.receiving
 
+import dev.axzy.stock.backend.application.receiving.InvoiceLineDto
+import dev.axzy.stock.backend.application.receiving.InvoiceSummary
+import dev.axzy.stock.backend.application.receiving.PendingApprovalDto
+import dev.axzy.stock.backend.application.shared.locationDisplayName
+import dev.axzy.stock.backend.infrastructure.outbound.persistence.shared.getLongOrNull
 import java.sql.ResultSet
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * MAPPERS DE RECEPCIÓN — de fila de base de datos a DTO
  *
- * Ver `inventory/InventoryMappers.kt` para el razonamiento completo. Lo esencial:
+ * Ver `persistence/inventory/InventoryMappers.kt` para el razonamiento completo. Lo esencial:
  *
  * **Un mapper lee la columna por su nombre en una CADENA.** `getString("product_code")`
  * compila igual si el SQL dice `AS productCode`, y devuelve `null` en silencio. **Un
@@ -27,11 +32,10 @@ import java.sql.ResultSet
  *     si el esquema dice que la columna no puede ser nula, la excepción es la respuesta
  *     correcta —significa que la base está mal—, pero conviene saberlo.
  *
- *  2. **`getLong(...).takeIf { !wasNull() }` para las claves foráneas anulables** —
- *     `getLong` devuelve **0** para un NULL, así que sin el `wasNull()` una línea sin
- *     capturar aparecería como del **usuario 0, que no existe**. `wasNull()` es la única
- *     forma de distinguir «cero» de «ninguno», y **hay que llamarlo inmediatamente
- *     después del `get`**: cualquier otra lectura lo sobrescribe.
+ *  2. **`getLongOrNull(...)` para las claves foráneas anulables** — `getLong` devuelve
+ *     **0** para un NULL, así que una línea sin capturar aparecería como del **usuario 0,
+ *     que no existe**. `wasNull()` es la única forma de distinguir «cero» de «ninguno», y
+ *     hay que llamarlo inmediatamente después del `get`: por eso vive en un solo helper.
  *
  * `difference` viene de una **columna generada** de la base y no se calcula aquí. Es
  * deliberado: en el legacy se declaraba en cuatro sitios y **siempre valía 0**.
@@ -53,15 +57,15 @@ internal fun ResultSet.toInvoiceLineDto(): InvoiceLineDto = InvoiceLineDto(
     // declaraba en cuatro sitios y siempre valía 0.
     difference = getBigDecimal("difference")?.toPlainString(),
     status = getString("status"),
-    capturedBy = getLong("captured_by").takeIf { !wasNull() },
+    capturedBy = getLongOrNull("captured_by"),
     capturedByName = getString("captured_by_name"),
     capturedAt = getTimestamp("captured_at")?.toInstant()?.toString(),
-    approvedBy = getLong("approved_by").takeIf { !wasNull() },
+    approvedBy = getLongOrNull("approved_by"),
     approvedByName = getString("approved_by_name"),
     approvedAt = getTimestamp("approved_at")?.toInstant()?.toString(),
     adjustmentReason = getString("adjustment_reason"),
     locationDisplayName = getString("hall")?.let {
-    displayNameFor(it, getString("code"), getString("position"), getString("kind"))
+        locationDisplayName(it, getString("code"), getString("position"), getString("kind"))
     },
 )
 
@@ -83,9 +87,16 @@ internal fun ResultSet.toPendingApprovalDto(): PendingApprovalDto = PendingAppro
     totalDifference = getBigDecimal("total_difference").toPlainString(),
 )
 
-internal fun displayNameFor(hall: String, code: String, position: String, kind: String): String =
-    when (kind) {
-        "RECEIVING" -> "RECEPCION"
-        "UNASSIGNED" -> "SIN-UBICAR"
-        else -> "$hall-$code-$position"
-}
+/** Convierte una fila del listado de facturas en su DTO: cabecera y contadores, sin líneas. */
+internal fun ResultSet.toInvoiceSummary(): InvoiceSummary = InvoiceSummary(
+    id = getLong("id"),
+    invoiceNumber = getString("invoice_number"),
+    receiptDate = getDate("receipt_date").toLocalDate().toString(),
+    invoiceType = getString("invoice_type"),
+    status = getString("status"),
+    customerCode = getString("customer_code"),
+    concept = getString("concept"),
+    totalLines = getInt("total_lines"),
+    pendingApprovalLines = getInt("pending_lines"),
+    createdAt = getTimestamp("created_at").toInstant().toString(),
+)

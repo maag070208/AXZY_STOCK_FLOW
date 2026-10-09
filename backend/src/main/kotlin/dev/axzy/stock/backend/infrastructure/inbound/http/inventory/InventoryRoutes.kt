@@ -15,6 +15,7 @@ import dev.axzy.stock.backend.application.shared.unitsText
 import dev.axzy.stock.backend.error.BadRequestException
 import dev.axzy.stock.backend.error.UnprocessableException
 import dev.axzy.stock.backend.infrastructure.inbound.http.shared.pageRequest
+import dev.axzy.stock.backend.infrastructure.inbound.http.shared.quantityOf
 import dev.axzy.stock.backend.infrastructure.inbound.http.shared.requirePermission
 import dev.axzy.stock.backend.infrastructure.inbound.http.shared.requireUser
 import dev.axzy.stock.backend.security.PermissionChecker
@@ -25,7 +26,6 @@ import dev.axzy.stock.domain.inventory.AdjustmentReason
 import dev.axzy.stock.domain.inventory.AdjustmentRequest
 import dev.axzy.stock.domain.value.LocationCode
 import dev.axzy.stock.domain.value.ProductCode
-import dev.axzy.stock.domain.value.Quantity
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receive
@@ -33,7 +33,6 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
-import java.math.BigDecimal
 import java.time.Instant
 import java.util.UUID
 
@@ -229,10 +228,6 @@ private suspend fun ApplicationCall.moveStock(useCases: InventoryUseCases) {
         ),
     )
 }
-
-/** Traduce la cantidad del contrato (3 decimales) a la del dominio. */
-private fun quantityOf(value: Double): Quantity =
-    Quantity.ofScaled(BigDecimal.valueOf(value).movePointRight(Quantity.SCALE).toLong())
 
 private inline fun <reified E : Enum<E>> enumValueOrNull(raw: String): E? =
     runCatching { enumValueOf<E>(raw.uppercase()) }.getOrNull()

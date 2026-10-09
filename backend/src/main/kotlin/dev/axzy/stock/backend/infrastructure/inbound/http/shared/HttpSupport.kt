@@ -7,7 +7,9 @@ import dev.axzy.stock.backend.error.UnauthorizedException
 import dev.axzy.stock.backend.security.PermissionChecker
 import dev.axzy.stock.backend.security.PermissionDecision
 import dev.axzy.stock.backend.security.userFromToken
+import dev.axzy.stock.domain.value.Quantity
 import io.ktor.server.application.ApplicationCall
+import java.math.BigDecimal
 
 /*
  * Lo que TODAS las rutas hacen igual: autorizar, identificar a quien llama y leer la
@@ -44,6 +46,14 @@ internal fun ApplicationCall.requireUser(message: String = "Se requiere autentic
 /** Un identificador numérico de la ruta, o `400 INVALID_ID` con el mensaje del recurso. */
 internal fun ApplicationCall.pathLong(name: String, message: String): Long =
     parameters[name]?.toLongOrNull() ?: throw BadRequestException("INVALID_ID", message)
+
+/**
+ * Traduce una cantidad del contrato (número con 3 decimales) a la del dominio. Pasa por
+ * `BigDecimal.valueOf`, que usa la representación decimal más corta del `Double`: `0.1` es `0.1`
+ * y no `0.1000000000000000055…`.
+ */
+internal fun quantityOf(value: Double): Quantity =
+    Quantity.ofScaled(BigDecimal.valueOf(value).movePointRight(Quantity.SCALE).toLong())
 
 // ── Paginación ───────────────────────────────────────────────────────────────
 

@@ -1,11 +1,12 @@
 package dev.axzy.stock.backend.config
 
 import dev.axzy.stock.backend.application.inventory.InventoryUseCases
+import dev.axzy.stock.backend.application.receiving.ReceivingUseCases
 import dev.axzy.stock.backend.application.transfer.TransferUseCases
 import dev.axzy.stock.backend.infrastructure.outbound.persistence.audit.AuditWriter
 import dev.axzy.stock.backend.infrastructure.outbound.persistence.inventory.JdbcInventoryRepository
+import dev.axzy.stock.backend.infrastructure.outbound.persistence.receiving.JdbcReceivingRepository
 import dev.axzy.stock.backend.infrastructure.outbound.persistence.transfer.JdbcTransferRepository
-import dev.axzy.stock.backend.receiving.ReceivingService
 import javax.sql.DataSource
 
 /**
@@ -47,7 +48,7 @@ class AppDependencies(private val dataSource: DataSource) {
 
     val inventory: InventoryUseCases by lazy { InventoryUseCases(JdbcInventoryRepository(dataSource, auditWriter)) }
 
-    val receivingService: ReceivingService by lazy { ReceivingService(dataSource, auditWriter) }
+    val receiving: ReceivingUseCases by lazy { ReceivingUseCases(JdbcReceivingRepository(dataSource, auditWriter)) }
 
     val transfer: TransferUseCases by lazy { TransferUseCases(JdbcTransferRepository(dataSource, auditWriter)) }
 }

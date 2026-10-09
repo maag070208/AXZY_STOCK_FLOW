@@ -1,8 +1,9 @@
-package dev.axzy.stock.backend.receiving
+package dev.axzy.stock.backend.application.receiving
 
 import dev.axzy.stock.backend.config.DatabaseConfig
 import dev.axzy.stock.backend.config.buildDataSource
 import dev.axzy.stock.backend.config.migrate
+import dev.axzy.stock.backend.infrastructure.outbound.persistence.receiving.JdbcReceivingRepository
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -244,7 +245,7 @@ class InvoiceCloseTest : DescribeSpec({
             withDatabase { pool ->
                 val id = pool.invoice("F-OK", listOf("CAPTURED", "LOCATED"))
 
-                val detalle = ReceivingService(pool).close(id, userId = null)
+                val detalle = ReceivingUseCases(JdbcReceivingRepository(pool)).close(id, userId = null)
 
                 detalle.status shouldBe "COMPLETED"
             }
@@ -254,7 +255,7 @@ class InvoiceCloseTest : DescribeSpec({
             withDatabase { pool ->
                 val id = pool.invoice("F-PEND", listOf("CAPTURED", "PENDING"))
 
-                val error = runCatching { ReceivingService(pool).close(id, userId = null) }
+                val error = runCatching { ReceivingUseCases(JdbcReceivingRepository(pool)).close(id, userId = null) }
                     .exceptionOrNull()
 
                 error.shouldBeInstanceOf<dev.axzy.stock.backend.error.StockException>()
@@ -271,7 +272,7 @@ class InvoiceCloseTest : DescribeSpec({
             withDatabase { pool ->
                 val id = pool.invoice("F-DISC", listOf("DISCREPANCY"))
 
-                val error = runCatching { ReceivingService(pool).close(id, userId = null) }
+                val error = runCatching { ReceivingUseCases(JdbcReceivingRepository(pool)).close(id, userId = null) }
                     .exceptionOrNull()
 
                 // Es la regla central de la recepción: **una diferencia con la
@@ -286,7 +287,7 @@ class InvoiceCloseTest : DescribeSpec({
             withDatabase { pool ->
                 val id = pool.invoice("F-ASIG", listOf("ASSIGNED"))
 
-                (runCatching { ReceivingService(pool).close(id, userId = null) }
+                (runCatching { ReceivingUseCases(JdbcReceivingRepository(pool)).close(id, userId = null) }
                     .exceptionOrNull() as dev.axzy.stock.backend.error.StockException).code shouldBe
                     "INVOICE_HAS_PENDING_LINES"
             }
@@ -299,14 +300,14 @@ class InvoiceCloseTest : DescribeSpec({
                 // estados permitidos, esto podría discrepar.
                 val id = pool.invoice("F-MIX", listOf("APPROVED", "CANCELLED", "LOCATED"))
 
-                ReceivingService(pool).close(id, userId = null).status shouldBe "COMPLETED"
+                ReceivingUseCases(JdbcReceivingRepository(pool)).close(id, userId = null).status shouldBe "COMPLETED"
             }
         }
 
         it("cerrar dos veces da 409 INVOICE_ALREADY_CLOSED") {
             withDatabase { pool ->
                 val id = pool.invoice("F-TWICE", listOf("CAPTURED"))
-                val service = ReceivingService(pool)
+                val service = ReceivingUseCases(JdbcReceivingRepository(pool))
 
                 service.close(id, userId = null).status shouldBe "COMPLETED"
 
@@ -327,7 +328,7 @@ class InvoiceCloseTest : DescribeSpec({
                     }
                 }
 
-                val error = runCatching { ReceivingService(pool).close(id, userId = null) }
+                val error = runCatching { ReceivingUseCases(JdbcReceivingRepository(pool)).close(id, userId = null) }
                     .exceptionOrNull()
 
                 (error as dev.axzy.stock.backend.error.StockException).code shouldBe "INVALID_TRANSITION"
@@ -336,7 +337,7 @@ class InvoiceCloseTest : DescribeSpec({
 
         it("cerrar una factura que no existe da 404, no un 500") {
             withDatabase { pool ->
-                val error = runCatching { ReceivingService(pool).close(999_999, userId = null) }
+                val error = runCatching { ReceivingUseCases(JdbcReceivingRepository(pool)).close(999_999, userId = null) }
                     .exceptionOrNull()
 
                 (error as dev.axzy.stock.backend.error.StockException).code shouldBe "INVOICE_NOT_FOUND"
@@ -350,7 +351,7 @@ class InvoiceCloseTest : DescribeSpec({
             withDatabase { pool ->
                 pool.invoice("F-L1", listOf("CAPTURED", "PENDING", "DISCREPANCY"))
 
-                val lista = ReceivingService(pool).list(null, null, 0, 10)
+                val lista = ReceivingUseCases(JdbcReceivingRepository(pool)).list(null, null, 0, 10)
 
                 lista.size shouldBe 1
                 val fila = lista.single()
@@ -367,7 +368,7 @@ class InvoiceCloseTest : DescribeSpec({
             withDatabase { pool ->
                 pool.invoice("F-A", listOf("CAPTURED"))
                 pool.invoice("F-B", listOf("CAPTURED"))
-                val service = ReceivingService(pool)
+                val service = ReceivingUseCases(JdbcReceivingRepository(pool))
 
                 service.count(null, null) shouldBe 2
                 service.count("IN_PROGRESS", null) shouldBe 2
@@ -381,7 +382,7 @@ class InvoiceCloseTest : DescribeSpec({
             withDatabase { pool ->
                 pool.invoice("FIND-123", listOf("CAPTURED"))
 
-                val service = ReceivingService(pool)
+                val service = ReceivingUseCases(JdbcReceivingRepository(pool))
 
                 service.list(null, "FIND-123", 0, 10).size shouldBe 1
                 // Y una búsqueda que no casa devuelve vacío, no todo.
@@ -394,7 +395,7 @@ class InvoiceCloseTest : DescribeSpec({
                 pool.invoice("F-P1", listOf("CAPTURED"))
                 pool.invoice("F-P2", listOf("CAPTURED"))
                 pool.invoice("F-P3", listOf("CAPTURED"))
-                val service = ReceivingService(pool)
+                val service = ReceivingUseCases(JdbcReceivingRepository(pool))
 
                 service.list(null, null, 0, 2).size shouldBe 2
                 // **El total no es el tamaño de la página**: si lo fuera, el cliente
@@ -418,8 +419,8 @@ class InvoiceCloseTest : DescribeSpec({
 
                 // El borrado es lógico y el listado lo respeta: si apareciera, el
                 // usuario vería documentos que el sistema considera borrados.
-                ReceivingService(pool).list(null, null, 0, 10).size shouldBe 0
-                ReceivingService(pool).count(null, null) shouldBe 0
+                ReceivingUseCases(JdbcReceivingRepository(pool)).list(null, null, 0, 10).size shouldBe 0
+                ReceivingUseCases(JdbcReceivingRepository(pool)).count(null, null) shouldBe 0
             }
         }
     }

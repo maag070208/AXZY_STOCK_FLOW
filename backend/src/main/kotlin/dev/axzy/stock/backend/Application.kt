@@ -13,9 +13,8 @@ import dev.axzy.stock.backend.identity.tokenClaims
 import dev.axzy.stock.backend.audit.AuditQueryService
 import dev.axzy.stock.backend.audit.auditRoutes
 import dev.axzy.stock.backend.catalog.catalogRoutes
-import dev.axzy.stock.backend.receiving.ReceivingService
 import dev.axzy.stock.backend.infrastructure.inbound.http.inventory.inventoryRoutes
-import dev.axzy.stock.backend.receiving.receivingRoutes
+import dev.axzy.stock.backend.infrastructure.inbound.http.receiving.receivingRoutes
 import dev.axzy.stock.backend.reports.reportRoutes
 import dev.axzy.stock.backend.label.labelRoutes
 import dev.axzy.stock.backend.order.orderRoutes
@@ -263,7 +262,7 @@ fun Application.module(
         // ── Recepción ───────────────────────────────────────────────────────
         // La regla B1 vive aquí: una línea con discrepancia no se puede ubicar
         // hasta que un supervisor apruebe la factura.
-        receivingRoutes(dependencies.receivingService, permissionChecker)
+        receivingRoutes(dependencies.receiving, permissionChecker)
 
         // ── Administración de identidad ─────────────────────────────────────
         // Personas, roles y catálogo de permisos. Se conecta siempre, como el
