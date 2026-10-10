@@ -126,6 +126,16 @@ interface Warehouses {
 
     fun findByCode(code: String): Warehouse?
 
+    /**
+     * La bodega predeterminada.
+     *
+     * El índice parcial `warehouses_one_default_idx` garantiza que haya **como
+     * mucho** una; que exista al menos una lo garantiza el arranque del sistema, que
+     * siembra la primera. La usan los movimientos de inventario, que no llevan
+     * bodega en el cuerpo: mover entre bodegas es un traslado (M05).
+     */
+    fun defaultWarehouse(): Warehouse?
+
     fun insert(newWarehouse: NewWarehouse): Warehouse
 
     fun update(warehouse: Warehouse): Warehouse

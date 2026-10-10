@@ -1,12 +1,12 @@
 # M02 — Existencias: stock, kardex, ajustes y reportes
-> **Normativo.** Última verificación: 2026-10-09.
+> **Normativo.** Última verificación: 2026-10-10 (fase 5 cerrada).
 
 | | |
 |---|---|
 | **Código** | M02 |
 | **Carpeta** | `docs/modulos/M02-existencias/` |
 | **Documentado** | Sí |
-| **Terminado (backend)** | Sí |
+| **Terminado (backend)** | Sí: movimientos, consultas y reportes |
 | **Web** | `InventoryPage`, `KardexPage`, reportes en `ReportsPage` |
 | **App** | `features/inventory` |
 
@@ -32,11 +32,11 @@ leen de las mismas existencias y del mismo kardex.
 | R1 | Cada cambio de existencias es un movimiento nuevo en el kardex; nunca se edita el histórico | `V3__inventory_domain.sql` (`kardex` append-only); `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/inventory/` |
 | R2 | Las existencias son una proyección del kardex y del tránsito | `stock_by_location`, `product_stock` en `V3` |
 | R3 | Toda diferencia es un ajuste con motivo obligatorio y origen | [ADR-0008](../../adr/0008-discrepancias-y-merma.md); `AdjustStock` en `stock-domain` |
-| R4 | No se puede sacar más de lo que hay en la ubicación | `INSUFFICIENT_STOCK` en `application/inventory/InventoryUseCases.kt` y `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/error/DomainError.kt` |
+| R4 | No se puede sacar más de lo que hay en la ubicación | `INSUFFICIENT_STOCK` en `application/inventory/AdjustStock.kt`, con el saldo leído **con bloqueo** (Q9) |
 | R5 | Origen y destino de un movimiento no pueden ser el mismo | `SAME_SOURCE_AND_DESTINATION` |
 | R6 | Un movimiento de existencias requiere motivo cuando la regla lo exige | `REASON_REQUIRED` |
 | R7 | El total por producto cuadra con la suma de sus ubicaciones y el tránsito | `comprobar_proyecciones()` en las migraciones; reporte `kardex-vs-projection` |
-| R8 | Ver el kardex exige `kardex.view`, no `inventory.view` | `inventory/InventoryRoutes.kt` |
+| R8 | Ver el kardex exige `kardex.view`, no `inventory.view` | `@RequiresPermission` en `InventoryController.kt` |
 
 ## 4. Modelo de datos
 
@@ -50,8 +50,9 @@ leen de las mismas existencias y del mismo kardex.
 ## 5. API
 
 Existencias, kardex y ajustes en [api/inventario.md](../../api/inventario.md). Reportes en
-[api/reportes.md](../../api/reportes.md). Rutas en `inventory/InventoryRoutes.kt` y
-`reports/ReportRoutes.kt`.
+[api/reportes.md](../../api/reportes.md). Rutas en
+`api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/inventory/` y (pendientes) en el
+módulo de reportes.
 
 ## 6. Permisos
 
@@ -74,4 +75,8 @@ Invariantes de conservación en `stock-domain` (`InventoryInvariantsPropertyTest
 
 - [x] Las invariantes I1–I10 se cumplen en las pruebas de propiedades.
 - [x] Reportes y alarma de descuadre con prueba de navegador (`web/e2e/flow.spec.ts`).
-- [ ] Prueba de navegador de existencias, kardex y ajustes. No existe.
+- [x] A1–A10 en verde: ocho por HTTP y tres (A3, A4, A9) contra la base con dos transacciones reales.
+- [x] El presupuesto de consultas medido: existencias y kardex son **dos sentencias** cada uno.
+- [x] Ningún adaptador escribe el inventario por fuera del motor (`InventoryWriteGuardTest`, probada fallando).
+- [ ] Los reportes de [api/reportes.md](../../api/reportes.md): existen, resumen de movimientos y `kardex-vs-projection`.
+- [ ] Prueba de navegador de existencias, kardex y ajustes. Llega con la web (fase 11).

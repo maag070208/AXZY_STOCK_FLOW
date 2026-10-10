@@ -14,12 +14,19 @@ package dev.axzy.stock.adapters.web.http
  * verificable. Una anotación que dijera `product.view` sobre un caso de uso que no
  * autoriza seguiría siendo un agujero, y por eso las pruebas de flujo comprueban
  * el `403` de verdad.
+ *
+ * **Admite varios permisos** para el caso en que el permiso real dependa del cuerpo:
+ * el ajuste de inventario exige uno distinto según la dirección y el motivo
+ * (`inventory.adjust_increase`, `…_theft`, …). La ruta declara **el conjunto
+ * cerrado** de los que pueden aplicar —todos tienen que existir en el catálogo— y
+ * el caso de uso decide cuál de ellos. Declarar uno solo sería mentir en la
+ * auditoría de rutas.
  */
 
 /** La ruta exige este permiso, además de identidad. */
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
-annotation class RequiresPermission(val value: String)
+annotation class RequiresPermission(vararg val value: String)
 
 /**
  * La ruta exige identidad pero **ningún permiso concreto**: ver quién soy y

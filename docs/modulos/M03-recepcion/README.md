@@ -1,5 +1,5 @@
 # M03 — Recepción: facturas, captura física y discrepancias
-> **Normativo.** Última verificación: 2026-10-09.
+> **Normativo.** Última verificación: 2026-10-10 (fase 6: facturas, captura y decisiones; falta el enganche de ubicar con la línea).
 
 | | |
 |---|---|
@@ -30,11 +30,11 @@ diferencias con un supervisor y dejar la mercancía ubicada.
 |---|---|---|
 | R1 | Una línea con diferencia respecto a lo facturado queda en `DISCREPANCY` y no se puede ubicar | [ADR-0008](../../adr/0008-discrepancias-y-merma.md); `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/receiving/InvoiceLine.kt` |
 | R2 | Toda diferencia requiere aprobación de un supervisor, sin umbral | [ADR-0008](../../adr/0008-discrepancias-y-merma.md) |
-| R3 | La aprobación es por factura, no por línea | `receiving/ReceivingRoutes.kt` (`POST /v1/invoices/{id}/approve`) |
-| R4 | Quien captura una línea no puede aprobar su discrepancia | `SEGREGATION_OF_DUTIES` en `security/PermissionChecker.kt` |
-| R5 | Una factura no se cierra con líneas en discrepancia | `INVOICE_HAS_PENDING_LINES` en `application/receiving/ReceivingUseCases.kt` |
+| R3 | La aprobación es por factura, no por línea | `ApproveInvoice` en `api/application/.../receiving/InvoiceUseCases.kt`, con una sola sentencia de escritura |
+| R4 | Quien captura una línea no puede aprobar su discrepancia | `SEGREGATION_OF_DUTIES` (403) en `ApproveInvoice`, con `details.lines` |
+| R5 | Una factura no se cierra con líneas en discrepancia | `INVOICE_HAS_PENDING_LINES` en `CloseInvoice`, con el criterio de `InvoiceLineStatus.blocksInvoiceClosing` |
 | R6 | Si nada está pendiente de aprobar, responde `NO_PENDING_APPROVAL` (409) | `application/receiving/ReceivingUseCases.kt` |
-| R7 | El listado de facturas rechaza `page` negativa en lugar de recortarla | `receiving/ReceivingRoutes.kt` (`INVALID_PAGINATION`) |
+| R7 | El listado de facturas rechaza `page` negativa en lugar de recortarla | `PageRequest.analyze` (regla transversal), comprobada en `ReceivingFlowTest` |
 
 ## 4. Modelo de datos
 

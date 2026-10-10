@@ -1,15 +1,26 @@
 # Reportes
 > **Referencia.** Existencias con totales, exportación del kardex, resumen de
 > movimientos y reconciliación entre el ledger y la proyección.
-> Última verificación: 2026-10-09.
+> Última verificación: 2026-10-10 (fase 5, M02 cerrada).
 
-Implementado en
-`backend/src/main/kotlin/dev/axzy/stock/backend/reports/ReportRoutes.kt` y
-`ReportService.kt`, con los DTO en `ReportDtos.kt` y la exportación a CSV/XLSX en
-`ReportExport.kt`. La reconciliación vive en
-`backend/src/main/kotlin/dev/axzy/stock/backend/infrastructure/inbound/http/inventory/InventoryRoutes.kt`. La
-paginación está en [convenciones.md](convenciones.md); los códigos, en
+Implementado en capas, como el resto de la API (docs/arquitectura/api-spring.md §1):
+
+| Capa | Archivo |
+|---|---|
+| Rutas | `api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/reports/ReportController.kt` |
+| Casos de uso y puertos | `api/application/src/main/kotlin/dev/axzy/stock/application/reports/` |
+| Consultas y exportación | `api/adapters-persistence/.../reports/JdbcReportQueries.kt` y `api/adapters-web/.../reports/KardexExportWriter.kt` |
+| Cableado | `api/app/src/main/kotlin/dev/axzy/stock/app/config/ReportConfig.kt` |
+
+La paginación está en [convenciones.md](convenciones.md); los códigos, en
 [errores.md](errores.md).
+
+**Las fechas son días operativos, no días UTC.** `from` y `to` se interpretan en la
+zona del negocio (`stock.business-zone`, por defecto `America/Mexico_City`), y el
+resumen agrupa por día, semana y mes en esa misma zona. Un movimiento de las 22:00 del
+día 9 en el almacén es del día 9 aunque en UTC sea ya el 10; interpretarlo en UTC deja
+movimientos fuera de su propio día, y el síntoma es un reporte vacío que parece «no
+hubo movimientos».
 
 Los tres listados exigen `report.view`; la exportación, `report.export`. **Son los
 mismos permisos que los guards de las pantallas**: un permiso distinto hace que el
@@ -130,7 +141,6 @@ conteo físico.
 
 | Archivo | Qué cubre |
 |---|---|
-| `backend/src/test/kotlin/dev/axzy/stock/backend/reports/ReportServiceTest.kt` | las consultas de los reportes |
-| `backend/src/test/kotlin/dev/axzy/stock/backend/reports/ReportExportTest.kt` | la exportación a CSV/XLSX |
-| `backend/src/test/kotlin/dev/axzy/stock/backend/infrastructure/outbound/persistence/inventory/DivergenceMapperTest.kt` | el mapeo de la reconciliación |
-| `backend/src/test/kotlin/dev/axzy/stock/backend/ApiE2ETest.kt` | las rutas de reportes contra la API montada |
+| `api/app/src/test/kotlin/dev/axzy/stock/app/ReportFlowTest.kt` | las cuatro rutas por HTTP real: totales del filtro entero, traslados que no suman, reconciliación y exportación |
+| `api/adapters-persistence/src/test/kotlin/dev/axzy/stock/adapters/persistence/ReportPersistenceTest.kt` | el presupuesto de consultas, el troceo de la exportación y el **día operativo** (con movimientos fechados a mano) |
+| `api/adapters-web/src/test/kotlin/dev/axzy/stock/adapters/web/reports/KardexExportWriterTest.kt` | el CSV (comillas, comas, marca de orden de bytes) y que en XLSX las cantidades sean **celdas numéricas** |

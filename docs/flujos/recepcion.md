@@ -1,5 +1,5 @@
 # Recepción: factura, captura física y ubicación
-> **Normativo.** Última revisión: 2026-10-09. Reglas de origen: [ADR-0008](../adr/0008-discrepancias-y-merma.md), [ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md). Módulo: [M03](../modulos/M03-recepcion/README.md).
+> **Normativo.** Última revisión: 2026-10-10 (R2–R6 y R8 en verde; ver §6-bis). Reglas de origen: [ADR-0008](../adr/0008-discrepancias-y-merma.md), [ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md). Módulo: [M03](../modulos/M03-recepcion/README.md).
 
 ## 1. Objetivo y actores
 
@@ -128,6 +128,35 @@ difícil sin resolver.
 - Dado `page=-1`.
 - Cuando se lista facturas.
 - Entonces responde `INVALID_PAGINATION` (400), no recorta el valor en silencio.
+
+### 6-bis. Estado de estas pruebas (2026-10-10)
+
+Cinco de las ocho están automatizadas y en verde por HTTP real
+(`api/app/src/test/kotlin/dev/axzy/stock/app/ReceivingFlowTest.kt`): R2, R3, R4, R5,
+R6 y R8. Las otras dos:
+
+- **R7** (ubicar mueve de recepción al estante y no cambia el total) está cubierta en
+  el flujo de inventario: es `InventoryFlowTest` A1, con el mismo escenario.
+- **R1** (una línea en discrepancia no se puede ubicar) **todavía no se puede
+  comprobar**: la regla está en el dominio (`InvoiceLine.locate` devuelve
+  `DISCREPANCY_NOT_APPROVED` y su prueba unitaria lo verifica), pero la ruta que ubica
+  es `POST /v1/inventory/locate` y **no recibe la línea de factura**, así que mueve el
+  saldo sin saber de qué línea viene. Falta el enganche: un `invoiceLineId` opcional en
+  la ruta de ubicar que cargue la línea, aplique la regla del dominio y actualice
+  `located_quantity`, `location_id` y el estado `LOCATED`. Hasta entonces `LOCATED` no
+  se alcanza por ninguna ruta.
+
+Dos cosas que el documento daba por hechas y no lo estaban:
+
+- **Rechazar no cancela la línea: la devuelve a `PENDING`.** El diagrama de estados
+  dice `DISCREPANCY --> REJECTED`, pero no existe el estado `REJECTED` en la base ni en
+  el dominio: lo que existe es `rejectDiscrepancy`, que limpia el conteo para forzar un
+  reconteo. Cancelar dejaría una línea muerta y mercancía sin contar. Corregido en
+  [api/recepcion.md](../api/recepcion.md).
+- **`physicalBoxQuantity` es una cuenta entera de cajas.** El ejemplo del contrato
+  traía `1.600` para 80 piezas con cajas de 50: era el equivalente decimal del legacy,
+  no un conteo. El dominio modela cajas discretas porque «1 caja y 30 sueltas» es lo
+  que se cuenta, y un valor con fracción se rechaza.
 
 ## 7. Errores
 

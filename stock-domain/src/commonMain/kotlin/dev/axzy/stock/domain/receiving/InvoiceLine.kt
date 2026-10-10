@@ -272,7 +272,7 @@ data class InvoiceLine(
      */
     fun locate(
         quantity: Quantity,
-        toLocation: LocationCode,
+        toLocation: LocationCode? = null,
     ): DomainResult<InvoiceLine> {
         // ── Regla B1: discrepancia bloquea la ubicación ─────────────────────
         if (status == InvoiceLineStatus.DISCREPANCY) {
@@ -310,10 +310,21 @@ data class InvoiceLine(
 
         val newLocated = locatedQuantity + quantity
         val target = physicalQuantity ?: invoicedQuantity
+        /*
+         * Ubicar **parcialmente** no aprueba nada: se conserva el estado.
+         *
+         * Antes pasaba a `APPROVED`, y eso era un error por dos razones: una línea
+         * contada que coincide con la factura no tiene ninguna discrepancia que
+         * aprobar, y la base prohíbe `APPROVED` sin `approved_by` (lo impone el
+         * `CHECK invoice_lines_approved_requires_approver`), así que la escritura
+         * habría fallado. El estado correcto de «falta ubicar el resto» es el que ya
+         * tenía: `CAPTURED` si se contó, `APPROVED` si un supervisor ya la autorizó.
+         */
+        val complete = newLocated == target
         return copy(
             locatedQuantity = newLocated,
-            location = toLocation,
-            status = if (newLocated == target) InvoiceLineStatus.LOCATED else InvoiceLineStatus.APPROVED,
+            location = toLocation ?: location,
+            status = if (complete) InvoiceLineStatus.LOCATED else status,
         ).asRight()
     }
 

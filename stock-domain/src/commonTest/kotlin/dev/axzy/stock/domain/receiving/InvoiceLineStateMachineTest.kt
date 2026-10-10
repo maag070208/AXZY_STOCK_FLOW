@@ -62,6 +62,13 @@ class InvoiceLineStateMachineTest : DescribeSpec({
                 )
             }.getOrThrow()
 
+    /** Línea con una discrepancia ya autorizada por un supervisor. */
+    fun lineApproved(quantityPhysical: Long): InvoiceLine =
+        // 90 contra 100 facturadas: hay diferencia, así que se puede aprobar.
+        lineCaptured(quantityPhysical)
+            .approveDiscrepancy(approvedBy = supervisor, reason = "SUPPLIER_ERROR")
+            .getOrThrow()
+
     // ═════════════════════════════════════════════════════════════════════════
     describe("R-58 / B-2: `difference` se calcula, no se almacena") {
 
@@ -133,14 +140,27 @@ class InvoiceLineStateMachineTest : DescribeSpec({
             val line = lineCaptured(100)
             val partial = line.locate(Quantity.of(40), shelf).getOrThrow()
 
-            withClue("Ubicar 40 de 100 no cierra la línea") {
-                partial.status shouldBe InvoiceLineStatus.APPROVED
+            withClue("Ubicar 40 de 100 no cierra la línea, y tampoco la aprueba") {
+                // Sigue contada: no hubo ninguna discrepancia que aprobar, y la base
+                // prohíbe `APPROVED` sin aprobador.
+                partial.status shouldBe InvoiceLineStatus.CAPTURED
                 partial.pendingToLocate shouldBe Quantity.of(60)
             }
 
             val complete = partial.locate(Quantity.of(60), shelf).getOrThrow()
             withClue("Al completar las 100, la línea queda LOCALIZADA") {
                 complete.status shouldBe InvoiceLineStatus.LOCATED
+            }
+        }
+
+        it("ubicar parcialmente una línea aprobada la deja aprobada") {
+            // 90 contadas de 100 facturadas: discrepancia aprobada por el supervisor.
+            val line = lineApproved(90)
+            val partial = line.locate(Quantity.of(30), shelf).getOrThrow()
+
+            withClue("Sigue aprobada —el supervisor ya autorizó esta línea— y no localizada") {
+                partial.status shouldBe InvoiceLineStatus.APPROVED
+                partial.pendingToLocate shouldBe Quantity.of(60)
             }
         }
 

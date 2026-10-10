@@ -4,7 +4,6 @@ import dev.axzy.stock.domain.common.DomainResult
 import dev.axzy.stock.domain.common.asLeft
 import dev.axzy.stock.domain.common.asRight
 import dev.axzy.stock.domain.error.DomainError
-import dev.axzy.stock.domain.value.LocationCode
 import dev.axzy.stock.domain.value.ProductCode
 import dev.axzy.stock.domain.value.Quantity
 
@@ -136,7 +135,15 @@ enum class AdjustmentDirection {
  */
 data class AdjustmentRequest private constructor(
     val productCode: ProductCode,
-    val locationCode: LocationCode,
+    /**
+     * La ubicación, por su **nombre visible** (`04-B-C`, `RECEPCION`, `SIN-UBICAR`).
+     *
+     * No es un [dev.axzy.stock.value.LocationCode]: aquel objeto de valor es el
+     * código plano del legacy (`04BCA`) y no puede representar ni la recepción ni el
+     * saldo sin ubicar. Aquí solo hace falta nombrar la ubicación en un mensaje, y
+     * el nombre visible es el que el operador reconoce.
+     */
+    val locationLabel: String,
     val quantity: Quantity,
     val direction: AdjustmentDirection,
     val reason: AdjustmentReason,
@@ -173,7 +180,7 @@ data class AdjustmentRequest private constructor(
          */
         fun create(
             productCode: ProductCode,
-            locationCode: LocationCode,
+            locationLabel: String,
             quantity: Quantity,
             direction: AdjustmentDirection,
             reason: AdjustmentReason,
@@ -228,7 +235,7 @@ data class AdjustmentRequest private constructor(
 
             return AdjustmentRequest(
                 productCode = productCode,
-                locationCode = locationCode,
+                locationLabel = locationLabel,
                 quantity = quantity,
                 direction = direction,
                 reason = reason,
@@ -299,7 +306,7 @@ object AdjustmentPolicy {
                     DomainError.InsufficientStock(
                         available = available.units,
                         requested = request.quantity.units,
-                        location = request.locationCode.value,
+                        location = request.locationLabel,
                     ),
                 )
             }

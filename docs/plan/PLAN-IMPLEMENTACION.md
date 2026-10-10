@@ -1,5 +1,5 @@
 # Plan de implementación: fases, módulos y orden de construcción
-> **Plan.** Cómo se construye StockFlow, módulo por módulo, en qué orden y con qué criterio de terminado. Complementa a [PLAN-REHACER.md](PLAN-REHACER.md) (fases y requisitos) y no lo contradice: aquí se baja a módulos. Última revisión: 2026-10-10 (fase 4 cerrada; web empezada).
+> **Plan.** Cómo se construye StockFlow, módulo por módulo, en qué orden y con qué criterio de terminado. Complementa a [PLAN-REHACER.md](PLAN-REHACER.md) (fases y requisitos) y no lo contradice: aquí se baja a módulos. Última revisión: 2026-10-10 (fase 5 en curso).
 
 ## 1. Estado al 10 de octubre de 2026
 
@@ -10,18 +10,21 @@
 | 2. API base | **Cerrada** | Seis módulos; `GET /v1/health`; contrato de error; bitácora en la transacción (U1, U3); `ArchitectureTest` |
 | 3. Identidad | **Cerrada** | `AuthFlowTest`: login, bloqueo, refresh con reuso, logout y cambio de contraseña, por HTTP real. I5 e I8 se cerraron con la fase 4 |
 | 4. Catálogo | **Cerrada salvo el Excel** | `CatalogFlowTest` K1–K6, I5 e I8; `CatalogPersistenceTest`; `RoutePermissionTest` |
+| 5. Existencias | **Cerrada** | `InventoryFlowTest` A1–A10 y `ReportFlowTest`; `InventoryEngineConcurrencyTest`; `InventoryWriteGuardTest`; presupuesto de consultas medido |
+| 6. Recepción | **En curso**: facturas, captura, aprobación, rechazo, cierre y bandeja cerradas; **falta el enganche de ubicar con la línea** (R1) | `ReceivingFlowTest` R2–R6 y R8 |
 | 11. Web | **Empezada** con el catálogo y la identidad, que son los módulos con contrato estable | `web/`: `tsc`, `eslint` y `vite build` en verde; 11 pruebas de Playwright |
-| 5–10 | No iniciadas | — |
+| 7–10 | No iniciadas | — |
 
-**549 pruebas, 0 fallos, 0 omitidas** (407 dominio, 7 aplicación, 54 persistencia, 8 web,
-11 criptografía, 62 flujo).
+**622 pruebas, 0 fallos, 0 omitidas** (407 dominio, 11 aplicación, 72 persistencia, 13 web,
+11 criptografía, 108 flujo).
 
 Lo que la fase 4 **no** entrega, y por qué:
 
 | Pendiente | Dónde se cierra | Por qué no bloquea |
 |---|---|---|
 | Lectura de XLSX en la importación | M10 (migración de datos) | El archivo trabajado del corte es un TSV; la ruta responde `IMPORT_FILE_FORMAT` diciéndolo |
-| Pantallas de los módulos sin endpoint | Fases 5–9 | Una pantalla sin endpoint no dibuja filas inventadas: el inicio dice qué falta y por qué |
+| Ubicar no conoce la línea de factura | Fase 6, siguiente paso | `LOCATED` y `locatedQuantity` no se alcanzan por ninguna ruta; la regla B1 solo se aplica en el dominio |
+| Pantallas de los módulos sin endpoint | Fases 6–9 | Una pantalla sin endpoint no dibuja filas inventadas: el inicio dice qué falta y por qué |
 | Despliegue de la web (nginx + servicio en Compose) | Cierre de la fase 11 | Hoy corre con `pnpm dev` contra la API; el proxy de Vite hace el mismo trabajo que hará nginx |
 | `stock` inicial a `SIN-UBICAR` con el movimiento `INITIAL` | Fase 5 (M02) | El informe ya publica `stockPersisted: false`: cargar 10.914.130 unidades sin desglose inventaría mal desde el día uno (ADR-0012) |
 
@@ -172,11 +175,13 @@ exista el HTTP:
 
 ## 7. Lo que sigue inmediatamente
 
-1. **Fase 5, existencias (M02):** el motor ya está probado en concurrencia (A3, A4, A9); falta el caso
-   de uso que devuelve `INSUFFICIENT_STOCK` con el saldo disponible, el kardex, los ajustes, ubicar y
-   mover, y los reportes de conciliación (Q1, Q6–Q10). **Es lo que desbloquea las pantallas que hoy
-   faltan en la web.**
-2. **M10, migración:** la importación ya carga el catálogo de forma idempotente y estricta; falta el
-   stock inicial a `SIN-UBICAR` (fase 5), la lectura de XLSX y la conciliación del stock heredado.
+1. **Fase 6, recepción (M03), lo que queda:** el **enganche de la ubicación con la línea de factura**.
+   `POST /v1/inventory/locate` gana un `invoiceLineId` opcional; con él, el caso de uso carga la línea,
+   aplica la regla del dominio (`InvoiceLine.locate`: una discrepancia sin aprobar bloquea, R1) y, al
+   terminar, actualiza `located_quantity`, `location_id` y el estado `LOCATED` de la línea —que hoy no
+   se alcanza por ninguna ruta—. El resto del módulo está cerrado y probado.
+2. **M10, migración:** falta el stock inicial del legacy a `SIN-UBICAR` con el movimiento `INITIAL`
+   —que el motor ya soporta—, la lectura de XLSX (Apache POI ya está en el proyecto por la
+   exportación del kardex) y la conciliación con conteo.
 3. **Fase 11, web:** cada módulo estrena pantalla cuando su contrato está estable. Ya están entrada,
    productos, ubicaciones y bodegas; falta el despliegue (nginx y su servicio en Compose).

@@ -58,6 +58,9 @@ Android (`stock-domain/build.gradle.kts`).
 | `SchemaGuard.kt` | La comprobación de versión del esquema al arrancar |
 | `StockProperties.kt` | La configuración tipada (`stock.*` en `application.yml`) |
 | `CatalogConfig.kt` | El catálogo (M01): puertos de entrada y rutas |
+| `InventoryConfig.kt` | Existencias (M02): el motor, las consultas y las rutas |
+| `ReportConfig.kt` | Los reportes de existencias y la exportación del kardex |
+| `ReceivingConfig.kt` | Recepción (M03): facturas, captura y decisiones sobre discrepancias |
 | `RoutePermissionAudit.kt` | I5: una ruta sin declarar qué exige impide el arranque |
 
 Un caso de uso no sabe que existe Spring. `Login` se construye igual en una prueba que en producción:
@@ -168,12 +171,12 @@ dev.axzy.stock.app.config
 | Nivel | Qué prueba | Dónde | Base de datos |
 |---|---|---|---|
 | Dominio | Reglas, estados, errores (407 pruebas) | `stock-domain/src/commonTest`, `jvmTest` | No |
-| Aplicación | Casos de uso y reglas transversales (paginación, 7) | `api/application/src/test` | No |
-| Persistencia | Adaptadores, funciones SQL, permisos del rol, presupuesto de consultas y concurrencia (54) | `api/adapters-persistence/src/test` | PostgreSQL real |
-| Web | Controladores y contrato de error, sin arrancar el servidor (8) | `api/adapters-web/src/test` | No |
+| Aplicación | Casos de uso y reglas transversales (paginación, nombre visible de una ubicación; 11) | `api/application/src/test` | No |
+| Persistencia | Adaptadores, funciones SQL, permisos del rol, presupuesto de consultas, concurrencia, día operativo y guardias de escritura (72) | `api/adapters-persistence/src/test` | PostgreSQL real |
+| Web | Controladores, contrato de error y la exportación a CSV/XLSX, sin arrancar el servidor (13) | `api/adapters-web/src/test` | No |
 | Criptografía | Argon2id, firma y verificación de tokens (11) | `api/adapters-security/src/test` | No |
 | Arquitectura | Las reglas de §1 y §2, y que toda ruta declare su permiso (I5) | `api/app/src/test/.../ArchitectureTest.kt`, `RoutePermissionTest.kt` | No |
-| Flujo completo | Los flujos de [flujos/](../flujos/README.md) por HTTP real (62) | `api/app/src/test` | PostgreSQL real |
+| Flujo completo | Los flujos de [flujos/](../flujos/README.md) por HTTP real (108) | `api/app/src/test` | PostgreSQL real |
 
 **La base de pruebas** es PostgreSQL 16 en Testcontainers con las migraciones reales
 (`api/adapters-persistence/src/testFixtures/.../TestDatabase.kt`). El código bajo prueba se conecta
@@ -187,7 +190,7 @@ tiempo.
 Testcontainers lanza un error y el build se rompe.
 
 ```bash
-GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew test    # 549 pruebas el 2026-10-10
+GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew test    # 622 pruebas el 2026-10-10
 ```
 
 El build detecta el socket del contexto de Docker activo (Colima, OrbStack, Docker Desktop), así que
@@ -210,10 +213,10 @@ Cada una tiene una prueba; las que aún no la tienen indican la fase.
 |---|---|---|---|
 | R-P1. Ninguna consulta dentro de un bucle | `findUnique` de usuario por línea (`invoice.service.ts:178`) | Una consulta con `JOIN`, y mapeo en memoria | `IdentityPersistenceTest`: cargar al actor son 2 consultas con 1 rol o con 3 |
 | R-P2. Ningún listado sin límite | `findMany()` de toda la tabla y filtro en JavaScript (`kardex.service.ts:587`) | Filtro y `LIMIT` en la consulta | `CatalogPersistenceTest`: un listado son 2 sentencias con 1 fila o con 50 |
-| R-P3. El saldo no se recalcula desde el historial | Sumar todo el kardex en cada operación (`kardex.service.ts:408`) | Leer la proyección | Fase 5 |
+| R-P3. El saldo no se recalcula desde el historial | Sumar todo el kardex en cada operación (`kardex.service.ts:408`) | Leer la proyección | `InventoryPersistenceTest`: el total sale de `product_stock` |
 | R-P4. Toda escritura de varios pasos va en una transacción | `addKardex` escribe el kardex y después el stock (`kardex.service.ts:241-258`) | Un solo `inTransaction { }` | `JdbcAuditRecorderTest` (U1): un `Left` no deja nada escrito |
 | R-P5. Ninguna operación queda sin esperar | `orderDetail.map((item) => addKardexOut(...))` sin `await` (`order.service.ts:350`) | Llamadas secuenciales dentro de la transacción | Fase 7 |
-| R-P6. El saldo lo cambia la base con bloqueo | Leer el saldo, calcular y escribir el valor absoluto | `UPDATE … SET quantity = quantity + :delta` en la función SQL | `InventoryEngineConcurrencyTest` (A3, A4) |
+| R-P6. El saldo lo cambia la base con bloqueo | Leer el saldo, calcular y escribir el valor absoluto | `UPDATE … SET quantity = quantity + :delta` en la función SQL | `InventoryEngineConcurrencyTest` (A3, A4) y `InventoryWriteGuardTest` (ningún adaptador escribe el saldo) |
 | R-P7. Un movimiento no se modifica | `kardex.update` y `updateMany` que cambian `moveType` y `moveDate` | Solo `INSERT`; la base rechaza `UPDATE` y `DELETE` | `InventoryEngineConcurrencyTest` (A9) y `ApiRolePrivilegesTest` |
 | R-P8. Ningún log contiene existencias completas | `console.log` con el estado de existencias (`order.service.ts:396`) | Log con identificadores y conteos | Revisión de la fase 5 |
 | R-P9. Una sincronización es una sentencia por tabla | Una sentencia por permiso y por celda en cada arranque | `jsonb_to_recordset` | `IdentityPersistenceTest`: todo el sembrado son ≤ 12 sentencias |

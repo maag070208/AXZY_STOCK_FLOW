@@ -1,5 +1,5 @@
 # Existencias y ajustes
-> **Normativo.** Última revisión: 2026-10-09. Reglas de origen: [ADR-0007](../adr/0007-multi-bodega-desde-el-esquema.md), [ADR-0008](../adr/0008-discrepancias-y-merma.md), [ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md). Módulo: [M02](../modulos/M02-existencias/README.md).
+> **Normativo.** Última revisión: 2026-10-10 (A1–A10 en verde; ver §7-bis). Reglas de origen: [ADR-0007](../adr/0007-multi-bodega-desde-el-esquema.md), [ADR-0008](../adr/0008-discrepancias-y-merma.md), [ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md). Módulo: [M02](../modulos/M02-existencias/README.md).
 
 ## 1. Objetivo y actores
 
@@ -153,6 +153,33 @@ petición, que vuelve a pasar por el flujo completo.
 - Dado un rango de fechas sin movimientos.
 - Cuando se consulta el kardex.
 - Entonces `items` está vacío y `totalItems` es 0.
+
+### 7-bis. Estado de estas pruebas (2026-10-10)
+
+Las diez están automatizadas y en verde. Ocho por HTTP real en
+`api/app/src/test/kotlin/dev/axzy/stock/app/InventoryFlowTest.kt` (A1, A2, A5, A6,
+A7, A8, A10 y la aprobación), y **A3, A4 y A9 contra la base con dos transacciones
+de verdad** en `InventoryEngineConcurrencyTest`: son las que no se pueden demostrar
+por HTTP sin dejar de ser deterministas.
+
+Cuatro cosas que el documento no fijaba y quedaron decididas al construir:
+
+- **`SEGREGATION_OF_DUTIES` responde `403`, no `422`.** El catálogo de errores la
+  agrupa con la familia de autorización y el cliente hace lo mismo que ante
+  cualquier denegación: que lo apruebe otra persona. La tabla de
+  [api/inventario.md](../api/inventario.md) decía `422` y se corrigió allí.
+- **Ubicar exige que el origen sea la recepción y el destino un estante; mover,
+  que los dos sean estantes.** Sin esa comprobación, quien puede ubicar
+  (`invoice.locate`) podría reorganizar el almacén entero llamando a `locate` con
+  dos estantes, que es lo que el permiso distinto de `inventory.move` pretende
+  evitar.
+- **Un movimiento no cambia de bodega.** Para eso está el traslado (M05), que es el
+  único que sabe poner mercancía en tránsito. Si origen y destino están en bodegas
+  distintas, se rechaza con `INVALID_PARAMETER` y la regla en `details`.
+- **`DISCREPANCY_NOT_APPROVED` no lo emite esta ruta.** El contrato lo listaba en
+  `locate`, pero el cuerpo no lleva ninguna línea de factura —«No existe
+  `invoiceLineId`»— y sin ella no hay discrepancia que consultar. Lo emite M03, que
+  es quien conoce la línea.
 
 ## 8. Errores
 

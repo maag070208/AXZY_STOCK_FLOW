@@ -72,8 +72,8 @@ class RoutePermissionTest {
         for (controller in classes) {
             for (method in controller.methods) {
                 if (!method.isAnnotatedWith(RequiresPermission::class.java)) continue
-                val permission = method.getAnnotationOfType(RequiresPermission::class.java).value
-                declared += "${controller.simpleName}.${method.name} → $permission"
+                val permissions = method.getAnnotationOfType(RequiresPermission::class.java).value
+                declared += permissions.map { "${controller.simpleName}.${method.name} → $it" }
             }
         }
 

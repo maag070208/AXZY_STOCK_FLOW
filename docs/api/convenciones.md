@@ -75,6 +75,10 @@ GET /v1/products?page=0&size=50&sort=productCode,asc&q=abra
   datos.
 - `sort` es `campo,direccion`. Los campos admitidos se documentan por endpoint.
 - `q` es la búsqueda libre.
+- **`from` y `to` son fechas operativas (`AAAA-MM-DD`) y se interpretan en la zona del
+  negocio** (`stock.business-zone`), no en UTC: `to` incluye el día entero del almacén.
+  Una fecha mal formada responde `400 INVALID_FILTER_DATE` y un rango invertido,
+  `400 INVALID_FILTER_RANGE`.
 
 Un `page` negativo o un `size` fuera de `1..200` responden `400 INVALID_PAGINATION`;
 un `sort` no admitido, `400 INVALID_SORT`. La validación es una sola en toda la

@@ -1,5 +1,6 @@
 package dev.axzy.stock.adapters.persistence.catalog
 
+import dev.axzy.stock.adapters.persistence.shared.toQuantity
 import dev.axzy.stock.application.catalog.LocationFilter
 import dev.axzy.stock.application.catalog.LocationView
 import dev.axzy.stock.application.catalog.Locations

@@ -2,7 +2,6 @@ package dev.axzy.stock.domain.inventory
 
 import dev.axzy.stock.domain.common.DomainResult
 import dev.axzy.stock.domain.error.DomainError
-import dev.axzy.stock.domain.value.LocationCode
 import dev.axzy.stock.domain.value.ProductCode
 import dev.axzy.stock.domain.value.Quantity
 import io.kotest.assertions.withClue
@@ -28,7 +27,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 class AdjustmentTest : DescribeSpec({
 
     val product = ProductCode.of("ABRAA1B")
-    val location = LocationCode.of("04BCA")
+    val location = "04-B-C"
 
     fun create(
         quantity: Long = 10,
@@ -40,7 +39,7 @@ class AdjustmentTest : DescribeSpec({
         key: String? = null,
     ): DomainResult<AdjustmentRequest> = AdjustmentRequest.create(
         productCode = product,
-        locationCode = location,
+        locationLabel = location,
         quantity = Quantity.of(quantity),
         direction = direction,
         reason = reason,
@@ -296,7 +295,10 @@ class AdjustmentTest : DescribeSpec({
             withClue("El error lleva las cantidades y la ubicación, no solo un texto") {
                 error.available shouldBe 100L
                 error.requested shouldBe 500L
-                error.location shouldBe "04BCA"
+                // La ubicación de la etiqueta, que es la que el operador lee: el
+                // código plano del legacy (`04BCA`) no distingue la recepción ni el
+                // saldo sin ubicar.
+                error.location shouldBe "04-B-C"
             }
         }
 

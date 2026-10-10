@@ -84,3 +84,24 @@ tasks.register("verifyArchitecture") {
     description = "Verifica la pureza del dominio y las reglas de capas de la API"
     dependsOn(":stock-domain:verifyDomainPurity", ":api:app:test")
 }
+
+
+/*
+ * `verify`: TODO lo que hay que ejecutar para decir «está verificado».
+ *
+ * Existe porque `./gradlew test` **no ejecuta `:stock-domain:jvmTest`**: el proyecto
+ * del dominio es multiplataforma y su tarea de pruebas se llama `jvmTest`, así que el
+ * `test` agregado lo dejaba fuera. Las pruebas del dominio no corrían, y el informe
+ * parecía verde porque leía los XML de una ejecución anterior. Un comando que no
+ * prueba lo que dice probar es peor que no tenerlo.
+ */
+tasks.register("verify") {
+    group = "verification"
+    description = "Pruebas de todos los módulos (incluidas las del dominio) y las guardias de arquitectura."
+    dependsOn(
+        subprojects.flatMap { project ->
+            listOfNotNull(project.tasks.findByName("test"), project.tasks.findByName("jvmTest"))
+        },
+    )
+    dependsOn(subprojects.mapNotNull { it.tasks.findByName("verifyArchitecture") })
+}

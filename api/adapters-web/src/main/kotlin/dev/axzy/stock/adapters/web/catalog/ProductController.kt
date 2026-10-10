@@ -1,6 +1,7 @@
 package dev.axzy.stock.adapters.web.catalog
 
 import dev.axzy.stock.adapters.web.http.RequiresPermission
+import dev.axzy.stock.adapters.web.http.toDto
 import dev.axzy.stock.adapters.web.http.toResponse
 import dev.axzy.stock.application.access.Actor
 import dev.axzy.stock.application.catalog.CreateProduct

@@ -1,14 +1,27 @@
 # Recepción
 > **Referencia.** Facturas de recepción, captura del conteo físico, aprobación y
 > rechazo de discrepancias, cierre y bandeja de pendientes.
-> Última verificación: 2026-10-09.
+> Última verificación: 2026-10-10 (fase 6, M03: facturas, captura y decisiones).
 
-Implementado en
-`backend/src/main/kotlin/dev/axzy/stock/backend/infrastructure/inbound/http/receiving/ReceivingRoutes.kt` y
-`ReceivingUseCases.kt`, con los mapeos en `ReceivingMappers.kt`. La paginación está
-en [convenciones.md](convenciones.md); los códigos, en [errores.md](errores.md).
-La idempotencia va en la cabecera `Idempotency-Key`, según
-[convenciones.md §1.5](convenciones.md).
+Implementado en capas, como el resto de la API (docs/arquitectura/api-spring.md §1):
+
+| Capa | Archivo |
+|---|---|
+| Rutas | `api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/receiving/InvoiceController.kt` |
+| Casos de uso y puertos | `api/application/src/main/kotlin/dev/axzy/stock/application/receiving/` |
+| Reglas de la línea | `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/receiving/InvoiceLine.kt` |
+| Persistencia | `api/adapters-persistence/.../receiving/JdbcInvoices.kt` |
+| Cableado | `api/app/src/main/kotlin/dev/axzy/stock/app/config/ReceivingConfig.kt` |
+
+La paginación está en [convenciones.md](convenciones.md); los códigos, en
+[errores.md](errores.md).
+
+**Falta una pieza, y es la regla B1 completa.** Una línea en `DISCREPANCY` no se puede
+ubicar, y esa comprobación vive en `POST /v1/inventory/locate`, que hoy **no recibe la
+línea de factura**: la ruta de inventario mueve el saldo sin saber de qué línea viene.
+El caso de uso del dominio (`InvoiceLine.locate`) ya devuelve `DISCREPANCY_NOT_APPROVED`
+y está probado en el dominio; lo que falta es el enganche. Sin él, `LOCATED` y
+`locatedQuantity` no se alcanzan por ninguna ruta. Está anotado en el plan.
 
 ## `GET|POST /v1/invoices`
 
@@ -59,6 +72,11 @@ Permiso: `invoice.create`.
   ]
 }
 ```
+
+`unitsPerBox` es obligatorio: sin él no se puede comprobar que el empaque de la factura
+cuadre (`BOXES_DO_NOT_DIVIDE_EVENLY` si 90 unidades no son cajas enteras de 50) ni que
+un conteo sea coherente. `unitMeasure` es opcional: si no viene, se usa la del producto
+del catálogo.
 
 **201** con la referencia, no con la factura completa: para el detalle hay que
 pedir `GET /v1/invoices/{id}`.
@@ -125,9 +143,14 @@ Permiso: `invoice.capture`.
 Calcula `difference` y decide el estado: `CAPTURED` si coincide, `DISCREPANCY` si
 no. **200** con la **línea** capturada (no la factura).
 
-Errores: `422 INVALID_QUANTITY`, `422 INCONSISTENT_BOX_COUNT`, `409
-LINE_ALREADY_RESOLVED` si la línea ya está aprobada o ubicada, `404 LINE_NOT_FOUND`,
-`400 INVALID_ID`.
+`physicalBoxQuantity` es una **cuenta entera de cajas**, no el equivalente decimal del
+legacy: contar 80 piezas con cajas de 50 son «1 caja y 30 sueltas», y `80/50 = 1.6` era
+un número derivado, no un conteo. Un valor con fracción responde `422 INVALID_QUANTITY`
+en lugar de redondearse a espaldas del cliente.
+
+Errores: `422 INVALID_QUANTITY`, `422 INCONSISTENT_BOX_COUNT`, `422 FIELD_REQUIRED` si
+falta la cantidad o las cajas contadas, `409 LINE_ALREADY_RESOLVED` si la línea ya está
+aprobada o ubicada, `404 LINE_NOT_FOUND`, `400 INVALID_ID`.
 
 ## `POST /v1/invoices/{id}/approve`
 
@@ -151,9 +174,10 @@ evidente.
 **Errores:**
 - `409` `NO_PENDING_APPROVAL` si no hay ninguna línea por aprobar.
 - `422` `REASON_REQUIRED` si falta `adjustmentReason`.
-- `422` `SEGREGATION_OF_DUTIES` si quien aprueba fue quien capturó **alguna** de las
-  líneas pendientes. El mensaje y `details.lines` indican **cuáles**, para que el
-  supervisor sepa qué reasignar.
+- **`403`** `SEGREGATION_OF_DUTIES` si quien aprueba fue quien capturó **alguna** de las
+  líneas pendientes. El mensaje y `details.lines` (los identificadores, separados por
+  comas) indican **cuáles**, para que el supervisor sepa qué reasignar. Es `403` y no
+  `422` porque pertenece a la familia de autorización ([errores.md](errores.md)).
 
 La base impone la regla con un `CHECK`: es imposible que una línea llegue a
 `APPROVED` sin `approved_by`. No depende de que el código se acuerde de validarlo.
@@ -168,13 +192,20 @@ decisión tomada al revés.
 { "adjustmentReason": "SUPPLIER_ERROR", "note": "..." }
 ```
 
-Aprobar **acepta** la diferencia y la mercancía se queda; rechazar **no la acepta**
-y **cancela las líneas**. Sin esta salida, la única opción ante una discrepancia era
-aceptarla, y un supervisor que no puede rechazar acaba aprobando para desbloquear
-la factura.
+Aprobar **acepta** la diferencia y la mercancía se queda; rechazar **no la acepta**.
+Sin esta salida, la única opción ante una discrepancia era aceptarla, y un supervisor
+que no puede rechazar acaba aprobando para desbloquear la factura.
 
-**200** con la factura y sus líneas canceladas. Errores: `409 NO_PENDING_APPROVAL`,
-`422 REASON_REQUIRED`, `422 SEGREGATION_OF_DUTIES`, `400 INVALID_ID`.
+**Rechazar devuelve la línea a `PENDING` y limpia el conteo**, no la cancela: el
+número que vio el supervisor puede ser el correcto y lo que falta es un reconteo.
+Cancelar dejaría mercancía en el almacén que nadie contó y una línea muerta que ya no
+se puede capturar. Es la decisión que implementa
+`InvoiceLine.rejectDiscrepancy` en el dominio, y esta página decía «cancela las
+líneas»: se corrigió aquí.
+
+**200** con la factura y sus líneas de vuelta en `PENDING`. Errores: `409
+NO_PENDING_APPROVAL`, `422 REASON_REQUIRED`, `403 SEGREGATION_OF_DUTIES`,
+`400 INVALID_ID`.
 
 ## `POST /v1/invoices/{id}/close`
 
@@ -216,5 +247,10 @@ de la línea, que sí lleva signo.
 
 | Archivo | Qué cubre |
 |---|---|
-| `backend/src/test/kotlin/dev/axzy/stock/backend/application/receiving/InvoiceCloseTest.kt` | el cierre y las líneas que lo bloquean |
-| `backend/src/test/kotlin/dev/axzy/stock/backend/ApiE2ETest.kt` | las rutas de facturas contra la API montada |
+| `api/app/src/test/kotlin/dev/axzy/stock/app/ReceivingFlowTest.kt` | R2–R6 y R8 por HTTP real: alta, captura con y sin diferencia, aprobación por factura, rechazo, cierre, bandeja y permisos por ruta |
+| `stock-domain/src/commonTest/kotlin/dev/axzy/stock/domain/receiving/InvoiceLineStateMachineTest.kt` | las transiciones de la línea, sin base de datos |
+| `api/adapters-persistence/src/test/.../ReceivingPersistenceTest.kt` (pendiente) | el presupuesto de consultas del listado y del detalle |
+
+**R1** (una línea en discrepancia no se puede ubicar) y **R7** (ubicar no cambia el
+total) se comprueban en el flujo de inventario: R7 está cubierta por `InventoryFlowTest`
+(A1); R1 espera al enganche de la ubicación con la línea de factura.

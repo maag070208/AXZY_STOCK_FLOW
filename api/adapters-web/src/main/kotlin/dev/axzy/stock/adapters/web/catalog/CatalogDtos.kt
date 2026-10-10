@@ -3,7 +3,6 @@ package dev.axzy.stock.adapters.web.catalog
 import dev.axzy.stock.application.catalog.CatalogImportResult
 import dev.axzy.stock.application.catalog.LocationView
 import dev.axzy.stock.application.catalog.ProductView
-import dev.axzy.stock.application.shared.Page
 import dev.axzy.stock.domain.catalog.Warehouse
 import dev.axzy.stock.domain.error.DomainError
 import dev.axzy.stock.domain.value.Quantity
@@ -17,17 +16,6 @@ import java.math.BigDecimal
  * manda las cantidades como texto para que el cliente no las sume en coma
  * flotante. Aquí el cliente las muestra, y el `BigDecimal` conserva la escala.
  */
-
-data class PageDto<T>(
-    val items: List<T>,
-    val page: Int,
-    val size: Int,
-    val totalItems: Long,
-    val totalPages: Int,
-)
-
-fun <T, R> Page<T>.toDto(transform: (T) -> R): PageDto<R> =
-    PageDto(items.map(transform), page, size, totalItems, totalPages)
 
 /** `5193.000`: número JSON, con la escala fija de la base. */
 internal fun Quantity.toJson(): BigDecimal = BigDecimal.valueOf(value, Quantity.SCALE)

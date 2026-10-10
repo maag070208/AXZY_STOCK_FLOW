@@ -38,8 +38,10 @@ class RoutePermissionAudit(private val mapping: RequestMappingHandlerMapping) {
             if (requires == null && !authenticated && !public) {
                 undeclared += "${method.declaringClass.simpleName}.${method.name}"
             }
-            if (requires != null && PermissionCatalog.find(requires.value) == null) {
-                unknown += "${method.declaringClass.simpleName}.${method.name} → '${requires.value}'"
+            requires?.value?.forEach { permission ->
+                if (PermissionCatalog.find(permission) == null) {
+                    unknown += "${method.declaringClass.simpleName}.${method.name} → '$permission'"
+                }
             }
         }
 

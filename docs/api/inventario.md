@@ -1,14 +1,26 @@
 # Inventario
 > **Referencia.** Existencias por ubicación, kardex y las operaciones que mueven
 > inventario: ajustes, ubicación y traslado entre estantes.
-> Última verificación: 2026-10-09.
+> Última verificación: 2026-10-10 (fase 5, M02: movimientos y consultas).
 
-Implementado en
-`backend/src/main/kotlin/dev/axzy/stock/backend/infrastructure/inbound/http/inventory/InventoryRoutes.kt`
-(rutas) e `InventoryUseCases.kt` (motor y consultas), con los mapeos en
-`InventoryMappers.kt`. La paginación está en [convenciones.md](convenciones.md);
-los códigos, en [errores.md](errores.md). El reporte de reconciliación, que vive
-en el mismo archivo de rutas, está en [reportes.md](reportes.md).
+Implementado en capas, como el resto de la API (docs/arquitectura/api-spring.md §1):
+
+| Capa | Archivo |
+|---|---|
+| Rutas | `api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/inventory/InventoryController.kt` |
+| Casos de uso y puertos | `api/application/src/main/kotlin/dev/axzy/stock/application/inventory/` |
+| Reglas del dominio | `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/inventory/` |
+| Motor y consultas | `api/adapters-persistence/src/main/kotlin/dev/axzy/stock/adapters/persistence/inventory/` |
+| Cableado | `api/app/src/main/kotlin/dev/axzy/stock/app/config/InventoryConfig.kt` |
+
+La paginación está en [convenciones.md](convenciones.md); los códigos, en
+[errores.md](errores.md). **La API no escribe existencias**: toda escritura pasa por
+`registrar_movimiento`, y una prueba de código (`InventoryWriteGuardTest`) impide que
+un adaptador escriba `stock_by_location`, `product_stock` o `kardex` a mano.
+
+> **Pendiente de la fase 5:** los reportes de existencias, resumen de movimientos y
+> `kardex-vs-projection` ([reportes.md](reportes.md)). Las consultas y los movimientos
+> de esta página están terminados y probados.
 
 ## `GET /v1/inventory/stock`
 
@@ -130,9 +142,10 @@ mismo que mermar, y un robo no es lo mismo que un error de conteo. Un permiso
 firma.
 
 Errores: `422 REASON_REQUIRED` si falta el motivo, `422 INSUFFICIENT_STOCK` con
-`details.available` si no hay existencia, `422 SEGREGATION_OF_DUTIES` si el
-aprobador es quien solicita, `400 INVALID_PARAMETER` si la dirección, el motivo o
-el origen no están en la lista (con `details.allowed`).
+`details.available` si no hay existencia, **`403 SEGREGATION_OF_DUTIES`** si el
+aprobador es quien solicita (pertenece a la familia de autorización, no a la de
+reglas de negocio: `docs/api/errores.md`), `400 INVALID_PARAMETER` si la dirección,
+el motivo o el origen no están en la lista (con `details.allowed`).
 
 Respuesta:
 
@@ -180,7 +193,9 @@ INSUFFICIENT_STOCK` si no hay existencia en el origen.
 
 | Archivo | Qué cubre |
 |---|---|
-| `backend/src/test/kotlin/dev/axzy/stock/backend/infrastructure/outbound/persistence/inventory/MotorInventarioTest.kt` | el motor de movimientos |
-| `backend/src/test/kotlin/dev/axzy/stock/backend/infrastructure/outbound/persistence/inventory/InventoryMappersTest.kt` | los mapeos de existencia y kardex |
-| `backend/src/test/kotlin/dev/axzy/stock/backend/infrastructure/outbound/persistence/inventory/DivergenceMapperTest.kt` | el mapeo del reporte de reconciliación |
-| `backend/src/test/kotlin/dev/axzy/stock/backend/RoutesWiringTest.kt` | que las rutas de inventario existen y no devuelven `404` |
+| `api/app/src/test/kotlin/dev/axzy/stock/app/InventoryFlowTest.kt` | A1, A2, A5, A6, A7, A8, A10 y la aprobación, por HTTP real |
+| `api/adapters-persistence/src/test/kotlin/dev/axzy/stock/adapters/persistence/InventoryEngineConcurrencyTest.kt` | A3, A4 y A9: concurrencia y kardex inmutable, con dos transacciones reales |
+| `api/adapters-persistence/src/test/kotlin/dev/axzy/stock/adapters/persistence/InventoryPersistenceTest.kt` | el motor, la idempotencia, el presupuesto de consultas (R-P2) y la resolución del nombre visible |
+| `api/adapters-persistence/src/test/kotlin/dev/axzy/stock/adapters/persistence/InventoryWriteGuardTest.kt` | que ningún adaptador escribe el inventario por fuera del motor |
+| `api/application/src/test/kotlin/dev/axzy/stock/application/inventory/LocationRefTest.kt` | que el nombre visible y su intérprete no se separen |
+| `stock-domain/src/commonTest/kotlin/dev/axzy/stock/domain/inventory/AdjustmentTest.kt` | las reglas del ajuste, sin base de datos |

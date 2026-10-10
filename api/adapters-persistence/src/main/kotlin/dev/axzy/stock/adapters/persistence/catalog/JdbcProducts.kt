@@ -5,6 +5,7 @@ import dev.axzy.stock.application.catalog.ProductFilter
 import dev.axzy.stock.application.catalog.ProductView
 import dev.axzy.stock.application.catalog.Products
 import dev.axzy.stock.adapters.persistence.shared.longOrNull
+import dev.axzy.stock.adapters.persistence.shared.toQuantity
 import dev.axzy.stock.application.catalog.UpsertSummary
 import dev.axzy.stock.application.shared.Page
 import dev.axzy.stock.application.shared.PageRequest
@@ -215,8 +216,3 @@ class JdbcProducts(private val jdbc: JdbcClient, private val json: JsonMapper) :
             """.trimIndent()
     }
 }
-
-/** `NUMERIC(14,3)` a la cantidad del dominio, que va en milésimas. */
-internal fun BigDecimal?.toQuantity(): Quantity =
-    this?.setScale(Quantity.SCALE)?.movePointRight(Quantity.SCALE)?.longValueExact()?.let(Quantity::ofScaled)
-        ?: Quantity.ZERO

@@ -116,14 +116,23 @@ contenedores.
 
 ### Verificado ejecutándolo (2026-10-10)
 
-- **549 pruebas, 0 fallos, 0 omitidas**: 407 del dominio, 7 de la capa de aplicación, 54 de
-  persistencia, 8 de la capa web, 11 de criptografía y 62 de flujo completo por HTTP.
+- **622 pruebas, 0 fallos, 0 omitidas**: 407 del dominio, 11 de la capa de aplicación, 72 de
+  persistencia, 13 de la capa web, 11 de criptografía y 108 de flujo completo por HTTP.
 - La imagen de la API se construye y arranca en Compose; `/v1/health` responde `UP` con el esquema en V12.
 - Login, sesión actual, renovación con detección de reuso, cierre de sesión y cambio de contraseña.
 - El usuario de la API no puede crear tablas ni modificar el kardex o la bitácora.
 - **Catálogo (fase 4)**: productos con alta, edición y baja lógica; ubicaciones con la de recepción
   protegida; bodegas con una sola predeterminada; e importación estricta e idempotente del catálogo
   (K1–K6). Cada ruta declara su permiso y la API no arranca si alguna no lo hace (I5).
+- **Existencias (fase 5, M02), cerrada**: ajustes con motivo (el permiso depende del motivo), ubicar
+  y mover; existencias por ubicación y kardex; y los reportes de existencias con totales, resumen de
+  movimientos por día/semana/mes/producto/ubicación, reconciliación `kardex-vs-projection` y
+  exportación del kardex a CSV y XLSX. Todo pasa por el motor SQL: una guardia de código impide que
+  un adaptador escriba el inventario a mano. Las fechas de los reportes son **días operativos** en la
+  zona del negocio, no días UTC.
+- **Recepción (fase 6, M03)**: facturas con líneas, captura física con su diferencia calculada por la
+  base, aprobación **por factura** (una sola acción, y quien capturó no puede aprobar), rechazo que
+  devuelve la línea a conteo, cierre que respeta el criterio del dominio y bandeja de pendientes.
 - **Web (fase 11, empezada)**: entrada y cambio de contraseña obligatorio contra la API real;
   menú lateral con las entradas que permiten los permisos de la sesión; y las tres pantallas del
   catálogo (productos con alta/edición/baja e importación con simulación, ubicaciones y bodegas),
@@ -139,7 +148,10 @@ curl -s -X POST http://127.0.0.1:8081/v1/products/import   -H "Authorization: Be
 
 ### No construido todavía
 
-- Los módulos de negocio que siguen: existencias, recepción, surtido, traslados y etiquetas.
+- **Dentro de recepción**: que ubicar conozca la línea de factura (regla B1 completa). Hoy
+  `POST /v1/inventory/locate` mueve el saldo sin saber de qué línea viene, así que `LOCATED` no se
+  alcanza por ninguna ruta.
+- Los módulos de negocio que siguen: surtido, traslados y etiquetas.
 - **Dentro del catálogo**: la lectura de XLSX nativo (llega con la migración de datos, M10; hoy la
   importación acepta CSV y TSV).
 - **Dentro de la web**: las pantallas de los módulos que aún no tienen endpoint (existencias,

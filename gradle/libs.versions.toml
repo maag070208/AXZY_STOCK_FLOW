@@ -12,6 +12,10 @@ kotest = "5.9.1"
 archunit = "1.5.1"
 # Argon2id de Spring Security lo necesita y el BOM de Spring Boot no lo gestiona.
 bouncycastle = "1.86"
+# XLSX: la exportación del kardex (fase 5) y la lectura del Excel del catálogo (M10).
+# El BOM de Spring Boot tampoco lo gestiona, así que la versión se fija aquí,
+# verificada en Maven Central el 2026-10-10.
+poi = "5.5.1"
 
 [libraries]
 # Los nombres NO pueden empezar por "kotlin-": colisionarían con el namespace `libs.kotlin.*`.
@@ -25,6 +29,7 @@ kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.
 kotest-datatest = { module = "io.kotest:kotest-framework-datatest", version.ref = "kotest" }
 archunit = { module = "com.tngtech.archunit:archunit", version.ref = "archunit" }
 bouncycastle = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
+poi-ooxml = { module = "org.apache.poi:poi-ooxml", version.ref = "poi" }
 spring-boot-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springBoot" }
 
 [plugins]

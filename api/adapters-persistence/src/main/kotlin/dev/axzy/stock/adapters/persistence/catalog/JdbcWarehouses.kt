@@ -40,6 +40,9 @@ class JdbcWarehouses(private val jdbc: JdbcClient) : Warehouses {
     override fun findByCode(code: String): Warehouse? =
         query("$SELECT WHERE code = :code", mapOf("code" to code)) { rs, _ -> rs.toWarehouse() }.firstOrNull()
 
+    override fun defaultWarehouse(): Warehouse? =
+        query("$SELECT WHERE is_default AND active LIMIT 1", emptyMap()) { rs, _ -> rs.toWarehouse() }.firstOrNull()
+
     override fun insert(newWarehouse: NewWarehouse): Warehouse {
         val id = query(
             """
