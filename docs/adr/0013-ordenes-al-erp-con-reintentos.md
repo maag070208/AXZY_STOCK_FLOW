@@ -1,44 +1,44 @@
-# ADR-0013 — Las órdenes surtidas se devuelven al ERP con reintentos e idempotencia
-> **Normativo.** Decisión aceptada; envío real pendiente. Última verificación: 2026-10-09.
+# ADR-0013 — Fulfilled orders are returned to the ERP with retries and idempotency
+> **Normative.** Accepted decision; real dispatch pending. Last verified: 2026-10-09.
 
 | | |
 |---|---|
-| **Estado** | Aceptada. Envío real pendiente |
-| **Fecha** | 2026-10-09 (decisiones R-72 y D10 del plan original) |
-| **Reemplaza a** | — |
-| **Reemplazada por** | — |
+| **Status** | Accepted. Real dispatch pending |
+| **Date** | 2026-10-09 (decisions R-72 and D10 of the original plan) |
+| **Replaces** | — |
+| **Replaced by** | — |
 
-## Contexto
+## Context
 
-El ERP sigue en uso y necesita las órdenes ya convertidas. En el legacy esa conversión
-nunca existió: es una capacidad nueva, no una corrección. No hay contrato previo que
-respetar, así que lo define este sistema.
+The ERP is still in use and needs the orders already converted. In the legacy that conversion
+never existed: it is a new capability, not a correction. There is no prior contract to respect,
+so this system defines it.
 
-## Decisión
+## Decision
 
-- La exportación se dispara al confirmar el empaque: `POST /v1/orders/{id}/export`
-  (`order/OrderRoutes.kt`, con `order.convert`).
-- No se exporta una orden que no está confirmada (`ORDER_NOT_CONVERTED`,
+- The export is triggered when the packing is confirmed: `POST /v1/orders/{id}/export`
+  (`order/OrderRoutes.kt`, with `order.convert`).
+- An order that is not confirmed is not exported (`ORDER_NOT_CONVERTED`,
   `order/OrderService.kt`).
-- Cada envío lleva `Idempotency-Key`: un reintento no duplica la orden en el ERP.
-- Los fallos quedan con estado (`PENDING`, `SENT`, `FAILED`) y se reintentan con backoff.
-- `external_id` del ERP (decisión D10) está **pendiente**: no se define hasta conocer el
-  identificador que el ERP acepta.
+- Each dispatch carries an `Idempotency-Key`: a retry does not duplicate the order in the ERP.
+- Failures are kept with a status (`PENDING`, `SENT`, `FAILED`) and are retried with backoff.
+- The ERP's `external_id` (decision D10) is **pending**: it is not defined until the
+  identifier the ERP accepts is known.
 
-## Estado de implementación
+## Implementation status
 
-El contrato y el registro del intento existen; el envío efectivo no. La respuesta de
-`export` registra el intento y no incluye `nextRetryAt`
-([api/surtido.md](../api/surtido.md)). Mientras el envío no exista, este ADR describe el
-diseño, no el comportamiento.
+The contract and the recording of the attempt exist; the actual dispatch does not. The response of
+`export` records the attempt and does not include `nextRetryAt`
+([api/surtido.md](../api/surtido.md)). Until the dispatch exists, this ADR describes the
+design, not the behavior.
 
-## Consecuencias
+## Consequences
 
-- Hay que implementar el cliente del ERP y su autenticación, que hoy no existe
+- The ERP client and its authentication must be implemented, and today they do not exist
   ([ADR-0010](0010-rutas-de-servicio-con-api-key.md)).
-- Un fallo del ERP no bloquea el surtido: la orden queda `FAILED` y se reintenta.
+- An ERP failure does not block picking: the order is left `FAILED` and retried.
 
-## Alternativas descartadas
+## Discarded alternatives
 
-- **Envío síncrono dentro de la confirmación.** Un ERP caído bloquearía el empaque.
-- **Enviar sin idempotencia.** Un reintento duplicaría órdenes en el ERP.
+- **Synchronous dispatch inside the confirmation.** An ERP that is down would block the packing.
+- **Send without idempotency.** A retry would duplicate orders in the ERP.

@@ -1,81 +1,74 @@
-# Etiquetas
-> **Referencia.** Plantillas ZPL, previsualización, impresión, cola de trabajos y
-> reimpresión. Última verificación: 2026-10-10 (M06 cerrado).
+# Labels
+> **Reference.** ZPL templates, preview, printing, job queue and reprinting.
+> Last verified: 2026-10-10 (M06 closed).
 
-Implementado en capas, como el resto de la API:
+Implemented in layers, like the rest of the API:
 
-| Capa | Archivo |
+| Layer | File |
 |---|---|
-| Rutas | `api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/labeling/LabelController.kt` y `LabelTemplateController.kt` |
-| Casos de uso y puertos | `api/application/src/main/kotlin/dev/axzy/stock/application/labeling/` |
-| Reglas de la etiqueta | `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/labeling/LabelTemplate.kt` |
-| Persistencia | `api/adapters-persistence/.../labeling/JdbcLabels.kt` |
-| Cableado | `api/app/src/main/kotlin/dev/axzy/stock/app/config/LabelConfig.kt` |
+| Routes | `api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/labeling/LabelController.kt` and `LabelTemplateController.kt` |
+| Use cases and ports | `api/application/src/main/kotlin/dev/axzy/stock/application/labeling/` |
+| Label rules | `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/labeling/LabelTemplate.kt` |
+| Persistence | `api/adapters-persistence/.../labeling/JdbcLabels.kt` |
+| Wiring | `api/app/src/main/kotlin/dev/axzy/stock/app/config/LabelConfig.kt` |
 
-**La confirmación de la impresora está implementada** (`PrintJobController`, en
-`/v1/print-jobs`): exige credencial de servicio en `X-Service-Key`, la comprueba **antes
-que nada** —incluso antes de mirar si el trabajo existe, porque un `404` a quien no tiene
-credencial le diría qué identificadores son válidos— y es **el único sitio donde una
-etiqueta pasa a impresa**. Ningún endpoint de usuario lo hace: el sistema no se
-autocertifica.
+**The printer's confirmation is implemented** (`PrintJobController`, in
+`/v1/print-jobs`): it requires a service credential in `X-Service-Key`, it checks it **before
+anything else** —even before checking whether the job exists, because a `404` to someone without
+a credential would tell them which identifiers are valid— and it is **the only place where a
+label becomes printed**. No user endpoint does it: the system does not self-certify.
 
-El hash de la credencial es **SHA-256** y no Argon2id, que es el de las contraseñas: una
-contraseña de persona es corta y adivinable y hay que hacer cara cada prueba; un secreto
-de servicio son 32 bytes aleatorios, no hay nada que adivinar, y en cambio hay que poder
-**buscar por hash** en cada llamada de la impresora.
+The credential's hash is **SHA-256** and not Argon2id, which is the one for passwords: a person's password is short and guessable and each attempt has to be made expensive; a service secret is 32 random bytes, there is nothing to guess, and instead it has to be possible to **look up by hash** on each call from the printer.
 
-Tres decisiones que la implementación dejó fijadas:
+Three decisions the implementation left fixed:
 
-- **La validación del ZPL ocurre al guardar** (`^XA` y `^XZ`), no al imprimir: sin el
-  cierre la impresora no da error, deja la etiqueta en blanco y se descubre gastando
-  papel.
-- **La reimpresión necesita un enlace que el esquema no tenía.** El contrato pide «un
-  trabajo nuevo enlazado al original», y no existía ninguna columna para ese enlace: la
-  migración **V14** añade `print_jobs.reprinted_from_id`. La reimpresión copia además el
-  payload del original, para que imprima lo mismo.
-- **El tamaño en milímetros se publica con un decimal.** El contrato dice `152.4` y el
-  cálculo desde pulgadas daba `152.39999999999998`, que es lo que da la coma flotante
-  con `6 × 25.4`. Una décima de milímetro es más precisión de la que tiene cualquier
-  etiqueta.
+- **The ZPL validation happens on save** (`^XA` and `^XZ`), not on printing: without the closing
+  the printer gives no error, it leaves the label blank and it is discovered by spending paper.
+- **The reprint needs a link that the schema did not have.** The contract asks for "a new job
+  linked to the original", and there was no column for that link: migration
+  **V14** adds `print_jobs.reprinted_from_id`. The reprint also copies the payload of the original, so that it prints the same.
+- **The size in millimeters is published with one decimal.** The contract says `152.4` and the
+  calculation from inches gave `152.39999999999998`, which is what floating point gives
+  with `6 × 25.4`. A tenth of a millimeter is more precision than any label has.
 
-La paginación está en [convenciones.md](convenciones.md); los códigos, en
+Pagination is in [convenciones.md](convenciones.md); the codes, in
 [errores.md](errores.md).
 
 ## `GET|POST /v1/label-templates`, `GET|PUT /v1/label-templates/{id}`
 
-El listado y el detalle exigen `label.template_view`; el alta (`POST`) y la
-edición (`PUT`), `label.template_edit`.
+The listing and the detail require `label.template_view`; creation (`POST`) and
+editing (`PUT`), `label.template_edit`.
 
 ```json
 {
-  "id": 1, "code": "receipt", "name": "Recibo de mercancía",
+  "id": 1, "code": "receipt", "name": "Goods receipt label",
   "description": null, "size": "4x6", "isActive": true,
   "fieldSchema": {
-    "productCode": { "type": "string", "label": "Código", "required": true },
-    "name": { "type": "string", "label": "Nombre", "required": true },
-    "quantity": { "type": "number", "label": "Cantidad", "required": false }
+    "productCode": { "type": "string", "label": "Code", "required": true },
+    "name": { "type": "string", "label": "Name", "required": true },
+    "quantity": { "type": "number", "label": "Quantity", "required": false }
   }
 }
 ```
 
-`zpl` **no se devuelve en el listado** (es grande y no se necesita): solo en el
-detalle. El listado admite `onlyActive` (`false` por defecto) y devuelve un
-arreglo, **sin sobre de paginación** (es un catálogo cerrado que la interfaz
-necesita completo; véase [convenciones.md §1.4](convenciones.md)).
+`zpl` **is not returned in the listing** (it is large and not needed): only in
+the detail. The listing accepts `onlyActive` (`false` by default) and returns an
+array, **without a pagination envelope** (it is a closed catalog that the interface
+needs in full; see [convenciones.md §1.4](convenciones.md)).
 
-El alta usa `LabelTemplateCreateRequest` (`code`, `name`, `zpl` obligatorios;
-`description`, `size`, `fieldSchema`, `isActive` opcionales) y responde **201** con
-el detalle. La edición usa `LabelTemplateUpdateRequest`: los campos que no se
-envían quedan como estaban.
+Creation uses `LabelTemplateCreateRequest` (`code`, `name`, `zpl` mandatory;
+`description`, `size`, `fieldSchema`, `isActive` optional) and answers **201** with
+the detail. Editing uses `LabelTemplateUpdateRequest`: the fields that are not
+sent remain as they were.
 
-**El ZPL se valida AL GUARDAR**: tiene que llevar `^XA` y `^XZ`, o responde `422
-INVALID_ZPL`. Sin el cierre, la impresora no da error — deja la etiqueta en blanco
-o el trabajo en la cola, y eso se descubre gastando papel. Detalle: `404
+**The ZPL is validated ON SAVE**: it must contain `^XA` and `^XZ`, or it answers `422
+INVALID_ZPL`. Without the closing, the printer gives no error — it leaves the label blank
+or the job in the queue, and that is discovered by spending paper. Detail: `404
 LABEL_TEMPLATE_NOT_FOUND`, `400 INVALID_ID`.
 
 ## `POST /v1/labels/preview`
 
-Permiso: `label.print`. Devuelve el ZPL resuelto **sin imprimir**. Para web y móvil.
+Permission: `label.print`. Returns the resolved ZPL **without printing**. For the web and the mobile app.
 
 ```json
 { "templateId": 1, "data": { "productCode": "ABRAA1B", "name": "...", "quantity": "100" } }
@@ -87,42 +80,41 @@ Permiso: `label.print`. Devuelve el ZPL resuelto **sin imprimir**. Para web y m�
 { "zpl": "^XA...^XZ", "preview": { "widthMm": 101.6, "heightMm": 152.4, "copies": 1 } }
 ```
 
-**La resolución la hace el DOMINIO**, la misma función que usa el envío a la
-impresora: si se resolviera aparte, la previsualización podría enseñar algo distinto
-de lo que se imprime, y se aprobaría lo que se ve.
+**The resolution is done by the DOMAIN**, the same function used by the dispatch to the
+printer: if it were resolved separately, the preview could show something different
+from what is printed, and what is seen would be approved.
 
-Un campo obligatorio que falta **devuelve `422 MISSING_LABEL_FIELD`, no una
-etiqueta a medias**: dejar el marcador imprime `{{productCode}}` en el estante, y
-sustituirlo por vacío imprime una etiqueta que parece correcta y no lo está.
+A missing mandatory field **returns `422 MISSING_LABEL_FIELD`, not a half-finished
+label**: leaving the placeholder prints `{{productCode}}` on the shelf, and replacing it with empty
+prints a label that looks correct and is not.
 
-El tamaño en milímetros lo calcula el servidor: si lo hiciera cada cliente, la vista
-previa de la web y la del móvil mostrarían tamaños distintos para la misma
-plantilla. `404 LABEL_TEMPLATE_NOT_FOUND` si la plantilla no existe.
+The size in millimeters is calculated by the server: if each client did it, the web preview and
+the mobile one would show different sizes for the same template. `404 LABEL_TEMPLATE_NOT_FOUND` if the template does not exist.
 
 ## `POST /v1/labels/print`
 
-Permiso: `label.print`.
+Permission: `label.print`.
 
 ```json
 { "templateId": 1, "copies": 2, "data": [ { "productCode": "ABRAA1B" } ] }
 ```
 
-**202 Accepted** con `jobIds`. **El trabajo queda `PENDING` hasta que la impresora
-confirma.**
+**202 Accepted** with `jobIds`. **The job stays `PENDING` until the printer
+confirms.**
 
 ```json
 { "jobIds": [501, 502], "status": "PENDING" }
 ```
 
-`copies` va de 1 a 100 y por defecto es 1. Se resuelve el ZPL **antes** de encolar:
-un trabajo con datos incompletos se crearía igual y habría que descubrirlo al
-imprimir, con la etiqueta ya en la cola. Errores: `422 MISSING_LABEL_FIELD`,
+`copies` goes from 1 to 100 and defaults to 1. The ZPL is resolved **before** enqueuing:
+a job with incomplete data would be created anyway and it would have to be discovered when
+printing, with the label already in the queue. Errors: `422 MISSING_LABEL_FIELD`,
 `422 LABEL_TEMPLATE_INACTIVE`, `422 FIELD_REQUIRED`, `400 INVALID_PARAMETER`,
 `404 LABEL_TEMPLATE_NOT_FOUND`.
 
 ## `GET /v1/labels/jobs/{id}`, `GET /v1/labels/jobs?status=FAILED`
 
-Permiso: `label.queue_view`. El listado filtra por `status` y se pagina con `page` y
+Permission: `label.queue_view`. The listing filters by `status` and is paginated with `page` and
 `size`.
 
 ```json
@@ -133,66 +125,64 @@ Permiso: `label.queue_view`. El listado filtra por `status` y se pagina con `pag
 }
 ```
 
-`status`: `PENDING` | `SENT` | `PRINTED` | `FAILED`. **Una etiqueta no se marca
-impresa hasta que la impresora confirma.** El legacy la marcaba sin esperar la
-respuesta, así que si la Zebra estaba apagada, la etiqueta se perdía para siempre.
-`?status=FAILED` es la consulta que hace útil la cola: una etiqueta que no salió
-tiene que poder encontrarse.
+`status`: `PENDING` | `SENT` | `PRINTED` | `FAILED`. **A label is not marked
+printed until the printer confirms.** The legacy marked it without waiting for the
+response, so if the Zebra was off, the label was lost forever.
+`?status=FAILED` is the query that makes the queue useful: a label that did not come out
+must be findable.
 
-Detalle: `404 PRINT_JOB_NOT_FOUND`, `400 INVALID_ID`.
+Detail: `404 PRINT_JOB_NOT_FOUND`, `400 INVALID_ID`.
 
 ## `POST /v1/labels/jobs/{id}/reprint`
 
-Permiso: `label.reprint`. Exige motivo (`{"reason": "..."}`) y genera un **trabajo
-nuevo** enlazado al original, no reutiliza el registro: la trazabilidad de una
-reimpresión exige saber quién la pidió y por qué. **202** con el trabajo nuevo, que
-también nace `PENDING`.
+Permission: `label.reprint`. Requires a reason (`{"reason": "..."}`) and generates a **new job**
+linked to the original, it does not reuse the record: the traceability of a reprint requires knowing who
+requested it and why. **202** with the new job, which is also born `PENDING`.
 
-`label.reprint` y no `label.print`: reimprimir gasta una segunda etiqueta, y el
-catálogo los separa a propósito. Errores: `422 REASON_REQUIRED`, `404
+`label.reprint` and not `label.print`: reprinting uses a second label, and the
+catalog separates them on purpose. Errors: `422 REASON_REQUIRED`, `404
 PRINT_JOB_NOT_FOUND`.
 
-## `PATCH /v1/print-jobs/{id}` — integración con la impresora
+## `PATCH /v1/print-jobs/{id}` — integration with the printer
 
-**Es la única ruta que no vive bajo `/v1/labels`**, y aun así cuelga de un recurso:
-es la actualización del estado de UN trabajo de impresión. La ruta cuelga del
-recurso que modifica; una ruta sin recurso (`PATCH /v1/prints`) no describiría el
-efecto ni sería descubrible leyendo la documentación de etiquetas.
+**It is the only route that does not live under `/v1/labels`**, and even so it hangs from a resource:
+it is the update of the state of ONE print job. The route hangs from the
+resource it modifies; a route without a resource (`PATCH /v1/prints`) would not describe the
+effect nor be discoverable by reading the labels documentation.
 
-Es la llamada que hace la Zebra. **No exige JWT de usuario, sino credencial de
-servicio en la cabecera `X-Service-Key`** (tabla `service_api_keys`; el secreto se
-guarda hasheado y se muestra una sola vez al crearlo). El legacy tenía este endpoint
-**abierto sin ninguna credencial**, así que cualquiera en la red podía marcar
-trabajos como impresos.
+It is the call the Zebra makes. **It does not require a user JWT, but a service credential
+in the `X-Service-Key` header** (table `service_api_keys`; the secret is
+stored hashed and is shown only once when it is created). The legacy had this endpoint
+**open without any credential**, so anyone on the network could mark
+jobs as printed.
 
-**`X-Service-Key` y no `Authorization`** para que quede claro en los registros que
-no es una persona: la auditoría guarda `SERVICE_PRINTER` como canal y el id de la
-clave, y así un trabajo marcado como impreso sin usuario detrás se distingue de uno
-hecho por alguien.
+**`X-Service-Key` and not `Authorization`** so that it is clear in the logs that it is not a person: the
+audit log stores `SERVICE_PRINTER` as the channel and the key's id, and this way a job
+marked as printed with no user behind it is distinguished from one done by someone.
 
 ```json
 { "status": "PRINTED", "error": null }
 ```
 
-`status`: `PRINTED` | `FAILED`. El `jobId` va en la ruta, no en el cuerpo: es el
-recurso que se actualiza, y repetir la llamada no debe imprimir dos veces.
+`status`: `PRINTED` | `FAILED`. The `jobId` goes in the route, not in the body: it is
+the resource being updated, and repeating the call must not print twice.
 
-**200** con la confirmación:
+**200** with the confirmation:
 
 ```json
 { "jobId": 501, "status": "PRINTED", "error": null }
 ```
 
-**Errores:** `401 INVALID_SERVICE_KEY`, `404 PRINT_JOB_NOT_FOUND` si el trabajo no
-existe, `409 LABEL_ALREADY_PRINTED` si el trabajo ya está en `PRINTED` — una
-etiqueta no se imprime dos veces por un reintento de la impresora.
+**Errors:** `401 INVALID_SERVICE_KEY`, `404 PRINT_JOB_NOT_FOUND` if the job does not
+exist, `409 LABEL_ALREADY_PRINTED` if the job is already `PRINTED` — a
+label is not printed twice because of a retry from the printer.
 
-**Aquí es donde una etiqueta pasa a impresa, y solo aquí.** Ningún endpoint de
-usuario lo hace: el sistema no se autocertifica.
+**This is where a label becomes printed, and only here.** No user endpoint does it:
+the system does not self-certify.
 
-## Verificación
+## Verification
 
-| Archivo | Qué cubre |
+| File | What it covers |
 |---|---|
-| `api/app/src/test/kotlin/dev/axzy/stock/app/LabelFlowTest.kt` | L1, L3 y L5 por HTTP real, la validación del ZPL, el tamaño en milímetros, el escapado de caracteres de control y los permisos por ruta |
-| `api/app/src/test/kotlin/dev/axzy/stock/app/PrintJobConfirmationTest.kt` | L2 y L4: la impresora confirma una sola vez, el fallo deja el trabajo localizable, la credencial no vale para nada más, la revocada deja de valer y la bitácora guarda el canal y la clave |
+| `api/app/src/test/kotlin/dev/axzy/stock/app/LabelFlowTest.kt` | L1, L3 and L5 over real HTTP, the ZPL validation, the size in millimeters, the escaping of control characters and the per-route permissions |
+| `api/app/src/test/kotlin/dev/axzy/stock/app/PrintJobConfirmationTest.kt` | L2 and L4: the printer confirms only once, the failure leaves the job findable, the credential is worth nothing else, the revoked one stops working and the audit log stores the channel and the key |

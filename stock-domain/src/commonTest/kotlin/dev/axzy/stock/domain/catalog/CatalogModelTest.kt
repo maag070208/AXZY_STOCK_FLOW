@@ -7,10 +7,10 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 
 /**
- * Las reglas del catálogo que no son de forma (docs/flujos/catalogo.md §3).
+ * The catalog rules that are not about form (docs/flujos/catalogo.md §3).
  *
- * Se prueban sin base de datos: si una operación es admisible lo decide el
- * dominio, y el esquema solo lo refuerza.
+ * They are tested without a database: whether an operation is admissible is
+ * decided by the domain, and the schema only enforces it.
  */
 class CatalogModelTest : DescribeSpec({
 

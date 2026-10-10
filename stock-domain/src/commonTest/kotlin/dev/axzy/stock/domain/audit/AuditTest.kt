@@ -9,12 +9,12 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * TESTS DE AUDITORÍA — casos U1 a U28
+ * AUDIT TESTS — cases U1 to U28
  *
- * El test más importante de este archivo es **U1: el estructural**. No comprueba
- * un comportamiento: comprueba que **no falta un registro**. Es lo único que
- * hace que "TODO debe ser auditable" siga siendo cierto cuando alguien añada un
- * caso de uso con prisa.
+ * The most important test in this file is **U1: the structural one**. It does not check
+ * a behavior: it checks that **no record is missing**. It is the only thing that
+ * keeps "EVERYTHING must be auditable" true when someone adds a
+ * use case in a hurry.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 class AuditTest : DescribeSpec({
@@ -51,11 +51,11 @@ class AuditTest : DescribeSpec({
     // ═════════════════════════════════════════════════════════════════════════
     describe("the registry of auditable use cases") {
 
-        // El registro es documentación **ejecutable**: dice de cada caso de uso qué escribe, con
-        // qué nivel y bajo qué permiso. Nada lo ataba al catálogo, así que un permiso mal escrito
-        // aquí no se notaría hasta que ese caso de uso escribiera de verdad… dentro de una
-        // transacción, donde el fallo se lleva por delante la operación legítima que se estaba
-        // auditando. Estas tres reglas lo atan.
+        // The record is **executable** documentation: it says for each use case what it writes, with
+        // what level and under which permission. Nothing tied it to the catalog, so a wrong permission
+        // here would not show until that use case really wrote… inside a
+        // transaction, where the failure takes down the legitimate operation that was being
+        // audited with it. These three rules tie it down.
 
         it("every declared permission exists in the catalog") {
             val desconocidos = CriticalUseCases.all
@@ -67,8 +67,8 @@ class AuditTest : DescribeSpec({
         }
 
         it("every use case and every action is declared only once") {
-            // Dos casos de uso con la misma acción harían ambigua la bitácora: no se podría
-            // responder quién hizo qué.
+            // Two use cases with the same action would make the audit log ambiguous: it would not be possible to
+            // answer who did what.
             CriticalUseCases.all.map { it.useCase }.distinct() shouldBe CriticalUseCases.all.map { it.useCase }
             CriticalUseCases.all.map { it.action }.distinct() shouldBe CriticalUseCases.all.map { it.action }
         }
@@ -77,8 +77,8 @@ class AuditTest : DescribeSpec({
     describe("U1 — STRUCTURAL COVERAGE: the test that prevents the audit from degrading") {
 
         it("every declared action has a permission, entity, level and category") {
-            // Un caso de uso auditable SIN permiso no puede responder "con qué
-            // permiso se hizo", que es el requisito central.
+            // An auditable use case WITHOUT a permission cannot answer "with which
+            // permission it was done", which is the central requirement.
             CriticalUseCases.all.forEach { declaration ->
                 withClue("La declaración '${declaration.useCase}' está incompleta") {
                     declaration.action.isNotBlank() shouldBe true
@@ -103,9 +103,9 @@ class AuditTest : DescribeSpec({
         }
 
         it("BIJECTION: every declared permission exists in the catalog") {
-            // Si una declaración de auditoría referencia un permiso que no
-            // existe, el evento no se puede auditar correctamente. Es el análogo
-            // del test de biyección permisos ↔ rutas del plan.
+            // If an audit declaration references a permission that does not
+            // exist, the event cannot be audited correctly. It is the analog of
+            // the permissions ↔ routes bijection test in the plan.
             val nonexistent = CriticalUseCases.all
                 .map { it.permission }
                 .filterNot { it in PermissionCatalog.keys }
@@ -119,8 +119,8 @@ class AuditTest : DescribeSpec({
         }
 
         it("every operation that MOVES INVENTORY is declared as critical") {
-            // La propiedad que de verdad importa: ningún cambio de inventario
-            // puede quedar sin auditoría.
+            // The property that really matters: no inventory change
+            // can be left without audit.
             val inventoryOperations = listOf(
                 "moveWithinWarehouse",
                 "adjustInventoryIncrease",
@@ -153,7 +153,7 @@ class AuditTest : DescribeSpec({
         }
 
         it("every inventory adjustment requires a reason") {
-            // Invariante I6: un ajuste sin motivo es un agujero de auditoría.
+            // Invariant I6: an adjustment without a reason is an audit hole.
             val adjustments = CriticalUseCases.all.filter { it.useCase.startsWith("adjustInventory") }
 
             withClue("Debe haber ajustes declarados") { adjustments.isEmpty() shouldBe false }
@@ -206,7 +206,7 @@ class AuditTest : DescribeSpec({
         }
 
         it("building a declaration without a permission is impossible") {
-            // El tipo impide el error, no un validador que hay que recordar llamar.
+            // The type prevents the error, not a validator that has to be remembered to be called.
             val withoutPermission = runCatching {
                 AuditDeclaration(
                     useCase = "prueba", action = "PRUEBA", level = AuditLevel.CRITICAL,
@@ -239,7 +239,7 @@ class AuditTest : DescribeSpec({
         }
 
         it("a critical event WITHOUT a permission is incomplete") {
-            // Sin permiso no se puede responder "con qué permiso se hizo".
+            // Without permission it cannot answer "with which permission it was done."
             val withoutPermission = event(permissionKey = null)
 
             withoutPermission.hasAllDimensions shouldBe false
@@ -302,9 +302,9 @@ class AuditTest : DescribeSpec({
         }
 
         it("U13 — the actor keeps a snapshot of name and roles, not only the id") {
-            // Si el usuario se renombra o se borra, un FK solo deja el histórico
-            // ilegible. El snapshot es lo que hace que la auditoría siga siendo
-            // útil dentro de dos años.
+            // If the user is renamed or deleted, a FK alone leaves the history
+            // unreadable. The snapshot is what keeps the audit useful
+            // for two years.
             val withSnapshot = event().copy(
                 actor = AuditActor(
                     userId = 7L,
@@ -339,8 +339,8 @@ class AuditTest : DescribeSpec({
     describe("U16-U20 — the hash chain and immutability") {
 
         it("U18 — altering an event in the middle breaks the chain and is detected") {
-            // La cadena no impide la alteración: la HACE DETECTABLE. Es el máximo
-            // que se puede lograr sin hardware especializado.
+            // The chain does not prevent alteration: it makes it DETECTABLE. It is the maximum
+            // that can be achieved without specialized hardware.
             val string = DefaultAuditHashChain
             var previous: String? = null
 
@@ -356,8 +356,8 @@ class AuditTest : DescribeSpec({
                 string.verify(events) shouldBe null
             }
 
-            // Se altera el evento 5 sin recalcular su hash: como si alguien
-            // hubiera hecho un UPDATE directo en la base de datos.
+            // Event 5 is altered without recalculating its hash: as if someone
+            // had done a direct UPDATE in the database.
             val altered = events.toMutableList()
             altered[4] = altered[4].copy(newState = mapOf("valor" to 999))
 
@@ -475,8 +475,8 @@ class AuditTest : DescribeSpec({
         it("U9 — the snapshot allows reproducing the historical decision") {
             val trace = traceAllowed()
 
-            // Sin estos números, dentro de seis meses no se puede reconstruir por
-            // qué se permitió algo, porque los permisos habrán cambiado.
+            // Without these numbers, six months from now it cannot be reconstructed
+            // why something was allowed, because the permissions will have changed.
             withClue("La versión de la matriz debe quedar registrada") {
                 trace.snapshot.matrixVersion shouldBe 3
             }

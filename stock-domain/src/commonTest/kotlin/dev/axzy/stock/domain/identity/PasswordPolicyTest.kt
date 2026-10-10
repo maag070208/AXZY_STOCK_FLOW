@@ -8,10 +8,10 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * TESTS DE LA POLÍTICA DE CONTRASEÑAS
+ * PASSWORD POLICY TESTS
  *
- * El caso que más importa es el de `admin12345`: **era la contraseña del usuario
- * `admin` del legacy**, y estos tests garantizan que no se pueda volver a
+ * The case that matters most is `admin12345`: **it was the password of the user
+ * `admin` of the legacy**, and these tests guarantee that it cannot be
  * aceptar.
  * ═══════════════════════════════════════════════════════════════════════════
  */
@@ -26,8 +26,8 @@ class PasswordPolicyTest : DescribeSpec({
     describe("the legacy defect: admin12345 cannot be accepted") {
 
         it("rejects the password the legacy admin user had") {
-            // Verificado en el seed del legacy: `admin` con contraseña
-            // `admin12345`. Estos tests son la garantía de que no vuelve.
+            // Verified in the legacy seed: `admin` with password
+            // `admin12345`. These tests are the guarantee that it does not come back.
             val reasons = reasons("admin12345", username = "admin")
 
             withClue("Debe rechazarse, y por más de un motivo") {
@@ -37,9 +37,9 @@ class PasswordPolicyTest : DescribeSpec({
         }
 
         it("rejects admin12345 even without saying which user it is") {
-            // La contraseña está en la lista, así que se rechaza aunque no se
-            // sepa el nombre de usuario. Es la defensa contra la reutilización
-            // entre sistemas.
+            // The password is on the list, so it is rejected even if the
+            // user name is not known. It is the defense against reuse
+            // across systems.
             (PasswordRejection.COMMON in reasons("admin12345")) shouldBe true
         }
 
@@ -72,15 +72,15 @@ class PasswordPolicyTest : DescribeSpec({
         }
 
         it("rejects more than 128 characters") {
-            // El límite existe porque Argon2 con entradas enormes es un vector de
-            // denegación de servicio: se puede hacer que el servidor consuma CPU
+            // The limit exists because Argon2 with huge inputs is a denial-of-service vector:
+            // the server can be made to burn CPU
             // hasheando megabytes.
             val huge = "a1".repeat(70)
             (PasswordRejection.TOO_LONG in reasons(huge)) shouldBe true
         }
 
         it("rejects a password of only spaces, even if it is long") {
-            // Sin esta comprobación, 20 espacios pasaría la regla de longitud.
+            // Without this check, 20 spaces would pass the length rule.
             val spaces = " ".repeat(20)
             (PasswordRejection.ONLY_WHITESPACE in reasons(spaces)) shouldBe true
         }
@@ -90,12 +90,12 @@ class PasswordPolicyTest : DescribeSpec({
     describe("against intuition: an uppercase letter or a symbol is NOT required") {
 
         it("accepts a long lowercase passphrase: it is safer than Password1!") {
-            // `correcto caballo bateria grapa` tiene 31 caracteres y mucha más
-            // entropía que `Password1!`, y es más fácil de recordar.
+            // `correcto caballo bateria grapa` has 31 characters and far more
+            // entropy than `Password1!`, and it is easier to remember.
             //
-            // Exigir mayúscula + minúscula + número + símbolo EMPEORA la
-            // seguridad: empuja a la gente a `Password1!`, que está en todas las
-            // listas de contraseñas filtradas.
+            // Requiring uppercase + lowercase + number + symbol makes security WORSE: it
+            // pushes people towards `Password1!`, which is on every
+            // leaked password list.
             PasswordPolicy.validate("correcto caballo bateria grapa").isValid shouldBe true
         }
 
@@ -104,13 +104,13 @@ class PasswordPolicyTest : DescribeSpec({
         }
 
         it("rejects a single repeated character even if it is long") {
-            // Malo incluso siendo largo: `aaaaaaaaaaaa` no tiene entropía.
+            // Bad even when long: `aaaaaaaaaaaa` has no entropy.
             (PasswordRejection.TOO_SIMPLE in reasons("aaaaaaaaaaaa")) shouldBe true
         }
 
         it("rejects only consecutive digits") {
-            // `123456789012` no está en la lista de comunes, pero es una
-            // secuencia y no tiene letras.
+            // `123456789012` is not on the common list, but it is a
+            // sequence and has no letters.
             (PasswordRejection.TOO_SIMPLE in reasons("123456789012")) shouldBe true
         }
     }
@@ -119,7 +119,7 @@ class PasswordPolicyTest : DescribeSpec({
     describe("the password cannot contain the username") {
 
         it("rejects a password that contains the user") {
-            // `jperez` con `jperez2026seguro` es de lo primero que se prueba.
+            // `jperez` with `jperez2026seguro` is one of the first things that gets tried.
             val reasons = reasons("jperez2026seguro", username = "jperez")
 
             withClue("Debe detectarse que contiene el nombre de usuario") {
@@ -128,14 +128,14 @@ class PasswordPolicyTest : DescribeSpec({
         }
 
         it("detects it regardless of case or spaces") {
-            // `JPEREZ` y `jperez ` son el mismo usuario para quien intenta entrar.
+            // `JPEREZ` and `jperez ` are the same user for whoever tries to log in.
             (PasswordRejection.CONTAINS_USERNAME in reasons("MiJPEREZ2026x", "jperez")) shouldBe true
             (PasswordRejection.CONTAINS_USERNAME in reasons("Jperez2026xyz", "jperez")) shouldBe true
         }
 
         it("does not reject if the username is very short") {
-            // Un usuario de 3 letras aparecería por casualidad en cualquier
-            // contraseña. La comprobación exige 4 caracteres para evitar falsos
+            // A 3-letter user name would show up by chance in any
+            // password. The check requires 4 characters to avoid false
             // positivos molestos.
             val reasons = reasons("Bodega2026xyz", username = "abc")
 
@@ -153,8 +153,8 @@ class PasswordPolicyTest : DescribeSpec({
     describe("common passwords are rejected by their normalised form") {
 
         it("rejects a common password with spaces around it") {
-            // ` Password123 ` es la misma contraseña para quien la escribe, y
-            // `password123` para quien la adivina.
+            // ` Password123 ` is the same password for whoever types it, and
+            // `password123` for whoever guesses it.
             (PasswordRejection.COMMON in reasons(" Password123 ")) shouldBe true
         }
 
@@ -163,8 +163,8 @@ class PasswordPolicyTest : DescribeSpec({
         }
 
         it("rejects the name of the system as a password") {
-            // `puertonuevo` y `almacen12345` son las que alguien pondría por
-            // comodidad. Son las primeras que probaría un atacante.
+            // `puertonuevo` and `almacen12345` are the ones someone would pick for
+            // convenience. They are the first ones an attacker would try.
             (PasswordRejection.COMMON in reasons("puertonuevo")) shouldBe true
         }
     }
@@ -182,12 +182,12 @@ class PasswordPolicyTest : DescribeSpec({
         }
 
         it("the explanation names ALL the reasons, not only the first") {
-            // Un formulario que solo dice «contraseña inválida» obliga al usuario
-            // a adivinar. Nombrar todos los motivos le permite corregir de una vez.
+            // A form that only says "invalid password" forces the user
+            // to guess. Naming every reason lets them fix everything at once.
             //
-            // Se usa `password`: es corta Y está en la lista de filtradas, así que
-            // dispara dos motivos. Con `admin` solo saltaba uno —es corta, pero no
-            // está en la lista— y el test comprobaba algo que la política no hace.
+            // We use `password`: it is short AND on the leaked list, so it
+            // triggers two reasons. With `admin` only one fired —it is short, but
+            // it is not on the list— and the test checked something the policy does not do.
             val result = PasswordPolicy.validate("password", username = "admin")
 
             val explanation = PasswordPolicy.explain(result)
@@ -213,13 +213,13 @@ class PasswordPolicyTest : DescribeSpec({
 
         withData(
             nameFn = { "«${it.first}» → ${if (it.second) "válida" else "rechazada"}" },
-            // Válidas: frases y combinaciones con longitud suficiente.
+            // Valid: passphrases and combinations of sufficient length.
             "correcto caballo bateria grapa" to true,
             "Bodega04 estante B" to true,
             "el-sol-sale-por-el-este" to true,
             "R1s2T3u4V5w6X7y8" to true,
             "mi frase secreta larga" to true,
-            // Rechazadas: cortas, comunes o de una sola clase.
+            // Rejected: short, common, or single-class.
             "admin12345" to false,
             "password123" to false,
             "corta" to false,

@@ -2,59 +2,59 @@ package dev.axzy.stock.domain.access
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * MODELO DE ACCESO — RBAC + ABAC híbrido
+ * ACCESS MODEL — hybrid RBAC + ABAC
  *
- * Adapta el modelo que ya funciona en producción en `RESPONSIVA/web`
- * (consola de roles, políticas, simulación y bitácora) al dominio de almacén,
- * donde el alcance no es "mi área" sino **bodega y ubicación**.
+ * It adapts the model that already works in production in `RESPONSIVA/web`
+ * (role console, policies, simulation and audit log) to the warehouse domain,
+ * where the scope is not "my area" but **warehouse and location**.
  *
- * Cuatro conceptos, en orden de dependencia:
+ * Four concepts, in order of dependency:
  *
- *   1. [PermissionScope] — cuánto alcanza un permiso: propio, su bodega, todo.
- *   2. [Permission]      — QUÉ se puede hacer (`invoice.approve`), con su nombre
- *                          y el catálogo de módulos.
- *   3. [RoleKey]         — clave estable de rol. Reemplaza el `roleId` numérico
- *                          que el legacy hardcodeaba en cuatro puntos (§S2).
- *   4. [Policy]          — BAJO QUÉ CONDICIONES se permite o deniega (ABAC).
+ *   1. [PermissionScope] — how far a permission reaches: own, its warehouse, everything.
+ *   2. [Permission]      — WHAT can be done (`invoice.approve`), with its name
+ *                          and the module catalog.
+ *   3. [RoleKey]         — stable role key. It replaces the numeric `roleId` that the
+ *                          legacy hard-coded in four places (§S2).
+ *   4. [Policy]          — UNDER WHAT CONDITIONS it is allowed or denied (ABAC).
  *
  * Referencia: docs/historico/PLAN_ROLES_PERMISOS_POLITICAS.md.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
 /**
- * Alcance de un permiso sobre los datos.
+ * Scope of a permission over the data.
  *
- * Es el segundo eje de RBAC: un permiso no es solo sí/no. `inventory.view`
- * puede significar "ver todo el almacén" o "ver solo mi bodega".
+ * It is the second axis of RBAC: a permission is not just yes/no. `inventory.view`
+ * can mean "see the whole warehouse" or "see only my warehouse".
  *
- * **`AREA` es la clave de la multi-bodega**: significa "su bodega", y qué
- * bodegas son suyas se determina por la asignación de la **persona**, no por
- * el rol. Eso evita crear un rol por bodega (`JEFE_BODEGA_NORTE`,
- * `JEFE_BODEGA_SUR`…), que es el error clásico.
+ * **`AREA` is the key to multi-warehouse**: it means "their warehouse", and which
+ * warehouses are theirs is determined by the assignment of the **person**, not by
+ * the role. That avoids creating a role per warehouse (`JEFE_BODEGA_NORTE`,
+ * `JEFE_BODEGA_SUR`…), which is the classic mistake.
  */
 enum class PermissionScope {
-    /** Sin acceso. */
+    /** No access. */
     NONE,
 
-    /** Solo sus propias asignaciones o su ubicación. */
+    /** Only their own assignments or their location. */
     OWN,
 
-    /** Su bodega (o las bodegas que tenga asignadas). */
+    /** Their warehouse (or the warehouses assigned to them). */
     AREA,
 
-    /** Todas las bodegas. */
+    /** All warehouses. */
     ALL,
     ;
 
-    /** Indica si concede algún acceso. */
+    /** Indicates whether it grants any access. */
     val grants: Boolean get() = this != NONE
 
     /**
-     * Comprueba si este alcance cubre el alcance requerido.
+     * Checks whether this scope covers the required scope.
      *
-     * Es una escalera: `ALL ⊇ AREA ⊇ OWN ⊇ NONE`. Conceder `AREA` **no**
-     * concede `ALL`, y ese error (tratar el alcance como un booleano) es el que
-     * convierte un modelo de permisos en un agujero.
+     * It is a ladder: `ALL ⊇ AREA ⊇ OWN ⊇ NONE`. Granting `AREA` **does not**
+     * grant `ALL`, and that error (treating the scope as a boolean) is what
+     * turns a permission model into a hole.
      */
     fun covers(required: PermissionScope): Boolean = when (this) {
         ALL -> true
@@ -64,15 +64,15 @@ enum class PermissionScope {
     }
 
     companion object {
-        /** Ordena de menor a mayor alcance, para resolver el máximo efectivo. */
+        /** Sorts from smallest to largest scope, to resolve the effective maximum. */
         fun max(a: PermissionScope, b: PermissionScope): PermissionScope =
             if (a.ordinal >= b.ordinal) a else b
     }
 }
 
 /**
- * Módulos del catálogo. Agrupan los permisos para la matriz de administración
- * y determinan el orden en que se muestran.
+ * Catalog modules. They group the permissions for the administration matrix
+ * and determine the order in which they are shown.
  */
 enum class PermissionModule(val displayName: String) {
     IDENTITY("identidad"),
@@ -88,19 +88,19 @@ enum class PermissionModule(val displayName: String) {
 }
 
 /**
- * Un permiso del catálogo, con clave `recurso.accion`.
+ * A catalog permission, with key `resource.action`.
  *
- * **La convención `recurso.accion` en minúsculas está deliberada**: es la que
- * usa producción, y permite que el editor de políticas agrupe por recurso y
- * ordene por ciclo de vida (ver → crear → editar → eliminar → acciones de
- * negocio). El ejemplo `ALMACEN:CREA` que planteaste no escalaba: tenía
- * dirección inconsistente y un recurso demasiado amplio.
+ * **The `resource.action` convention in lowercase is deliberate**: it is the one
+ * production uses, and it allows the policy editor to group by resource and
+ * sort by lifecycle (view → create → edit → delete → business
+ * actions). The `ALMACEN:CREA` example you proposed did not scale: it had
+ * an inconsistent direction and a resource that was too broad.
  *
- * @param key clave estable, inmutable. Es el contrato con la base de datos.
- * @param module módulo al que pertenece, para agrupar en la UI.
- * @param scopes alcances **admitidos**. Un permiso que no admite `OWN` no
- *   ofrece esa opción en la pantalla de administración.
- * @param sensitive indica si su uso debe auditarse siempre (Nivel 3).
+ * @param key stable, immutable key. It is the contract with the database.
+ * @param module the module it belongs to, for grouping in the UI.
+ * @param scopes the **admitted** scopes. A permission that does not admit `OWN` does not
+ *   offer that option on the administration screen.
+ * @param sensitive whether its use must always be audited (Level 3).
  */
 data class Permission(
     val key: String,
@@ -126,24 +126,24 @@ data class Permission(
         }
     }
 
-    /** El recurso del permiso (`invoice` en `invoice.approve`). */
+    /** The resource of the permission (`invoice` in `invoice.approve`). */
     val resource: String get() = key.substringBefore('.')
 
-    /** La acción del permiso (`approve` en `invoice.approve`). */
+    /** The action of the permission (`approve` in `invoice.approve`). */
     val action: String get() = key.substringAfter('.')
 
-    /** Alcances concedibles, sin `NONE`, en orden canónico. */
+    /** Grantable scopes, without `NONE`, in canonical order. */
     val grantableScopes: List<PermissionScope>
         get() = listOf(PermissionScope.OWN, PermissionScope.AREA, PermissionScope.ALL)
             .filter { it in scopes }
 }
 
 /**
- * Clave de un rol. **Estable e inmutable**, a diferencia del `roleId` numérico
- * del legacy, que se hardcodeaba como `if (role === 1)` en cuatro puntos del
- * backend y dependía de que el seed insertara `admin` primero (hallazgo S2).
+ * Key of a role. **Stable and immutable**, unlike the legacy's numeric `roleId`,
+ * which was hard-coded as `if (role === 1)` in four places of the backend and
+ * depended on the seed inserting `admin` first (finding S2).
  *
- * El nombre visible es renombrable; la clave no.
+ * The visible name can be renamed; the key cannot.
  */
 @kotlin.jvm.JvmInline
 value class RoleKey private constructor(val value: String) {
@@ -166,9 +166,9 @@ value class RoleKey private constructor(val value: String) {
         }
 
         /**
-         * Genera una clave a partir del nombre visible, como ya hace la
-         * implementación de referencia:
-         * `"Jefe de bodega"` → `JEFE_DE_BODEGA`, sin choques con las existentes.
+         * Generates a key from the visible name, as the reference implementation already does:
+         * reference implementation:
+         * `"Warehouse manager"` → `WAREHOUSE_MANAGER`, without clashes with the existing ones.
          */
         fun fromName(name: String, taken: Set<String> = emptySet()): RoleKey {
             var base = name.trim().uppercase()
@@ -195,21 +195,21 @@ value class RoleKey private constructor(val value: String) {
     override fun toString(): String = value
 }
 
-/** Rol del sistema: clave estable + nombre visible + sus permisos con alcance. */
+/** System role: stable key + visible name + its permissions with scope. */
 data class Role(
     val key: RoleKey,
     val name: String,
     val description: String? = null,
-    /** Los permisos concedidos y **con qué alcance**. */
+    /** The granted permissions **and with what scope**. */
     val permissions: Map<String, PermissionScope> = emptyMap(),
-    /** Un rol de sistema no se puede eliminar. */
+    /** A system role cannot be deleted. */
     val isSystem: Boolean = false,
     val active: Boolean = true,
     val sortOrder: Int = 0,
 ) {
     /**
-     * Alcance que este rol aporta para un permiso.
-     * `NONE` si no lo tiene o si está inactivo.
+     * Scope this role contributes for a permission.
+     * `NONE` if it does not have it or if it is inactive.
      */
     fun scopeOf(permissionKey: String): PermissionScope =
         if (!active) PermissionScope.NONE
@@ -217,12 +217,12 @@ data class Role(
 }
 
 /**
- * Los cinco roles base del almacén.
+ * The five base warehouse roles.
  *
- * Cada uno se explica en una frase. **Si un rol no se puede explicar en una
- * frase, está mal cortado.** Es la prueba que descarta el rol `SUPERVISOR`
- * genérico, que en la práctica termina con permisos de todo para no bloquear
- * el trabajo, y es el rol que destruye un modelo de permisos.
+ * Each one is explained in a sentence. **If a role cannot be explained in a
+ * sentence, it is badly cut.** It is the test that rules out the generic `SUPERVISOR` role,
+ * which in practice ends up with permissions for everything so as not to block
+ * the work, and it is the role that destroys a permission model.
  */
 enum class BaseRole(val key: RoleKey, val displayName: String, val oneLiner: String) {
     ADMIN(RoleKey.of("ADMIN"), "Administrator", "Can do everything, including configuration"),
@@ -245,16 +245,16 @@ enum class BaseRole(val key: RoleKey, val displayName: String, val oneLiner: Str
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// ABAC — políticas
+// ABAC — policies ──────────────────────────────────────────────────────────
 // ═════════════════════════════════════════════════════════════════════════════
 
-/** Efecto de una política. */
+/** Effect of a policy. */
 enum class PolicyEffect {
     ALLOW,
     DENY,
 }
 
-/** Operadores de condición. */
+/** Condition operators. */
 enum class PolicyOperator(val symbol: String) {
     EQUALS("=="),
     NOT_EQUALS("!="),
@@ -267,15 +267,15 @@ enum class PolicyOperator(val symbol: String) {
     ;
 
     /**
-     * Compara un valor real contra el esperado, según el operador.
+     * Compares an actual value against the expected one, according to the operator.
      *
-     * **Cuidado con los números: en Kotlin `Int(0) != Long(0)`.** `equals` entre
-     * tipos numéricos distintos devuelve falso, así que `0 in listOf(0L, 6L)` es
-     * **falso** aunque conceptualmente sea verdadero. Ese detalle hacía que una
-     * política `DENY` de fin de semana no coincidiera nunca con el día real.
+     * **Careful with numbers: in Kotlin `Int(0) != Long(0)`.** `equals` between
+     * different numeric types returns false, so `0 in listOf(0L, 6L)` is
+     * **false** even though it is conceptually true. That detail meant that a
+     * `DENY` weekend policy never matched the real day.
      *
-     * Por eso TODAS las comparaciones numéricas pasan por [asLong], y la
-     * igualdad solo usa `equals` cuando no hay números de por medio.
+     * That is why ALL numeric comparisons go through [asLong], and
+     * equality only uses `equals` when there are no numbers involved.
      */
     fun matches(current: Any?, expected: Any?): Boolean = when (this) {
         EQUALS -> areEqual(current, expected)
@@ -295,10 +295,10 @@ enum class PolicyOperator(val symbol: String) {
     }
 
     /**
-     * Igualdad tolerante al tipo numérico.
+     * Type-tolerant equality for numbers.
      *
-     * Si **ambos** lados son números, compara como `Long` (de modo que
-     * `Int(8) == Long(8)`). Si alguno no lo es, usa `equals` normal.
+     * If **both** sides are numbers, it compares as `Long` (so that
+     * `Int(8) == Long(8)`). If either is not, it uses the normal `equals`.
      */
     private fun areEqual(a: Any?, b: Any?): Boolean {
         val na = asLong(a)
@@ -331,7 +331,7 @@ enum class PolicyOperator(val symbol: String) {
 }
 
 /**
- * Una condición de una política: `campo operador valor`.
+ * A condition of a policy: `field operator value`.
  * Ejemplo real: `resource.difference <= 50`.
  */
 data class PolicyCondition(
@@ -340,47 +340,47 @@ data class PolicyCondition(
     val value: Any?,
 )
 
-/** Traza de la evaluación de **una** condición. Es lo que hace explicable el "por qué no". */
+/** Trace of the evaluation of **one** condition. It is what makes the "why not" explainable. */
 data class ConditionTrace(
     val condition: PolicyCondition,
     val current: Any?,
     val matches: Boolean,
 )
 
-/** Traza de la evaluación de **una** política. */
+/** Trace of the evaluation of **one** policy. */
 data class PolicyTrace(
     val policyId: Long,
     val policyName: String,
     val effect: PolicyEffect,
     val priority: Int,
-    /** Indica si la política aplicaba al usuario (por rol). */
+    /** Indicates whether the policy applied to the user (by role). */
     val appliesToUser: Boolean,
-    /** Indica si todas sus condiciones coincidieron. */
+    /** Indicates whether all its conditions matched. */
     val matched: Boolean,
     val conditions: List<ConditionTrace>,
     /**
-     * Modo observación de **esta** política, copiado en la traza.
+     * Observation mode of **this** policy, copied into the trace.
      *
-     * Se copia aquí en lugar de consultarlo después por id: las trazas se
-     * ordenan por prioridad y buscar la política de nuevo era una fuente de
-     * errores. Una política en observación **registra** su decisión pero **no
-     * la aplica**, y eso debe ser imposible de confundir.
+     * It is copied here instead of being looked up afterwards by id: the traces are
+     * sorted by priority, and searching for the policy again was a source of
+     * errors. A policy in observation **records** its decision but **does not
+     * apply it**, and that must be impossible to confuse.
      */
     val shadowMode: Boolean = false,
 )
 
 /**
- * Una política ABAC.
+ * An ABAC policy.
  *
- * Reglas de evaluación, que hay que implementar exactamente así:
- *  1. Solo se evalúan políticas `active` cuya `action` coincida y cuyos `roles`
- *     incluyan alguno del usuario (o estén vacíos).
- *  2. Las condiciones se combinan con **AND**.
- *  3. **Si alguna `DENY` coincide, se deniega**, sin importar cuántas `ALLOW`.
- *  4. Si no hay `DENY` y al menos una `ALLOW` coincide, se permite.
- *  5. Si hay políticas aplicables pero **ninguna `ALLOW` coincide**, se deniega
- *     con `POLICY_REQUIRED`. **Esto es lo que hace que ABAC suba el listón.**
- *  6. Sin políticas aplicables: `DEFAULT DENY`.
+ * Evaluation rules, to be implemented exactly like this:
+ *  1. Only `active` policies are evaluated whose `action` matches and whose `roles`
+ *     include one of the user's (or are empty).
+ *  2. The conditions are combined with **AND**.
+ *  3. **If any `DENY` matches, it is denied**, regardless of how many `ALLOW`s there are.
+ *  4. If there is no `DENY` and at least one `ALLOW` matches, it is allowed.
+ *  5. If there are applicable policies but **no `ALLOW` matches**, it is denied
+ *     with `POLICY_REQUIRED`. **This is what makes ABAC raise the bar.**
+ *  6. Without applicable policies: `DEFAULT DENY`.
  */
 data class Policy(
     val id: Long,
@@ -390,11 +390,11 @@ data class Policy(
     val effect: PolicyEffect,
     val priority: Int = 0,
     val active: Boolean = true,
-    /** En observación: registra la decisión pero **no la aplica**. */
+    /** In observation: it records the decision but **does not apply it**. */
     val shadowMode: Boolean = false,
-    /** No desactivable sin confirmación explícita (por implicación legal). */
+    /** Not disableable without explicit confirmation (for legal reasons). */
     val protected: Boolean = false,
-    /** Roles a los que aplica. Vacío = a todos. */
+    /** Roles it applies to. Empty = all of them. */
     val roles: Set<RoleKey> = emptySet(),
     val conditions: List<PolicyCondition> = emptyList(),
 ) {

@@ -1,77 +1,75 @@
-# Dominio — KMP puro (`stock-domain/`)
-> **Normativo.** Reglas de pureza, contenido y por qué las reglas de negocio viven aquí.
-> Última verificación: 2026-10-09.
-> **Nota de reconstrucción (2026-10-10).** Dominio compartido vigente (plan D6). Las rutas del texto son del código anterior. Las reglas siguen vigentes; las rutas de código que cita pertenecen al sistema anterior y se remapean al código nuevo (ver [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
+# Domain — pure KMP (`stock-domain/`)
+> **Normative.** Purity rules, contents and why the business rules live here.
+> Last verified: 2026-10-09.
+> **Reconstruction note (2026-10-10).** Shared domain in force (plan D6). The paths in the text are from the previous code. The rules remain in force; the code paths it cites belong to the previous system and are remapped to the new code (see [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
 
-## 4.1 La regla: KMP puro, sin dependencias
+## 4.1 The rule: pure KMP, no dependencies
 
-**Solo puede usar `kotlin-stdlib` + `kotlinx-datetime`, `kotlinx-serialization` y
-`kotlinx-coroutines`.** Nada más. Es lo que permite que el mismo código tome las mismas
-decisiones en el backend, en Android y en iOS.
+**It can only use `kotlin-stdlib` + `kotlinx-datetime`, `kotlinx-serialization` and
+`kotlinx-coroutines`.** Nothing else. That is what allows the same code to make the same decisions in the backend, on Android and on
+iOS.
 
-**Está impuesto por una guardia de arquitectura**, no por buena voluntad:
+**It is enforced by an architecture guard**, not by good intentions:
 
-- `verifyDomainPurity` (`stock-domain/build.gradle.kts`) falla el build si alguna
-  configuración de producción declara un framework prohibido (`ktor`, `exposed`,
+- `verifyDomainPurity` (`stock-domain/build.gradle.kts`) fails the build if any production
+  configuration declares a forbidden framework (`ktor`, `exposed`,
   `sqldelight`, `compose`, `androidx`, `hikari`, `postgresql`, `flyway`, `logback`, `koin`,
-  `spring`, `micrometer`, `jackson`, `okhttp`, `retrofit`) o si algún archivo importa uno.
-  Se ejecuta sobre las dependencias **declaradas** y sobre los imports de `commonMain`,
-  `jvmMain`, `androidMain` e `iosMain`.
-- `forbidJvmMainSourceSet` falla si aparece código en `src/jvmMain`, `src/androidMain` o
-  `src/iosMain`: el dominio debe ser común, y `jvmMain` es la puerta por la que entraría
-  Exposed.
+  `spring`, `micrometer`, `jackson`, `okhttp`, `retrofit`) or if any file imports one.
+  It runs over the **declared** dependencies and over the imports of `commonMain`,
+  `jvmMain`, `androidMain` and `iosMain`.
+- `forbidJvmMainSourceSet` fails if code appears in `src/jvmMain`, `src/androidMain` or
+  `src/iosMain`: the domain must be common, and `jvmMain` is the door through which Exposed would enter.
 
-Las dos cuelgan de `check`, así que no se pueden saltar por descuido, y dejan constancia:
+Both hang off `check`, so they cannot be skipped by mistake, and they leave a record:
 
 ```
-✓ stock-domain es Kotlin puro (guardia de arquitectura OK)
-✓ stock-domain no tiene código específico de plataforma
+✓ stock-domain is pure Kotlin (architecture guard OK)
+✓ stock-domain has no platform-specific code
 ```
 
-**Comprueba además que no se use una anotación solo de JVM sin calificar.** `@JvmInline`
-compila en JVM y **rompe el build de iOS** con «Unresolved reference 'JvmInline'»; la forma
-correcta y multiplataforma es `@kotlin.jvm.JvmInline`. La guardia detecta lo mismo que
-encontró Kotlin/Native, sin necesidad de tener Xcode instalado.
+**It also checks that a JVM-only annotation is not used unqualified.** `@JvmInline`
+compiles on JVM and **breaks the iOS build** with "Unresolved reference 'JvmInline'"; the correct and
+multiplatform form is `@kotlin.jvm.JvmInline`. The guard detects the same thing
+that Kotlin/Native found, without needing Xcode installed.
 
-**`androidMain` no tiene dependencias, y es deliberado.** El contrato del escáner
-(`ScanWindow`, `ScanState`, `ScanOutcome`) y el modelo de qué hacer con lo escaneado viven
-en el dominio; la implementación con CameraX y ML Kit va en un módulo de móvil. Añadir aquí
-las dependencias de la cámara sería una dependencia engañosa: parecería que el dominio sabe
-de cámara y no es así.
+**`androidMain` has no dependencies, and that is deliberate.** The scanner contract
+(`ScanWindow`, `ScanState`, `ScanOutcome`) and the model of what to do with what was scanned live
+in the domain; the implementation with CameraX and ML Kit goes in a mobile module. Adding the
+camera dependencies here would be a misleading dependency: it would look as if the domain knew about the camera, and it does not.
 
-## 4.2 Qué vive aquí
+## 4.2 What lives here
 
-| Carpeta | Contenido |
+| Folder | Contents |
 |---|---|
-| `value/` | `Id`, `Quantity`, `ProductCode`, `LocationCode`, `BoxQuantity`, `UnitsPerBox` — tipos que **no se pueden construir mal** |
+| `value/` | `Id`, `Quantity`, `ProductCode`, `LocationCode`, `BoxQuantity`, `UnitsPerBox` — types that **cannot be built wrongly** |
 | `common/` | `Either`, `DomainResult` |
-| `error/` | `DomainError` — el catálogo de errores de negocio |
+| `error/` | `DomainError` — the catalog of business errors |
 | `inventory/` | `StockMovement`, `InventoryLedger`, `Adjustment`, `LocationContent` |
-| `receiving/` | `InvoiceLine`, la máquina de estados |
+| `receiving/` | `InvoiceLine`, the state machine |
 | `access/` | `PermissionCatalog`, `AccessEngine`, `AccessModel`, `RoleDefinitions`, `StockPolicies` — RBAC + ABAC |
 | `audit/` | `AuditModel`, `AccessDecisionTrace`, `AuditableUseCase` |
-| `catalog/` | `CatalogImporter` — el modelo de la importación de catálogo |
-| `fulfillment/` | `Order`, la máquina de estados del surtido |
+| `catalog/` | `CatalogImporter` — the catalog import model |
+| `fulfillment/` | `Order`, the picking state machine |
 | `identity/` | `PasswordPolicy`, `SessionModel` |
 | `labeling/` | `LabelTemplate` |
-| `scanner/` | `ScanModel` — el contrato del escáner |
-| `transfer/` | `Transfer`, la máquina de estados del traslado |
+| `scanner/` | `ScanModel` — the scanner contract |
+| `transfer/` | `Transfer`, the transfer state machine |
 
-## 4.3 Por qué las reglas viven en el dominio
+## 4.3 Why the rules live in the domain
 
-**Una regla en el dominio se puede probar en milisegundos y se cumple en las tres partes.**
-Una regla en un endpoint se prueba por HTTP y se olvida en el siguiente.
+**A rule in the domain can be tested in milliseconds and holds in all three parts.**
+A rule in an endpoint is tested over HTTP and forgotten in the next one.
 
-Ejemplo real: `AdjustmentRequest.create`
-(`stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/inventory/Adjustment.kt`) exige
-cantidad **positiva**: rechaza `quantity.isZero || quantity.isNegative`. Si solo se
-comprobara `isZero`, una cantidad **negativa** con dirección `DECREASE` **sumaría inventario
-sin necesitar aprobación**. La comprobación vive en la fábrica del tipo y no en el endpoint,
-porque **la próxima ruta que se añada tendría el mismo agujero**.
+Real example: `AdjustmentRequest.create`
+(`stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/inventory/Adjustment.kt`) requires a
+**positive** quantity: it rejects `quantity.isZero || quantity.isNegative`. If it only checked
+`isZero`, a **negative** quantity with direction `DECREASE` would **add inventory
+without needing approval**. The check lives in the type's factory and not in the endpoint,
+because **the next route that is added would have the same hole**.
 
-**Corolario:** si puedes construir un objeto inválido, el tipo está mal diseñado. Se usan
-constructores privados con fábricas que devuelven `Either`.
+**Corollary:** if you can build an invalid object, the type is badly designed. Private
+constructors with factories that return `Either` are used.
 
-La regla de acceso —RBAC + ABAC y denegación por defecto— vive en `access/` y se documenta en
-[roles-permisos.md](../seguridad/roles-permisos.md); la decisión, en
+The access rule —RBAC + ABAC and default denial— lives in `access/` and is documented in
+[roles-permisos.md](../seguridad/roles-permisos.md); the decision, in
 [ADR 0006](../adr/0006-rbac-mas-abac-denegar-por-defecto.md).

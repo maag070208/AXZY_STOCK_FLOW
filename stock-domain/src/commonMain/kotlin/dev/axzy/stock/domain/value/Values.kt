@@ -3,16 +3,16 @@ package dev.axzy.stock.domain.value
 import kotlinx.serialization.Serializable
 
 /**
- * Objetos de valor del dominio.
+ * Value objects of the domain.
  *
- * Todos validan en el constructor: **un objeto de valor inválido no se puede
- * construir**. Es la primera línea de defensa y la razón por la que el dominio
- * puede confiar en sus propios datos sin revalidar.
+ * All of them validate in the constructor: **an invalid value object cannot be
+ * built**. It is the first line of defense and the reason why the domain
+ * can trust its own data without revalidating it.
  *
- * Referencia: docs/historico/PLAN_ALMACEN_INTEGRAL.md §3.2-ter y §2.4.
+ * Reference: docs/historico/PLAN_ALMACEN_INTEGRAL.md §3.2-ter and §2.4.
  */
 
-/** Identificador de una entidad persistida. */
+/** Identifier of a persisted entity. */
 @kotlin.jvm.JvmInline
 @Serializable
 value class Id<T>(val value: Long) {
@@ -21,17 +21,17 @@ value class Id<T>(val value: Long) {
     }
 }
 
-// ── Códigos ─────────────────────────────────────────────────────────────────
+// ── Codes ───────────────────────────────────────────────────────────────
 
 /**
- * Código de producto: el identificador de negocio y también el código de barras.
+ * Product code: the business identifier and also the barcode.
  *
- * Alfabeto real verificado contra el Excel de inventario (1.396 productos):
- * `0-9` + `A-Z`, sin Ñ, O ni W; longitud 6 a 14; sin minúsculas ni espacios.
+ * Real alphabet verified against the inventory Excel (1,396 products):
+ * `0-9` + `A-Z`, without Ñ, O or W; length 6 to 14; no lowercase or spaces.
  *
- * La normalización es **determinista** y **estricta**: si el código viene en
- * minúsculas o con espacios, se **rechaza** — no se corrige en silencio. Un
- * importador tolerante esconde errores de captura que después aparecen como
+ * Normalization is **deterministic** and **strict**: if the code comes in
+ * lowercase or with spaces, it is **rejected** — it is not corrected in silence. A
+ * tolerant importer hides capture errors that later appear as miscounted stock.
  * stock mal contado.
  */
 @kotlin.jvm.JvmInline
@@ -41,12 +41,12 @@ value class ProductCode private constructor(val value: String) {
     companion object {
         const val MAX_LENGTH = 20
 
-        /** Alfabeto real observado en producción. */
+        /** Real alphabet observed in production. */
         private val ALLOWED = Regex("^[0-9A-Z]+$")
 
         /**
-         * Construye un código de producto validándolo.
-         * @throws IllegalArgumentException si el código no cumple el formato.
+         * Builds a product code by validating it.
+         * @throws IllegalArgumentException if the code does not meet the format.
          */
         fun of(raw: String): ProductCode {
             val trimmed = raw.trim()
@@ -69,8 +69,8 @@ value class ProductCode private constructor(val value: String) {
         }
 
         /**
-         * Igual que [of] pero devuelve el error en vez de lanzarlo.
-         * Es la variante que usa el importador para su informe por fila.
+         * Same as [of] but returns the error instead of throwing it.
+         * It is the variant the importer uses for its per-row report.
          */
         fun validate(raw: String): Result<ProductCode> =
             runCatching { of(raw) }
@@ -80,13 +80,13 @@ value class ProductCode private constructor(val value: String) {
 }
 
 /**
- * Código de ubicación física.
+ * Physical location code.
  *
- * Formato canónico: `hall + code + position + <letra de nivel>` en mayúsculas
- * y sin separadores. Ejemplo real del legacy: `04` + `B` + `C` + `A` = `04BCA`.
+ * Canonical format: `hall + code + position + <level letter>` in uppercase
+ * and without separators. Real example from the legacy: `04` + `B` + `C` + `A` = `04BCA`.
  *
- * Se conserva el formato del legacy porque **es lo que está impreso en los
- * estantes y en las etiquetas**. Cambiarlo obligaría a reetiquetar el almacén.
+ * The legacy format is kept because **it is what is printed on the
+ * shelves and on the labels**. Changing it would force relabeling the warehouse.
  */
 @kotlin.jvm.JvmInline
 @Serializable
@@ -95,7 +95,7 @@ value class LocationCode private constructor(val value: String) {
     companion object {
         const val MAX_LENGTH = 24
 
-        /** Alfabeto español del legacy: incluye Ñ, excluye O y W. */
+        /** The legacy's Spanish alphabet: includes Ñ, excludes O and W. */
         const val LEVEL_ALPHABET = "ABCDEFGHIJKLMNÑPQRSTUVXYZ"
 
         private val ALLOWED = Regex("^[0-9A-ZÑ]+$")
@@ -116,8 +116,8 @@ value class LocationCode private constructor(val value: String) {
         }
 
         /**
-         * Construye el código de una ubicación a partir de sus partes.
-         * @param level índice de nivel 0-based; se convierte en letra del alfabeto español.
+         * Builds the location code from its parts.
+         * @param level 0-based level index; it is converted to a letter of the Spanish alphabet.
          */
         fun of(hall: String, code: String, position: String, level: Int): LocationCode {
             require(level in LEVEL_ALPHABET.indices) {
@@ -135,45 +135,45 @@ value class LocationCode private constructor(val value: String) {
 }
 
 /**
- * Código de ubicación de RECEPCIÓN (la antigua pseudo-ubicación `ADMIN`).
+ * Code of the RECEIVING location (the old pseudo-location `ADMIN`).
  *
- * El legacy la devolvía hardcodeada con `id: 1` ficticio, sin tocar la base de
- * datos, y ese id podía colisionar con la ubicación real 1 (hallazgo R-69).
- * Aquí es una ubicación **real** con `kind = RECEIVING`.
+ * The legacy returned it hard-coded with a fictitious `id: 1`, without touching the
+ * database, and that id could collide with the real location 1 (finding R-69).
+ * Here it is a **real** location with `kind = RECEIVING`.
  */
 object ReceivingLocation {
     const val CODE = "RECEIVING"
 }
 
-// ── Cantidades y medidas ────────────────────────────────────────────────────
+// ── Quantities and measures ────────────────────────────────────────────────
 
 /**
- * Cantidad de unidades, con 3 decimales.
+ * Quantity of units, with 3 decimals.
  *
- * El legacy usaba `Int` en `Kardex.units` y `Decimal` en los detalles: dos
- * representaciones para el mismo concepto, y una de ellas incapaz de
- * representar fracciones. Aquí hay **una sola**.
+ * The legacy used `Int` in `Kardex.units` and `Decimal` in the details: two
+ * representations for the same concept, and one of them unable to
+ * represent fractions. Here there is **only one**.
  */
 @kotlin.jvm.JvmInline
 @Serializable
 value class Quantity private constructor(val value: Long) {
 
     companion object {
-        /** Escala fija: 3 decimales. Se representa internamente como milésimas. */
+        /** Fixed scale: 3 decimals. Internally represented as thousandths. */
         const val SCALE = 3
         private const val FACTOR = 1000L
 
         val ZERO = Quantity(0)
 
-        /** Crea una cantidad a partir de unidades enteras. */
+        /** Creates a quantity from whole units. */
         fun of(units: Long): Quantity = Quantity(units * FACTOR)
 
-        /** Crea una cantidad desde un valor decimal ya escalado (milésimas). */
+        /** Creates a quantity from an already scaled decimal value (thousandths). */
         fun ofScaled(scaled: Long): Quantity = Quantity(scaled)
 
         /**
-         * Crea una cantidad desde un texto decimal, sin tolerancia.
-         * Rechaza valores no numéricos en lugar de asumir 0.
+         * Creates a quantity from a decimal text, with no tolerance.
+         * Rejects non-numeric values instead of assuming 0.
          */
         fun parse(raw: String): Result<Quantity> = runCatching {
             val trimmed = raw.trim()
@@ -199,13 +199,13 @@ value class Quantity private constructor(val value: Long) {
         }
     }
 
-    /** Parte entera de la cantidad. */
+    /** Integer part of the quantity. */
     val units: Long get() = value / FACTOR
 
-    /** Milésimas restantes (los 3 decimales). */
+    /** Remaining thousandths (the 3 decimals). */
     val thousandths: Long get() = value % FACTOR
 
-    /** Indica si la cantidad tiene fracción. */
+    /** Indicates whether the quantity has a fraction. */
     val hasFraction: Boolean get() = thousandths != 0L
 
     val isZero: Boolean get() = value == 0L
@@ -217,7 +217,7 @@ value class Quantity private constructor(val value: Long) {
 
     operator fun compareTo(other: Quantity): Int = value.compareTo(other.value)
 
-    /** Representación decimal legible, sin ceros finales innecesarios. */
+    /** Readable decimal representation, without unnecessary trailing zeros. */
     override fun toString(): String {
         val sign = if (value < 0) "-" else ""
         val abs = if (value < 0) -value else value
@@ -229,9 +229,9 @@ value class Quantity private constructor(val value: Long) {
 }
 
 /**
- * Cantidad de cajas de una línea de recepción.
- * Se mantiene separada de [Quantity] porque tiene reglas propias (debe ser entera
- * y `cantidad / unidadesPorCaja` debe dar exacto — decisión R-80).
+ * Quantity of boxes of a receiving line.
+ * It is kept separate from [Quantity] because it has its own rules (it must be an integer
+ * and `quantity / unitsPerBox` must divide exactly — decision R-80).
  */
 @kotlin.jvm.JvmInline
 @Serializable
@@ -247,12 +247,12 @@ value class BoxQuantity private constructor(val value: Long) {
     }
 
     /**
-     * Comprueba que las cajas declaradas **quepan** en la cantidad declarada.
+     * Checks that the declared boxes **fit** in the declared quantity.
      *
-     * Es una validación de coherencia, no de divisibilidad exacta: contar 80
-     * piezas con cajas de 50 significa "1 caja y 30 sueltas", y eso es válido.
-     * Lo que no es válido es declarar 2 cajas para 80 piezas, porque 2 cajas de
-     * 50 son 100 y el dato se contradice a sí mismo.
+     * It is a coherence validation, not an exact divisibility one: counting 80
+     * pieces with boxes of 50 means "1 box and 30 loose", and that is valid.
+     * What is not valid is declaring 2 boxes for 80 pieces, because 2 boxes of
+     * 50 are 100 and the datum contradicts itself.
      */
     fun isConsistentWith(quantity: Quantity, unitsPerBox: UnitsPerBox): Boolean {
         val maximumBoxes = quantity.units / unitsPerBox.value
@@ -263,11 +263,11 @@ value class BoxQuantity private constructor(val value: Long) {
 }
 
 /**
- * Unidades por caja.
+ * Units per box.
  *
- * Es el campo que en el legacy provocaba `Array(NaN)` → `RangeError` en el móvil
- * cuando no era numérico (hallazgo R-48), y división por cero en el cálculo de
- * cajas. Aquí **no puede ser cero ni negativo**: el tipo lo impide.
+ * It is the field that in the legacy caused `Array(NaN)` → `RangeError` on the mobile
+ * app when it was not numeric (finding R-48), and division by zero in the box
+ * calculation. Here it **cannot be zero or negative**: the type prevents it.
  */
 @kotlin.jvm.JvmInline
 @Serializable

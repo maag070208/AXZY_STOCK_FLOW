@@ -8,15 +8,15 @@ import io.kotest.matchers.string.shouldContain
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * CONTENIDO POR UBICACIÓN: el modelo nuevo frente al algoritmo del legacy
+ * CONTENT PER LOCATION: the new model versus the legacy algorithm
  *
- * El plan exige decidir la simplificación **con datos delante**, no con
- * intuición (hallazgo R-67). Estos tests hacen tres cosas:
+ * The plan requires deciding the simplification **with data in hand**, not with
+ * intuition (finding R-67). These tests do three things:
  *
- *  1. Fijan que el método **directo** es correcto (es el del sistema nuevo).
- *  2. Reproducen el algoritmo del legacy para tenerlo caracterizado.
- *  3. **Cuantifican la divergencia** y comprueban que se explica por el bug
- *     conocido. Ese es el informe que se lleva al negocio.
+ *  1. They establish that the **direct** method is correct (it is the new system's).
+ *  2. They replicate the legacy algorithm so that it is characterized.
+ *  3. **They quantify the divergence** and check that it is explained by the known bug.
+ *     known bug. That is the report that goes to the business.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 class LocationContentTest : DescribeSpec({
@@ -40,7 +40,7 @@ class LocationContentTest : DescribeSpec({
 
             with(ledger) {
                 LocationContent.direct(this, product, shelf) shouldBe Quantity.of(100)
-                // Y la recepción queda vacía: la mercancía se movió, no se copió.
+                // And receiving is left empty: the goods were moved, not copied.
                 LocationContent.direct(this, product, receiving) shouldBe Quantity.ZERO
             }
         }
@@ -53,7 +53,7 @@ class LocationContentTest : DescribeSpec({
             with(ledger) {
                 LocationContent.direct(this, product, shelf) shouldBe Quantity.of(60)
                 LocationContent.direct(this, product, shelfB) shouldBe Quantity.of(40)
-                // La suma se conserva: no se creó ni se destruyó mercancía.
+                // The sum is preserved: no goods were created or destroyed.
                 val sum = LocationContent.direct(this, product, shelf) +
                     LocationContent.direct(this, product, shelfB)
                 sum shouldBe Quantity.of(100)
@@ -77,22 +77,22 @@ class LocationContentTest : DescribeSpec({
         it("reproduces the adjustment rule: if the last movement is an adjustment, the total is that adjustment") {
             val ledger = InventoryLedger()
             ledger.initialLoad(product, shelf, Quantity.of(1000))
-            // Un ajuste deja el saldo en 1000 - 950 = 50.
+            // An adjustment leaves the balance at 1000 - 950 = 50.
             ledger.adjustmentOut(product, shelf, Quantity.of(950), "conteo físico")
 
-            // El método nuevo lee el saldo real: 1000 cargadas menos 950 mermadas.
+            // The new method reads the real balance: 1000 loaded minus 950 shrunk.
             with(ledger) {
                 LocationContent.direct(this, product, shelf) shouldBe Quantity.of(50)
             }
 
-            // El algoritmo del legacy, en cambio, interpreta un `ADJUSTMENT_OUT`
-            // como "el contenido se redefine a la cantidad del ajuste" y al ser
-            // una SALIDA devuelve cero (su paso 5 descarta los totales <= 0).
+            // The legacy algorithm, by contrast, interprets an `ADJUSTMENT_OUT`
+            // as "the content is redefined to the adjustment quantity" and, being
+            // an OUTFLOW, it returns zero (its step 5 discards totals <= 0).
             //
-            // Ésta es exactamente la clase de divergencia que hay que documentar:
-            // el legacy reporta 0 donde hay 50 unidades. No es el bug del doble
-            // descuento, es la semántica histórica del ajuste, y por eso se
-            // caracteriza aquí en lugar de asumirse.
+            // This is exactly the kind of divergence that has to be documented:
+            // the legacy reports 0 where there are 50 units. It is not the double
+            // deduction bug, it is the historical semantics of the adjustment, and that is why it is
+            // characterized here instead of being assumed.
             val legacy = LocationContent.legacyAlgorithm(ledger, product, shelf)
             legacy shouldBe Quantity.ZERO
 
@@ -102,7 +102,7 @@ class LocationContentTest : DescribeSpec({
                 modelSays = Quantity.of(50),
                 legacySays = legacy,
             )
-            // Divergencia positiva: el modelo ve MÁS. Se clasifica como revisable.
+            // Positive divergence: the model sees MORE. It is classified as reviewable.
             divergence.explainedByKnownBug shouldBe true
         }
 
@@ -138,7 +138,7 @@ class LocationContentTest : DescribeSpec({
             val divergences = LocationContentComparison.onlyDivergent(ledger)
 
             with(ledger) {
-                // Un solo movimiento: los dos métodos ven lo mismo.
+                // A single movement: both methods see the same thing.
                 LocationContent.direct(this, product, shelf) shouldBe Quantity.of(100)
             }
             divergences.size shouldBe 0
@@ -152,7 +152,7 @@ class LocationContentTest : DescribeSpec({
 
             val report = LocationContentComparison.report(ledger)
 
-            // El informe debe existir y ser legible por alguien de negocio.
+            // The report must exist and be readable by someone from the business.
             report shouldContain "Content discrepancy report"
             report shouldContain "Locations with discrepancy"
         }
@@ -167,7 +167,7 @@ class LocationContentTest : DescribeSpec({
             val divergences = LocationContentComparison.onlyDivergent(ledger)
 
             divergences.forEach { divergence ->
-                // Cada divergencia debe caer en uno de los dos grupos, sin ambigüedad.
+                // Each divergence must fall into one of the two groups, unambiguously.
                 val classified = divergence.explainedByKnownBug ||
                     !divergence.explainedByKnownBug
                 if (!classified) {
@@ -177,9 +177,9 @@ class LocationContentTest : DescribeSpec({
         }
 
         it("a divergence where the model sees LESS is NOT explained by the known bug") {
-            // El bug del legacy hacía que el total bajara, así que el sistema
-            // viejo reportaba MENOS. Una divergencia al revés (el modelo ve
-            // menos) apunta a otra causa y hay que investigarla.
+            // The legacy bug made the total go down, so the old system
+            // reported LESS. A divergence the other way round (the model sees
+            // less) points to another cause and it has to be investigated.
             val divergence = ContentDivergence(
                 productCode = product,
                 location = shelf,
@@ -216,7 +216,7 @@ class LocationContentTest : DescribeSpec({
         it("after receiving and locating, the new system keeps the total and the legacy would have lost it") {
             val ledger = InventoryLedger()
 
-            // Secuencia completa de una recepción real.
+            // Complete sequence of a real receipt.
             ledger.receipt(product, receiving, Quantity.of(100))
             val totalAfterReceiving = ledger.totalOf(product)
 
@@ -224,19 +224,19 @@ class LocationContentTest : DescribeSpec({
             val totalAfterLocate = ledger.totalOf(product)
 
             with(ledger) {
-                // El total no cambia al ubicar: es la corrección del bug (R-65).
+                // The total does not change when locating: it is the bug fix (R-65).
                 totalAfterLocate shouldBe totalAfterReceiving
                 totalAfterLocate shouldBe Quantity.of(100)
 
-                // Y el contenido del estante es lo que se ubicó.
+                // And the shelf content is what was located.
                 LocationContent.direct(this, product, shelf) shouldBe Quantity.of(100)
 
-                // Mientras que en el legacy, `addKardexLocation` restaba DOS veces:
-                // una al mutar la entrada de recepción y otra al crear el LOCATION.
-                // Con esa aritmética el total habría quedado en 0.
+                // Whereas in the legacy, `addKardexLocation` subtracted TWICE:
+                // once when mutating the receiving entry and once when creating the LOCATION.
+                // With that arithmetic the total would have been left at 0.
                 val totalThatWouldHaveRemainedInLegacy = Quantity.of(100) - Quantity.of(100)
                 if (totalThatWouldHaveRemainedInLegacy.isZero) {
-                    // Documentado: el legacy habría reportado 0 unidades donde hay 100.
+                    // Documented: the legacy would have reported 0 units where there are 100.
                     totalAfterLocate shouldBe Quantity.of(100)
                 }
             }

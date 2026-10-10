@@ -2,74 +2,74 @@ package dev.axzy.stock.domain.identity
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * SESIONES Y ROTACIÓN DE TOKENS
+ * SESSIONS AND TOKEN ROTATION
  *
- * Un refresh token de larga vida es el punto débil de cualquier sistema de
- * sesiones: **si se filtra, el atacante tiene acceso indefinido**. La defensa
- * estándar es la **rotación**: cada vez que se usa un refresh token, se emite
- * uno nuevo y el viejo deja de servir.
+ * A long-lived refresh token is the weak point of any session system:
+ * **if it leaks, the attacker has indefinite access**. The usual defense is
+ * **rotation**: each time a refresh token is used, a new one is issued
+ * a new one and the old one stops working.
  *
- * Pero la rotación sola no basta, y ahí está el matiz que importa:
+ * But rotation alone is not enough, and here is the nuance that matters:
  *
- * **Un refresh token usado dos veces significa una de dos cosas.**
- *  1. Un reintento legítimo por un fallo de red: el cliente recibió el token
- *     nuevo pero la respuesta se perdió, y vuelve a intentarlo con el viejo.
- *  2. **Alguien robó el token.** El atacante y el usuario legítimo compiten por
- *     usarlo, y uno de los dos llega segundo.
+ * **A refresh token used twice means one of two things.**
+ *  1. A legitimate retry due to a network failure: the client received the new token
+ *     but the response was lost, and it retries with the old one.
+ *  2. **Someone stole the token.** The attacker and the legitimate user compete to
+ *     use it, and one of the two gets there second.
  *
- * No se pueden distinguir con certeza. La respuesta correcta es asumir lo peor
- * **y revocar toda la familia de tokens**, obligando a volver a iniciar sesión.
- * Es un inconveniente para el caso 1 y la única respuesta segura para el caso 2.
- * La alternativa —permitir el reuso por si acaso— convierte la filtración en
- * acceso permanente, que es exactamente lo que la rotación pretendía evitar.
+ * They cannot be told apart with certainty. The right answer is to assume the worst
+ * **and revoke the whole token family**, forcing a new sign-in.
+ * It is an inconvenience for case 1 and the only safe answer for case 2.
+ * The alternative —allowing reuse just in case— turns the leak into
+ * permanent access, which is exactly what rotation was meant to prevent.
  *
- * Esto se implementa aquí, en el dominio y con tests, porque es **lógica de
- * decisión**: qué hacer cuando llega un token que ya se había usado. El legacy no
- * tenía nada de esto: sus sesiones eran un JWT sin revocación.
+ * This is implemented here, in the domain and with tests, because it is **decision logic**:
+ * what to do when a token that was already used arrives. The legacy did not
+ * have anything of this: its sessions were a JWT with no revocation.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
 /**
- * Un refresh token opaco.
+ * An opaque refresh token.
  *
- * **Es opaco a propósito: no lleva información dentro.** Un JWT de refresco
- * sería autocontenido y no se podría revocar sin una lista negra, que es
- * precisamente lo que se quiere evitar. Como token opaco, el servidor lo busca
- * en la base y decide: revocarlo es borrar una fila.
+ * **It is opaque on purpose: it carries no information inside.** A refresh JWT
+ * would be self-contained and could not be revoked without a blacklist, which is
+ * precisely what is to be avoided. As an opaque token, the server looks it up
+ * in the database and decides: revoking it means deleting a row.
  *
- * La longitud mínima de 43 caracteres no es arbitraria: es lo que produce un
- * valor de 256 bits en base64url sin relleno, que es el mínimo recomendado para
- * que sea imposible de adivinar por fuerza bruta.
+ * The minimum length of 43 characters is not arbitrary: it is what produces a
+ * 256-bit value in base64url without padding, which is the recommended minimum so that
+ * it is impossible to guess by brute force.
  */
 @kotlin.jvm.JvmInline
 value class RefreshToken private constructor(val value: String) {
 
     companion object {
-        /** 32 bytes en base64url sin relleno son 43 caracteres. */
+        /** 32 bytes in base64url without padding are 43 characters. */
         const val MIN_LENGTH = 43
 
-        /** Límite superior defensivo: un valor absurdo es un ataque. */
+        /** Defensive upper limit: an absurd value is an attack. */
         const val MAX_LENGTH = 512
 
         /**
-         * Construye un token a partir de un valor ya generado.
+         * Builds a token from an already generated value.
          *
-         * @return el token, o `null` si el valor no tiene la forma esperada.
+         * @return the token, or `null` if the value does not have the expected form.
          */
         fun of(value: String): RefreshToken? {
             if (value.length < MIN_LENGTH || value.length > MAX_LENGTH) return null
-            // base64url: letras, dígitos, guion y guion bajo. Cualquier otra cosa
-            // indica que el valor no lo generó este sistema.
+            // base64url: letters, digits, hyphen and underscore. Anything else
+            // indicates that the value was not generated by this system.
             if (!value.all { it.isLetterOrDigit() || it == '-' || it == '_' }) return null
             return RefreshToken(value)
         }
     }
 
     /**
-     * Solo la huella del token, para los registros.
+     * Only the token's fingerprint, for the logs.
      *
-     * **El token en claro no debe aparecer nunca en un log.** Un log con el token
-     * es un log que, si se filtra, da sesiones válidas.
+     * **The token in clear must never appear in a log.** A log with the token
+     * is a log that, if it leaks, gives valid sessions.
      */
     val fingerprint: String get() = value.take(6) + "…" + value.takeLast(4)
 
@@ -77,163 +77,163 @@ value class RefreshToken private constructor(val value: String) {
 }
 
 /**
- * El identificador de una familia de tokens.
+ * The identifier of a token family.
  *
- * Una familia nace en cada inicio de sesión y agrupa todas las rotaciones que
- * siguen. **Es la unidad de revocación**: si se detecta un reuso, se revoca la
- * familia completa, que es lo mismo que decir «esta sesión está comprometida».
+ * A family is born on each sign-in and groups all the rotations that follow. **It is the unit of
+ * revocation**: if reuse is detected, the
+ * whole family is revoked, which is the same as saying "this session is compromised".
  */
 @kotlin.jvm.JvmInline
 value class TokenFamilyId(val value: String)
 
-/** Identificador de un token concreto, para poder revocarlo. */
+/** Identifier of a specific token, to be able to revoke it. */
 @kotlin.jvm.JvmInline
 value class TokenId(val value: Long)
 
-/** Por qué se revocó una familia o un token. */
+/** Why a family or a token was revoked. */
 enum class RevocationReason(val description: String) {
-    /** El usuario cerró sesión de forma explícita. */
+    /** The user signed out explicitly. */
     LOGOUT("Sign-out"),
 
     /**
-     * Se detectó reuso de un token ya rotado.
+     * Reuse of an already rotated token was detected.
      *
-     * Es el motivo que más importa: significa que **hay dos partes usando la
-     * misma sesión**, y una de ellas no es el usuario.
+     * It is the reason that matters most: it means **two parties are using the
+     * same session**, and one of them is not the user.
      */
     REUSE_DETECTED("Reuse of an already rotated token: compromised session"),
 
-    /** La contraseña cambió: las sesiones activas dejan de ser válidas. */
+    /** The password changed: the active sessions stop being valid. */
     PASSWORD_CHANGED("The password changed"),
 
-    /** Un administrador revocó la sesión. */
+    /** An administrator revoked the session. */
     ADMIN_REVOKED("Revoked by an administrator"),
 
-    /** Venció sin usarse. */
+    /** Expired without being used. */
     EXPIRED("Expired"),
 }
 
 /**
- * El estado de un refresh token en la base.
+ * The state of a refresh token in the database.
  *
- * `rotatedAt` es el campo que hace posible la detección de reuso: un token con
- * `rotatedAt` no nulo **ya se usó**, así que si vuelve a aparecer, hay un
+ * `rotatedAt` is the field that makes reuse detection possible: a token with a
+ * non-null `rotatedAt` **has already been used**, so if it reappears, there is
  * problema.
  */
 data class RefreshTokenRecord(
     val id: TokenId,
     val familyId: TokenFamilyId,
     val userId: Long,
-    /** Huella del token, no el token. Ver [RefreshToken.fingerprint]. */
+    /** Token fingerprint, not the token. See [RefreshToken.fingerprint]. */
     val fingerprint: String,
     val issuedAt: Long,
     val expiresAt: Long,
-    /** Cuándo se usó para rotar. `null` si todavía no se ha usado. */
+    /** When it was used to rotate. `null` if it has not been used yet. */
     val rotatedAt: Long? = null,
-    /** El token que lo reemplazó al rotar. */
+    /** The token that replaced it on rotation. */
     val replacedBy: String? = null,
     val revokedAt: Long? = null,
     val revocationReason: RevocationReason? = null,
 ) {
-    /** Indica si el token ya no sirve. */
+    /** Indicates whether the token no longer works. */
     val isRevoked: Boolean get() = revokedAt != null
 
-    /** Indica si ya se usó para rotar. */
+    /** Indicates whether it was already used to rotate. */
     val isRotated: Boolean get() = rotatedAt != null
 
-    /** Indica si venció. */
+    /** Indicates whether it expired. */
     fun isExpired(now: Long): Boolean = now >= expiresAt
 
     /**
-     * Indica si el token se puede usar.
+     * Indicates whether the token can be used.
      *
-     * **Se comprueban las cuatro condiciones, y el orden importa para el
-     * diagnóstico**: un token rotado y además revocado debe reportarse como
-     * rotado, porque eso es lo que revela el reuso.
+     * **The four conditions are checked, and the order matters for the**
+     * **diagnosis**: a token that is both rotated and revoked must be reported as
+     * rotated, because that is what reveals the reuse.
      */
     fun isUsable(now: Long): Boolean =
         !isRevoked && !isRotated && !isExpired(now)
 }
 
 /**
- * Lo que se decide al recibir un refresh token.
+ * What is decided when a refresh token is received.
  *
- * Es un tipo sellado y no un booleano a propósito: los casos **no son dos**.
- * Confundir «el token no existe» con «el token se reusó» haría que el sistema
- * tratase un intento de robo como un token inválido cualquiera, y no revocaría
- * la familia.
+ * It is a sealed type and not a boolean on purpose: the cases **are not two**.
+ * Confusing "the token does not exist" with "the token was reused" would make the system
+ * treat an attempted theft like any invalid token, and would not revoke
+ * the family.
  */
 sealed interface RefreshDecision {
 
     /**
-     * El token es válido: se rota.
+     * The token is valid: it is rotated.
      *
-     * @param record el registro del token que se acaba de usar.
+     * @param record the record of the token that was just used.
      */
     data class Rotate(val record: RefreshTokenRecord) : RefreshDecision
 
     /**
-     * **Se detectó reuso: la sesión está comprometida.**
+     * **Reuse was detected: the session is compromised.**
      *
-     * Se revoca toda la familia. El usuario tendrá que iniciar sesión de nuevo, y
-     * es lo correcto: hay dos partes con el mismo token.
+     * The whole family is revoked. The user will have to sign in again, and
+     * that is the right thing: two parties have the same token.
      */
     data class ReuseDetected(
         val record: RefreshTokenRecord,
-        /** Cuántos tokens de la familia se revocan. */
+        /** How many tokens of the family are revoked. */
         val affectedTokens: Int,
     ) : RefreshDecision
 
-    /** El token no existe, o nunca perteneció a este sistema. */
+    /** The token does not exist, or never belonged to this system. */
     data object Unknown : RefreshDecision
 
-    /** El token está revocado: por cierre de sesión, por cambio de contraseña o por un administrador. */
+    /** The token is revoked: by sign-out, by password change or by an administrator. */
     data class Revoked(val record: RefreshTokenRecord) : RefreshDecision
 
-    /** El token venció sin usarse. */
+    /** The token expired without being used. */
     data class Expired(val record: RefreshTokenRecord) : RefreshDecision
 }
 
 /**
- * La política de sesiones.
+ * The session policy.
  *
- * Los valores están agrupados y documentados porque cambiarlos tiene
- * consecuencias de seguridad medibles.
+ * The values are grouped and documented because changing them has
+ * measurable security consequences.
  */
 data class SessionPolicy(
     /**
-     * Vida del access token.
+     * Life of the access token.
      *
-     * **Corta a propósito: 15 minutos.** Un access token no se puede revocar sin
-     * consultar la base en cada petición, así que su vida es la ventana en la que
-     * un token robado sigue sirviendo. Quince minutos es el equilibrio habitual:
-     * suficientemente corto para limitar el daño, suficientemente largo para no
-     * obligar a refrescar en cada petición.
+     * **Short on purpose: 15 minutes.** An access token cannot be revoked without
+     * checking the database on every request, so its life is the window in which
+     * a stolen token keeps working. Fifteen minutes is the usual balance:
+     * short enough to limit the damage, long enough not to
+     * force a refresh on every request.
      */
     val accessTokenTtlMs: Long,
 
     /**
-     * Vida del refresh token: 30 días.
+     * Life of the refresh token: 30 days.
      *
-     * Es largo porque **sí se puede revocar**: se busca en la base en cada uso.
-     * La rotación hace que un refresh robado solo sirva hasta que el usuario
-     * legítimo refresque, y la detección de reuso revoca la familia entera.
+     * It is long because **it can be revoked**: it is looked up in the database on each use.
+     * Rotation means a stolen refresh token only works until the legitimate user refreshes, and
+     * reuse detection revokes the whole family.
      */
     val refreshTokenTtlMs: Long,
 
     /**
-     * Margen de gracia para un reintento por fallo de red.
+     * Grace margin for a retry due to a network failure.
      *
-     * **Decisión de diseño que evita revocar sesiones legítimas.** Si el cliente
-     * recibe el token nuevo pero la respuesta se pierde, reintenta con el viejo.
-     * Sin margen, eso se interpretaría como reuso y se revocaría la sesión por un
-     * fallo de red.
+     * **Design decision that avoids revoking legitimate sessions.** If the client
+     * receives the new token but the response is lost, it retries with the old one.
+     * Without a margin, that would be read as reuse and the session would be revoked for a
+     * network failure.
      *
-     * Se acepta el mismo token viejo **solo si se rotó hace menos de este
-     * margen**, y en ese caso se devuelve el token que ya se generó en lugar de
-     * crear otro. Es seguro porque el atacante que roba el token viejo tiene la
-     * misma ventana: 30 segundos. Y a cambio se evitan cierres de sesión
-     * aleatorios, que es lo que empuja a la gente a desactivar la rotación.
+     * The same old token is accepted **only if it was rotated less than this**
+     * **margin**, and in that case the token that was already generated is returned instead of
+     * creating another one. It is safe because the attacker who steals the old token has the same
+     * window: 30 seconds. In exchange, random sign-outs are avoided, which is what
+     * pushes people to disable rotation.
      */
     val rotationGraceMs: Long,
 ) {
@@ -258,62 +258,62 @@ data class SessionPolicy(
 }
 
 /**
- * Decide qué hacer ante un refresh token.
+ * Decides what to do with a refresh token.
  *
- * **Función pura, sin base de datos.** Recibe el registro y el instante, y
- * devuelve la decisión. Eso permite probar los seis casos —incluido el reuso—
- * en milisegundos, que es lo único que hace viable cubrir la lógica de seguridad
- * de una sesión con tests exhaustivos.
+ * **Pure function, no database.** It receives the record and the instant, and
+ * returns the decision. That makes it possible to test the six cases —including reuse—
+ * in milliseconds, which is the only thing that makes it viable to cover the logic of a session's
+ * security logic with exhaustive tests.
  *
- * @param record el registro del token, o `null` si no existe.
- * @param now el instante actual.
- * @param policy la política de sesiones.
+ * @param record the token's record, or `null` if it does not exist.
+ * @param now the current instant.
+ * @param policy the session policy.
  */
 fun decideRefresh(
     record: RefreshTokenRecord?,
     now: Long,
     policy: SessionPolicy = SessionPolicy.DEFAULT,
 ): RefreshDecision {
-    // ── 1. El token no existe ───────────────────────────────────────────────
+    // ── 1. The token does not exist ──────────────────────────────────────
     if (record == null) return RefreshDecision.Unknown
 
-    // ── 2. Reuso: el token YA se usó para rotar ─────────────────────────────
+    // ── 2. Reuse: the token WAS already used to rotate ─────────────────────
     //
-    // Se comprueba ANTES que la revocación, porque un token reusado suele estar
-    // también revocado —la rotación lo marca— y lo que importa comunicar es el
-    // reuso, que es la señal de compromiso.
+    // It is checked BEFORE the revocation, because a reused token is usually
+    // also revoked —rotation marks it— and what matters to report is the
+    // reuse, which is the signal of compromise.
     if (record.isRotated) {
         val rotatedDoes = now - (record.rotatedAt ?: 0)
 
-        // Margen de gracia: un reintento por fallo de red dentro de la ventana.
-        // Se devuelve el token que ya se generó, así que el cliente recibe uno
-        // válido y no se revoca nada.
+        // Grace margin: a retry due to a network failure within the window.
+        // The token that was already generated is returned, so the client gets one
+        // valid and nothing is revoked.
         if (rotatedDoes in 0..policy.rotationGraceMs) {
             return RefreshDecision.Rotate(record)
         }
 
-        // Fuera del margen: se asume robo y se revoca la familia.
+        // Outside the margin: theft is assumed and the family is revoked.
         return RefreshDecision.ReuseDetected(record, affectedTokens = 0)
     }
 
-    // ── 3. Revocado explícitamente ──────────────────────────────────────────
+    // ── 3. Explicitly revoked ─────────────────────────────────────────────
     if (record.isRevoked) return RefreshDecision.Revoked(record)
 
     // ── 4. Vencido ──────────────────────────────────────────────────────────
     if (record.isExpired(now)) return RefreshDecision.Expired(record)
 
-    // ── 5. Válido: se rota ──────────────────────────────────────────────────
+    // ── 5. Valid: it is rotated ──────────────────────────────────────────
     return RefreshDecision.Rotate(record)
 }
 
 /**
- * Indica si un cambio de contraseña debe invalidar las sesiones.
+ * Indicates whether a password change must invalidate the sessions.
  *
- * **Sí, y siempre.** Si alguien cambia su contraseña es porque sospecha que está
- * comprometida, así que dejar vivas las sesiones abiertas mantendría el acceso
- * del atacante justo cuando el usuario está intentando cerrarlo.
+ * **Yes, always.** If someone changes their password it is because they suspect it is
+ * compromised, so leaving the open sessions alive would keep the attacker's access
+ * exactly when the user is trying to shut it down.
  *
- * La alternativa —preguntar al usuario si quiere cerrar las demás sesiones— es
- * peor: en el momento en que sospecha, no quiere decidir; quiere que se cierre.
+ * The alternative —asking the user whether they want to close the other sessions— is
+ * worse: at the moment they suspect, they do not want to decide; they want it closed.
  */
 fun passwordChangeRevokesSessions(): Boolean = true

@@ -2,37 +2,37 @@ package dev.axzy.stock.domain.access
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * CATÁLOGO DE PERMISOS DEL ALMACÉN
+ * WAREHOUSE PERMISSION CATALOG
  *
- * Ocho módulos. Cada permiso declara sus **alcances admitidos** y si es
- * **sensible** (su uso se audita siempre).
+ * Eight modules. Each permission declares its **admitted scopes** and whether it is
+ * **sensitive** (its use is always audited).
  *
- * La descomposición más importante respecto al legacy es **"sacar"**: el legacy
- * tenía un solo `location:read` cubriendo consultar, mover **y ajustar**
- * inventario. Aquí son permisos distintos, porque son operaciones con riesgo
+ * The most important break from the legacy is **"taking out"**: the legacy
+ * had a single `location:read` covering querying, moving **and adjusting**
+ * inventory. Here they are different permissions, because they are operations with risk
  * distinto:
  *
- *   · `order.package`             — sacar para surtir (operación normal)
- *   · `inventory.adjust_shortage` — sacar por merma (exige motivo y aprobación)
- *   · `transfer.dispatch`         — sacar para otra bodega
+ *   · `order.package`             — taking out to fulfill (normal operation)
+ *   · `inventory.adjust_shortage` — taking out as shrinkage (requires a reason and approval)
+ *   · `transfer.dispatch`         — taking out for another warehouse
  *
- * Y `inventory.adjust_*` está descompuesto **por motivo**: no es lo mismo
- * corregir un error de conteo que declarar un robo. Declarar un robo tiene
- * implicaciones legales y requiere más autoridad.
+ * And `inventory.adjust_*` is broken down **by reason**: it is not the same thing
+ * to correct a counting error as to declare a theft. Declaring a theft has
+ * legal implications and requires more authority.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 object PermissionCatalog {
 
-    // ── Atajos de alcance, para que las declaraciones se lean ───────────────
+    // ── Scope shortcuts, so that the declarations read well ───────────────────
     private val ONLY_ALL = setOf(PermissionScope.ALL)
     private val Ladder = setOf(PermissionScope.OWN, PermissionScope.AREA, PermissionScope.ALL)
 
     /**
-     * Todos los permisos, en orden de presentación.
+     * All the permissions, in presentation order.
      *
-     * El `sortOrder` se asigna DESPUÉS de construir la lista: usar `all.size`
-     * dentro de la construcción referenciaría la lista que aún se está
-     * construyendo, con un orden impredecible.
+     * The `sortOrder` is assigned AFTER building the list: using `all.size`
+     * inside the construction would reference the list that is still being
+     * built, with an unpredictable order.
      */
     private val declared: List<Permission> = buildList {
         // ═══ IDENTIDAD ═══════════════════════════════════════════════════════
@@ -47,7 +47,7 @@ object PermissionCatalog {
         add(p("audit.view", PermissionModule.IDENTITY, "View the audit log", Ladder, sensitive = true))
         add(p("session.revoke", PermissionModule.IDENTITY, "Revocar sesiones", ONLY_ALL, sensitive = true))
 
-        // ═══ CATÁLOGO ════════════════════════════════════════════════════════
+        // ═══ CATALOG ═══════════════════════════════════════════════════════════
         add(p("product.view", PermissionModule.CATALOG, "View products", ONLY_ALL))
         add(p("product.create", PermissionModule.CATALOG, "Create products", ONLY_ALL))
         add(p("product.edit", PermissionModule.CATALOG, "Edit products", ONLY_ALL))
@@ -55,7 +55,7 @@ object PermissionCatalog {
         add(p("product.import", PermissionModule.CATALOG, "Import catalog", ONLY_ALL, sensitive = true))
         add(p("product.sync_barcode", PermissionModule.CATALOG, "Reassign barcodes", ONLY_ALL, sensitive = true))
 
-        // ═══ ALMACÉN FÍSICO ══════════════════════════════════════════════════
+        // ═══ PHYSICAL WAREHOUSE ═══════════════════════════════════════════════════
         add(p("warehouse.view", PermissionModule.WAREHOUSE, "View warehouses", ONLY_ALL))
         add(p("warehouse.create", PermissionModule.WAREHOUSE, "Create warehouses", ONLY_ALL))
         add(p("warehouse.edit", PermissionModule.WAREHOUSE, "Edit warehouses", ONLY_ALL))
@@ -65,7 +65,7 @@ object PermissionCatalog {
         add(p("location.delete", PermissionModule.WAREHOUSE, "Delete locations", ONLY_ALL, sensitive = true))
         add(p("location.print_labels", PermissionModule.WAREHOUSE, "Print location labels", setOf(PermissionScope.AREA, PermissionScope.ALL)))
 
-        // ═══ RECEPCIÓN ═══════════════════════════════════════════════════════
+        // ═══ RECEIVING ════════════════════════════════════════════════════════
         add(p("invoice.view", PermissionModule.RECEIVING, "View invoices", Ladder))
         add(p("invoice.create", PermissionModule.RECEIVING, "Create invoices", setOf(PermissionScope.AREA, PermissionScope.ALL)))
         add(p("invoice.edit", PermissionModule.RECEIVING, "Edit invoices", Ladder))
@@ -149,31 +149,31 @@ object PermissionCatalog {
     // ═════════════════════════════════════════════════════════════════════════
     // MIEMBROS DERIVADOS
     //
-    // El ORDEN importa: en Kotlin, un `val` no puede referenciar otro declarado
-    // más abajo. Por eso `all` va primero y los índices después, y los miembros
-    // costosos son `get()` para que se calculen en el primer uso.
+    // ORDER matters: in Kotlin, a `val` cannot reference another declared
+    // further down. That is why `all` goes first and the indices after, and the costly members
+    // are `get()` so that they are computed on first use.
     // ═════════════════════════════════════════════════════════════════════════
 
-    /** Los permisos con su orden de presentación ya fijado. */
+    /** The permissions with their presentation order already set. */
     val all: List<Permission> = declared.mapIndexed { index, permission ->
         permission.copy(sortOrder = index)
     }
 
-    /** Índice por clave, para resolución O(1). */
+    /** Index by key, for O(1) resolution. */
     private val byKey: Map<String, Permission> by lazy { all.associateBy { it.key } }
 
-    /** Claves de todos los permisos. Es el contrato con la base de datos. */
+    /** Keys of all the permissions. It is the contract with the database. */
     val keys: Set<String> get() = byKey.keys
 
-    /** Los permisos sensibles: su uso se audita siempre (Nivel 3). */
+    /** The sensitive permissions: their use is always audited (Level 3). */
     val sensitive: List<Permission> get() = all.filter { it.sensitive }
 
-    /** Busca un permiso por su clave. */
+    /** Looks up a permission by its key. */
     fun find(key: String): Permission? = byKey[key]
 
     /**
-     * Exige que la clave exista. Se usa donde una clave desconocida es un error
-     * de programación, no una entrada de usuario.
+     * Requires that the key exists. It is used where an unknown key is a programming error,
+     * not a user input.
      */
     fun require_(key: String): Permission = byKey[key]
         ?: error(
@@ -182,7 +182,7 @@ object PermissionCatalog {
                 "permissions ↔ routes would have detected it."
         )
 
-    /** Todos los permisos de un módulo, en orden. */
+    /** All the permissions of a module, in order. */
     fun byModule(module: PermissionModule): List<Permission> =
         all.filter { it.module == module }
 }

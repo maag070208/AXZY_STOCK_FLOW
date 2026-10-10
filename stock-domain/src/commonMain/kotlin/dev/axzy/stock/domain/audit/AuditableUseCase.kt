@@ -2,48 +2,48 @@ package dev.axzy.stock.domain.audit
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * CASOS DE USO CRÍTICOS Y SU DECLARACIÓN DE AUDITORÍA
+ * CRITICAL USE CASES AND THEIR AUDIT DECLARATION
  *
- * Aquí vive la estrategia para que **"TODO debe ser auditable" siga siendo
- * cierto dentro de dos años**.
+ * This is where the strategy lives so that **"EVERYTHING must be auditable" stays**
+ * **true within two years**.
  *
- * El problema real: si se implementa la auditoría a mano en cada controlador, en
- * tres meses habrá treinta sitios que registran distinto y diez que se olvidaron.
- * No es una hipótesis: es exactamente lo que pasó con los permisos en el legacy,
- * donde cuatro permisos sembrados nunca se exigían en ninguna ruta.
+ * The real problem: if audit is implemented by hand in each controller, in
+ * three months there will be thirty places that record differently and ten that were forgotten.
+ * It is not a hypothesis: it is exactly what happened with permissions in the legacy,
+ * where four seeded permissions were never enforced on any route.
  *
- * La solución tiene dos partes:
+ * The solution has two parts:
  *
- *  1. **Cada caso de uso crítico declara su auditoría** ([CriticalUseCase]). Es
- *     un registro explícito, no una convención implícita.
- *  2. **Un test estructural verifica que la declaración esté completa** y falla
- *     el build si falta algo. No comprueba un comportamiento: comprueba que
- *     **no falta un registro**. Es la única forma de que la regla no se degrade.
+ *  1. **Each critical use case declares its audit** ([CriticalUseCase]). It is
+ *     an explicit record, not an implicit convention.
+ *  2. **A structural test verifies that the declaration is complete** and fails
+ *     the build if something is missing. It does not check a behavior: it checks that
+ *     **no record is missing**. It is the only way for the rule not to degrade.
  *
- * La anotación [Auditable] es el mecanismo declarativo para los casos de uso del
- * dominio. El registro [CriticalUseCase] es la lista que el test usa como
- * referencia: **declarar uno sin el otro hace fallar el build**.
+ * The [Auditable] annotation is the declarative mechanism for the use cases of the
+ * domain. The [CriticalUseCase] record is the list that the test uses as a
+ * reference: **declaring one without the other makes the build fail**.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
 /**
- * Marca un caso de uso del dominio como auditable.
+ * Marks a domain use case as auditable.
  *
- * Es una anotación, no un logger: el dominio no depende de la infraestructura de
- * auditoría, solo declara **qué** debe auditarse y con qué criticidad. Quien
- * implemente el caso de uso en la capa de aplicación es responsable de construir
- * el [AuditEvent] correspondiente.
+ * It is an annotation, not a logger: the domain does not depend on the audit infrastructure,
+ * it only declares **what** must be audited and with what criticality. Whoever
+ * implements the use case in the application layer is responsible for building
+ * the corresponding [AuditEvent].
  *
- * @param action identificador estable de la acción (`INVOICE_LINE_CAPTURED`).
- * @param level criticidad, que determina tratamiento y retención.
- * @param entity tipo de entidad afectada (`invoice_line`, `kardex`).
- * @param permission permiso exigido. **Obligatorio en los críticos**: sin él no
- *   se puede auditar "con qué permiso".
- * @param captureDiff genera `previousState`/`newState` automáticamente. El diff
- *   campo por campo a mano es donde siempre se olvida un campo.
- * @param reasonRequired exige motivo. En inventario, un cambio sin motivo es un
- *   agujero de auditoría (invariante I6).
- * @param category agrupación para los reportes de auditoría.
+ * @param action stable identifier of the action (`INVOICE_LINE_CAPTURED`).
+ * @param level criticality, which determines handling and retention.
+ * @param entity type of the affected entity (`invoice_line`, `kardex`).
+ * @param permission permission required. **Mandatory for the critical ones**: without it one cannot
+ *   audit "with which permission".
+ * @param captureDiff generates `previousState`/`newState` automatically. A field-by-field
+ *   diff by hand is where a field is always forgotten.
+ * @param reasonRequired requires a reason. In inventory, a change without a reason is an
+ *   audit hole (invariant I6).
+ * @param category grouping for the audit reports.
  */
 @Target(AnnotationTarget.FUNCTION, AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)
@@ -57,7 +57,7 @@ annotation class Auditable(
     val category: AuditCategory = AuditCategory.DOMAIN,
 )
 
-/** Agrupación de las acciones auditables, para los reportes. */
+/** Grouping of the auditable actions, for the reports. */
 enum class AuditCategory(val displayName: String) {
     INVENTORY("inventario"),
     RECEIVING("receiving"),
@@ -71,14 +71,14 @@ enum class AuditCategory(val displayName: String) {
 }
 
 /**
- * La declaración de auditoría de un caso de uso crítico.
+ * The audit declaration of a critical use case.
  *
- * Es un dato, no código ejecutable: permite que el test estructural verifique la
- * cobertura sin reflexión ni escaneo de classpath, que en Kotlin Multiplatform
- * no es viable.
+ * It is data, not executable code: it allows the structural test to verify the
+ * coverage without reflection or classpath scanning, which in Kotlin Multiplatform
+ * is not viable.
  */
 data class AuditDeclaration(
-    /** Nombre del caso de uso, para el mensaje de error del test. */
+    /** Name of the use case, for the test's error message. */
     val useCase: String,
     val action: String,
     val level: AuditLevel,
@@ -100,7 +100,7 @@ data class AuditDeclaration(
         }
     }
 
-    /** La anotación equivalente, para comparar declaración y anotación. */
+    /** The equivalent annotation, to compare declaration and annotation. */
     fun toAnnotation(): Auditable = Auditable(
         action = action,
         level = level,
@@ -113,16 +113,16 @@ data class AuditDeclaration(
 }
 
 /**
- * El registro de todos los casos de uso críticos que **deben** estar auditados.
+ * The record of all the critical use cases that **must** be audited.
  *
- * Está organizado por flujo, y cada entrada corresponde a una operación que
- * mueve inventario, dinero o acceso. La lista es la referencia del test
- * estructural: **si alguien añade un caso de uso con `@Auditable` que no está
- * aquí, o al contrario, el build falla.**
+ * It is organized by flow, and each entry corresponds to an operation that
+ * moves inventory, money or access. The list is the reference of the structural test:
+ * **if someone adds a use case with `@Auditable` that is not
+ * here, or the reverse, the build fails.**
  */
 object CriticalUseCases {
 
-    /** Recepción: carga inicial y alta de factura. */
+    /** Receiving: initial load and invoice creation. */
     val receiving: List<AuditDeclaration> = listOf(
         AuditDeclaration(
             useCase = "initialLoadCatalog",
@@ -156,8 +156,8 @@ object CriticalUseCases {
             entity = "invoice_line",
             permission = "invoice.approve",
             category = AuditCategory.RECEIVING,
-            // Aprobar una discrepancia mueve inventario: sin motivo es un
-            // agujero de auditoría (invariante I6).
+            // Approving a discrepancy moves inventory: without a reason it is an
+            // audit hole (invariant I6).
             reasonRequired = true,
         ),
         AuditDeclaration(
@@ -204,7 +204,7 @@ object CriticalUseCases {
         ),
     )
 
-    /** Surtido y exportación al ERP. */
+    /** Fulfillment and ERP export. */
     val fulfillment: List<AuditDeclaration> = listOf(
         AuditDeclaration(
             useCase = "createOrder",
@@ -257,7 +257,7 @@ object CriticalUseCases {
         ),
     )
 
-    /** Inventario: el corazón del sistema. Cada movimiento del ledger. */
+    /** Inventory: the heart of the system. Every ledger movement. */
     val inventory: List<AuditDeclaration> = listOf(
         AuditDeclaration(
             useCase = "moveWithinWarehouse",
@@ -301,7 +301,7 @@ object CriticalUseCases {
             entity = "kardex",
             permission = "inventory.adjust_theft",
             category = AuditCategory.INVENTORY,
-            // Por implicación legal, el motivo es obligatorio.
+            // For legal reasons, the reason is mandatory.
             reasonRequired = true,
         ),
         AuditDeclaration(
@@ -341,7 +341,7 @@ object CriticalUseCases {
         ),
     )
 
-    /** Transferencias entre bodegas. */
+    /** Transfers between warehouses. */
     val transfers: List<AuditDeclaration> = listOf(
         AuditDeclaration(
             useCase = "createTransfer",
@@ -378,7 +378,7 @@ object CriticalUseCases {
         ),
     )
 
-    /** Control de acceso: cada cambio de rol, permiso o política. */
+    /** Access control: every change of role, permission or policy. */
     val accessControl: List<AuditDeclaration> = listOf(
         AuditDeclaration(
             useCase = "createRole",
@@ -485,7 +485,7 @@ object CriticalUseCases {
         ),
     )
 
-    /** Catálogo y etiquetado. */
+    /** Catalog and labeling. */
     val catalogAndLabels: List<AuditDeclaration> = listOf(
         AuditDeclaration(
             useCase = "createProduct",
@@ -555,7 +555,7 @@ object CriticalUseCases {
         ),
     )
 
-    /** Todas las declaraciones, para los tests y la verificación de cobertura. */
+    /** All the declarations, for the tests and the coverage verification. */
     val all: List<AuditDeclaration> = buildList {
         addAll(receiving)
         addAll(fulfillment)
@@ -565,16 +565,16 @@ object CriticalUseCases {
         addAll(catalogAndLabels)
     }
 
-    /** Índice por acción, para resolver un evento a su declaración. */
+    /** Index by action, to resolve an event to its declaration. */
     val byAction: Map<String, AuditDeclaration> = all.associateBy { it.action }
 
-    /** Las declaraciones de un nivel de criticidad. */
+    /** The declarations of a criticality level. */
     fun byLevel(level: AuditLevel): List<AuditDeclaration> = all.filter { it.level == level }
 
-    /** Las que exigen motivo. */
+    /** Those that require a reason. */
     val reasonRequired: List<AuditDeclaration> = all.filter { it.reasonRequired }
 
-    /** Las de una categoría. */
+    /** Those of a category. */
     fun byCategory(category: AuditCategory): List<AuditDeclaration> =
         all.filter { it.category == category }
 }

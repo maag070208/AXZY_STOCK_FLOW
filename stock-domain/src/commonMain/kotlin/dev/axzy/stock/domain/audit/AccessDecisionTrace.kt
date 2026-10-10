@@ -2,51 +2,51 @@ package dev.axzy.stock.domain.audit
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * TRAZA DE LA DECISIÓN DE ACCESO
+ * ACCESS DECISION TRACE
  *
- * Es **el corazón del requisito** "con qué permiso". No guarda solo el
- * resultado: guarda **cómo se llegó a él**, con cada etapa y cada condición
+ * It is **the heart of the requirement** "with which permission". It does not store only the
+ * result: it stores **how it was reached**, with each stage and each condition
  * evaluada.
  *
- * Tres razones concretas, no teóricas:
+ * Three concrete reasons, not theoretical ones:
  *
- *  1. **Los permisos cambian.** Sin la traza, dentro de seis meses no se puede
- *     reconstruir por qué algo se permitió.
- *  2. **El "por qué no" es tan valioso como el "por qué sí".** Cuando alguien
- *     reclama *"no me dejó aprobar"*, la traza dice **qué condición de qué
- *     política** lo bloqueó. Sin eso, el soporte técnico es adivinación.
- *  3. **Las políticas evolucionan.** Si mañana el umbral cambia, la traza
- *     responde por qué una decisión pasada fue válida con las reglas de
+ *  1. **Permissions change.** Without the trace, six months from now it cannot be
+ *     reconstructed why something was allowed.
+ *  2. **The "why not" is as valuable as the "why yes".** When someone claims *"it did not let me
+ *     approve"*, the trace says **which condition of which
+ *     policy** blocked it. Without that, technical support is guesswork.
+ *  3. **Policies evolve.** If tomorrow the threshold changes, the trace
+ *     answers why a past decision was valid under the rules that existed then.
  *     entonces.
  *
  * Referencia: docs/historico/PLAN_AUDITORIA.md §3.1.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-/** Estado del usuario y de su autenticación en el momento de la decisión. */
+/** The user's status and authentication at the time of the decision. */
 data class IdentityTrace(
     val userId: Long,
     val active: Boolean,
-    /** Cuándo se emitió el token con el que se hizo la petición. */
+    /** When the token used for the request was issued. */
     val authenticatedAt: Long? = null,
 )
 
-/** Lo que aportó RBAC, con el estado **exacto del momento**. */
+/** What RBAC contributed, with the **exact state at that moment**. */
 data class RbacTrace(
     /** Alcance efectivo resultante. */
     val effectiveScope: String,
-    /** Qué aportó cada rol. */
+    /** What each role contributed. */
     val byRole: Map<String, String>,
-    /** Snapshot de los roles vigentes **entonces**, para que el histórico sea legible. */
+    /** Snapshot of the roles in force **then**, so that the history is readable. */
     val rolesAtTime: List<String>,
-    /** Excepción por persona, si hubo. */
+    /** Per-person exception, if there was one. */
     val exceptionId: Long? = null,
     val exceptionScope: String? = null,
-    /** Las bodegas del alcance `AREA` en ese momento. */
+    /** The warehouses of the `AREA` scope at that moment. */
     val warehousesAtTime: List<Long> = emptyList(),
 )
 
-/** Traza de **una** condición evaluada. */
+/** Trace of **one** condition evaluated. */
 data class AuditedCondition(
     val field: String,
     val operator: String,
@@ -55,7 +55,7 @@ data class AuditedCondition(
     val matches: Boolean,
 )
 
-/** Traza de **una** política evaluada. */
+/** Trace of **one** policy evaluated. */
 data class AuditedPolicy(
     val policyId: Long,
     val policyName: String,
@@ -67,7 +67,7 @@ data class AuditedPolicy(
     val conditions: List<AuditedCondition>,
 )
 
-/** Lo que decidió ABAC. */
+/** What ABAC decided. */
 data class AbacTrace(
     val evaluated: Boolean,
     val allowed: Boolean,
@@ -77,7 +77,7 @@ data class AbacTrace(
     val rules: List<AuditedPolicy> = emptyList(),
 )
 
-/** El contexto de la petición. */
+/** The request's context. */
 data class AuditedContext(
     val hour: Int,
     val weekday: Int,
@@ -87,12 +87,12 @@ data class AuditedContext(
 )
 
 /**
- * La instantánea de configuración que hace **reproducible** esta decisión.
+ * The configuration snapshot that makes this decision **reproducible**.
  *
- * Es la pieza que convierte la auditoría en algo defendible: permite
- * **reproducir** una decisión histórica tal como se tomó, y **detectar** que una
- * decisión pasada no se habría tomado hoy (porque las reglas cambiaron). Eso
- * último es información valiosa para auditar la evolución del control interno.
+ * It is the piece that turns the audit into something defensible: it allows
+ * **replaying** a historical decision as it was taken, and **detecting** that a
+ * past decision would not be taken today (because the rules changed). That
+ * last one is valuable information for auditing the evolution of the internal control.
  */
 data class ConfigSnapshot(
     val matrixVersion: Int,
@@ -100,13 +100,13 @@ data class ConfigSnapshot(
 )
 
 /**
- * La traza completa: las tres etapas del pipeline, en orden.
+ * The full trace: the three stages of the pipeline, in order.
  */
 data class AccessDecisionTrace(
     val permissionKey: String,
     val decision: String,
     val decisionCode: String,
-    /** Etapa en que se decidió: `IDENTITY`, `RBAC` o `ABAC`. */
+    /** Stage at which it was decided: `IDENTITY`, `RBAC` or `ABAC`. */
     val stage: String,
     val identity: IdentityTrace,
     val rbac: RbacTrace,
@@ -114,15 +114,15 @@ data class AccessDecisionTrace(
     val context: AuditedContext,
     val snapshot: ConfigSnapshot,
 ) {
-    /** Indica si la decisión fue denegar. */
+    /** Indicates whether the decision was to deny. */
     val wasDenied: Boolean get() = decision != "ALLOWED"
 
     /**
-     * Explicación legible de la decisión, para mostrarla al usuario.
+     * Readable explanation of the decision, to show it to the user.
      *
-     * Se construye desde la traza, así que **no puede contradecirla**: si la
-     * explicación dice que falló una condición, esa condición está en la traza
-     * con su valor real.
+     * It is built from the trace, so it **cannot contradict it**: if the
+     * explanation says that a condition failed, that condition is in the trace
+     * with its actual value.
      */
     fun explain(): String = when {
         !wasDenied -> "Allowed by $stage (scope ${rbac.effectiveScope})"
@@ -158,12 +158,12 @@ data class AccessDecisionTrace(
 }
 
 /**
- * Constructor de la traza a partir de una decisión del motor de acceso.
+ * Trace builder from a decision of the access engine.
  *
- * Vive en el dominio y no en la capa HTTP para que el móvil pueda construir la
- * misma traza: la decisión se toma localmente con el mismo motor, y lo que se
- * envía al servidor es el resultado, no un registro de auditoría inventado por
- * el cliente.
+ * It lives in the domain and not in the HTTP layer, so that the mobile app can build the
+ * same trace: the decision is taken locally with the same engine, and what is
+ * sent to the server is the result, not an audit record invented by
+ * the client.
  */
 object AccessTraceBuilder {
 

@@ -10,19 +10,19 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * TESTS DEL MODELO DEL ESCÁNER
+ * BARCODE SCANNER MODEL TESTS
  *
- * Cubre los **dos bugs del escáner del legacy**, y cada uno con su caso negativo:
+ * It covers the **two bugs of the legacy scanner**, each one with its negative case:
  *
- *  · **M4** — la ventana visual medía 300×100 y la validación aceptaba 250×50.
- *    Escaneos válidos descartados.
- *  · **M3** — la máquina de estados de dos pasos estaba rota: la rama que asigna
- *    la ubicación era inalcanzable sin un error previo.
+ *  · **M4** — the visual window measured 300×100 and the validation accepted 250×50.
+ *    Valid scans discarded.
+ *  · **M3** — the two-step state machine was broken: the branch that assigns
+ *    the location was unreachable without a prior error.
  *
- * Los dos son de lógica pura, así que se prueban **en JVM, en milisegundos y sin
- * emulador**. El spike de la cámara (CameraX/AVFoundation) verifica que la
- * plataforma entregue los rectángulos; que decidir con ellos sea correcto se
- * verifica aquí.
+ * Both are pure logic, so they are tested **on the JVM, in milliseconds and without
+ * an emulator**. The camera spike (CameraX/AVFoundation) verifies that the
+ * platform delivers the rectangles; that deciding with them is correct is
+ * verified here.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 class ScanModelTest : DescribeSpec({
@@ -40,7 +40,7 @@ class ScanModelTest : DescribeSpec({
         else -> null
     }
 
-    /** Un rectángulo centrado en la ventana de escaneo por defecto. */
+    /** A rectangle centered in the default scan window. */
     fun centeredInWindow(): ScanRect {
         val v = ScanWindow.DEFAULT.window
         return ScanRect(left = v.centerX - 0.05, top = v.centerY - 0.02, width = 0.10, height = 0.04)
@@ -50,12 +50,12 @@ class ScanModelTest : DescribeSpec({
     describe("M4 · the scanning window has ONE single definition") {
 
         it("the visual mask and the validation read the SAME window") {
-            // La causa raíz del bug del legacy: había dos definiciones de la
-            // misma ventana en dos archivos, y nada las mantenía sincronizadas
-            // (máscara 300×100, validación 250×50).
+            // The root cause of the legacy bug: there were two definitions of the
+            // same window in two files, and nothing kept them in sync
+            // (mask 300×100, validation 250×50).
             //
-            // Aquí hay una sola constante. Este test fija la propiedad: la ventana
-            // que se dibuja es exactamente la que se valida.
+            // Here there is a single constant. This test pins the property: the window
+            // drawn is exactly the one validated.
             val drawnWindow = ScanWindow.DEFAULT.window
             val validatedWindow = ScanWindow.DEFAULT.effective
 
@@ -76,8 +76,8 @@ class ScanModelTest : DescribeSpec({
         }
 
         it("a code OUTSIDE the window is rejected with an actionable reason") {
-            // El legacy descartaba esos escaneos sin decir nada, así que el
-            // operador repetía el gesto sin entender por qué.
+            // The legacy discarded those scans without saying anything, so the
+            // operator repeated the gesture without understanding why.
             val outside = ScanRect(left = 0.02, top = 0.02, width = 0.05, height = 0.05)
 
             withClue("Fuera de la ventana: no se acepta") {
@@ -97,12 +97,12 @@ class ScanModelTest : DescribeSpec({
         }
 
         it("the centre of the code decides, not its top corner") {
-            // El legacy comprobaba el ORIGEN del bounding box (`y < top + 50`),
-            // así que un código alto quedaba fuera aunque estuviera visualmente
-            // centrado. Es la causa de que pareciera desalineado.
+            // The legacy checked the ORIGIN of the bounding box (`y < top + 50`),
+            // so a tall code fell outside even when it was visually
+            // centered. That is why it looked misaligned.
             val window = ScanWindow.DEFAULT.window
 
-            // Un rectángulo cuyo centro está DENTRO pero cuyo origen está arriba.
+            // A rectangle whose center is INSIDE but whose origin is above.
             val highButCentered = ScanRect(
                 left = window.centerX - 0.02,
                 top = window.top - 0.03,      // el origen está fuera, por arriba
@@ -124,7 +124,7 @@ class ScanModelTest : DescribeSpec({
 
         it("the tolerance allows a shaky pulse without repeating the scan") {
             val window = ScanWindow.DEFAULT
-            // Justo por debajo del borde de la ventana visual, dentro de la
+            // Just below the edge of the visual window, inside the
             // tolerancia.
             val barelyOutside = ScanRect(
                 left = window.window.centerX - 0.02,
@@ -153,10 +153,10 @@ class ScanModelTest : DescribeSpec({
     describe("M3 · the state machine: the unreachable branch no longer exists") {
 
         it("the full two-step flow works in TWO scans, not three") {
-            // El bug del legacy: step se incrementaba una vez y el handler
-            // comparaba step === 1, así que la rama de la ubicación era
-            // inalcanzable hasta que un error devolvía step a 0. El operador
-            // necesitaba un tercer escaneo.
+            // The legacy bug: step was incremented once and the handler
+            // compared step === 1, so the location branch was
+            // unreachable until an error set step back to 0. The operator
+            // needed a third scan.
             val centered = centeredInWindow()
 
             // Escaneo 1: producto.
@@ -172,7 +172,7 @@ class ScanModelTest : DescribeSpec({
                 estado1.shouldBeInstanceOf<ScanState.ProductScanned>().product shouldBe product
             }
 
-            // Escaneo 2: ubicación. Debe funcionar directamente.
+            // Scan 2: location. It must work directly.
             val afterLocation = estado1.onScan(
                 ScanInput("04BCA", centered),
                 resolveProduct = ::resolveProduct,
@@ -189,14 +189,14 @@ class ScanModelTest : DescribeSpec({
         }
 
         it("a location cannot be assigned without scanning the product first") {
-            // Ésta es la transición que el legacy permitía escribir mal. Aquí el
-            // estado Idle no lleva producto, así que **no hay forma de
-            // expresarla**: no es que la validación la rechace, es que el tipo no
-            // la admite.
+            // This is the transition the legacy allowed to be written wrongly. Here the
+            // Idle state carries no product, so **there is no way to
+            // express it**: it is not that validation rejects it, it is that the type does not
+            // allow it.
             val centered = centeredInWindow()
 
-            // Desde Idle, cualquier código se interpreta como producto, nunca como
-            // ubicación. Escanear una ubicación devuelve un error claro.
+            // From Idle, any code is read as a product, never as a
+            // location. Scanning a location returns a clear error.
             val result = ScanState.Idle.onScan(
                 ScanInput("04BCA", centered),
                 resolveProduct = ::resolveProduct,
@@ -261,9 +261,9 @@ class ScanModelTest : DescribeSpec({
         }
 
         it("the step number is only for the interface, never for the logic") {
-            // El legacy comparaba `step === 1` para decidir qué hacer. Aquí el
-            // paso existe para mostrar "paso 2 de 4" y nada más: la decisión la
-            // toma el TIPO de estado.
+            // The legacy compared `step === 1` to decide what to do. Here the
+            // step exists to show "step 2 of 4" and nothing more: the decision is
+            // taken by the state TYPE.
             val statuses = listOf(
                 ScanState.Idle,
                 ScanState.ProductScanned(product, units = null),
@@ -284,9 +284,9 @@ class ScanModelTest : DescribeSpec({
         }
 
         it("the instruction shown matches the real state") {
-            // El legacy mostraba la instrucción del paso equivocado por el mismo
-            // bug de comparación, así que el operador leía "escanea el producto"
-            // cuando debía escanear la ubicación.
+            // The legacy showed the instruction for the wrong step because of the same
+            // comparison bug, so the operator read "scan the product"
+            // when they had to scan the location.
             ScanState.Idle.expected shouldBe ScanTarget.PRODUCT
             ScanState.ProductScanned(product, 50).expected shouldBe ScanTarget.LOCATION
             ScanState.ReadyToConfirm(product, 50, shelf).expected shouldBe ScanTarget.LOCATION
@@ -313,9 +313,9 @@ class ScanModelTest : DescribeSpec({
         it("computes the centre and the edges correctly") {
             val r = ScanRect(left = 0.10, top = 0.20, width = 0.40, height = 0.10)
 
-            // Se compara con tolerancia: en coma flotante, 0.10 + 0.20 no es
-            // exactamente 0.30 sino 0.30000000000000004. Un `shouldBe` exacto
-            // sobre `Double` produce fallos que no indican ningún error real.
+            // It is compared with tolerance: in floating point, 0.10 + 0.20 is not
+            // exactly 0.30 but 0.30000000000000004. An exact `shouldBe`
+            // on `Double` produces failures that indicate no real error.
             val epsilon = 1e-9
             withClue("Los bordes y el centro deben calcularse bien") {
                 kotlin.math.abs(r.right - 0.50) shouldBeLessThan epsilon
@@ -326,9 +326,9 @@ class ScanModelTest : DescribeSpec({
         }
 
         it("works in normalised coordinates to be independent of density") {
-            // Con píxeles absolutos, como en el legacy, la misma ventana lógica
-            // medía cosas distintas en un teléfono y en una tablet. Normalizar
-            // elimina esa clase de error.
+            // With absolute pixels, as in the legacy, the same logical window
+            // measured different things on a phone and on a tablet. Normalizing
+            // removes that class of error.
             val onPhone = ScanWindow.DEFAULT.contains(
                 ScanRect(left = 0.45, top = 0.42, width = 0.10, height = 0.04),
             )

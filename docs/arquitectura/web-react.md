@@ -1,30 +1,30 @@
-# Web: React con AXZY UI System
-> **Normativo.** Cómo se construye la web de StockFlow con `@axzydev/axzy_ui_system`. Las convenciones salen del uso real en `~/DEV/CYC/web` (misma familia de productos, misma versión del UI system). Última revisión: 2026-10-09. Complementa a [web-fsd.md](web-fsd.md), que define las capas.
+# Web: React with AXZY UI System
+> **Normative.** How the StockFlow web is built with `@axzydev/axzy_ui_system`. The conventions come from real use in `~/DEV/CYC/web` (same product family, same UI system version). Last revised: 2026-10-09. Complements [web-fsd.md](web-fsd.md), which defines the layers.
 
-## 1. Versión
+## 1. Version
 
 ```json
 "@axzydev/axzy_ui_system": "^1.4.7"
 ```
 
-- Se usa el rango `^1.4.7`, como en CYC. El lockfile fija la versión exacta instalada; en CYC es `1.4.7`.
-- Una actualización de versión menor se prueba en la web antes de subir el lockfile, porque
-  cambia componentes que todas las pantallas usan.
-- Versiones anteriores (`1.3.x`) no se usan: el `d.ts` de 1.3.6 no tiene las props de §3 que
-  la web necesita.
+- The range `^1.4.7` is used, as in CYC. The lockfile pins the exact installed version; in CYC it is `1.4.7`.
+- A minor version update is tested in the web before the lockfile is updated, because
+  it changes components that every screen uses.
+- Earlier versions (`1.3.x`) are not used: the `d.ts` of 1.3.6 does not have the props of §3 that
+  the web needs.
 
-## 2. Entrada de la aplicación
+## 2. Application entry
 
-`main.tsx` monta los proveedores en este orden, y el orden importa:
+`main.tsx` mounts the providers in this order, and the order matters:
 
 ```tsx
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <Provider store={store}>                                  {/* estado global */}
-      <ITThemeProvider theme={customTheme} showFab={false}    {/* tema del UI system */}
+    <Provider store={store}>                                  {/* global state */}
+      <ITThemeProvider theme={customTheme} showFab={false}    {/* UI system theme */}
         density={1} appearance="flat" radius={10} shadow={1}>
-        <ToastProvider>                                       {/* notificaciones */}
-          <HashRouter>                                        {/* rutas */}
+        <ToastProvider>                                       {/* notifications */}
+          <HashRouter>                                        {/* routes */}
             <App />
           </HashRouter>
         </ToastProvider>
@@ -34,97 +34,96 @@ createRoot(document.getElementById("root")!).render(
 );
 ```
 
-- `customTheme` es un `ITThemePalette` completo. Las claves obligatorias en 1.4.7 son `primary`,
-  `secondary`, `ternary`, `danger`, `success`, `info`, `alert`, `warning`, y los objetos `layout`
-  (`sidebarBg`, `sidebarText`, `navbarBg`, `navbarText`) y `table` (`headerBg`, `headerText`,
-  `rowBg`, `rowText`, `rowHover`). Los colores de StockFlow se definen una sola vez, aquí.
-- `appearance="flat"` (fondo claro, sin sombras, borde fino) es la identidad visual de
-  [guia/identidad-visual.md](../guia/identidad-visual.md). Cambiarla es una decisión de diseño, no técnica.
-- El modo oscuro no se usa. `main.tsx` de CYC fija `it-theme-dark-mode` en `light` si no existe;
-  StockFlow hace lo mismo para que el tema no dependa de la preferencia del sistema operativo.
+- `customTheme` is a complete `ITThemePalette`. The mandatory keys in 1.4.7 are `primary`,
+  `secondary`, `ternary`, `danger`, `success`, `info`, `alert`, `warning`, and the objects `layout`
+  (`sidebarBg`, `sidebarText`, `navbarBg`, `navbarText`) and `table` (`headerBg`, `headerText`,
+  `rowBg`, `rowText`, `rowHover`). The StockFlow colors are defined once, here.
+- `appearance="flat"` (light background, no shadows, thin border) is the visual identity of
+  [guia/identidad-visual.md](../guia/identidad-visual.md). Changing it is a design decision, not a technical one.
+- Dark mode is not used. CYC's `main.tsx` sets `it-theme-dark-mode` to `light` if it does not exist;
+  StockFlow does the same so that the theme does not depend on the operating system preference.
 
-## 3. Componentes con contrato común
+## 3. Components with a common contract
 
-En CYC, `ITDataTable` aparece en 46 archivos e `ITPage` en 27. Las props que se repiten son el
-contrato de la web: se encapsulan en dos componentes de `shared/ui` y las pantallas no las repiten.
+In CYC, `ITDataTable` appears in 46 files and `ITPage` in 27. The props that repeat are the
+web's contract: they are encapsulated in two components of `shared/ui` and the screens do not repeat them.
 
 ### 3.1 `ITDataTable`
 
-Las props que las tablas de CYC repiten en 46 archivos:
+The props that the CYC tables repeat in 46 files:
 
-| Prop | Valor usado en CYC | Qué controla |
+| Prop | Value used in CYC | What it controls |
 |---|---|---|
-| `columns` | `Column<T>[]` | Definición de columnas |
-| `fetchData` | `(params) => Promise<{ data, total }>` | Paginación, filtros y orden **en el servidor** |
-| `reloadTrigger` | Contador que cambia tras guardar | Vuelve a pedir la página actual |
-| `defaultItemsPerPage` | `25` | Filas por página al entrar |
-| `itemsPerPageOptions` | `[25, 50, 100]` | Opciones del paginador |
-| `layout` | `"fixed"` | Respeta el ancho de cada columna; evita scroll horizontal |
-| `density` | `"compact"` | Altura de fila y padding |
-| `virtualized` | `true` | Solo renderiza las filas visibles |
-| `virtualizedMaxHeight` | `400` | Altura del contenedor con scroll |
-| `rowHeight` | `50` | Altura de fila que usa el virtualizador |
+| `columns` | `Column<T>[]` | Column definition |
+| `fetchData` | `(params) => Promise<{ data, total }>` | Pagination, filters and sorting **on the server** |
+| `reloadTrigger` | Counter that changes after saving | Requests the current page again |
+| `defaultItemsPerPage` | `25` | Rows per page on entry |
+| `itemsPerPageOptions` | `[25, 50, 100]` | Pager options |
+| `layout` | `"fixed"` | Respects the width of each column; avoids horizontal scroll |
+| `density` | `"compact"` | Row height and padding |
+| `virtualized` | `true` | Renders only the visible rows |
+| `virtualizedMaxHeight` | `400` | Height of the container with scroll |
+| `rowHeight` | `50` | Row height used by the virtualizer |
 
-**Problema encontrado.** Cada tabla convierte sus columnas y su `fetchData` con dobles casts:
+**Problem found.** Each table converts its columns and its `fetchData` with double casts:
 
 ```tsx
 columns={columns as unknown as Column<Record<string, unknown>>[]}
 fetchData={fetchData as unknown as (p: ITDataTableFetchParams) => Promise<ITDataTableResponse<Record<string, unknown>>>}
 ```
 
-Hay 85 `as unknown as` en CYC, 29 de ellos solo para `Column`. Un cast doble apaga el compilador: un
-campo renombrado en la respuesta no da error en ningún sitio.
+There are 85 `as unknown as` in CYC, 29 of them just for `Column`. A double cast turns off the compiler: a
+field renamed in the response gives no error anywhere.
 
-**Decisión.** `shared/ui/data-table` es un componente genérico que:
+**Decision.** `shared/ui/data-table` is a generic component that:
 
-1. Recibe `T` y las columnas tipadas con `T`, sin casts en las pantallas.
-2. Fija los valores de la tabla de §3.1 como defaults; una pantalla solo pasa lo que cambia.
-3. Expone `fetchData` como `(params) => Promise<Page<T>>`, con `Page<T>` definido una vez en `shared/api`.
+1. Receives `T` and the columns typed with `T`, without casts in the screens.
+2. Fixes the values of the table in §3.1 as defaults; a screen only passes what changes.
+3. Exposes `fetchData` as `(params) => Promise<Page<T>>`, with `Page<T>` defined once in `shared/api`.
 
 ### 3.2 `ITPage`
 
-Las props que las páginas de CYC repiten en 27 archivos:
+The props that the CYC pages repeat in 27 files:
 
-| Prop | Uso | Nota |
+| Prop | Use | Note |
 |---|---|---|
-| `title`, `description`, `icon` | Encabezado | Siempre presentes |
-| `breadcrumbs` | Migas de pan | Se construyen con un hook (`useBreadcrumbs`), no a mano |
-| `actions` | Botones del encabezado | Filtros y acción principal |
-| `noPadding` | Casi siempre `true` | El padding lo da el contenedor de la página |
-| `className` | `"m-0! px-4! max-w-screen!"` | Se repite en casi todas las páginas |
+| `title`, `description`, `icon` | Header | Always present |
+| `breadcrumbs` | Breadcrumbs | Built with a hook (`useBreadcrumbs`), not by hand |
+| `actions` | Header buttons | Filters and the main action |
+| `noPadding` | Almost always `true` | The padding comes from the page container |
+| `className` | `"m-0! px-4! max-w-screen!"` | Repeated on almost every page |
 
-**Problema encontrado.** La cadena `"m-0! px-4! max-w-screen!"` aparece copiada en cada página para
-pelear contra el padding por defecto de `ITPage`. `ITPage` ya tiene `noPadding`, `horizontalPadding` y
-`maxWidth` para eso; las banderas `!` (importantes) son un síntoma de que el contenedor no está bien
-definido.
+**Problem found.** The string `"m-0! px-4! max-w-screen!"` is copied into every page to fight the default padding of
+`ITPage`. `ITPage` already has `noPadding`, `horizontalPadding` and `maxWidth` for that;
+the `!` (important) flags are a symptom that the container is not well defined.
 
-**Decisión.** `shared/ui/page` envuelve `ITPage` con el padding y el ancho de StockFlow. Las pantallas
-pasan solo `title`, `description`, `icon`, `breadcrumbs` y `actions`. Si una página necesita otro
-ancho, pasa `maxWidth`; no reescribe clases.
+**Decision.** `shared/ui/page` wraps `ITPage` with the StockFlow padding and width. The screens pass only
+`title`, `description`, `icon`, `breadcrumbs` and `actions`. If a page needs another width, it passes
+`maxWidth`; it does not rewrite classes.
 
-**Regla de Tailwind.** `ITPage` avisa en su documentación que `horizontalPadding` debe escribirse
-como literal, porque Tailwind solo genera las clases que ve en el código fuente. Lo mismo vale
-para todas las clases de §6.
+**Tailwind rule.** `ITPage` warns in its documentation that `horizontalPadding` must be written
+as a literal, because Tailwind only generates the classes it sees in the source code. The same applies
+to all the classes in §6.
 
-## 4. Índice de componentes compartidos
+## 4. Index of shared components
 
-Los wrappers de §3 viven en `src/shared/ui/`, que es la única capa que puede importar del UI system
-en las páginas. Una pantalla no importa `ITDataTable` ni `ITPage` directamente.
+The wrappers of §3 live in `src/shared/ui/`, which is the only layer that can import from the UI system
+in the pages. A screen does not import `ITDataTable` or `ITPage` directly.
 
-| Wrapper | Envuelve | Añade |
+| Wrapper | Wraps | Adds |
 |---|---|---|
-| `shared/ui/data-table` | `ITDataTable` | Tipado sin casts, defaults de §3.1 |
-| `shared/ui/page` | `ITPage` | Padding, ancho máximo, migas |
-| `shared/ui/kpi-tile` | Tarjeta de indicador | Tono de color común |
+| `shared/ui/data-table` | `ITDataTable` | Typing without casts, §3.1 defaults |
+| `shared/ui/page` | `ITPage` | Padding, maximum width, breadcrumbs |
+| `shared/ui/kpi-tile` | Indicator card | Common color tone |
 
-Una regla de ESLint (`eslint-plugin-boundaries`, ver [stack.md](stack.md)) impide que una página
-importe del UI system directamente.
+An ESLint rule (`eslint-plugin-boundaries`, see [stack.md](stack.md)) prevents a page
+from importing from the UI system directly.
 
-## 5. Hoja de estilos: `index.css` y el orden de capas
+## 5. Stylesheet: `index.css` and the layer order
 
-**Estado: decisión pendiente, con una prueba que la resuelve.**
+**Status: pending decision, with a test that resolves it.**
 
-CYC importa así:
+CYC imports like this:
 
 ```css
 @layer theme, base, components, utilities, axzy-ui-system;
@@ -133,97 +132,90 @@ CYC importa así:
 @import "@axzydev/axzy_ui_system/dist/index.css" layer(axzy-ui-system);
 ```
 
-El README del paquete documenta el orden contrario:
+The package README documents the opposite order:
 
 ```css
 @layer theme, base, axzy-ui-system, components, utilities;
 ```
 
-**Las dos afirmaciones tienen argumentos.**
+**Both claims have arguments.**
 
-- Con el orden del README, las utilidades de la app (`utilities`) ganan a las del UI system. Es lo que
-  el README pide para que el reset del kit no pise la app.
-- Con el orden de CYC, las utilidades del UI system ganan a las de la app. Es lo que hacía funcionar el
-  sidebar en escritorio: la clase `hidden` de la app, en la capa `utilities`, no tapa a `lg:flex` del kit.
-  El commit `b016baf` de CYC cambió el orden y quitó el workaround de `.hidden` basándose en eso.
+- With the README's order, the app's utilities (`utilities`) win over the UI system's. That is what
+  the README asks for so that the kit's reset does not override the app.
+- With CYC's order, the UI system's utilities win over the app's. That is what made the desktop sidebar work: the
+  app's `hidden` class, in the `utilities` layer, does not cover the kit's `lg:flex`. CYC's commit `b016baf` changed the order and removed the `.hidden` workaround based on that.
 
-**Prueba que decide.** Con el backend de la web levantado y un usuario con sesión:
+**Test that decides.** With the web backend running and a user with a session:
 
-1. Desktop a 1280 px: el sidebar debe verse. Captura con cada orden.
-2. Una pantalla con tablas y un botón con clase de la app (`hidden` en un elemento del kit): el elemento debe
-   comportarse como lo define la clase de la app.
-3. Se elige el orden que pasa ambas. Si ninguno pasa las dos, se abre un ADR.
+1. Desktop at 1280 px: the sidebar must be visible. Capture with each order.
+2. A screen with tables and a button with an app class (`hidden` on an element of the kit): the element must behave as the app's class defines.
+3. The order that passes both is chosen. If neither passes both, an ADR is opened.
 
-**Estado (2026-10-10): se usa el orden del README, y la prueba 1 está en verde.**
-`web/src/app/index.css` declara `@layer theme, base, axzy-ui-system, components, utilities;` y una
-prueba de navegador (`web/tests/catalog.spec.ts`, «el menú lateral se ve a 1280 px») comprueba que el
-menú se **ve** —no solo que exista en el DOM— con el viewport en 1280 × 800.
+**Status (2026-10-10): the README's order is used, and test 1 is green.**
+`web/src/app/index.css` declares `@layer theme, base, axzy-ui-system, components, utilities;` and a
+browser test (`web/tests/catalog.spec.ts`, "the side menu is visible at 1280 px") checks that the menu is **visible** —not just that it exists in the DOM— with the viewport at 1280 × 800.
 
-La prueba 2 sigue sin verificar: no hay todavía ningún elemento del kit con una clase `hidden` de la
-aplicación. No se cambia el orden sin ella; si aparece el caso, se hace la prueba y, si el orden del
-README no la pasa, se cambia y se anota aquí.
+Test 2 is still not verified: there is not yet any element of the kit with an application `hidden` class.
+The order is not changed without it; if the case appears, the test is run and, if the README's order does not pass it, it is changed and noted here.
 
 ## 6. Tailwind
 
-- `tailwindcss` `4.3.3` y `@tailwindcss/vite` `^4.3.3`, como en CYC.
-- El plugin va en `vite.config.ts`. Los alias de `@app`, `@shared`, `@features`, `@entities`, `@widgets`
-  y `@pages` se configuran en `vite.config.ts` y en `tsconfig` a la vez.
-- **`dist/index.css` ya trae compiladas las clases del kit.** No hace falta `@source` para
-  `node_modules/@axzydev/axzy_ui_system`. Solo se usa `@source` si se importa el código fuente del kit,
-  lo que no se hace.
-- Las clases se escriben como literales en el código. Una clase armada con plantillas
-  (`` `px-${n}` ``) no se genera y no aparece en la hoja final.
+- `tailwindcss` `4.3.3` and `@tailwindcss/vite` `^4.3.3`, as in CYC.
+- The plugin goes in `vite.config.ts`. The aliases `@app`, `@shared`, `@features`, `@entities`, `@widgets`
+  and `@pages` are configured in `vite.config.ts` and in `tsconfig` at the same time.
+- **`dist/index.css` already ships the compiled classes of the kit.** `@source` is not needed for
+  `node_modules/@axzydev/axzy_ui_system`. `@source` is only used if the kit's source code is imported,
+  which is not done.
+- Classes are written as literals in the code. A class built with templates
+  (`` `px-${n}` ``) is not generated and does not appear in the final stylesheet.
 
-## 7. Qué no se hace
+## 7. What is not done
 
-- No se reescriben estilos del kit dentro de la app. Si un componente necesita otro aspecto, se pide al
-  kit una prop o una variante.
-- No se usan `!` (importantes) de Tailwind para ganar a un estilo del kit: es el síntoma de una capa mal
-  ordenada (§5).
-- No se importan componentes del kit desde las páginas (§4).
+- The kit's styles are not rewritten inside the app. If a component needs a different look, the kit is asked for a
+  prop or a variant.
+- Tailwind `!` (important) is not used to win over a kit style: it is the symptom of a badly ordered layer (§5).
+- Kit components are not imported from the pages (§4).
 
-## 8. Sesión y pruebas de navegador
+## 8. Session and browser tests
 
-**La sesión vive en memoria, y recargar la página la cierra.** Los tokens están en el estado de Redux,
-nunca en `localStorage` ni en `sessionStorage`: una página que se pueda leer desde el mismo origen
-no debe guardar tokens que sirvan fuera de la pestaña. La consecuencia es que una recarga pide entrar
-otra vez. Por eso las pruebas entran a cada módulo **con un clic en el menú** y no con `goto`: un
-`goto` a `/stock` recarga y pierde la sesión.
+**The session lives in memory, and reloading the page closes it.** The tokens are in the Redux state,
+never in `localStorage` or `sessionStorage`: a page whose data can be read from the same origin
+must not store tokens that work outside the tab. The consequence is that a reload asks to sign in
+again. That is why the tests enter each module **with a click on the menu** and not with `goto`: a
+`goto` to `/stock` reloads and loses the session.
 
-Las pruebas de navegador se dividen en dos clases:
+The browser tests are split into two classes:
 
-| Archivo | API | Qué afirma |
+| File | API | What it asserts |
 |---|---|---|
-| `tests/login.spec.ts` | Real (`127.0.0.1:8081`) | Que la web y la API se entienden: la entrada, el error de credenciales y la pantalla que decide la API |
-| `tests/catalog.spec.ts`, `tests/modules.spec.ts`, `tests/receiving.spec.ts`, `tests/transfers.spec.ts`, `tests/orders.spec.ts`, `tests/labels.spec.ts` | Simulada con `page.route` | La interfaz, la **petición exacta** que hace la web y lo que muestra ante cada error de la API |
+| `tests/login.spec.ts` | Real (`127.0.0.1:8081`) | That the web and the API understand each other: sign-in, the credentials error and the screen the API decides |
+| `tests/catalog.spec.ts`, `tests/modules.spec.ts`, `tests/receiving.spec.ts`, `tests/transfers.spec.ts`, `tests/orders.spec.ts`, `tests/labels.spec.ts` | Mocked with `page.route` | The interface, the **exact request** the web makes and what it shows for each API error |
 
-Cuatro cosas que se aprendieron al escribirlas:
+Four things learned when writing them:
 
-- **`page.route` da prioridad a la última ruta registrada.** Y el glob `?` de Playwright casa con
-  cualquier carácter, no solo con un signo de interrogación: `**/v1/transfers?*` también casa con
-  `/v1/transfers/in-transit`. Por eso las rutas específicas se registran **después** de la general.
-- **Una prueba que espera una ruta tiene que esperar la petición, no la pantalla.** `requestTo(page,
-  pathname)` falla si la web pide otra ruta, aunque la tabla quede vacía y «se vea bien».
-- **Etiquetas pide `/v1/labels/jobs`.** La cola de impresión no vive bajo `/v1/label-templates`:
-  `/label-templates/jobs` cae en el detalle de la plantilla (`{id}`) y responde 400. La prueba de
-  etiquetas comprueba la ruta real para que la regresión vuelva a fallar en la suite.
-- **Las credenciales de la prueba de entrada son propias** (`E2E_ADMIN_PASSWORD`): ver ARRANQUE.md.
+- **`page.route` gives priority to the last registered route.** And Playwright's `?` glob matches
+  any character, not only a question mark: `**/v1/transfers?*` also matches `/v1/transfers/in-transit`. That is why the specific routes are registered **after** the general one.
+- **A test that waits for a route has to wait for the request, not the screen.** `requestTo(page,
+  pathname)` fails if the web requests another route, even if the table stays empty and "looks right".
+- **Labels requests `/v1/labels/jobs`.** The print queue does not live under `/v1/label-templates`:
+  `/label-templates/jobs` falls into the template detail (`{id}`) and answers 400. The labels test
+  checks the real route so that the regression fails again in the suite.
+- **The sign-in test's credentials are its own** (`E2E_ADMIN_PASSWORD`): see ARRANQUE.md.
 
 
-### 8.1 Escrituras: cómo se reparten las acciones
+### 8.1 Writes: how the actions are distributed
 
-Una acción de escritura vive en su pantalla de detalle (`/invoices/:id`, `/transfers/:id`, `/orders/:id`)
-o en la cola (reimprimir). El patrón es el mismo en todas:
+A write action lives on its detail screen (`/invoices/:id`, `/transfers/:id`, `/orders/:id`)
+or in the queue (reprint). The pattern is the same everywhere:
 
-- **El botón se ofrece según permiso y estado**, pero la API decide igual. Si el estado no admite la
-  acción, la API responde su código (`INVALID_TRANSITION`, `LINE_ALREADY_RESOLVED`, …) y la web lo muestra
-  tal cual, sin inventar un mensaje.
-- **Lo que la web sabe que va a fallar, no se envía.** Un faltante sin motivo, un conteo con cajas con
-  fracción o un motivo de decisión vacío se detectan en el diálogo; la prueba afirma que **no sale ninguna
-  petición**.
-- **Tras cada acción se vuelve a pedir el recurso** (o se usa la respuesta si trae el recurso completo). Lo
-  que se pinta es lo que el servidor tiene.
-- **Las acciones que mueven stock o escriben en el ERP piden confirmación** cuando no se pueden deshacer
-  desde la pantalla: cancelar un traslado despachado devuelve mercancía a origen.
-- **La lista de motivos de ajuste** vive en `shared/lib/adjustmentReasons.ts`. La API no la expone; espeja
-  el enum del dominio y hay que actualizarla si el dominio gana un motivo.
+- **The button is offered according to permission and state**, but the API decides the same way. If the state does not allow the
+  action, the API answers its code (`INVALID_TRANSITION`, `LINE_ALREADY_RESOLVED`, …) and the web shows it
+  as is, without inventing a message.
+- **What the web knows will fail is not sent.** A shortage without a reason, a count with fractional boxes or an empty
+  decision reason are detected in the dialog; the test asserts that **no request goes out**.
+- **After each action the resource is requested again** (or the response is used if it carries the full resource). What is
+  shown is what the server has.
+- **Actions that move stock or write to the ERP ask for confirmation** when they cannot be undone
+  from the screen: cancelling a dispatched transfer returns goods to the origin.
+- **The list of adjustment reasons** lives in `shared/lib/adjustmentReasons.ts`. The API does not expose it; it mirrors
+  the domain enum and has to be updated if the domain gains a reason.

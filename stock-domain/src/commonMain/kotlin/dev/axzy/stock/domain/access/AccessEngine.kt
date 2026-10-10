@@ -11,64 +11,64 @@ package dev.axzy.stock.domain.access
  * That purity is what allows three things:
  *   1. Testing thousands of combinations in milliseconds, without a server.
  *   2. That **the backend and the mobile take the same decision**, because they run
- *      literalmente el mismo código. La UI es una pista; el servidor es la
- *      autoridad, pero ambos coinciden.
- *   3. **Reproducir** una decisión histórica con la versión de la matriz y de
- *      las políticas que estaba vigente (§3.3 de docs/historico/PLAN_AUDITORIA.md).
+ *      literally the same code. The UI is a hint; the server is the
+ *      authority, but both agree.
+ *   3. **Replay** a historical decision with the version of the matrix and of
+ *      the policies that was in force (§3.3 of docs/historico/PLAN_AUDITORIA.md).
  *
- * **La regla que sostiene todo es `DEFAULT DENY`:** si nada permite
- * explícitamente, se niega. El legacy hacía lo contrario — `if (role === 1)
- * return next()` — y el rol admin no tenía ni un permiso en base de datos.
+ * **The rule that holds everything is `DEFAULT DENY`:** if nothing
+ * explicitly allows it, it is denied. The legacy did the opposite — `if (role === 1)
+ * return next()` — and the admin role did not have a single permission in the database.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
 /**
- * El usuario, con su información de acceso.
+ * The user, with their access information.
  *
- * Nótese que las **bodegas del alcance `AREA` son del usuario, no del rol**.
- * Es lo que permite que un solo rol `WAREHOUSE_MANAGER` sirva para cualquier bodega,
- * en lugar de crear un rol por bodega.
+ * Note that the **warehouses of the `AREA` scope belong to the user, not to the role**.
+ * That is what allows a single `WAREHOUSE_MANAGER` role to serve any warehouse,
+ * instead of creating one role per warehouse.
  */
 data class AccessUser(
     val id: Long,
     val username: String,
     val active: Boolean = true,
     val roles: List<Role> = emptyList(),
-    /** Bodegas que son "suyas": resuelven el alcance `AREA`. */
+    /** Warehouses that are "theirs": they resolve the `AREA` scope. */
     val warehouseIds: Set<Long> = emptySet(),
-    /** Excepciones por persona: permiso puntual por encima o por debajo del rol. */
+    /** Per-person exceptions: a specific permission above or below the role. */
     val exceptions: Map<String, PermissionScope> = emptyMap(),
     val exceptionExpiries: Map<String, Long> = emptyMap(),
 )
 
 /**
- * El recurso sobre el que se actúa. Es lo que evalúa ABAC.
+ * The resource acted upon. It is what ABAC evaluates.
  *
- * Los campos son del dominio de almacén, no genéricos: `difference`,
- * `adjustmentReason`, `locationKind`… Un ABAC con atributos genéricos no sirve
- * para nada.
+ * The fields belong to the warehouse domain, not generic ones: `difference`,
+ * `adjustmentReason`, `locationKind`… An ABAC with generic attributes is no use
+ * for anything.
  */
 data class ResourceContext(
     val warehouseId: Long? = null,
     val locationCode: String? = null,
-    /** `SHELF` o `RECEIVING`: la ubicación de recepción tiene reglas propias. */
+    /** `SHELF` or `RECEIVING`: the receiving location has its own rules. */
     val locationKind: String? = null,
     val productCode: String? = null,
-    /** Diferencia entre lo contado y lo facturado. Atributo clave de las políticas. */
+    /** Difference between what was counted and what was invoiced. A key attribute of the policies. */
     val difference: Long? = null,
     val quantity: Long? = null,
-    /** Motivo del ajuste: distingue merma de robo. */
+    /** The adjustment reason: it distinguishes shrinkage from theft. */
     val adjustmentReason: String? = null,
     val unitCost: Long? = null,
     val totalValue: Long? = null,
-    /** Quién capturó: lo usa la segregación de funciones (PB3). */
+    /** Who counted: used by the segregation of duties (PB3). */
     val capturedBy: Long? = null,
-    /** Campos adicionales que una política futura pueda necesitar. */
+    /** Additional fields that a future policy may need. */
     val extra: Map<String, Any?> = emptyMap(),
 ) {
     /**
-     * Resuelve el valor de un atributo por su nombre cualificado
-     * (`resource.difference`). Es lo que usa el evaluador de condiciones.
+     * Resolves the value of an attribute by its qualified name
+     * (`resource.difference`). It is what the condition evaluator uses.
      */
     fun resolve(field: String): Any? = when (field) {
         "resource.warehouseId" -> warehouseId
@@ -85,7 +85,7 @@ data class ResourceContext(
     }
 }
 
-/** El contexto de la petición. */
+/** The request's context. */
 data class RequestContext(
     val hour: Int = 12,
     val weekday: Int = 3,
@@ -105,15 +105,15 @@ data class RequestContext(
 
 enum class DeviceType { WEB, MOBILE, SERVICE }
 
-/** En qué etapa se tomó la decisión. Permite explicar el "por qué no". */
+/** At which stage the decision was taken. It allows explaining the "why not". */
 enum class DecisionStage { IDENTITY, RBAC, ABAC }
 
 /**
- * La decisión, con su traza completa.
+ * The decision, with its full trace.
  *
- * La traza no es un adorno: es lo que permite responder *"¿por qué no me dejó
- * aprobar?"* con **qué condición de qué política** falló, en lugar de un
- * "acceso denegado" que no es accionable.
+ * The trace is not decoration: it is what allows answering *"why wasn't I allowed to
+ * approve?"* with **which condition of which policy** failed, instead of an
+ * "access denied" that is not actionable.
  */
 sealed interface AccessDecision {
 
@@ -121,7 +121,7 @@ sealed interface AccessDecision {
     val code: String
     val stage: DecisionStage
 
-    /** La instantánea de configuración que hace reproducible esta decisión. */
+    /** The configuration snapshot that makes this decision reproducible. */
     val matrixVersion: Int
     val policiesVersion: Int
 
@@ -138,7 +138,7 @@ sealed interface AccessDecision {
         override val stage = if (policyTrace.isEmpty()) DecisionStage.RBAC else DecisionStage.ABAC
     }
 
-    /** El usuario no existe o está desactivado. */
+    /** The user does not exist or is deactivated. */
     data class NotAuthenticated(
         val reason: String,
         override val matrixVersion: Int = 0,
@@ -149,7 +149,7 @@ sealed interface AccessDecision {
         override val stage = DecisionStage.IDENTITY
     }
 
-    /** RBAC no alcanza: no tiene el permiso, o no para ese recurso. */
+    /** RBAC is not enough: it does not have the permission, or not for that resource. */
     data class ScopeDenied(
         val permission: String,
         val effectiveScope: PermissionScope,
@@ -164,7 +164,7 @@ sealed interface AccessDecision {
             if (effectiveScope == PermissionScope.NONE) "PERMISSION_DENIED" else "SCOPE_INSUFFICIENT"
     }
 
-    /** Una política ABAC denegó la acción. */
+    /** An ABAC policy denied the action. */
     data class PolicyDenied(
         val permission: String,
         val decidedBy: PolicyTrace,
@@ -177,7 +177,7 @@ sealed interface AccessDecision {
         override val stage = DecisionStage.ABAC
     }
 
-    /** Hay políticas aplicables y ninguna `ALLOW` coincidió. */
+    /** There are applicable policies and none `ALLOW` matched. */
     data class PolicyRequired(
         val permission: String,
         val policyTrace: List<PolicyTrace>,
@@ -189,7 +189,7 @@ sealed interface AccessDecision {
         override val stage = DecisionStage.ABAC
     }
 
-    /** Segregación de funciones: intentó aprobar su propio trabajo. */
+    /** Segregation of duties: it tried to approve its own work. */
     data class SegregationOfDuties(
         val permission: String,
         val policyTrace: List<PolicyTrace>,
@@ -203,31 +203,31 @@ sealed interface AccessDecision {
 }
 
 /**
- * El motor.
+ * The engine.
  *
- * @param matrixVersion versión de la matriz rol→permiso vigente. Se guarda en
- *   cada decisión auditada para poder reproducirla después.
- * @param policiesVersion versión del conjunto de políticas.
+ * @param matrixVersion the version of the role→permission matrix in force. It is stored in
+ *   each audited decision so that it can be replayed later.
+ * @param policiesVersion the version of the policy set.
  */
 class AccessEngine(
     private val policies: List<Policy> = emptyList(),
     private val matrixVersion: Int = 0,
     private val policiesVersion: Int = 0,
-    /** Permite desactivar temporalmente la evaluación ABAC (diagnóstico). */
+    /** Allows temporarily disabling ABAC evaluation (diagnostics). */
     private val abacEnabled: Boolean = true,
 ) {
 
     /**
-     * Decide si el usuario puede realizar la acción sobre el recurso.
+     * Decides whether the user can perform the action on the resource.
      *
-     * **Las tres etapas, en orden, sin excepciones:**
+     * **The three stages, in order, without exceptions:**
      *
-     *  1. **Identidad** — ¿existe el usuario y está activo? Si no, se corta aquí.
-     *  2. **RBAC** — ¿tiene el permiso, y con alcance suficiente **para este
-     *     recurso**? Un `WAREHOUSE_MANAGER` con alcance `AREA` no alcanza una bodega
-     *     que no es suya.
-     *  3. **ABAC** — ¿las condiciones se cumplen? Con `DENY` ganando siempre y
-     *     `DEFAULT DENY` si hay políticas aplicables y ninguna permite.
+     *  1. **Identity** — does the user exist and is active? If not, it stops here.
+     *  2. **RBAC** — does it have the permission, and with sufficient scope **for this
+     *     resource**? A `WAREHOUSE_MANAGER` with `AREA` scope does not reach a warehouse
+     *     that is not theirs.
+     *  3. **ABAC** — are the conditions met? With `DENY` always winning and
+     *     `DEFAULT DENY` if there are applicable policies and none allows.
      */
     fun decide(
         user: AccessUser?,
@@ -237,9 +237,9 @@ class AccessEngine(
     ): AccessDecision {
 
         // ── ETAPA 1: IDENTIDAD ───────────────────────────────────────────────
-        // Se comprueba ANTES de mirar permisos: un usuario desactivado no tiene
-        // acceso aunque su rol diga lo contrario. El legacy no lo comprobaba en
-        // el middleware, así que desactivar a alguien no invalidaba su token
+        // It is checked BEFORE looking at permissions: a deactivated user has no access even if their role
+        // says otherwise. The legacy did not check this in the middleware, so deactivating someone did not
+        // invalidate their token.
         // hasta 24 horas (hallazgo S3).
         if (user == null) {
             return AccessDecision.NotAuthenticated("User not authenticated", matrixVersion, policiesVersion)
@@ -268,11 +268,11 @@ class AccessEngine(
             PermissionScope.max(acc, scope)
         }
 
-        // La excepción por persona puede subir el alcance, pero **no puede
-        // conceder un permiso que ningún rol aporta** si el sistema está
-        // configurado en modo estricto. Aquí se permite la excepción explícita:
-        // es una decisión administrada y auditada (con motivo obligatorio en la
-        // capa de aplicación).
+        // The per-person exception can raise the scope, but **it cannot
+        // grant a permission that no role provides** when the system is
+        // configured in strict mode. Here the explicit exception is allowed:
+        // a managed and audited decision (with a mandatory reason in the
+        // application layer).
         val exceptionScope = user.exceptions[permissionKey]
             ?.takeIf { isExceptionValid(user, permissionKey) }
             ?: PermissionScope.NONE
@@ -302,19 +302,19 @@ class AccessEngine(
             )
         }
 
-        // ── El alcance AREA tiene que ser SU bodega ──────────────────────────
-        // Sin esta comprobación, `AREA` sería equivalente a `ALL` y el modelo de
-        // permisos multi-bodega no serviría para nada: un jefe de bodega podría
-        // operar en cualquier bodega. Es la comprobación que hace que un solo
-        // rol `WAREHOUSE_MANAGER` sirva para todas las bodegas sin crear un rol por
-        // cada una.
+        // ── The AREA scope has to be THEIR warehouse ─────────────────────────────
+        // Without this check, `AREA` would be equivalent to `ALL` and the multi-warehouse permissions model
+        // would be useless: a warehouse manager could operate in any warehouse. It is the check that makes
+        // operate in any warehouse. It is the check that makes a single
+        // `WAREHOUSE_MANAGER` role serve all the warehouses without creating a role for
+        // each one.
         //
-        // Es el hallazgo S7 del legacy: allí la autorización fallaba con 401 en
-        // lugar de 403 y no distinguía "no tienes el permiso" de "no tienes
-        // permiso sobre ESTO", que es lo accionable.
-        // Se aplica a OWN **y** a AREA: un operador cuyo alcance es "lo suyo"
-        // tampoco alcanza una bodega que no es la suya. Comprobar solo AREA
-        // dejaba a OWN como un comodín sobre todas las bodegas.
+        // It is the S7 finding of the legacy: there authorization failed with a 401 instead of
+        // a 403 and did not distinguish "you do not have the permission" from "you do not have
+        // permission over THIS", which is what is actionable.
+        // It applies to OWN **and** to AREA: an operator whose scope is "their own" does not reach a warehouse
+        // that is not theirs either. Checking only AREA
+        // would leave OWN as a wildcard over all the warehouses.
         val resourceWarehouse = resource.warehouseId
         if (effectiveScope != PermissionScope.ALL &&
             resourceWarehouse != null &&
@@ -349,7 +349,7 @@ class AccessEngine(
                 })
         }
 
-        // Sin políticas aplicables: RBAC decide y se permite.
+        // Without applicable policies, RBAC decides and it is allowed.
         if (applicable.isEmpty()) {
             return AccessDecision.Allowed(
                 permission = permissionKey,
@@ -360,29 +360,29 @@ class AccessEngine(
             )
         }
 
-        // Evaluar cada política aplicable y construir la traza.
+        // Evaluate each applicable policy and build the trace.
         val traces = applicable
             .sortedByDescending { it.priority }
             .map { policy -> evaluate(policy, user, resource, context) }
 
-        // Regla 3: DENY gana siempre, incluso con prioridad menor. No se puede
-        // "comprar" una denegación con una política de mayor prioridad.
+        // Rule 3: DENY always wins, even with a lower priority. A denial cannot be
+        // "bought" with a higher-priority policy.
         val denied = traces.filter {
             it.matched && it.effect == PolicyEffect.DENY && !it.shadowMode
         }
         if (denied.isNotEmpty()) {
             val deciding = denied.first()
-            // La segregación de funciones tiene su propio código de error, porque
-            // es accionable: el usuario debe saber que necesita OTRA persona, no
-            // solo que "no puede". Se identifica por el efecto DENY sobre la
-            // condición de autoría, que es la única política de este tipo.
+            // Segregation of duties has its own error code, because
+            // it is actionable: the user must know that they need ANOTHER person, not just
+            // that they "cannot". It is identified by the DENY effect on the
+            // authorship condition, which is the only policy of this kind.
             if (deciding.conditions.any { it.condition.field == "resource.capturedBy" }) {
                 return AccessDecision.SegregationOfDuties(permissionKey, traces, matrixVersion, policiesVersion)
             }
             return AccessDecision.PolicyDenied(permissionKey, deciding, traces, matrixVersion, policiesVersion)
         }
 
-        // Regla 4: al menos una ALLOW que coincida.
+        // Rule 4: at least one matching ALLOW.
         val allowed = traces.any {
             it.matched && it.effect == PolicyEffect.ALLOW && !it.shadowMode
         }
@@ -397,14 +397,14 @@ class AccessEngine(
             )
         }
 
-        // Regla 5: hay políticas aplicables y ninguna ALLOW coincidió.
-        // **Esto es lo que hace que ABAC suba el listón en lugar de bajarlo.**
-        // Un usuario con el permiso por RBAC es denegado si existe una política
-        // sobre esa acción que no se cumple.
+        // Rule 5: there are applicable policies and none ALLOW matched.
+        // **This is what makes ABAC raise the bar instead of lowering it.**
+        // A user with the permission through RBAC is denied if there is a policy
+        // on that action that is not met.
         //
-        // Salvo que TODAS las políticas aplicables estén en observación: en ese
-        // caso no hay ninguna regla vigente que exija autorización, y la acción
-        // se decide solo por RBAC. Es la esencia del modo observación.
+        // Unless ALL the applicable policies are in observation: in that
+        // case there is no rule in force that requires authorization, and the action
+        // is decided by RBAC alone. That is the essence of observation mode.
         val hasActivePolicies = traces.any { !it.shadowMode }
         if (!hasActivePolicies) {
             return AccessDecision.Allowed(
@@ -421,12 +421,12 @@ class AccessEngine(
     }
 
     /**
-     * Evaluación de ABAC **sin aplicarla**: devuelve lo que habría decidido.
+     * ABAC evaluation **without applying it**: it returns what it would have decided.
      *
-     * Es lo que permite el modo observación. Se activa una política en este
-     * modo, se revisa la bitácora unos días y recién entonces se activa de
-     * verdad. Sin esto, una política `DENY` mal escrita puede bloquear el
-     * almacén en plena recepción de un contenedor.
+     * It is what allows observation mode. A policy is activated in this
+     * mode, the audit log is reviewed for a few days and only then is it really
+     * activated. Without this, a badly written `DENY` policy could block
+     * the warehouse in the middle of receiving a container.
      */
     fun evaluateForObservation(
         user: AccessUser?,
@@ -446,31 +446,31 @@ class AccessEngine(
     // ═════════════════════════════════════════════════════════════════════════
 
     /**
-     * Alcance mínimo que se exige para actuar sobre un recurso concreto.
+     * The minimum scope required to act on a specific resource.
      *
-     * Regla del dominio: si el recurso declara una bodega y el alcance del
-     * usuario es `AREA`, hay que comprobar que **esa bodega es suya**. Si el
-     * recurso no declara bodega, `OWN`/`AREA` bastan para actuar sobre lo
-     * propio y `ALL` para lo global.
+     * Domain rule: if the resource declares a warehouse and the user's scope is
+     * `AREA`, it has to be checked that **that warehouse is theirs**. If the
+     * resource does not declare a warehouse, `OWN`/`AREA` are enough to act on one's own items and
+     * `ALL` for global ones.
      */
     private fun requiredScopeFor(permission: Permission, resource: ResourceContext): PermissionScope =
         when {
-            // Permiso que solo se concede globalmente.
+            // Permission that is only granted globally.
             resource.warehouseId == null && permission.scopes == setOf(PermissionScope.ALL) ->
                 PermissionScope.ALL
 
             else -> PermissionScope.OWN
         }
 
-    /** Comprueba que la excepción por persona siga vigente (no caducada). */
+    /** Checks that the per-person exception is still in force (not expired). */
     private fun isExceptionValid(user: AccessUser, permissionKey: String): Boolean {
         val expiry = user.exceptionExpiries[permissionKey] ?: return true
-        // `now` se inyecta desde fuera en la capa de aplicación; aquí se compara
-        // contra el reloj del sistema como valor por defecto.
+        // `now` is injected from outside in the application layer; here it is compared
+        // against the system clock as the default value.
         return expiry > currentEpochDay()
     }
 
-    /** Evalúa una política contra el usuario, el recurso y el contexto. */
+    /** Evaluates a policy against the user, the resource and the context. */
     private fun evaluate(
         policy: Policy,
         user: AccessUser,
@@ -483,9 +483,9 @@ class AccessEngine(
 
         val conditionTraces = policy.conditions.map { condition ->
             val current = resolveField(condition.field, user, resource, context)
-            // El valor esperado puede ser una constante o una referencia al
-            // usuario que actúa. La segregación de funciones necesita lo segundo:
-            // compara `capturedBy` contra **quien intenta aprobar**.
+            // The expected value can be a constant or a reference to the
+            // acting user. Segregation of duties needs the second:
+            // compares `capturedBy` against **whoever is trying to approve**.
             val expected = resolveExpected(condition.value, user)
             ConditionTrace(
                 condition = condition,
@@ -494,7 +494,7 @@ class AccessEngine(
             )
         }
 
-        // Las condiciones se combinan con AND: todas deben coincidir.
+        // Conditions are combined with AND: all of them must match.
         val matched = appliesToUser && conditionTraces.all { it.matches }
 
         return PolicyTrace(
@@ -510,16 +510,16 @@ class AccessEngine(
     }
 
     /**
-     * Resuelve el valor esperado de una condición.
+     * Resolves the expected value of a condition.
      *
-     * Si es el marcador [StockPolicies.CURRENT_USER_MARKER], devuelve el id del
-     * usuario que actúa. Así la política de segregación de funciones sigue
-     * siendo **configurable** en lugar de estar hardcodeada en el motor.
+     * If it is the [StockPolicies.CURRENT_USER_MARKER] marker, it returns the id of the
+     * acting user. This way the segregation-of-duties policy stays
+     * **configurable** instead of being hard-coded in the engine.
      */
     private fun resolveExpected(value: Any?, user: AccessUser): Any? =
         if (value == StockPolicies.CURRENT_USER_MARKER) user.id else value
 
-    /** Resuelve un atributo por su nombre cualificado. */
+    /** Resolves an attribute by its qualified name. */
     private fun resolveField(
         field: String,
         user: AccessUser,
@@ -540,8 +540,8 @@ class AccessEngine(
 
     private companion object {
         /**
-         * Día actual. Se mantiene aislado aquí para que sustituirlo por un
-         * reloj inyectable sea un cambio de una línea en la Fase 1.
+         * Current day. It is kept isolated here so that replacing it with an
+         * injectable clock is a one-line change in Phase 1.
          */
         fun currentEpochDay(): Long = 0L
     }

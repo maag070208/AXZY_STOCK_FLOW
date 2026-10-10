@@ -1,79 +1,79 @@
-# App: Kotlin Multiplatform para Android e iOS
-> **Normativo.** Cómo se organiza la app de piso. Última revisión: 2026-10-09.
+# App: Kotlin Multiplatform for Android and iOS
+> **Normative.** How the floor app is organized. Last revised: 2026-10-09.
 
-## 1. Qué hace la app
+## 1. What the app does
 
-La app es para el **operador de piso**: recibe mercancía, la ubica, surte órdenes, mueve existencias y
-escanea etiquetas. No administra usuarios, catálogo ni reportes; eso es de la web
+The app is for the **floor operator**: receives goods, locates them, picks orders, moves stock and
+scans labels. It does not manage users, catalog or reports; those belong to the web
 ([plan/PLAN-REHACER.md](../plan/PLAN-REHACER.md), §2).
 
-Cada pantalla corresponde a un flujo de [flujos/](../flujos/README.md). La app no tiene reglas propias:
-muestra lo que la API responde y envía lo que el operador hace.
+Each screen corresponds to a flow in [flujos/](../flujos/README.md). The app has no rules of its own:
+it shows what the API answers and sends what the operator does.
 
-## 2. Estructura
+## 2. Structure
 
-Un proyecto Gradle con un módulo `shared` (KMP) y los objetivos Android e iOS.
+A Gradle project with a `shared` module (KMP) and the Android and iOS targets.
 
 ```
 app/
   shared/
     commonMain/
-      core/            Red, sesión, errores, ajustes. Compartido por todas las funcionalidades.
+      core/            Network, session, errors, settings. Shared by all features.
       feature/
-        auth/          Login, sesión, cambio de contraseña.
-        receiving/     Facturas, captura, ubicar.
-        fulfillment/   Órdenes, empaque.
-        transfers/     Traslados.
-        labels/        Escaneo y consulta de etiquetas.
-        inventory/     Consulta de existencias.
-    androidMain/       Cámara y permisos de Android
-    iosMain/           Cámara y permisos de iOS
+        auth/          Sign-in, session, password change.
+        receiving/     Invoices, capture, locate.
+        fulfillment/   Orders, packing.
+        transfers/     Transfers.
+        labels/        Label scanning and lookup.
+        inventory/     Stock lookup.
+    androidMain/       Android camera and permissions
+    iosMain/           iOS camera and permissions
   androidApp/
-  iosApp/              Proyecto Xcode (se crea en la fase 10)
+  iosApp/              Xcode project (created in phase 10)
 ```
 
-**Regla de localidad (vertical slice).** Una funcionalidad tiene sus pantallas, su estado, sus
-llamadas y sus modelos dentro de su carpeta `feature/<nombre>`. Una funcionalidad **no importa** de
-otra; si dos necesitan lo mismo, va a `core/`.
+**Locality rule (vertical slice).** A feature has its screens, its state, its calls and its models
+inside its folder `feature/<name>`. A feature **does not import** from
+another; if two need the same thing, it goes to `core/`.
 
-## 3. Dominio compartido
+## 3. Shared domain
 
-Si D6 se aprueba, las reglas que la app necesita (validación de cantidades, transiciones de estado,
-formato de códigos de ubicación) vienen del módulo `stock-domain`, no se reescriben en la app. Si D6
-se rechaza, la app mantiene solo las validaciones de formulario y deja las reglas a la API.
+If D6 is approved, the rules the app needs (quantity validation, state transitions, location
+code format) come from the `stock-domain` module; they are not rewritten in the app. If D6
+is rejected, the app keeps only the form validations and leaves the rules to the API.
 
-## 4. Red y sesión
+## 4. Network and session
 
-- Cliente HTTP con Ktor Client (solo cliente; ver [stack.md](stack.md)).
-- El token de acceso vive en el almacén seguro del sistema (Keychain en iOS, Keystore en Android),
-  nunca en texto plano.
-- Un `401` dispara un refresh; si el refresh falla, la sesión se cierra. Un refresh reutilizado
-  invalida la sesión completa ([flujos/autenticacion-y-permisos.md](../flujos/autenticacion-y-permisos.md) §3).
-- Todas las escrituras que pueden reintentarse llevan `Idempotency-Key` generada en la app y guardada
-  hasta que la API confirma.
+- HTTP client with Ktor Client (client only; see [stack.md](stack.md)).
+- The access token lives in the system's secure storage (Keychain on iOS, Keystore on Android),
+  never in plain text.
+- A `401` triggers a refresh; if the refresh fails, the session is closed. A reused refresh
+  invalidates the whole session ([flujos/autenticacion-y-permisos.md](../flujos/autenticacion-y-permisos.md) §3).
+- All writes that may be retried carry an `Idempotency-Key` generated in the app and kept
+  until the API confirms.
 
-## 5. Escáner
+## 5. Scanner
 
-- Cámara con la API nativa de cada plataforma (CameraX en Android, AVFoundation en iOS), detrás de una
-  interfaz común en `core/`.
-- La conversión de coordenadas del escáner se prueba en dispositivo real. Una prueba en simulador no
-  cuenta como verificación del escáner.
+- Camera with each platform's native API (CameraX on Android, AVFoundation on iOS), behind a
+  common interface in `core/`.
+- The scanner's coordinate conversion is tested on a real device. A test in the simulator does not
+  count as verification of the scanner.
 
-## 6. Caché sin conexión
+## 6. Offline cache
 
-**Fuera de alcance de la primera entrega.** Si se necesita trabajar sin red, se decide en un ADR
-propio. Hasta entonces, si no hay red, la app muestra el estado y no encola escrituras.
+**Out of scope for the first delivery.** If working without network is needed, it is decided in its own
+ADR. Until then, if there is no network, the app shows the status and does not queue writes.
 
-## 7. Pruebas
+## 7. Tests
 
-| Nivel | Qué prueba | Dónde |
+| Level | What it tests | Where |
 |---|---|---|
-| Unidad | Formularios, estados, mapeo de respuestas | `commonTest` |
-| Red | Contrato contra la API en Compose | `commonTest` con servidor simulado generado desde el contrato |
-| Dispositivo | Escáner, cámara, flujo de recepción completo | Manual, documentado en [guia/lo-no-verificado.md](../historico/LO-NO-VERIFICADO-ANTERIOR.md) |
+| Unit | Forms, states, response mapping | `commonTest` |
+| Network | Contract against the API in Compose | `commonTest` with a mock server generated from the contract |
+| Device | Scanner, camera, full receiving flow | Manual, documented in [guia/lo-no-verificado.md](../historico/LO-NO-VERIFICADO-ANTERIOR.md) |
 
-## 8. Lo que no hace la app
+## 8. What the app does not do
 
-- No calcula existencias ni saldos.
-- No guarda reglas de permisos: oculta opciones según lo que la API informa, pero la API decide.
-- No se comunica con el ERP ni con impresoras directamente.
+- It does not calculate stock or balances.
+- It does not store permission rules: it hides options according to what the API reports, but the API decides.
+- It does not communicate with the ERP or with printers directly.

@@ -1,158 +1,157 @@
-# Traslados: entre ubicaciones y entre bodegas
-> **Normativo.** Última revisión: 2026-10-09. Reglas de origen: [ADR-0007](../adr/0007-multi-bodega-desde-el-esquema.md). Módulo: [M05](../modulos/M05-traslados/README.md). **El legacy no tiene traslado entre bodegas**: solo movimientos de ubicación. Ver [análisis](../analisis/legacy-entradas-salidas-ajustes-traslados.md) §1.
+# Transfers: between locations and between warehouses
+> **Normative.** Last revised: 2026-10-09. Origin rules: [ADR-0007](../adr/0007-multi-bodega-desde-el-esquema.md). Module: [M05](../modulos/M05-traslados/README.md). **The legacy has no transfer between warehouses**: only location movements. See [analysis](../analisis/legacy-entradas-salidas-ajustes-traslados.md) §1.
 
-## 1. Objetivo y actores
+## 1. Objective and actors
 
-Mover existencias de una ubicación a otra, o de una bodega a otra. La mercancía que va en camino se
-cuenta como **tránsito** hasta que llega, para que el total no baje ni suba mientras se mueve.
+Move stock from one location to another, or from one warehouse to another. Goods on the way are
+counted as **transit** until they arrive, so that the total neither drops nor rises while they are moving.
 
-| Actor | Qué hace |
+| Actor | What it does |
 |---|---|
-| Operador (app o web) | Crea el traslado, lo despacha, lo recibe |
-| Supervisor (web) | Cancela traslados; consulta la mercancía en tránsito |
+| Operator (app or web) | Creates the transfer, dispatches it, receives it |
+| Supervisor (web) | Cancels transfers; queries goods in transit |
 
-## 2. Precondiciones
+## 2. Preconditions
 
-- Origen y destino son ubicaciones activas. Si son de bodegas distintas, son bodegas distintas.
-- Hay existencias disponibles en el origen para cada línea.
+- Origin and destination are active locations. If they are in different warehouses, they are different warehouses.
+- There is stock available at the origin for each line.
 
-## 3. Estados
+## 3. States
 
 ```mermaid
 stateDiagram-v2
     [*] --> DRAFT
-    DRAFT --> DISPATCHED: despachar (sale del origen)
-    DISPATCHED --> RECEIVED: recibir (entra al destino)
+    DRAFT --> DISPATCHED: dispatch (leaves the origin)
+    DISPATCHED --> RECEIVED: receive (enters the destination)
     DRAFT --> CANCELLED
-    DISPATCHED --> CANCELLED: solo si nadie lo recibió; devuelve al origen
+    DISPATCHED --> CANCELLED: only if nobody received it; returns to the origin
     RECEIVED --> [*]
     CANCELLED --> [*]
 ```
 
-## 4. Flujo: despachar y recibir
+## 4. Flow: dispatch and receive
 
-Despachar **mueve la mercancía del origen al tránsito**. Recibir la **mueve del tránsito al destino**.
-En ningún momento existe una mercancía que no esté contada.
+Dispatching **moves the goods from the origin to transit**. Receiving **moves them from transit to the destination**.
+At no moment does goods exist that is not counted.
 
 ```mermaid
 sequenceDiagram
-    participant Op as Operador
+    participant Op as Operator
     participant API
-    participant UC as Caso de uso
-    participant DB as Base
+    participant UC as Use case
+    participant DB as Database
 
     Op->>API: POST /v1/transfers/{id}/dispatch (Idempotency-Key)
     API->>UC: DispatchTransfer(actor, id, key)
     UC->>DB: BEGIN
-    UC->>DB: SELECT traslado FOR UPDATE (estado = DRAFT?)
-    loop Cada línea
-        UC->>DB: aplicar_movimiento(origen, −cantidad)  [bloquea la fila del origen]
-        UC->>DB: stock_in_transit += cantidad (con client_uuid = UUID(traslado, línea))
+    UC->>DB: SELECT transfer FOR UPDATE (status = DRAFT?)
+    loop Each line
+        UC->>DB: aplicar_movimiento(origin, −quantity)  [locks the origin row]
+        UC->>DB: stock_in_transit += quantity (with client_uuid = UUID(transfer, line))
     end
-    UC->>DB: traslado → DISPATCHED
-    UC->>DB: bitácora
+    UC->>DB: transfer → DISPATCHED
+    UC->>DB: audit log
     UC->>DB: COMMIT
     API-->>Op: 200
 
     Op->>API: POST /v1/transfers/{id}/receive (Idempotency-Key)
     API->>UC: ReceiveTransfer(actor, id, key)
     UC->>DB: BEGIN
-    UC->>DB: SELECT traslado FOR UPDATE (estado = DISPATCHED?)
-    loop Cada línea
-        UC->>DB: stock_in_transit.received_at = now()  [no se borra la fila]
-        UC->>DB: aplicar_movimiento(destino, +cantidad)
+    UC->>DB: SELECT transfer FOR UPDATE (status = DISPATCHED?)
+    loop Each line
+        UC->>DB: stock_in_transit.received_at = now()  [the row is not deleted]
+        UC->>DB: aplicar_movimiento(destination, +quantity)
     end
-    UC->>DB: traslado → RECEIVED
-    UC->>DB: bitácora
+    UC->>DB: transfer → RECEIVED
+    UC->>DB: audit log
     UC->>DB: COMMIT
     API-->>Op: 200
 ```
 
-**Por qué `FOR UPDATE` sobre el traslado.** Dos «recibir» simultáneos sobre el mismo traslado
-moverían la mercancía dos veces. El bloqueo hace que el segundo vea `RECEIVED` y responda 409. La
-misma razón aplica a despachar. Es el mismo patrón que la confirmación de una orden (Q8).
+**Why `FOR UPDATE` on the transfer.** Two simultaneous "receive" calls on the same transfer
+would move the goods twice. The lock makes the second one see `RECEIVED` and answer 409. The
+same reason applies to dispatching. It is the same pattern as the confirmation of an order (Q8).
 
-**Por qué el tránsito no se borra al recibir.** La fila queda con `received_at`. El total del producto
-suma solo el tránsito **no recibido**; sin esa condición, la mercancía recibida contaría dos veces
-(ya está en el destino y en el tránsito histórico). Es la razón del `WHERE received_at IS NULL` en el
-recálculo del total.
+**Why the transit is not deleted on receiving.** The row keeps `received_at`. The product total
+adds up only the **unreceived** transit; without that condition, the received goods would count twice
+(they are already in the destination and in the historical transit). It is the reason for the `WHERE received_at IS NULL` in the total recalculation.
 
-## 5. Cancelación
+## 5. Cancellation
 
-- Cancelar un traslado en `DRAFT` no mueve nada.
-- Cancelar un traslado `DISPATCHED` devuelve la mercancía al origen con un movimiento compensatorio y
-  marca el tránsito como cancelado. No se borra nada (Q6).
-- Un traslado `RECEIVED` no se cancela: para deshacerlo se hace un traslado nuevo en sentido contrario.
+- Cancelling a transfer in `DRAFT` moves nothing.
+- Cancelling a `DISPATCHED` transfer returns the goods to the origin with a compensating movement and
+  marks the transit as cancelled. Nothing is deleted (Q6).
+- A `RECEIVED` transfer is not cancelled: to undo it, a new transfer in the opposite direction is made.
 
-## 6. Pruebas de aceptación
+## 6. Acceptance tests
 
-**T1. Despachar saca del origen y pone en tránsito, sin cambiar el total**
-- Dado un origen con 50 y un traslado de 20 en `DRAFT`.
-- Cuando se despacha.
-- Entonces el origen tiene 30, el tránsito 20 y el total sigue en 50.
+**T1. Dispatching takes from the origin and puts it in transit, without changing the total**
+- Given an origin with 50 and a transfer of 20 in `DRAFT`.
+- When it is dispatched.
+- Then the origin has 30, the transit 20 and the total remains at 50.
 
-**T2. Recibir pone en el destino sin cambiar el total**
-- Dado el traslado del caso anterior en `DISPATCHED`.
-- Cuando se recibe.
-- Entonces el destino tiene 20, el tránsito no suma (`received_at` informado) y el total sigue en 50.
+**T2. Receiving puts it in the destination without changing the total**
+- Given the transfer from the previous case in `DISPATCHED`.
+- When it is received.
+- Then the destination has 20, the transit does not add up (`received_at` reported) and the total remains at 50.
 
-**T3. Recibir dos veces no mueve la mercancía dos veces**
-- Dado un traslado `DISPATCHED`.
-- Cuando se recibe dos veces en paralelo.
-- Entonces el destino recibe 20 una sola vez; la segunda respuesta es 409.
+**T3. Receiving twice does not move the goods twice**
+- Given a `DISPATCHED` transfer.
+- When it is received twice in parallel.
+- Then the destination receives 20 only once; the second response is 409.
 
-**T4. El origen y el destino de la misma bodega no son un traslado entre bodegas**
-- Dado un traslado entre bodegas con origen y destino de la misma bodega.
-- Cuando se crea.
-- Entonces responde `SAME_WAREHOUSE_TRANSFER` (422) y no se escribe nada.
+**T4. The origin and the destination in the same warehouse are not a transfer between warehouses**
+- Given a transfer between warehouses with origin and destination in the same warehouse.
+- When it is created.
+- Then it answers `SAME_WAREHOUSE_TRANSFER` (422) and nothing is written.
 
-**T5. Sin existencias en el origen, no se despacha**
-- Dado un origen con 10 y un traslado de 20.
-- Cuando se despacha.
-- Entonces responde `INSUFFICIENT_STOCK` con `available = 10`, y el traslado sigue en `DRAFT`.
+**T5. Without stock at the origin, it is not dispatched**
+- Given an origin with 10 and a transfer of 20.
+- When it is dispatched.
+- Then it answers `INSUFFICIENT_STOCK` with `available = 10`, and the transfer remains in `DRAFT`.
 
-**T6. Cancelar un despachado devuelve la mercancía**
-- Dado un traslado `DISPATCHED` de 20.
-- Cuando se cancela.
-- Entonces el origen recupera 20, el tránsito queda cancelado, el total no cambia y la bitácora registra la cancelación.
+**T6. Cancelling a dispatched transfer returns the goods**
+- Given a `DISPATCHED` transfer of 20.
+- When it is cancelled.
+- Then the origin recovers 20, the transit is cancelled, the total does not change and the audit log records the cancellation.
 
-**T7. Un traslado recibido no se cancela**
-- Dado un traslado `RECEIVED`.
-- Cuando se intenta cancelar.
-- Entonces responde `INVALID_TRANSITION` y no cambia nada.
+**T7. A received transfer is not cancelled**
+- Given a `RECEIVED` transfer.
+- When cancellation is attempted.
+- Then it answers `INVALID_TRANSITION` and nothing changes.
 
-**T8. El tránsito se ve con su propio permiso**
-- Dado un usuario con `transfer.view` y sin `transit.view`.
-- Cuando consulta la mercancía en tránsito.
-- Entonces responde 403.
+**T8. Transit is seen with its own permission**
+- Given a user with `transfer.view` and without `transit.view`.
+- When they query goods in transit.
+- Then it answers 403.
 
-## 7. Errores
+## 7. Errors
 
-| Código | HTTP | Cuándo |
+| Code | HTTP | When |
 |---|---|---|
-| `TRANSFER_NOT_FOUND` | 404 | El traslado no existe |
-| `SAME_LOCATION` | 422 | Origen y destino son la misma ubicación |
-| `SAME_WAREHOUSE_TRANSFER` | 422 | Traslado entre bodegas con la misma bodega |
-| `INSUFFICIENT_STOCK` | 409 | No hay saldo en el origen al despachar |
-| `INVALID_TRANSITION` | 409 | Acción no permitida en el estado actual |
+| `TRANSFER_NOT_FOUND` | 404 | The transfer does not exist |
+| `SAME_LOCATION` | 422 | Origin and destination are the same location |
+| `SAME_WAREHOUSE_TRANSFER` | 422 | Transfer between warehouses with the same warehouse |
+| `INSUFFICIENT_STOCK` | 409 | No balance at the origin when dispatching |
+| `INVALID_TRANSITION` | 409 | Action not allowed in the current state |
 
-## 8. Permisos
+## 8. Permissions
 
-| Acción | Permiso |
+| Action | Permission |
 |---|---|
-| Ver traslados | `transfer.view` |
-| Crear | `transfer.create` |
-| Despachar | `transfer.dispatch` |
-| Recibir | `transfer.receive` |
-| Cancelar | `transfer.cancel` |
-| Ver tránsito | `transit.view` (distinto de `transfer.view`) |
+| View transfers | `transfer.view` |
+| Create | `transfer.create` |
+| Dispatch | `transfer.dispatch` |
+| Receive | `transfer.receive` |
+| Cancel | `transfer.cancel` |
+| View transit | `transit.view` (different from `transfer.view`) |
 
-## 9. Bitácora
+## 9. Audit log
 
-Crear, despachar, recibir y cancelar escriben en `audit_log`, con origen, destino y cantidades.
+Creating, dispatching, receiving and cancelling write to `audit_log`, with origin, destination and quantities.
 
-## 10. Reglas y decisiones
+## 10. Rules and decisions
 
-- Un traslado entre bodegas es un movimiento de salida y otro de entrada que pasan por el tránsito:
+- A transfer between warehouses is an outflow movement and an inflow movement that go through the transit:
   [ADR-0007](../adr/0007-multi-bodega-desde-el-esquema.md).
-- Las existencias y su proyección: [existencias-y-ajustes.md](existencias-y-ajustes.md).
+- The stock and its projection: [existencias-y-ajustes.md](existencias-y-ajustes.md).

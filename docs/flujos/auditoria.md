@@ -1,114 +1,114 @@
-# Auditoría: bitácora de escrituras
-> **Normativo.** Última revisión: 2026-10-09. Módulo: [M08](../modulos/M08-auditoria/README.md). Reglas detalladas en [seguridad/auditoria.md](../seguridad/auditoria.md).
+# Audit: write log
+> **Normative.** Last revised: 2026-10-09. Module: [M08](../modulos/M08-auditoria/README.md). Detailed rules in [seguridad/auditoria.md](../seguridad/auditoria.md).
 
-## 1. Objetivo y actores
+## 1. Objective and actors
 
-Responder quién hizo qué, cuándo, desde dónde y por qué, sobre **cualquier escritura** del sistema.
-La bitácora no se edita ni se borra: si un registro está mal, se registra la corrección.
+Answer who did what, when, from where and why, for **any write** in the system.
+The log is not edited or deleted: if a record is wrong, the correction is recorded.
 
-| Actor | Qué hace |
+| Actor | What it does |
 |---|---|
-| Cualquier flujo | Escribe un registro junto con su cambio, en la misma transacción |
-| Auditor (web) | Consulta la bitácora con filtros |
+| Any flow | Writes a record together with its change, in the same transaction |
+| Auditor (web) | Queries the log with filters |
 
-## 2. Precondiciones
+## 2. Preconditions
 
-- La tabla `audit_log` existe y tiene disparadores que impiden `UPDATE` y `DELETE`.
-- Quien consulta tiene `audit.view`.
+- The table `audit_log` exists and has triggers that prevent `UPDATE` and `DELETE`.
+- Whoever queries has `audit.view`.
 
-## 3. Flujo: registrar una escritura
+## 3. Flow: recording a write
 
-El registro se escribe **dentro de la misma transacción** que el cambio. Si el cambio se confirma, el
-registro existe; si el registro falla, el cambio no se confirma.
+The record is written **inside the same transaction** as the change. If the change commits, the
+record exists; if the record fails, the change does not commit.
 
 ```mermaid
 sequenceDiagram
-    participant UC as Caso de uso
-    participant TX as Transacción
-    participant DB as Base
+    participant UC as Use case
+    participant TX as Transaction
+    participant DB as Database
 
     UC->>TX: inTransaction { }
-    UC->>DB: cambio de negocio (movimiento, estado, etc.)
-    UC->>DB: INSERT audit_log (actor, canal, IP, entidad, anterior, nuevo, motivo, permiso, clave)
-    Note over DB: Disparador: rechaza UPDATE y DELETE sobre audit_log
+    UC->>DB: business change (movement, state, etc.)
+    UC->>DB: INSERT audit_log (actor, channel, IP, entity, previous, new, reason, permission, key)
+    Note over DB: Trigger: rejects UPDATE and DELETE on audit_log
     UC->>TX: commit
-    alt El registro falla
-        TX-->>UC: rollback: el cambio tampoco queda
+    alt The record fails
+        TX-->>UC: rollback: the change does not remain either
     end
 ```
 
-**Por qué en la misma transacción.** Un cambio sin registro es el caso que la bitácora existe para evitar:
-el inventario cambió y nadie puede decir quién lo cambió. Por eso el fallo del registro revierte el cambio.
+**Why in the same transaction.** A change without a record is the case the log exists to prevent:
+the inventory changed and nobody can say who changed it. That is why a failure of the record reverts the change.
 
-## 4. Qué debe llevar cada registro
+## 4. What each record must carry
 
-| Campo | Ejemplo | Para qué |
+| Field | Example | What for |
 |---|---|---|
-| `actor_user_id` | 42 | Quién (o `null` si fue un sistema de servicio, con su clave) |
-| `channel` | `WEB`, `APP`, `SERVICE` | Desde dónde |
-| `source_ip` | dirección | Desde qué red |
-| `entity_type`, `entity_id` | `product`, `1032` | Sobre qué |
-| `previous_state`, `new_state` | total antes y después | Qué cambió |
-| `reason`, `note` | `THEFT`, texto libre | Por qué |
-| `permission_key` | `inventory.adjust_theft` | Con qué permiso se autorizó |
-| `idempotency_key` | UUID | Qué operación original fue |
-| `business_date` | fecha de negocio | Para cierres |
+| `actor_user_id` | 42 | Who (or `null` if it was a service system, with its key) |
+| `channel` | `WEB`, `APP`, `SERVICE` | From where |
+| `source_ip` | address | From which network |
+| `entity_type`, `entity_id` | `product`, `1032` | On what |
+| `previous_state`, `new_state` | total before and after | What changed |
+| `reason`, `note` | `THEFT`, free text | Why |
+| `permission_key` | `inventory.adjust_theft` | With which permission it was authorized |
+| `idempotency_key` | UUID | Which original operation it was |
+| `business_date` | business date | For closings |
 
-## 5. Pruebas de aceptación
+## 5. Acceptance tests
 
-**U1. Un cambio sin registro no se confirma**
-- Dado un caso de uso con un registro de auditoría que falla a propósito.
-- Cuando se ejecuta.
-- Entonces el cambio de negocio tampoco queda escrito.
+**U1. A change without a record is not committed**
+- Given a use case with an audit record that fails on purpose.
+- When it runs.
+- Then the business change is not written either.
 
-**U2. El registro no se edita**
-- Dado un registro existente.
-- Cuando cualquier proceso intenta `UPDATE` o `DELETE` sobre `audit_log`.
-- Entonces la base lo rechaza.
+**U2. The record is not edited**
+- Given an existing record.
+- When any process attempts an `UPDATE` or `DELETE` on `audit_log`.
+- Then the database rejects it.
 
-**U3. Un registro crítico lleva la traza de acceso**
-- Dado un registro de nivel `CRITICAL` (por ejemplo, un ajuste por robo).
-- Cuando se intenta guardar sin la traza de la decisión de acceso.
-- Entonces la base lo rechaza.
+**U3. A critical record carries the access trace**
+- Given a record of level `CRITICAL` (for example, an adjustment for theft).
+- When an attempt is made to save it without the trace of the access decision.
+- Then the database rejects it.
 
-**U4. Un error de negocio no deja registro**
-- Dado una operación rechazada por regla de negocio (por ejemplo, `INSUFFICIENT_STOCK`).
-- Cuando se ejecuta.
-- Entonces no se escribe registro de cambio, aunque sí se registra el intento denegado si el permiso
-  lo exige.
+**U4. A business error leaves no record**
+- Given an operation rejected by a business rule (for example, `INSUFFICIENT_STOCK`).
+- When it runs.
+- Then no change record is written, although the denied attempt is recorded if the permission
+  requires it.
 
-**U5. La consulta filtra y pagina**
-- Dado una bitácora con 10 000 registros.
-- Cuando se consulta por entidad y rango de fechas.
-- Entonces devuelve solo la página pedida, con el total calculado con el mismo filtro.
+**U5. The query filters and paginates**
+- Given an audit log with 10,000 records.
+- When it is queried by entity and date range.
+- Then it returns only the requested page, with the total calculated with the same filter.
 
-### 5-bis. Estado de estas pruebas (2026-10-10)
+### 5-bis. Status of these tests (2026-10-10)
 
-Las cinco están en verde, y **U5 es la que faltaba**: la bitácora se escribía en cada
-escritura desde la fase 3, pero no había forma de leerla.
+All five are green, and **U5 is the one that was missing**: the log was written on each
+write since phase 3, but there was no way to read it.
 
-- **U5** (la consulta filtra y pagina): por HTTP real en
-  `api/app/src/test/kotlin/dev/axzy/stock/app/AuditFlowTest.kt`, con el filtro por entidad
-  y rango de fechas, la página pedida y el **total calculado con el mismo filtro**.
-- **U1–U4** están probadas donde les corresponde: la transaccionalidad y la inmutabilidad
-  en el módulo de persistencia y en el dominio, y la inmutabilidad **también por HTTP**
-  (un `UPDATE` sobre `audit_log` falla con «append-only», U2).
+- **U5** (the query filters and paginates): over real HTTP in
+  `api/app/src/test/kotlin/dev/axzy/stock/app/AuditFlowTest.kt`, with the filter by entity
+  and date range, the requested page and the **total calculated with the same filter**.
+- **U1–U4** are tested where they belong: transactionality and immutability in the persistence
+  module and in the domain, and immutability **also over HTTP** (an `UPDATE` on `audit_log`
+  fails with "append-only", U2).
 
-Una cosa que la implementación dejó fijada: **la consulta de la bitácora se registra como
-acceso** (`AUDIT_QUERIED`, nivel `ACCESS`), con los filtros en el estado nuevo. Quien mira
-la bitácora está viendo quién hizo qué, y eso el módulo ya lo decía: aquí está hecho.
+One thing the implementation fixed: **querying the log is recorded as access**
+(`AUDIT_QUERIED`, level `ACCESS`), with the filters in the new state. Whoever looks at
+the log is seeing who did what, and the module already said that: here it is done.
 
-## 6. Errores
+## 6. Errors
 
-| Código | HTTP | Cuándo |
+| Code | HTTP | When |
 |---|---|---|
-| `AUDIT_WRITE_FAILED` | 500 | El registro no se pudo escribir; la operación se revierte |
-| `FORBIDDEN` | 403 | Consulta sin `audit.view` |
+| `AUDIT_WRITE_FAILED` | 500 | The record could not be written; the operation is reverted |
+| `FORBIDDEN` | 403 | Query without `audit.view` |
 
-## 7. Lo que cambia respecto al legacy
+## 7. What changes with respect to the legacy
 
-- El legacy marcaba como `RELEVANT` los ajustes que deberían ser `CRITICAL`, porque la base no
-  aceptaba la traza de decisión (nota en `adjustmentEntry`, `application/inventory/InventoryUseCases.kt`
-  del código anterior). En el diseño nuevo, `CRITICAL` exige la traza, y la traza se escribe.
-- El legacy podía modificar el historial del kardex; ese defecto hacía que la bitácora no bastara para
-  explicar el inventario ([análisis](../analisis/legacy-entradas-salidas-ajustes-traslados.md) C1).
+- The legacy marked as `RELEVANT` the adjustments that should be `CRITICAL`, because the database
+  did not accept the decision trace (note in `adjustmentEntry`, `application/inventory/InventoryUseCases.kt`
+  of the previous code). In the new design, `CRITICAL` requires the trace, and the trace is written.
+- The legacy could modify the history of the ledger; that defect meant the log was not enough to
+  explain the inventory ([analysis](../analisis/legacy-entradas-salidas-ajustes-traslados.md) C1).

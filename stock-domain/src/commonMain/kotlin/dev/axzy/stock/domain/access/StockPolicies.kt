@@ -2,37 +2,37 @@ package dev.axzy.stock.domain.access
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * POLÍTICAS ABAC DEL ALMACÉN
+ * ABAC POLICIES OF THE WAREHOUSE
  *
- * Doce políticas concretas, no ejemplos teóricos. Cada una resuelve un problema
- * operativo real, y las tres primeras son las que justifican ABAC en este
+ * Twelve concrete policies, not theoretical examples. Each one solves a real operational
+ * problem, and the first three are the ones that justify ABAC in this
  * dominio:
  *
- *  · **PB3 — segregación de funciones** (`DENY` si `capturedBy == user.id`):
- *    es la respuesta a la decisión R-74. En lugar de un `CHECK` rígido en la
- *    base de datos, se expresa como **política configurable**: si el negocio
- *    decide que con poco personal sí puede autoaprobar, se cambia la política y
- *    queda auditado, sin tocar código ni migrar.
+ *  · **PB3 — segregation of duties** (`DENY` if `capturedBy == user.id`):
+ *    it is the answer to decision R-74. Instead of a rigid `CHECK` in the
+ *    database, it is expressed as a **configurable policy**: if the business
+ *    decides that with little staff it may self-approve, the policy is changed and
+ *    it is audited, without touching code or migrating.
  *
- *  · **PB5/PB6 — horario**: `RBAC dice QUÉ; ABAC dice CUÁNDO`. El jefe de
- *    bodega tiene `inventory.adjust_shortage`, pero no a las 3 de la mañana.
+ *  · **PB5/PB6 — schedule**: `RBAC says WHAT; ABAC says WHEN`. The warehouse
+ *    manager has `inventory.adjust_shortage`, but not at 3 in the morning.
  *
- *  · **PB7 — productos de alto valor**: un operador no mueve producto caro.
+ *  · **PB7 — high-value products**: an operator does not move expensive product.
  *
- * **Las políticas no pueden conceder lo que RBAC no dio** (regla 5 del motor).
- * Es la garantía de que ABAC nunca escala privilegios hacia arriba.
+ * **Policies cannot grant what RBAC did not give** (rule 5 of the engine).
+ * It is the guarantee that ABAC never escalates privileges upward.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 object StockPolicies {
 
     /**
-     * Marcador que el motor resuelve contra el **usuario que intenta la acción**.
+     * Marker that the engine resolves against the **user attempting the action**.
      *
-     * Es necesario porque la condición de segregación de funciones compara el
-     * recurso con quien actúa (`capturedBy == quien aprueba`), y el valor
-     * esperado **no es una constante**: depende de quién hace la petición. Sin
-     * esto habría que hardcodear la comprobación en el motor, y la política
-     * dejaría de ser configurable.
+     * It is needed because the segregation-of-duties condition compares the
+     * resource with whoever acts (`capturedBy == whoever approves`), and the expected value
+     * **is not a constant**: it depends on who makes the request. Without
+     * this, the check would have to be hard-coded in the engine, and the policy
+     * would stop being configurable.
      */
     const val CURRENT_USER_MARKER = "__CURRENT_USER__"
 
@@ -41,11 +41,11 @@ object StockPolicies {
     private val OPERATIONS_MANAGER = BaseRole.OPERATIONS_MANAGER.key
     private val ADMIN = BaseRole.ADMIN.key
 
-    /** Todas las políticas, tal como se sembrarían en la base de datos. */
+    /** All the policies, as they would be seeded into the database. */
     val all: List<Policy> = listOf(
 
         // ═════════════════════════════════════════════════════════════════════
-        // SEGREGACIÓN DE FUNCIONES — la más importante
+        // SEGREGATION OF DUTIES — the most important
         // ═════════════════════════════════════════════════════════════════════
 
         Policy(
@@ -64,7 +64,7 @@ object StockPolicies {
         ),
 
         // ═════════════════════════════════════════════════════════════════════
-        // APROBACIÓN DE DISCREPANCIAS (sin umbral — decisión R-75)
+        // APPROVAL OF DISCREPANCIES (no threshold — decision R-75)
         // ═════════════════════════════════════════════════════════════════════
 
         Policy(
@@ -88,7 +88,7 @@ object StockPolicies {
         ),
 
         // ═════════════════════════════════════════════════════════════════════
-        // AJUSTES DE INVENTARIO
+        // INVENTORY ADJUSTMENTS
         // ═════════════════════════════════════════════════════════════════════
 
         Policy(
@@ -154,7 +154,7 @@ object StockPolicies {
         ),
 
         // ═════════════════════════════════════════════════════════════════════
-        // PRODUCTOS DE ALTO VALOR
+        // HIGH-VALUE PRODUCTS
         // ═════════════════════════════════════════════════════════════════════
 
         Policy(
@@ -172,7 +172,7 @@ object StockPolicies {
         ),
 
         // ═════════════════════════════════════════════════════════════════════
-        // UBICACIÓN: recepción frente a estante
+        // LOCATION: receiving versus shelf
         // ═════════════════════════════════════════════════════════════════════
 
         Policy(
@@ -191,7 +191,7 @@ object StockPolicies {
         ),
 
         // ═════════════════════════════════════════════════════════════════════
-        // TRANSFERENCIAS ENTRE BODEGAS
+        // TRANSFERS BETWEEN WAREHOUSES
         // ═════════════════════════════════════════════════════════════════════
 
         Policy(
@@ -206,7 +206,7 @@ object StockPolicies {
         ),
 
         // ═════════════════════════════════════════════════════════════════════
-        // INTEGRACIÓN CON EL ERP
+        // ERP INTEGRATION
         // ═════════════════════════════════════════════════════════════════════
 
         Policy(
@@ -223,6 +223,6 @@ object StockPolicies {
         ),
     )
 
-    /** Índice por id, para los tests. */
+    /** Index by id, for the tests. */
     val byId: Map<Long, Policy> = all.associateBy { it.id }
 }

@@ -1,41 +1,40 @@
-# ADR-0011 — El catálogo lo maneja la API; el Excel solo siembra la carga inicial
-> **Normativo.** Decisión aceptada. Última verificación: 2026-10-09.
+# ADR-0011 — The catalog is managed by the API; the Excel only seeds the initial load
+> **Normative.** Accepted decision. Last verified: 2026-10-09.
 
 | | |
 |---|---|
-| **Estado** | Aceptada |
-| **Fecha** | 2026-10-09 (decisiones B5, D11 y R-71 del plan original) |
-| **Reemplaza a** | — |
-| **Reemplazada por** | — |
+| **Status** | Accepted |
+| **Date** | 2026-10-09 (decisions B5, D11 and R-71 of the original plan) |
+| **Replaces** | — |
+| **Replaced by** | — |
 
-## Contexto
+## Context
 
-El catálogo llegaba al legacy por un Excel y por el sistema de sincronización con SQL
-Server. Dos fuentes para el mismo dato producen productos que no coinciden entre sí.
+The catalog reached the legacy through an Excel file and through the synchronization system with SQL
+Server. Two sources for the same data produce products that do not match each other.
 
-## Decisión
+## Decision
 
-- **La API es la fuente maestra** (B5). `products` es soberano en la base de la API. Se
-  importa el Excel inicial una vez; a partir de ahí, el catálogo se cambia por la API.
-  No hay sincronización periódica.
-- **Importación estricta.** Una fila inválida rechaza el archivo entero, no se corrige
-  adivinando (`catalog/CatalogImportService.kt`; [migracion/catalogo-excel.md](../migracion/catalogo-excel.md)).
-- **Dos códigos son dos productos.** Hay 201 pares de códigos `X` y `XN`, 180 con el mismo
-  nombre. Se importan los 1.398 tal cual, sin fusionar (R-71). Es una decisión de negocio con
-  riesgo aceptado: si resultaran ser un producto partido, el stock quedaría duplicado.
-- El código de producto es único (`V3__inventory_domain.sql`) y no se cambia
+- **The API is the master source** (B5). `products` is sovereign in the API's database. The initial
+  Excel is imported once; from then on, the catalog is changed through the API.
+  There is no periodic synchronization.
+- **Strict import.** An invalid row rejects the entire file; it is not corrected by guessing
+  (`catalog/CatalogImportService.kt`; [migracion/catalogo-excel.md](../migracion/catalogo-excel.md)).
+- **Two codes are two products.** There are 201 pairs of codes `X` and `XN`, 180 with the same
+  name. The 1,398 are imported as they are, without merging (R-71). It is a business decision with
+  an accepted risk: if they turned out to be one product split in two, the stock would end up duplicated.
+- The product code is unique (`V3__inventory_domain.sql`) and is not changed
   (`PRODUCT_CODE_IMMUTABLE`, `catalog/product/ProductRoutes.kt`).
 
-## Consecuencias
+## Consequences
 
-- Cualquier dato de producto que venga de fuera de la API se trata como entrada no confiable.
-- Quien quiera cambiar un producto lo hace en la API; el Excel ya no es un canal de cambios.
-- Para el riesgo de R-71 hay una verificación barata en la migración: si ambos códigos de un
-  par tienen stock alto a la vez, hay que sospechar. Ver [migracion/catalogo-excel.md](../migracion/catalogo-excel.md).
+- Any product data that comes from outside the API is treated as untrusted input.
+- Whoever wants to change a product does it in the API; the Excel is no longer a channel for changes.
+- For the risk of R-71 there is a cheap check in the migration: if both codes of a
+  pair have high stock at the same time, it has to be suspected. See [migracion/catalogo-excel.md](../migracion/catalogo-excel.md).
 
-## Alternativas descartadas
+## Discarded alternatives
 
-- **Sincronización periódica con el sistema anterior.** Dos fuentes de verdad: es la causa
-  del descuadre que se quiere corregir.
-- **Fusionar los pares `X`/`XN`.** Sería una decisión de negocio tomada por una heurística de
-  nombres.
+- **Periodic synchronization with the previous system.** Two sources of truth: it is the cause
+  of the discrepancy that is meant to be corrected.
+- **Merging the `X`/`XN` pairs.** It would be a business decision taken by a name heuristic.

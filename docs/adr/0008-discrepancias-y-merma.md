@@ -1,53 +1,51 @@
-# ADR-0008 — Discrepancias y merma: una sola regla de ajuste, aprobada por factura
-> **Normativo.** Decisión aceptada. Última verificación: 2026-10-09.
+# ADR-0008 — Discrepancies and shrinkage: a single adjustment rule, approved per invoice
+> **Normative.** Accepted decision. Last verified: 2026-10-09.
 
 | | |
 |---|---|
-| **Estado** | Aceptada |
-| **Fecha** | 2026-10-09 (decisiones B1, B2, B3, R-74, R-75, R-86 del plan original) |
-| **Reemplaza a** | — |
-| **Reemplazada por** | — |
+| **Status** | Accepted |
+| **Date** | 2026-10-09 (decisions B1, B2, B3, R-74, R-75, R-86 of the original plan) |
+| **Replaces** | — |
+| **Replaced by** | — |
 
-## Contexto
+## Context
 
-En el legacy, la diferencia entre lo facturado y lo contado no tenía un control claro: el
-descuadre se corregía sin un registro con motivo ni un segundo firmante. El plan de
-reescritura fijó tres reglas: bloquear hasta aprobar, nunca borrar, y una sola regla de
-ajuste para todos los orígenes.
+In the legacy, the difference between what was invoiced and what was counted had no clear control: the
+discrepancy was corrected without a record with a reason or a second signer. The rewrite plan
+set three rules: block until approved, never delete, and a single adjustment rule for all the origins.
 
-## Decisión
+## Decision
 
-1. **Bloqueo.** Una línea cuya cantidad física no coincide con la facturada queda en
-   `DISCREPANCY` y no se puede ubicar. Solo llega a `APPROVED` tras la aprobación de un
-   supervisor con `invoice.approve` (`stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/receiving/InvoiceLine.kt`).
-2. **Sin umbral.** Toda diferencia requiere aprobación (R-75).
-3. **Aprobación por factura, no por línea** (R-86). El supervisor resuelve todas las
-   discrepancias de la factura en una acción: `POST /v1/invoices/{id}/approve`
-   (`receiving/ReceivingRoutes.kt`).
-4. **Segregación de funciones.** Quien capturó una línea no puede aprobarla
+1. **Block.** A line whose physical quantity does not match the invoiced one stays in
+   `DISCREPANCY` and cannot be located. It only reaches `APPROVED` after the approval of a supervisor with
+   `invoice.approve` (`stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/receiving/InvoiceLine.kt`).
+2. **No threshold.** Every difference requires approval (R-75).
+3. **Approval per invoice, not per line** (R-86). The supervisor resolves all the discrepancies of the invoice in one
+   action: `POST /v1/invoices/{id}/approve` (`receiving/ReceivingRoutes.kt`).
+4. **Segregation of duties.** Whoever captured a line cannot approve it
    (`SEGREGATION_OF_DUTIES`, `security/PermissionChecker.kt`; R-74).
-5. **La base lo impone.** Una línea no llega a `APPROVED` sin `approved_by`
-   (`CHECK` en `V3__inventory_domain.sql`).
-6. **Nunca borrar.** Toda diferencia es un movimiento de ajuste con motivo obligatorio y
-   usuario (B2). El kardex es append-only: corregir es añadir.
-7. **Una sola regla.** Ajuste de inventario, faltante en surtido, conteo y daño son
-   `AdjustStock` con distinto `origin` (B3): `INVOICE_DISCREPANCY`, `FULFILLMENT_SHORTAGE`,
+5. **The database enforces it.** A line does not reach `APPROVED` without `approved_by`
+   (`CHECK` in `V3__inventory_domain.sql`).
+6. **Never delete.** Every difference is an adjustment movement with a mandatory reason and user (B2). The
+   ledger is append-only: correcting means adding.
+7. **A single rule.** Inventory adjustment, shortage in picking, count and damage are
+   `AdjustStock` with a different `origin` (B3): `INVOICE_DISCREPANCY`, `FULFILLMENT_SHORTAGE`,
    `MANUAL_COUNT`, `DAMAGE_REPORT` (`stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/inventory/Adjustment.kt`).
 
-## Consecuencias
+## Consequences
 
-- Un supervisor que aprueba debe ver la factura completa; no puede aprobar por línea
-  aunque la API lo permitiría, porque no existe esa ruta.
-- Una factura con una discrepancia no se cierra hasta resolverla
+- A supervisor who approves must see the full invoice; they cannot approve per line
+  even though the API would allow it, because that route does not exist.
+- An invoice with a discrepancy is not closed until it is resolved
   (`INVOICE_HAS_PENDING_LINES`, `application/receiving/ReceivingUseCases.kt`).
-- Si nada está pendiente de aprobar, la API responde `409 NO_PENDING_APPROVAL`
+- If nothing is pending approval, the API answers `409 NO_PENDING_APPROVAL`
   (`application/receiving/ReceivingUseCases.kt`).
-- Se paga en tiempo del supervisor: cada discrepancia pasa por una persona. Es el coste
-  asumido para no tener un descuadre sin firma.
+- The price is paid in the supervisor's time: each discrepancy goes through a person. It is the cost
+  accepted so as not to have an unsigned discrepancy.
 
-## Alternativas descartadas
+## Discarded alternatives
 
-- **Aprobar por línea** (R-86): obliga a repetir el mismo juicio N veces y deja la factura en
-  un estado intermedio.
-- **Umbral de tolerancia** (R-75): cualquier umbral es una decisión de merma sin firma.
-- **Dos reglas separadas** (merma y discrepancia): dos sitios donde equivocarse.
+- **Approve per line** (R-86): it forces repeating the same judgment N times and leaves the invoice in
+  an intermediate state.
+- **Tolerance threshold** (R-75): any threshold is an unsigned shrinkage decision.
+- **Two separate rules** (shrinkage and discrepancy): two places to make mistakes.

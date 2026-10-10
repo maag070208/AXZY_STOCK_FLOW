@@ -1,33 +1,33 @@
-# Auditoría
-> **Referencia.** La bitácora: quién hizo qué, cuándo y por qué. **Solo lectura.**
-> Última verificación: 2026-10-10 (fase 9, M08 cerrado).
+# Audit
+> **Reference.** The audit log: who did what, when and why. **Read-only.**
+> Last verified: 2026-10-10 (phase 9, M08 closed).
 
-Implementado en capas, como el resto de la API:
+Implemented in layers, like the rest of the API:
 
-| Capa | Archivo |
+| Layer | File |
 |---|---|
-| Ruta | `api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/audit/AuditController.kt` |
-| Caso de uso y puertos | `api/application/src/main/kotlin/dev/axzy/stock/application/audit/AuditQueries.kt` |
-| Consulta | `api/adapters-persistence/.../audit/JdbcAuditQueries.kt` |
-| Escritura (desde la fase 3) | `api/adapters-persistence/.../audit/JdbcAuditRecorder.kt` |
-| Cableado | `api/app/src/main/kotlin/dev/axzy/stock/app/config/AuditConfig.kt` |
+| Route | `api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/audit/AuditController.kt` |
+| Use case and ports | `api/application/src/main/kotlin/dev/axzy/stock/application/audit/AuditQueries.kt` |
+| Query | `api/adapters-persistence/.../audit/JdbcAuditQueries.kt` |
+| Writing (since phase 3) | `api/adapters-persistence/.../audit/JdbcAuditRecorder.kt` |
+| Wiring | `api/app/src/main/kotlin/dev/axzy/stock/app/config/AuditConfig.kt` |
 
-Las reglas del módulo están en [M08](../modulos/M08-auditoria/README.md) y el flujo en
-[flujos/auditoria.md](../flujos/auditoria.md). Esta página documenta **la consulta**.
+The module's rules are in [M08](../modulos/M08-auditoria/README.md) and the flow in
+[flujos/auditoria.md](../flujos/auditoria.md). This page documents **the query**.
 
 ## `GET /v1/audit/log`
 
-Permiso: `audit.view`. Paginación por `page` y `size`.
+Permission: `audit.view`. Pagination by `page` and `size`.
 
-| Parámetro | Qué filtra |
+| Parameter | What it filters |
 |---|---|
-| `entityType`, `entityId` | sobre qué se actuó (`product`, `invoice`, `print_job`…) |
-| `actorUserId` | quién lo hizo |
-| `action` | la acción (`PRODUCT_CREATED`, `INVENTORY_ADJUSTED`…) |
+| `entityType`, `entityId` | what was acted on (`product`, `invoice`, `print_job`…) |
+| `actorUserId` | who did it |
+| `action` | the action (`PRODUCT_CREATED`, `INVENTORY_ADJUSTED`…) |
 | `level` | `CRITICAL`, `RELEVANT`, `ACCESS`, `TECHNICAL` |
 | `result` | `SUCCESS`, `FAILURE`… |
 | `channel` | `WEB`, `MOBILE`, `SERVICE_PRINTER`… |
-| `from`, `to` | rango de **fechas de negocio** (`AAAA-MM-DD`), ambas incluidas |
+| `from`, `to` | range of **business dates** (`YYYY-MM-DD`), both inclusive |
 
 ```json
 {
@@ -50,47 +50,47 @@ Permiso: `audit.view`. Paginación por `page` y `size`.
 }
 ```
 
-**`previousState` y `newState` viajan como JSON en texto**, no como objeto: son documentos
-libres y cada acción tiene los suyos. Un tipo fijo obligaría a inventar un esquema común
-que ninguna acción respeta.
+**`previousState` and `newState` travel as JSON in text**, not as an object: they are free
+documents and each action has its own. A fixed type would force inventing a common schema
+that no action respects.
 
-**El total se calcula con el mismo filtro que la página.** Si el conteo los ignorara, el
-sobre diría una cosa y las filas otra (U5).
+**The total is calculated with the same filter as the page.** If the count ignored them, the
+envelope would say one thing and the rows another (U5).
 
-**Las fechas son de negocio, no instantes.** La tabla ya guarda `business_date`: un cierre
-se explica por día de trabajo, y filtrar por instantes obligaría a cada cliente a decidir
-en qué huso horario empieza el día. Un rango invertido responde `400 INVALID_FILTER_RANGE`
-y una fecha mal formada, `400 INVALID_FILTER_DATE`.
+**The dates are business dates, not instants.** The table already stores `business_date`: a closing
+is explained by working day, and filtering by instants would force each client to decide
+in which time zone the day begins. An inverted range answers `400 INVALID_FILTER_RANGE`
+and a malformed date, `400 INVALID_FILTER_DATE`.
 
-## Lo que no existe, a propósito
+## What does not exist, on purpose
 
-- **No hay `PUT` ni `DELETE`.** La tabla es inmutable por disparadores: un `UPDATE` o un
-  `DELETE` fallan con «audit_log es append-only». Para corregir un registro se añade uno
-  nuevo que lo compensa, que es lo único que mantiene la bitácora creíble.
-- No hay exportación a sistemas externos (fuera del alcance de M08).
+- **There is no `PUT` nor `DELETE`.** The table is immutable through triggers: an `UPDATE` or a
+  `DELETE` fails with "audit_log is append-only". To correct a record, a new one is added that compensates for it,
+  which is the only thing that keeps the audit log credible.
+- There is no export to external systems (out of scope for M08).
 
-## La consulta también se registra
+## The query is also recorded
 
-Consultar la bitácora **escribe su propio registro**, con nivel `ACCESS`, acción
-`AUDIT_QUERIED` y los filtros en el estado nuevo. Quien mira la bitácora está viendo quién
-hizo qué: es información sensible, y el módulo dice que su consulta se registra como
-acceso.
+Querying the audit log **writes its own record**, with level `ACCESS`, action
+`AUDIT_QUERIED` and the filters in the new state. Whoever looks at the audit log is seeing who
+did what: it is sensitive information, and the module says that its query is recorded as
+access.
 
-Se escribe **después** de leer: si el registro fallara, la consulta ya se hizo y lo que no
-puede quedar es el hecho sin rastro.
+It is written **after** reading: if the record failed, the query has already been made, and what must not
+remain is the fact without a trace.
 
-## Permisos y errores
+## Permissions and errors
 
-| Código | HTTP | Cuándo |
+| Code | HTTP | When |
 |---|---|---|
-| `PERMISSION_DENIED` | 403 | consulta sin `audit.view` |
-| `INVALID_FILTER_RANGE` | 400 | `from` posterior a `to` |
-| `INVALID_FILTER_DATE` | 400 | una fecha que no es `AAAA-MM-DD` |
-| `INVALID_PAGINATION` | 400 | `page` o `size` fuera de rango |
+| `PERMISSION_DENIED` | 403 | query without `audit.view` |
+| `INVALID_FILTER_RANGE` | 400 | `from` later than `to` |
+| `INVALID_FILTER_DATE` | 400 | a date that is not `YYYY-MM-DD` |
+| `INVALID_PAGINATION` | 400 | `page` or `size` out of range |
 
-## Verificación
+## Verification
 
-| Archivo | Qué cubre |
+| File | What it covers |
 |---|---|
-| `api/app/src/test/kotlin/dev/axzy/stock/app/AuditFlowTest.kt` | U5 (filtros y paginación con el total del mismo filtro), los filtros por acción, actor y nivel, que el registro lleva quién/qué/cuándo/por qué, que un `CRITICAL` lleva su permiso y su traza, que la consulta se registra como acceso, los errores de filtro, el permiso y la inmutabilidad de la tabla (U2) |
-| `stock-domain/src/commonTest/.../audit/` | las reglas del registro, sin base de datos |
+| `api/app/src/test/kotlin/dev/axzy/stock/app/AuditFlowTest.kt` | U5 (filters and pagination with the total of the same filter), the filters by action, actor and level, that the record carries who/what/when/why, that a `CRITICAL` carries its permission and its trace, that the query is recorded as access, the filter errors, the permission and the immutability of the table (U2) |
+| `stock-domain/src/commonTest/.../audit/` | the rules of the record, without a database |

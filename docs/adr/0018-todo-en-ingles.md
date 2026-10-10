@@ -1,44 +1,44 @@
-# ADR-0018 — Todo en inglés: código, interfaz, datos, mensajes y documentación
-> **Normativo.** Decisión aceptada. Última verificación: 2026-10-10.
+# ADR-0018 — Everything in English: code, interface, data, messages and documentation
+> **Normative.** Accepted decision. Last verified: 2026-10-10.
 
 | | |
 |---|---|
-| **Estado** | Aceptada |
-| **Fecha** | 2026-10-10 |
-| **Reemplaza a** | [ADR-0004](0004-nombres-en-ingles-comentarios-en-espanol.md) (comentarios y documentación en español) y [ADR-0017](0017-identificadores-y-datos-en-ingles.md) (excepciones pendientes) |
-| **Reemplazada por** | — |
+| **Status** | Accepted |
+| **Date** | 2026-10-10 |
+| **Replaces** | [ADR-0004](0004-nombres-en-ingles-comentarios-en-espanol.md) (comments and documentation in Spanish) and [ADR-0017](0017-identificadores-y-datos-en-ingles.md) (pending exceptions) |
+| **Replaced by** | — |
 
-## Contexto
+## Context
 
-ADR-0004 dejó en español los comentarios, la documentación y los mensajes de error que lee el
-operador. ADR-0017 pasó a inglés los códigos, las claves y los datos. Quedaban en español la
-interfaz, los mensajes de la API, los nombres de las pruebas, las funciones SQL del motor y los
-comentarios. El dueño del proyecto pidió que todo lo que sea español pase a inglés, con i18n para
-la interfaz.
+ADR-0004 left the comments, the documentation and the error messages that the operator reads in Spanish. ADR-0017 moved the
+codes, keys and data to English. Still in Spanish were the interface, the API messages, the test names, the SQL engine
+functions and the comments. The project owner asked that everything that is Spanish move to English, with i18n for
+the interface.
 
-## Decisión
+## Decision
 
-Todo lo que el proyecto escribe va en inglés:
+Everything the project writes goes in English:
 
-- **Código**: identificadores, comentarios, nombres de pruebas y de archivos.
-- **Interfaz web**: todo el texto visible sale de i18next (`src/shared/i18n/locales/en.json`). Los
-  errores de la API se traducen por código, nunca se muestra el mensaje del servidor.
-- **Datos y contrato**: claves de rol, códigos de bodega y ubicación (ADR-0017), nombres de permisos
-  y roles visibles.
-- **Mensajes de la API**: en inglés. Lo que el operador lee en un log también va en inglés.
-- **Funciones SQL**: se renombran con una migración nueva; los cuerpos que se llaman entre sí se
-  reescriben en la misma migración.
-- **Documentación** (`docs/`, `ARRANQUE.md`, `README.md`): en inglés.
+- **Code**: identifiers, comments, test names and file names.
+- **Web interface**: all visible text comes from i18next (`src/shared/i18n/locales/en.json`). The API
+  errors are translated by code; the server message is never shown.
+- **Data and contract**: role keys, warehouse and location codes (ADR-0017), names of permissions
+  and visible roles.
+- **API messages**: in English. What the operator reads in a log also goes in English.
+- **SQL functions**: they are renamed with a new migration; the bodies that call each other are rewritten in the same migration.
+- **Documentation** (`docs/`, `ARRANQUE.md`, `README.md`): in English.
 
-**Excepciones que se quedan**, porque son datos y no texto: la unidad de medida `PZA` del catálogo
-legacy y la letra `Ñ` del alfabeto de códigos de producto.
+**Exceptions that stay**, because they are data and not text: the unit of measure `PZA` of the legacy catalog
+and the letter `Ñ` of the product code alphabet.
 
-## Estado de la migración
+## Migration status
 
-- Verificado: backend completo (`./gradlew verify`) y suite de navegador (30/30).
-- Pendiente: nombres de pruebas, funciones SQL (migración `V17`), comentarios y documentación.
+- Verified: complete backend (`./gradlew verify`) and browser suite (30/30).
+- Done: comments in the code (Kotlin and web), verified with the domain tests and the catalog flow test.
+- In progress: documentation (`docs/`, `ARRANQUE.md`, `README.md`).
+- Pending: Kotlin test names, SQL functions (migration `V17`).
 
-## Consecuencias
+## Consequences
 
-- Una documentación en inglés cambia cada enlace y cada tabla de `docs/`; se hace en una pasada
-  con verificación de enlaces, no archivo por archivo.
+- A documentation set in English changes every link and every table in `docs/`; it is done in one pass
+  with link verification, not file by file.

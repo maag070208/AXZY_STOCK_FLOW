@@ -1,72 +1,74 @@
-# Documentación de StockFlow
-> **Índice.** Por dónde empezar y qué documento manda en cada tema. Última revisión: 2026-10-09.
+# StockFlow documentation
+> **Index.** Where to start and which document governs each topic. Last revised: 2026-10-09.
 
-StockFlow es el sistema de almacén de Almacén Integral (Cascar). Se reconstruye desde cero con:
+StockFlow is the warehouse system of Almacén Integral (Cascar). It is rebuilt from scratch with:
 
-- **API**: Kotlin con Spring Boot, en capas, con inyección de dependencias por constructor.
-- **Base de datos**: PostgreSQL 16, con migraciones Flyway y el motor de inventario en SQL.
-- **Entorno**: Docker Compose.
-- **App**: Kotlin Multiplatform para Android e iOS.
-- **Web**: React con AXZY UI System `^1.4.7`.
+- **API**: Kotlin with Spring Boot, layered, with constructor-based dependency injection.
+- **Database**: PostgreSQL 16, with Flyway migrations and the inventory engine in SQL.
+- **Environment**: Docker Compose.
+- **App**: Kotlin Multiplatform for Android and iOS.
+- **Web**: React with AXZY UI System `^1.4.7`.
 
-El código anterior (Ktor) está en el historial de git y en `historico/`. El legacy de Node está en `BASE/`.
+The previous code (Ktor) is in the git history and in `historico/`. The Node legacy is in `BASE/`.
 
-## Por dónde empezar
+## Where to start
 
-1. [plan/PLAN-REHACER.md](plan/PLAN-REHACER.md): qué se construye, en qué fases y qué decisiones siguen abiertas.
-   [plan/PLAN-IMPLEMENTACION.md](plan/PLAN-IMPLEMENTACION.md): los módulos, sus dependencias y el criterio de terminado de cada uno.
-2. [arquitectura/general.md](arquitectura/general.md): cómo se relacionan las partes.
-3. [flujos/README.md](flujos/README.md): los procesos que debe cumplir el sistema.
+1. [plan/PLAN-REHACER.md](plan/PLAN-REHACER.md): what is being built, in which phases, and which decisions are still open.
+   [plan/PLAN-IMPLEMENTACION.md](plan/PLAN-IMPLEMENTACION.md): the modules, their dependencies and the definition of done of each one.
+2. [arquitectura/general.md](arquitectura/general.md): how the parts relate to each other.
+3. [flujos/README.md](flujos/README.md): the processes the system must fulfill.
 
-## Qué manda en cada tema
+## What governs each topic
 
-| Tema | Documento normativo | Notas |
+| Topic | Normative document | Notes |
 |---|---|---|
-| Plan y fases | [plan/PLAN-REHACER.md](plan/PLAN-REHACER.md) | Manda sobre el orden de trabajo |
-| Capas y DI de la API | [arquitectura/api-spring.md](arquitectura/api-spring.md) | Incluye las reglas de rendimiento (§11) |
-| Entorno y migraciones | [arquitectura/infraestructura.md](arquitectura/infraestructura.md) | |
-| Versiones | [arquitectura/stack.md](arquitectura/stack.md) | Las versiones pendientes se fijan en la fase 0 |
+| Plan and phases | [plan/PLAN-REHACER.md](plan/PLAN-REHACER.md) | Governs the order of work |
+| API layers and DI | [arquitectura/api-spring.md](arquitectura/api-spring.md) | Includes the performance rules (§11) |
+| Environment and migrations | [arquitectura/infraestructura.md](arquitectura/infraestructura.md) | |
+| Versions | [arquitectura/stack.md](arquitectura/stack.md) | Pending versions are pinned in phase 0 |
 | App | [arquitectura/app-kmp.md](arquitectura/app-kmp.md) | |
-| Web | [arquitectura/web-react.md](arquitectura/web-react.md) y [arquitectura/web-fsd.md](arquitectura/web-fsd.md) | El primero, para el UI system; el segundo, para las capas |
-| Dominio compartido | [arquitectura/dominio-kmp.md](arquitectura/dominio-kmp.md) | Pendiente de D6 |
-| Procesos | [flujos/](flujos/README.md) | Manda sobre los módulos cuando se contradicen |
-| Decisiones | [adr/](adr/) | Un ADR por decisión; los reemplazos están marcados |
-| Contrato HTTP | [api/](api/convenciones.md) | Lo consume la app y la web |
-| Seguridad | [seguridad/](seguridad/roles-permisos.md) | |
+| Web | [arquitectura/web-react.md](arquitectura/web-react.md) and [arquitectura/web-fsd.md](arquitectura/web-fsd.md) | The first for the UI system; the second for the layers |
+| Shared domain | [arquitectura/dominio-kmp.md](arquitectura/dominio-kmp.md) | Pending D6 |
+| Processes | [flujos/](flujos/README.md) | Governs the modules when they contradict each other |
+| Decisions | [adr/](adr/) | One ADR per decision; replacements are marked |
+| HTTP contract | [api/](api/convenciones.md) | Consumed by the app and the web |
+| Security | [seguridad/](seguridad/roles-permisos.md) | |
 
-## Decisiones (ADR)
+## Decisions (ADR)
 
-| ADR | Tema | Estado |
+| ADR | Topic | Status |
 |---|---|---|
-| [0001](adr/0001-clean-architecture-en-la-api.md) | Clean Architecture en la API | Reemplazo parcial por 0014 (framework) |
-| [0002](adr/0002-fsd-en-la-web.md) | FSD en la web | Vigente |
-| [0003](adr/0003-vertical-slice-en-la-app.md) | Vertical slice en la app | Vigente |
-| [0004](adr/0004-nombres-en-ingles-comentarios-en-espanol.md) | Nombres en inglés, comentarios en español | Vigente |
-| [0005](adr/0005-errores-devuelto-no-lanzado.md) | Errores devueltos, no lanzados | Vigente |
-| [0006](adr/0006-rbac-mas-abac-denegar-por-defecto.md) | RBAC + ABAC, denegar por defecto | Vigente |
-| [0007](adr/0007-multi-bodega-desde-el-esquema.md) | Multi-bodega desde el esquema | Vigente |
-| [0008](adr/0008-discrepancias-y-merma.md) | Discrepancias y merma | Vigente |
-| [0009](adr/0009-ubicacion-de-recepcion-real.md) | Ubicación de recepción real | Vigente |
-| [0010](adr/0010-rutas-de-servicio-con-api-key.md) | Rutas de servicio con clave de API | Vigente |
-| [0011](adr/0011-catalogo-fuente-maestra.md) | Catálogo como fuente maestra | Vigente |
-| [0012](adr/0012-conciliar-stock-heredado-con-conteo.md) | Conciliar stock heredado con conteo | Vigente |
-| [0013](adr/0013-ordenes-al-erp-con-reintentos.md) | Órdenes al ERP con reintentos | Vigente; el cliente del ERP no existe |
-| [0014](adr/0014-api-spring-boot-clean-architecture.md) | API en Spring Boot, en capas, con DI | Aceptada |
-| [0015](adr/0015-postgresql-flyway-motor-en-sql.md) | PostgreSQL con Flyway y motor en SQL | Aceptada |
-| [0016](adr/0016-docker-compose-para-el-entorno.md) | Docker Compose, migraciones como servicio | Aceptada |
+| [0001](adr/0001-clean-architecture-en-la-api.md) | Clean Architecture in the API | Partially replaced by 0014 (framework) |
+| [0002](adr/0002-fsd-en-la-web.md) | FSD in the web | In force |
+| [0003](adr/0003-vertical-slice-en-la-app.md) | Vertical slice in the app | In force |
+| [0004](adr/0004-nombres-en-ingles-comentarios-en-espanol.md) | Names in English, comments in Spanish | Replaced by 0018 |
+| [0005](adr/0005-errores-devuelto-no-lanzado.md) | Errors returned, not thrown | In force |
+| [0006](adr/0006-rbac-mas-abac-denegar-por-defecto.md) | RBAC + ABAC, deny by default | In force |
+| [0007](adr/0007-multi-bodega-desde-el-esquema.md) | Multi-warehouse from the schema | In force |
+| [0008](adr/0008-discrepancias-y-merma.md) | Discrepancies and shrinkage | In force |
+| [0009](adr/0009-ubicacion-de-recepcion-real.md) | Real receiving location | In force |
+| [0010](adr/0010-rutas-de-servicio-con-api-key.md) | Service routes with an API key | In force |
+| [0011](adr/0011-catalogo-fuente-maestra.md) | Catalog as master source | In force |
+| [0012](adr/0012-conciliar-stock-heredado-con-conteo.md) | Reconcile legacy stock with a count | In force |
+| [0013](adr/0013-ordenes-al-erp-con-reintentos.md) | Orders to the ERP with retries | In force; the ERP client does not exist |
+| [0014](adr/0014-api-spring-boot-clean-architecture.md) | API in Spring Boot, layered, with DI | Accepted |
+| [0015](adr/0015-postgresql-flyway-motor-en-sql.md) | PostgreSQL with Flyway and the engine in SQL | Accepted |
+| [0016](adr/0016-docker-compose-para-el-entorno.md) | Docker Compose, migrations as a service | Accepted |
+| [0017](adr/0017-identificadores-y-datos-en-ingles.md) | Identifiers and data in English | Replaced by 0018 |
+| [0018](adr/0018-todo-en-ingles.md) | Everything in English | Accepted; replaces 0004 and 0017 |
 
-## Reglas de negocio por módulo
+## Business rules by module
 
-Los módulos describen cada área con su alcance, reglas y pruebas. Sus rutas de código apuntan al
-código anterior y se remapean al implementar: [modulos/](modulos/README.md).
+The modules describe each area with its scope, rules and tests. Their code paths point to the
+previous code and are remapped when implementing: [modulos/](modulos/README.md).
 
-## Análisis
+## Analysis
 
 - [analisis/legacy-entradas-salidas-ajustes-traslados.md](analisis/legacy-entradas-salidas-ajustes-traslados.md):
-  hallazgos de rendimiento e integridad del legacy en entradas, salidas, ajustes y traslados, con su
-  archivo y línea, y la corrección prevista en el diseño nuevo.
+  performance and integrity findings of the legacy in receipts, outflows, adjustments and transfers, with its
+  file and line, and the fix planned in the new design.
 
-## Histórico
+## Historical
 
-`historico/` guarda los documentos del diseño anterior (Ktor, Compose de la API, planes de fases
-pasadas). Sirven como referencia de lo que ya se decidió; no describen el sistema que se construye.
+`historico/` keeps the documents of the previous design (Ktor, the API's Compose, plans from past
+phases). They serve as a reference of what was already decided; they do not describe the system being built.

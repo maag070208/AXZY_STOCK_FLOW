@@ -1,50 +1,50 @@
-# Flujos de StockFlow
-> **Normativo.** Los flujos que debe cumplir cada parte del sistema. Son la referencia para escribir
-> las pruebas de aceptación y el código. Última revisión: 2026-10-09.
+# StockFlow flows
+> **Normative.** The flows each part of the system must fulfill. They are the reference for writing
+> the acceptance tests and the code. Last revised: 2026-10-09.
 
-## Índice
+## Index
 
-| Flujo | Qué cubre | Módulo |
+| Flow | What it covers | Module |
 |---|---|---|
-| [autenticacion-y-permisos.md](autenticacion-y-permisos.md) | Login, sesión, cambio de contraseña, decisión de acceso | Identidad |
-| [catalogo.md](catalogo.md) | Productos, ubicaciones, bodegas, importación del Excel | Catálogo |
-| [existencias-y-ajustes.md](existencias-y-ajustes.md) | Movimientos, ajustes, ubicar, mover, kardex, total por producto | Existencias |
-| [recepcion.md](recepcion.md) | Factura, captura física, discrepancias, aprobación, ubicación | Recepción |
-| [surtido-y-erp.md](surtido-y-erp.md) | Orden, empaque, faltantes, confirmación, exportación al ERP | Surtido |
-| [traslados.md](traslados.md) | Traslado entre ubicaciones y entre bodegas, tránsito | Traslados |
-| [etiquetas.md](etiquetas.md) | Plantillas, cola de impresión, confirmación, reimpresión | Etiquetas |
-| [auditoria.md](auditoria.md) | Bitácora de escrituras, inmutabilidad, consulta | Auditoría |
+| [autenticacion-y-permisos.md](autenticacion-y-permisos.md) | Sign-in, session, password change, access decision | Identity |
+| [catalogo.md](catalogo.md) | Products, locations, warehouses, import of the Excel | Catalog |
+| [existencias-y-ajustes.md](existencias-y-ajustes.md) | Movements, adjustments, locate, move, ledger, total per product | Stock |
+| [recepcion.md](recepcion.md) | Invoice, physical count, discrepancies, approval, location | Receiving |
+| [surtido-y-erp.md](surtido-y-erp.md) | Order, packing, shortages, confirmation, export to the ERP | Picking |
+| [traslados.md](traslados.md) | Transfer between locations and between warehouses, transit | Transfers |
+| [etiquetas.md](etiquetas.md) | Templates, print queue, confirmation, reprint | Labels |
+| [auditoria.md](auditoria.md) | Write log, immutability, query | Audit |
 
-## Cómo se lee un flujo
+## How a flow is read
 
-Cada flujo tiene las mismas secciones:
+Each flow has the same sections:
 
-1. **Objetivo y actores**: quién lo usa y para qué.
-2. **Precondiciones**: lo que tiene que existir antes.
-3. **Flujo**: el diagrama de secuencia de la API, con los pasos que se cumplen en orden.
-4. **Estados**: las transiciones permitidas. Cualquier transición que no esté aquí se rechaza.
-5. **Pruebas de aceptación**: escenarios en formato Dado / Cuando / Entonces. Son la lista mínima
-   que tiene que pasar antes de dar el flujo por terminado.
-6. **Errores**: los códigos que puede devolver, con su significado.
-7. **Permisos**: qué permiso exige cada paso.
-8. **Bitácora**: qué escribe en la auditoría.
-9. **Reglas y decisiones**: enlaces a los ADR que las justifican.
+1. **Objective and actors**: who uses it and for what.
+2. **Preconditions**: what has to exist beforehand.
+3. **Flow**: the API sequence diagram, with the steps that are fulfilled in order.
+4. **States**: the allowed transitions. Any transition not listed here is rejected.
+5. **Acceptance tests**: scenarios in Given / When / Then format. They are the minimum list
+   that has to pass before the flow is considered finished.
+6. **Errors**: the codes it can return, with their meaning.
+7. **Permissions**: which permission each step requires.
+8. **Audit log**: what it writes to the audit log.
+9. **Rules and decisions**: links to the ADRs that justify them.
 
-## Convenciones de los diagramas
+## Diagram conventions
 
-- Participantes: `Operador` (app o web), `API`, `Caso de uso` (dentro de la API), `Base` (PostgreSQL).
-- Un paso dentro de `Base` que termina con `COMMIT` marca el final de una transacción.
-- Las líneas `alt` y `opt` son las ramas que las pruebas deben cubrir.
+- Participants: `Operator` (app or web), `API`, `Use case` (inside the API), `Database` (PostgreSQL).
+- A step inside `Database` that ends with `COMMIT` marks the end of a transaction.
+- The `alt` and `opt` branches are the ones the tests must cover.
 
-## Qué no está en los flujos
+## What is not in the flows
 
-- Detalle de cada endpoint (cuerpo, respuesta, campos): [api/](../api/convenciones.md).
-- Cómo se implementa cada paso en código: [arquitectura/api-spring.md](../arquitectura/api-spring.md).
-- Reglas que no son de un flujo concreto: [seguridad/](../seguridad/roles-permisos.md).
+- Detail of each endpoint (body, response, fields): [api/](../api/convenciones.md).
+- How each step is implemented in code: [arquitectura/api-spring.md](../arquitectura/api-spring.md).
+- Rules that do not belong to a specific flow: [seguridad/](../seguridad/roles-permisos.md).
 
-## Correspondencia con los módulos anteriores
+## Correspondence with the previous modules
 
-Los módulos M01–M09 en [modulos/](../modulos/README.md) describieron el comportamiento del sistema
-anterior con rutas de código de Ktor. Las reglas de negocio de esos módulos siguen vigentes y los
-flujos de esta carpeta las reorganizan por proceso. Cuando un flujo y un módulo se contradicen,
-manda el flujo y el módulo se corrige.
+Modules M01–M09 in [modulos/](../modulos/README.md) described the behavior of the previous system
+with Ktor code paths. The business rules of those modules remain in force and the flows in
+this folder reorganize them by process. When a flow and a module contradict each other,
+the flow prevails and the module is corrected.

@@ -3,37 +3,37 @@ package dev.axzy.stock.domain.error
 import kotlinx.serialization.Serializable
 
 /**
- * Errores del dominio.
+ * Domain errors.
  *
- * Se modelan como un tipo sellado en lugar de excepciones por tres razones:
+ * They are modeled as a sealed type instead of exceptions, for three reasons:
  *
- *  1. **Son parte del contrato**, no un accidente: "la cantidad excede la
- *     factura" es un resultado de negocio esperado, no un fallo del programa.
- *  2. **Obligan a manejarlos**: un `when` exhaustivo sobre [DomainError] no
- *     compila si aparece un caso nuevo sin tratar.
- *  3. **Se pueden mapear a códigos HTTP** sin perder información, y cada uno
- *     tiene un código estable que el móvil y la web usan para decidir qué
- *     mensaje mostrar. Un "acceso denegado" genérico no es accionable; "no
- *     tienes permiso sobre esta bodega" sí.
+ *  1. **They are part of the contract**, not an accident: "the quantity exceeds the
+ *     invoice" is an expected business result, not a program failure.
+ *  2. **They force you to handle them**: an exhaustive `when` over [DomainError] does not
+ *     compile if a new case appears without being handled.
+ *  3. **They can be mapped to HTTP codes** without losing information, and each one has a
+ *     stable code that the mobile app and the web use to decide which
+ *     message to show. A generic "access denied" is not actionable; "no
+ *     you do not have permission over this warehouse" is.
  *
- * Referencia: docs/historico/PLAN_ALMACEN_INTEGRAL.md §4 (códigos de error) y
- * docs/historico/PLAN_REFACTOR_MEJORAS.md R-20 (el legacy devolvía HTTP 200 en errores de
- * negocio y 500 con cuerpo `{}`).
+ * Reference: docs/historico/PLAN_ALMACEN_INTEGRAL.md §4 (error codes) and
+ * docs/historico/PLAN_REFACTOR_MEJORAS.md R-20 (the legacy returned HTTP 200 on business errors and
+ * 500 with body `{}`).
  */
 @Serializable
 sealed interface DomainError {
 
-    /** Código estable para el cliente. No cambia entre versiones. */
+    /** Stable code for the client. It does not change between versions. */
     val code: String
 
-    /** Mensaje legible. Es un detalle de presentación; el cliente usa [code]. */
+    /** Readable message. It is a presentation detail; the client uses [code]. */
     val message: String
 
-    // ── Transiciones de estado ──────────────────────────────────────────────
+    // ── State transitions ──────────────────────────────────────────────────
 
     /**
-     * La transición pedida no es válida desde el estado actual.
-     * El legacy permitía saltos ilegales porque los estados eran strings libres.
+     * The requested transition is not valid from the current state.
+     * The legacy allowed illegal jumps because the states were free strings.
      */
     data class InvalidTransition(
         val entity: String,
@@ -46,7 +46,7 @@ sealed interface DomainError {
 
     // ── Cantidades ──────────────────────────────────────────────────────────
 
-    /** Se intentó ubicar o surtir más de lo que la línea admite. */
+    /** An attempt was made to locate or fulfill more than the line admits. */
     data class ExceedsLineQuantity(
         val requested: Long,
         val available: Long,
@@ -57,8 +57,8 @@ sealed interface DomainError {
     }
 
     /**
-     * La cantidad y las unidades por caja no cuadran (decisión R-80).
-     * Una factura de 100 piezas con cajas de 30 es siempre un dato mal capturado.
+     * The quantity and the units per box do not add up (decision R-80).
+     * An invoice for 100 pieces with boxes of 30 is always wrongly captured data.
      */
     data class BoxesDoNotDivideEvenly(
         val quantity: Long,
@@ -72,8 +72,8 @@ sealed interface DomainError {
     }
 
     /**
-     * Las cajas declaradas no caben en la cantidad declarada.
-     * Ejemplo: 80 piezas con 2 cajas de 50 (serían 100).
+     * The declared boxes do not fit in the declared quantity.
+     * Example: 80 pieces with 2 boxes of 50 (that would be 100).
      */
     data class InconsistentBoxCount(
         val quantity: Long,
@@ -85,21 +85,21 @@ sealed interface DomainError {
         override val code = "INCONSISTENT_BOX_COUNT"
     }
 
-    /** Cantidad negativa o cero donde se exige positiva. */
+    /** Negative or zero quantity where a positive one is required. */
     data class InvalidQuantity(
         override val message: String,
     ) : DomainError {
         override val code = "INVALID_QUANTITY"
     }
 
-    // ── Discrepancias y aprobación ──────────────────────────────────────────
+    // ── Discrepancies and approval ───────────────────────────────────────────
 
     /**
-     * La línea tiene una discrepancia sin aprobar.
+     * The line has an unapproved discrepancy.
      *
-     * Es el error que hace efectiva la regla B1: **no se puede ubicar
-     * mercancía cuya diferencia con la factura no haya sido autorizada**.
-     * En el legacy este control no existía.
+     * It is the error that makes rule B1 effective: **goods cannot be located
+     * whose difference from the invoice has not been authorized**.
+     * In the legacy this control did not exist.
      */
     data class DiscrepancyNotApproved(
         val difference: Long,
@@ -111,10 +111,10 @@ sealed interface DomainError {
     }
 
     /**
-     * Quien capturó intenta aprobar su propia discrepancia (decisión R-74).
+     * Whoever counted tries to approve their own discrepancy (decision R-74).
      *
-     * Es el control interno más importante del flujo de recepción: evita que
-     * alguien tape su propio error de conteo.
+     * It is the most important internal control of the receiving flow: it prevents
+     * someone from covering up their own counting error.
      */
     data class SegregationOfDuties(
         override val message: String =
@@ -124,7 +124,7 @@ sealed interface DomainError {
         override val code = "SEGREGATION_OF_DUTIES"
     }
 
-    /** Se intentó aprobar algo que no está en estado de aprobación. */
+    /** An attempt was made to approve something that is not in an approvable state. */
     data class NotPendingApproval(
         val currentStatus: String,
         override val message: String =
@@ -133,7 +133,7 @@ sealed interface DomainError {
         override val code = "NOT_PENDING_APPROVAL"
     }
 
-    /** Se exige un motivo y no se proporcionó (invariante I6). */
+    /** A reason is required and was not provided (invariant I6). */
     data class ReasonRequired(
         val context: String,
         override val message: String = "A reason is required for $context",
@@ -143,7 +143,7 @@ sealed interface DomainError {
 
     // ── Inventario ──────────────────────────────────────────────────────────
 
-    /** La operación dejaría stock negativo (invariante I2). */
+    /** The operation would leave negative stock (invariant I2). */
     data class InsufficientStock(
         val available: Long,
         val requested: Long,
@@ -155,8 +155,8 @@ sealed interface DomainError {
     }
 
     /**
-     * El origen y el destino de un movimiento son iguales.
-     * En el legacy esto no se validaba y generaba movimientos sin efecto.
+     * The origin and the destination of a movement are the same.
+     * In the legacy this was not validated and generated movements with no effect.
      */
     data class SameSourceAndDestination(
         val location: String,
@@ -167,7 +167,7 @@ sealed interface DomainError {
 
     // ── Documentos ──────────────────────────────────────────────────────────
 
-    /** El documento tiene líneas pendientes y no se puede cerrar. */
+    /** The document has pending lines and cannot be closed. */
     data class HasPendingLines(
         val pendingCount: Int,
         override val message: String =
@@ -177,8 +177,8 @@ sealed interface DomainError {
     }
 
     /**
-     * Se intentó borrar un documento con efecto en inventario.
-     * No se borra: se **anula** con un movimiento compensatorio (R-57 y R-68).
+     * An attempt was made to delete a document with an inventory effect.
+     * It is not deleted: it is **cancelled** with a compensating movement (R-57 and R-68).
      */
     data class CannotDeleteWithInventoryEffect(
         override val message: String =
@@ -188,7 +188,7 @@ sealed interface DomainError {
         override val code = "CANNOT_DELETE_WITH_INVENTORY_EFFECT"
     }
 
-    /** Conflicto de unicidad (número de factura u orden ya existe). */
+    /** Uniqueness conflict (invoice number or order already exists). */
     data class Duplicate(
         val entity: String,
         val value: String,
@@ -197,7 +197,7 @@ sealed interface DomainError {
         override val code = "DUPLICATE"
     }
 
-    /** El recurso no existe. */
+    /** The resource does not exist. */
     data class NotFound(
         val entity: String,
         val id: String,
@@ -206,9 +206,9 @@ sealed interface DomainError {
         override val code = "NOT_FOUND"
     }
 
-    // ── Acceso (detalle en docs/historico/PLAN_ROLES_PERMISOS_POLITICAS.md) ────────────────
+    // ── Access (detail in docs/historico/PLAN_ROLES_PERMISOS_POLITICAS.md) ────────────────
 
-    /** RBAC no alcanza: el usuario no tiene el permiso. */
+    /** RBAC is not enough: the user does not have the permission. */
     data class PermissionDenied(
         val permission: String,
         override val message: String = "You do not have permission for this action",
@@ -216,7 +216,7 @@ sealed interface DomainError {
         override val code = "PERMISSION_DENIED"
     }
 
-    /** Tiene el permiso, pero no para **ese** recurso concreto. */
+    /** Has the permission, but not for **that** specific resource. */
     data class ScopeInsufficient(
         val permission: String,
         val scope: String,
@@ -226,7 +226,7 @@ sealed interface DomainError {
         override val code = "SCOPE_INSUFFICIENT"
     }
 
-    /** Una política ABAC denegó la acción. */
+    /** An ABAC policy denied the action. */
     data class PolicyDenied(
         val policyName: String,
         override val message: String = "Denied by policy '$policyName'",
@@ -235,8 +235,8 @@ sealed interface DomainError {
     }
 
     /**
-     * Hay políticas aplicables y ninguna `ALLOW` coincidió.
-     * Es lo que hace que ABAC suba el listón en lugar de bajarlo.
+     * There are applicable policies and none `ALLOW` matched.
+     * It is what makes ABAC raise the bar instead of lowering it.
      */
     data class PolicyRequired(
         override val message: String = "This action requires specific authorization",
@@ -244,20 +244,20 @@ sealed interface DomainError {
         override val code = "POLICY_REQUIRED"
     }
 
-    // ── Traslados entre bodegas ─────────────────────────────────────────────
+    // ── Transfers between warehouses ─────────────────────────────────────────
 
     /**
-     * Un traslado con la misma bodega de origen y de destino.
+     * A transfer with the same origin and destination warehouse.
      *
-     * La base lo impone con dos `CHECK` (en `transfers` y en `stock_in_transit`),
-     * y el dominio lo comprueba **antes** de tocar la base para poder dar un
-     * `422` que explique el campo en lugar de un error de restricción.
+     * The database enforces it with two `CHECK`s (in `transfers` and in `stock_in_transit`),
+     * and the domain checks it **before touching the database** so that it can return a
+     * `422` that explains the field instead of a constraint error.
      *
-     * **Por qué importa de verdad:** un traslado de una bodega a sí misma se
-     * despacha, la mercancía queda «en tránsito» hacia el mismo sitio, y el total
-     * del inventario **no cambia** — así que ningún reporte lo detecta. La
-     * mercancía desaparece de las ubicaciones y no llega a ninguna parte, sin que
-     * nada se ponga en rojo.
+     * **Why it really matters:** a transfer from a warehouse to itself is dispatched, the goods are
+     * "in transit" toward the same place, and the total
+     * of the inventory **does not change** — so no report detects it. The
+     * goods disappear from the locations and reach nowhere, without
+     * anything turning red.
      */
     data class SameWarehouse(
         override val message: String =
@@ -267,11 +267,11 @@ sealed interface DomainError {
     }
 
     /**
-     * Un traslado sin líneas.
+     * A transfer without lines.
      *
-     * Despachar un traslado vacío crea una deuda visible en `in-transit` que no
-     * corresponde a ninguna mercancía: aparece en el informe de tránsito y nunca
-     * se puede cerrar de forma útil.
+     * Dispatching an empty transfer creates a visible debt in `in-transit` that
+     * does not correspond to any goods: it appears in the transit report and never
+     * can be closed usefully.
      */
     data class EmptyTransfer(
         override val message: String = "The transfer has no lines.",
@@ -279,14 +279,14 @@ sealed interface DomainError {
         override val code = "EMPTY_TRANSFER"
     }
 
-    // ── Surtido de órdenes ──────────────────────────────────────────────────
+    // ── Order fulfillment ──────────────────────────────────────────────────
 
     /**
-     * La orden ya estaba confirmada (contrato §6, `ORDER_ALREADY_CONFIRMED`).
+     * The order was already confirmed (contract §6, `ORDER_ALREADY_CONFIRMED`).
      *
-     * **Confirmar dos veces descontaría el stock dos veces**: la primera deja las
-     * líneas sin cantidad pendiente y la segunda volvería a restar. El total del
-     * producto bajaría el doble y el descuadre parecería una venta.
+     * **Confirming twice would deduct the stock twice**: the first leaves the lines with no
+     * pending quantity and the second would subtract again. The product total would drop
+     * double and the discrepancy would look like a sale.
      */
     data class OrderAlreadyConfirmed(
         val orderNumber: String,
@@ -298,10 +298,10 @@ sealed interface DomainError {
     }
 
     /**
-     * Se intentó exportar una orden que todavía no se confirmó.
+     * An attempt was made to export an order that has not been confirmed yet.
      *
-     * Exportar al ERP algo que aún no se ha surtido mandaría al sistema externo
-     * una salida que no existe.
+     * Exporting to the ERP something that has not yet been fulfilled would send the external system
+     * an outflow that does not exist.
      */
     data class OrderNotConverted(
         val orderNumber: String,
@@ -312,11 +312,11 @@ sealed interface DomainError {
     }
 
     /**
-     * Se pidió empacar más de lo que queda pendiente en la línea.
+     * Packing more than what remains pending on the line was requested.
      *
-     * La base lo impone con `order_lines_supplied_not_exceeds`
-     * (`supplied_quantity <= quantity`), pero el dominio lo comprueba antes para
-     * poder decir **cuánto queda**, que es lo que el operador necesita saber.
+     * The database enforces it with `order_lines_supplied_not_exceeds`
+     * (`supplied_quantity <= quantity`), but the domain checks it beforehand so as to
+     * be able to say **how much remains**, which is what the operator needs to know.
      */
     data class ExceedsPendingQuantity(
         val requested: Long,
@@ -331,12 +331,12 @@ sealed interface DomainError {
     // ── Etiquetas ───────────────────────────────────────────────────────────
 
     /**
-     * Falta un dato que la plantilla necesita para imprimir.
+     * A value that the template needs to print is missing.
      *
-     * **No se resuelve dejando el marcador ni sustituyéndolo por vacío.** Lo
-     * primero imprime `{{productCode}}` en la etiqueta del estante; lo segundo
-     * imprime una etiqueta que **parece correcta y no lo está**, con un hueco que
-     * nadie distingue de una plantilla mal diseñada.
+     * **It is not resolved by leaving the placeholder or substituting it with blank.** The first
+     * prints `{{productCode}}` on the shelf label; the second
+     * prints a label that **looks correct and is not**, with a gap that
+     * nobody can tell apart from a badly designed template.
      */
     data class MissingLabelField(
         val fields: List<String>,
@@ -348,11 +348,11 @@ sealed interface DomainError {
     }
 
     /**
-     * Una etiqueta ya impresa no se imprime otra vez por un reintento.
+     * A label that is already printed is not printed again on a retry.
      *
-     * El contrato lo exige con `409` en `PATCH /v1/print-jobs/{id}`: si la
-     * impresora reintenta una llamada que ya funcionó, el trabajo no se marca dos
-     * veces ni se gasta una segunda etiqueta.
+     * The contract requires it with `409` in `PATCH /v1/print-jobs/{id}`: if the
+     * printer retries a call that already worked, the job is not marked twice
+     * and a second label is not used up.
      */
     data class LabelAlreadyPrinted(
         val jobId: Long,
@@ -363,13 +363,13 @@ sealed interface DomainError {
         override val code = "LABEL_ALREADY_PRINTED"
     }
 
-    // ── Catálogo: productos, ubicaciones y bodegas (M01) ────────────────────
+    // ── Catalog: products, locations and warehouses (M01) ──────────────────
     //
-    // Los códigos son los de la lista cerrada de docs/api/errores.md §1.3-bis:
-    // ninguno se inventa aquí. Un código nuevo se añade al catálogo de errores
-    // ANTES de usarse, y por eso este bloque se lee junto a ese documento.
+    // The codes are those of the closed list in docs/api/errores.md §1.3-bis:
+    // none is invented here. A new code is added to the error catalog
+    // BEFORE it is used, which is why this block is read together with that document.
 
-    /** El código de producto no cumple el alfabeto `0-9A-Z` ni la longitud. */
+    /** The product code does not meet the `0-9A-Z` alphabet or the length. */
     data class InvalidProductCode(
         val raw: String,
         val detail: String,
@@ -378,7 +378,7 @@ sealed interface DomainError {
         override val code = "INVALID_PRODUCT_CODE"
     }
 
-    /** La unidad no está en el catálogo cerrado (`units_of_measure`). */
+    /** The unit is not in the closed catalog (`units_of_measure`). */
     data class UnknownUnitMeasure(
         val unit: String,
         override val message: String =
@@ -387,7 +387,7 @@ sealed interface DomainError {
         override val code = "UNKNOWN_UNIT_MEASURE"
     }
 
-    /** El número de niveles de una ubicación no es positivo. */
+    /** The number of levels of a location is not positive. */
     data class InvalidLevels(
         val levels: Int,
         override val message: String = "The number of levels must be at least 1, got $levels",
@@ -395,7 +395,7 @@ sealed interface DomainError {
         override val code = "INVALID_LEVELS"
     }
 
-    /** El tipo de ubicación no es `SHELF` ni `RECEIVING`. */
+    /** The location type is neither `SHELF` nor `RECEIVING`. */
     data class InvalidLocationKind(
         val raw: String,
         override val message: String = "Invalid location kind '$raw': it must be SHELF or RECEIVING",
@@ -403,7 +403,7 @@ sealed interface DomainError {
         override val code = "INVALID_LOCATION_KIND"
     }
 
-    /** Una de las tres partes de la ubicación no cumple el formato canónico. */
+    /** One of the three parts of the location does not meet the canonical format. */
     data class InvalidLocationPart(
         val part: String,
         val raw: String,
@@ -413,7 +413,7 @@ sealed interface DomainError {
         override val code = "INVALID_LOCATION_PART"
     }
 
-    /** La bodega referenciada no existe. */
+    /** The referenced warehouse does not exist. */
     data class UnknownWarehouse(
         val id: Long,
         override val message: String = "Warehouse $id does not exist",
@@ -422,11 +422,11 @@ sealed interface DomainError {
     }
 
     /**
-     * El `external_id` del archivo no es numérico.
+     * The file's `external_id` is not numeric.
      *
-     * **Se rechaza la fila en lugar de guardarla nula**: el `external_id` es la
-     * referencia cruzada con el ERP, y perderla en silencio deja productos que
-     * después no se pueden conciliar.
+     * **The row is rejected instead of being stored as null**: the `external_id` is the
+     * cross-reference with the ERP, and losing it in silence leaves products that
+     * cannot be reconciled later.
      */
     data class InvalidExternalId(
         val raw: String,
@@ -436,7 +436,7 @@ sealed interface DomainError {
         override val code = "IMPORT_INVALID_EXTERNAL_ID"
     }
 
-    /** Se intentó cambiar el código de un producto: está impreso en las etiquetas. */
+    /** An attempt was made to change a product's code: it is printed on the labels. */
     data class ProductCodeImmutable(
         val productCode: String,
         override val message: String =
@@ -445,7 +445,7 @@ sealed interface DomainError {
         override val code = "PRODUCT_CODE_IMMUTABLE"
     }
 
-    /** Se intentó mover una ubicación de bodega: su stock cambiaría de bodega sin movimiento. */
+    /** An attempt was made to move a location to another warehouse: its stock would change warehouse without a movement. */
     data class WarehouseImmutable(
         val locationId: Long,
         override val message: String =
@@ -454,7 +454,7 @@ sealed interface DomainError {
         override val code = "WAREHOUSE_IMMUTABLE"
     }
 
-    /** Ya existe un producto con ese código. */
+    /** A product with that code already exists. */
     data class DuplicateProductCode(
         val productCode: String,
         override val message: String = "A product with the code '$productCode' already exists",
@@ -462,7 +462,7 @@ sealed interface DomainError {
         override val code = "DUPLICATE_PRODUCT_CODE"
     }
 
-    /** Ya existe un producto con ese identificador del ERP. */
+    /** A product with that ERP identifier already exists. */
     data class DuplicateExternalId(
         val externalId: String,
         override val message: String = "A product with the external identifier '$externalId' already exists",
@@ -470,7 +470,7 @@ sealed interface DomainError {
         override val code = "DUPLICATE_EXTERNAL_ID"
     }
 
-    /** Ya existe esa ubicación en la bodega. */
+    /** That location already exists in the warehouse. */
     data class DuplicateLocation(
         val hall: String,
         val locationCode: String,
@@ -481,7 +481,7 @@ sealed interface DomainError {
         override val code = "DUPLICATE_LOCATION"
     }
 
-    /** Ya existe una bodega con ese código. */
+    /** A warehouse with that code already exists. */
     data class DuplicateWarehouseCode(
         val warehouseCode: String,
         override val message: String = "A warehouse with the code '$warehouseCode' already exists",
@@ -489,7 +489,7 @@ sealed interface DomainError {
         override val code = "DUPLICATE_WAREHOUSE_CODE"
     }
 
-    /** El producto ya estaba desactivado: volver a desactivarlo borraría el motivo del primero. */
+    /** The product was already deactivated: deactivating it again would erase the reason of the first. */
     data class ProductAlreadyInactive(
         val productCode: String,
         override val message: String = "El producto '$productCode' ya estaba desactivado",
@@ -497,7 +497,7 @@ sealed interface DomainError {
         override val code = "PRODUCT_ALREADY_INACTIVE"
     }
 
-    /** La ubicación ya estaba desactivada. */
+    /** The location was already deactivated. */
     data class LocationAlreadyInactive(
         val locationCode: String,
         override val message: String = "Location '$locationCode' was already deactivated",
@@ -506,10 +506,10 @@ sealed interface DomainError {
     }
 
     /**
-     * No se puede desactivar la ubicación de recepción.
+     * The receiving location cannot be deactivated.
      *
-     * Toda mercancía recibida pasa por ella (ADR-0009): desactivarla dejaría
-     * recepciones sin sitio donde aterrizar.
+     * All received goods pass through it (ADR-0009): deactivating it would leave
+     * receipts with no place to land.
      */
     data object ReceivingLocationProtected : DomainError {
         override val code = "RECEIVING_LOCATION_PROTECTED"
@@ -517,7 +517,7 @@ sealed interface DomainError {
             "The receiving location cannot be deactivated: all received goods pass through it."
     }
 
-    /** La ubicación todavía tiene existencias. */
+    /** The location still has stock. */
     data class LocationHasStock(
         val quantity: String,
         override val message: String =
@@ -526,7 +526,7 @@ sealed interface DomainError {
         override val code = "LOCATION_HAS_STOCK"
     }
 
-    /** El producto todavía tiene existencias. */
+    /** The product still has stock. */
     data class ProductHasStock(
         val stock: String,
         override val message: String =
@@ -535,7 +535,7 @@ sealed interface DomainError {
         override val code = "PRODUCT_HAS_STOCK"
     }
 
-    /** El producto no existe o está inactivo. */
+    /** The product does not exist or is inactive. */
     data class ProductNotFound(
         val reference: String,
         override val message: String = "No active product found for '$reference'",
@@ -543,7 +543,7 @@ sealed interface DomainError {
         override val code = "PRODUCT_NOT_FOUND"
     }
 
-    /** La ubicación no existe o está inactiva. */
+    /** The location does not exist or is inactive. */
     data class LocationNotFound(
         val reference: String,
         override val message: String = "No active location found for '$reference'",
@@ -552,9 +552,9 @@ sealed interface DomainError {
     }
 
     /**
-     * El archivo de importación tiene filas inválidas: **no se escribe ninguna**
-     * (K1). El listado de filas viaja con el error, porque sin el número de fila
-     * el usuario no puede corregir el archivo.
+     * The import file has invalid rows: **none is written**
+     * (K1). The list of rows travels with the error, because without the row number
+     * the user cannot correct the file.
      */
     data class ImportInvalidRows(
         val rows: List<RejectedRow>,
@@ -563,7 +563,7 @@ sealed interface DomainError {
     ) : DomainError {
         override val code = "IMPORT_INVALID_ROWS"
 
-        /** Una fila rechazada, con el número **físico** del archivo (la cabecera es la 1). */
+        /** A rejected row, with the **physical** number of the file (the header is 1). */
         @Serializable
         data class RejectedRow(val rowNumber: Int, val reason: String)
     }

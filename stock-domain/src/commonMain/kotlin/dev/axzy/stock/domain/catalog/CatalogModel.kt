@@ -8,27 +8,27 @@ import dev.axzy.stock.domain.value.ProductCode
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * CATÁLOGO — productos, bodegas y ubicaciones (M01)
+ * CATALOG — products, warehouses and locations (M01)
  *
- * Las reglas que gobiernan la fuente maestra de todo lo demás. Se prueban sin
- * base de datos: son las que deciden si una operación es admisible, y la base
- * solo las refuerza (índices únicos y `CHECK`), nunca las sustituye.
+ * The rules that govern the master source of everything else. They are tested without
+ * a database: they are the ones that decide whether an operation is admissible, and the database
+ * only enforces them (unique indexes and `CHECK`), it never replaces them.
  *
- * Tres reglas que no son de forma sino de negocio, y por eso están aquí:
+ * Three rules that are not about form but about business, and that is why they are here:
  *
- *  1. **El código de producto no se cambia.** Está impreso en las etiquetas y en
- *     los estantes: cambiarlo deja el almacén etiquetado con un código que ya no
+ *  1. **The product code is not changed.** It is printed on the labels and on
+ *     the shelves: changing it leaves the warehouse labeled with a code that no longer
  *     existe.
- *  2. **La ubicación de recepción no se desactiva.** Toda mercancía recibida pasa
- *     por ella (ADR-0009); sin ella, una recepción no tiene dónde aterrizar.
- *  3. **Una ubicación no cambia de bodega.** Su stock cambiaría de bodega sin
- *     ningún movimiento de inventario, y el descuadre no lo detectaría nadie.
+ *  2. **The receiving location is not deactivated.** All received goods pass through
+ *     it (ADR-0009); without it, a receipt has nowhere to land.
+ *  3. **A location does not change warehouse.** Its stock would change warehouse without
+ *     any inventory movement, and nobody would detect the discrepancy.
  *
  * Referencia: docs/flujos/catalogo.md, docs/api/catalogo.md.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-/** Longitudes que impone el esquema (`V3__inventory_domain.sql`). */
+/** Lengths the schema imposes (`V3__inventory_domain.sql`). */
 object CatalogLimits {
     const val PRODUCT_NAME = 120
     const val LOCATION_PART = 20
@@ -37,11 +37,11 @@ object CatalogLimits {
 }
 
 /**
- * Tipo de ubicación.
+ * Location type.
  *
- * `UNASSIGNED` no se declara por API: nace de la migración `V6` para el saldo
- * heredado del sistema anterior, del que se sabe que existe pero no dónde está.
- * Se vacía con el conteo físico (ADR-0012).
+ * `UNASSIGNED` is not declared through the API: it comes from migration `V6` for the inherited
+ * balance of the previous system, which is known to exist but not where it is.
+ * It is emptied by the physical count (ADR-0012).
  */
 enum class LocationKind {
     SHELF,
@@ -49,11 +49,11 @@ enum class LocationKind {
     UNASSIGNED,
     ;
 
-    /** La recepción es la única que no se puede desactivar. */
+    /** Receiving is the only one that cannot be deactivated. */
     val isDeactivatable: Boolean get() = this != RECEIVING
 
     companion object {
-        /** Los únicos tipos que un cliente puede declarar al crear una ubicación. */
+        /** The only types a client can declare when creating a location. */
         val declarable: List<LocationKind> = listOf(SHELF, RECEIVING)
 
         fun parse(raw: String?): Result<LocationKind> = runCatching {
@@ -65,14 +65,14 @@ enum class LocationKind {
 }
 
 /**
- * Una de las tres partes de una ubicación: pasillo, localidad y posición.
+ * One of the three parts of a location: hall, code and position.
  *
- * **Se normaliza a mayúsculas, no se rechaza**: el legacy imprimía los códigos en
- * mayúsculas y el `CHECK` del esquema lo exige, así que un cliente que mande
- * `04`/`b`/`c` obtiene la misma ubicación que con `04`/`B`/`C` en lugar de un
- * error que no aporta nada. Es la diferencia deliberada con el código de
- * producto, donde una minúscula indica que algo cambió en el origen del dato y
- * por eso **se rechaza**.
+ * **It is normalized to uppercase, not rejected**: the legacy printed the codes in
+ * uppercase and the schema's `CHECK` requires it, so a client that sends
+ * `04`/`b`/`c` gets the same location as `04`/`B`/`C` instead of
+ * an error that adds nothing. It is the deliberate difference from the product code,
+ * product code, where a lowercase letter indicates that something changed at the origin of the
+ * data, and that is why it **is rejected**.
  */
 @kotlin.jvm.JvmInline
 value class LocationPart private constructor(val value: String) {
@@ -97,7 +97,7 @@ value class LocationPart private constructor(val value: String) {
     override fun toString(): String = value
 }
 
-/** Una bodega. */
+/** A warehouse. */
 data class Warehouse(
     val id: Long,
     val code: String,
@@ -107,21 +107,21 @@ data class Warehouse(
     val active: Boolean = true,
 ) {
     /**
-     * Marca o desmarca esta bodega como la predeterminada.
+     * Sets or clears this warehouse as the default.
      *
-     * **Solo puede haber una**: el índice parcial `warehouses_one_default_idx` lo
-     * impone, y por eso el caso de uso quita la marca anterior en la MISMA
-     * transacción en que pone la nueva. Nunca quedan dos, ni siquiera un instante.
+     * **There can only be one**: the partial index `warehouses_one_default_idx` enforces
+     * it, and that is why the use case removes the previous flag in the SAME
+     * transaction in which it sets the new one. Never two remain, not even for an instant.
      */
     fun withDefault(value: Boolean): Warehouse = copy(isDefault = value)
 }
 
 /**
- * Una ubicación física.
+ * A physical location.
  *
- * El nombre visible (`displayName`) lo **compone el servidor**, nunca el cliente:
- * si cambia el formato de las etiquetas de estante, no hay que tocar la API, la
- * web y el móvil a la vez (docs/api/catalogo.md).
+ * The visible name (`displayName`) is **composed by the server**, never by the client:
+ * if the format of the shelf labels changes, there is no need to touch the API, the
+ * web and the mobile app at the same time (docs/api/catalogo.md).
  */
 data class Location(
     val id: Long,
@@ -133,7 +133,7 @@ data class Location(
     val kind: LocationKind = LocationKind.SHELF,
     val active: Boolean = true,
 ) {
-    /** `04-B-C` para un estante; `RECEIVING` para la recepción; `UNASSIGNED` para el saldo heredado. */
+    /** `04-B-C` for a shelf; `RECEIVING` for receiving; `UNASSIGNED` for the inherited balance. */
     val displayName: String
         get() = when (kind) {
             LocationKind.RECEIVING -> code
@@ -142,10 +142,10 @@ data class Location(
         }
 
     /**
-     * Reemplaza los campos editables.
+     * Replaces the editable fields.
      *
-     * `warehouseId` no es editable: mover una ubicación de bodega cambiaría de
-     * bodega el stock que contiene sin ningún movimiento de inventario.
+     * `warehouseId` is not editable: moving a location to another warehouse would change
+     * the warehouse of the stock it contains without any inventory movement.
      */
     fun withUpdated(
         hall: LocationPart,
@@ -169,7 +169,7 @@ data class Location(
         }
     }
 
-    /** Desactivar no es borrar: el historial del kardex sigue apuntando a esta ubicación. */
+    /** Deactivating is not deleting: the ledger's history still points to this location. */
     fun deactivate(): DomainResult<Location> = when {
         !active -> DomainError.LocationAlreadyInactive(code).asLeft()
         !kind.isDeactivatable -> DomainError.ReceivingLocationProtected.asLeft()
@@ -177,7 +177,7 @@ data class Location(
     }
 }
 
-/** Un producto. */
+/** A product. */
 data class Product(
     val id: Long,
     val code: ProductCode,
@@ -189,11 +189,11 @@ data class Product(
     val active: Boolean = true,
 ) {
     /**
-     * Reemplaza los campos editables.
+     * Replaces the editable fields.
      *
-     * El `code` se recibe para tolerar el ida y vuelta de un cliente que hace
-     * `GET`, modifica el nombre y devuelve el objeto entero; **si difiere del
-     * actual, se rechaza**, en lugar de cambiar en silencio la clave de negocio.
+     * The `code` is received to tolerate a client that does a `GET`, changes the name and
+     * returns the whole object; **if it differs from the current one, it is rejected**,
+     * instead of silently changing the business key.
      */
     fun withUpdated(
         code: ProductCode,
@@ -222,12 +222,12 @@ data class Product(
         ).asRight()
     }
 
-    /** La baja es **lógica**: un producto inactivo conserva su kardex. */
+    /** The deletion is **logical**: an inactive product keeps its ledger. */
     fun deactivate(): DomainResult<Product> =
         if (!active) DomainError.ProductAlreadyInactive(code.value).asLeft() else copy(active = false).asRight()
 }
 
-/** Una unidad de medida del catálogo cerrado. */
+/** A unit of measure from the closed catalog. */
 data class UnitOfMeasure(
     val id: Long,
     val code: String,

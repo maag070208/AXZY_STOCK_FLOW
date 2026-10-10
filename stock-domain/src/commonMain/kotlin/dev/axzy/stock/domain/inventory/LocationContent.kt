@@ -6,43 +6,43 @@ import kotlin.math.abs
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * CONTENIDO DE UNA UBICACIÓN — DOS IMPLEMENTACIONES, A PROPÓSITO
+ * CONTENT OF A LOCATION — TWO IMPLEMENTATIONS, ON PURPOSE
  *
- * Aquí conviven **dos formas de calcular cuánto hay en una ubicación**:
+ * Two ways of computing how much there is in a location coexist here:
  *
- *  · [LocationContent.direct]  — el contenido es una **consulta directa** al
- *    saldo de la ubicación. Es el modelo del sistema nuevo.
+ *  · [LocationContent.direct] — the content is a **direct query** to the balance of
+ *    the location. It is the model of the new system.
  *
- *  · [LocationContent.legacyAlgorithm] — reproduce **el algoritmo del legacy**
- *    (`getLocationContent`), con su semántica histórica: si el último
- *    movimiento es un ajuste, el total es ese ajuste; si no, suma los `LOCATION`
- *    y resta los `OUT` desde el último ajuste.
+ *  · [LocationContent.legacyAlgorithm] — it reproduces **the legacy algorithm**
+ *    (`getLocationContent`), with its historical semantics: if the last
+ *    movement is an adjustment, the total is that adjustment; otherwise it adds the `LOCATION`s
+ *    and subtracts the `OUT`s since the last adjustment.
  *
- * **¿Por qué mantener el algoritmo viejo si está mal?** Porque el plan exige
- * una decisión con datos, no con intuición (hallazgo R-67):
+ * **Why keep the old algorithm if it is wrong?** Because the plan requires a decision
+ * made with data, not intuition (finding R-67):
  *
- *   > *"Se decide con datos delante y se congela con tests de caracterización
- *   > antes de tocar."*
+ *   > *"It is decided with the data in front, and it is frozen with characterization tests
+ *   > before touching it."*
  *
- * El algoritmo nuevo depende de que `LOCATION` **no** reste del total, y el
- * viejo depende de que **sí** reste. Si simplificáramos a ciegas, los reportes
- * históricos cambiarían sin que nadie supiera por qué.
+ * The new algorithm depends on `LOCATION` **not** subtracting from the total, and the old
+ * one depends on it **doing** subtract. If we simplified blindly, the historical reports would
+ * change without anyone knowing why.
  *
- * Con las dos implementaciones se puede ejecutar [LocationContentComparison],
- * que **cuantifica la diferencia** sobre datos reales y la explica. Cuando la
- * diferencia sea toda atribuible al bug del legacy, se simplifica con
- * tranquilidad; si no, hay una regla de negocio que no vimos.
+ * With both implementations, [LocationContentComparison] can be run, which
+ * **quantifies the difference** over real data and explains it. When the
+ * difference is entirely attributable to the legacy bug, it is simplified with
+ * peace of mind; if not, there is a business rule we did not see.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 object LocationContent {
 
     /**
-     * **El modelo del sistema nuevo.**
+     * **The model of the new system.**
      *
-     * El contenido de una ubicación es simplemente lo que hay ahí. No hay
-     * cálculo: el saldo ya está en el libro, mantenido por las transacciones.
+     * The content of a location is simply what is there. There is no
+     * calculation: the balance is already in the ledger, maintained by the transactions.
      *
-     * Es correcto por construcción, y por eso es O(1): no recorre el ledger.
+     * It is correct by construction, and that is why it is O(1): it does not walk the ledger.
      */
     fun direct(
         ledger: InventoryLedger,
@@ -51,29 +51,29 @@ object LocationContent {
     ): Quantity = ledger.quantityAt(productCode, location)
 
     /**
-     * **El algoritmo del legacy**, reproducido tal cual.
+     * **The legacy algorithm**, reproduced as is.
      *
-     * Para qué sirve: para comparar. Su salida permite medir cuánto se desvía
-     * el sistema viejo del nuevo, y esa cifra es el insumo de la decisión R-67
-     * y del informe de discrepancias de la migración (Fase 7).
+     * What it is for: to compare. Its output allows measuring how far the old system
+     * deviates from the new one, and that figure is the input for decision R-67
+     * and for the discrepancy report of the migration (Phase 7).
      *
-     * Reglas que reproduce, en el mismo orden que el original:
+     * Rules it reproduces, in the same order as the original:
      *
-     *  1. Se recorren las entradas de la ubicación en orden **descendente** y
-     *     se toma la **última** del producto: los movimientos anteriores del
-     *     mismo producto se ignoran.
-     *  2. Si esa última entrada es un `ADJUSTMENT`, el total es **su cantidad**.
-     *  3. Si no, se busca el último `ADJUSTMENT` del producto en esa ubicación y:
-     *     · se **suman** los `LOCATION` posteriores a ese ajuste (incluido él),
-     *     · se **restan** los `OUT` posteriores.
-     *  4. Si no hay ningún ajuste, se suman **todos** los `LOCATION` y se restan
-     *     **todos** los `OUT`.
-     *  5. Se descartan los totales menores o iguales a cero.
+     *  1. The entries of the location are walked in **descending** order and
+     *     the **last** one of the product is taken: earlier movements of the
+     *     same product are ignored.
+     *  2. If that last entry is an `ADJUSTMENT`, the total is **its quantity**.
+     *  3. Otherwise the last `ADJUSTMENT` of the product in that location is looked up and:
+     *     · the `LOCATION`s **after** that adjustment (including it) are **added**;
+     *     · the `OUT`s after it are **subtracted**.
+     *  4. If there is no adjustment, **all** the `LOCATION`s are added and
+     *     **all** the `OUT`s are subtracted.
+     *  5. Totals less than or equal to zero are discarded.
      *
-     * **El defecto está en el paso 4 y en la definición de `LOCATION`:** el
-     * algoritmo trata la ubicación como resultado de sus propios movimientos,
-     * en lugar de leer el saldo. Combinado con que en el legacy `LOCATION`
-     * restaba del total y además mutaba la entrada de recepción, producía el
+     * **The defect is in step 4 and in the definition of `LOCATION`:** the
+     * algorithm treats the location as the result of its own movements,
+     * instead of reading the balance. Combined with the fact that in the legacy `LOCATION`
+     * subtracted from the total and also mutated the receiving entry, it produced the
      * descuadre acumulado.
      */
     fun legacyAlgorithm(
@@ -86,22 +86,22 @@ object LocationContent {
 
         if (locationEntries.isEmpty()) return Quantity.ZERO
 
-        // Paso 1: la última entrada del producto en esa ubicación.
+        // Step 1: the product's last entry in that location.
         val last = locationEntries.last()
 
-        // Paso 2: si la última es un ajuste, el total es ese ajuste.
+        // Step 2: if the last one is an adjustment, the total is that adjustment.
         if (last.type == MovementType.ADJUSTMENT_IN || last.type == MovementType.ADJUSTMENT_OUT) {
             return adjustmentTotal(last)
         }
 
-        // Paso 3: buscar el último ajuste anterior.
+        // Step 3: look up the last earlier adjustment.
         val lastAdjustment = locationEntries.lastOrNull {
             it.type == MovementType.ADJUSTMENT_IN || it.type == MovementType.ADJUSTMENT_OUT
         }
 
         val fromSequence = lastAdjustment?.sequence ?: 0L
 
-        // Paso 4: sumar LOCATION y restar OUT desde el ajuste (o desde el inicio).
+        // Step 4: add LOCATION and subtract OUT since the adjustment (or since the start).
         val sum = locationEntries
             .filter { it.sequence >= fromSequence }
             .filter {
@@ -124,7 +124,7 @@ object LocationContent {
 
         val total = Quantity.ofScaled(sum - subtraction)
 
-        // Paso 5: se descartan los totales <= 0.
+        // Step 5: totals less than or equal to zero are discarded.
         return if (total.isPositive) total else Quantity.ZERO
     }
 
@@ -133,15 +133,15 @@ object LocationContent {
 }
 
 /**
- * Resultado de comparar los dos métodos sobre una ubicación concreta.
- * Es el insumo del informe de discrepancias de la migración (Fase 7).
+ * Result of comparing the two methods over a specific location.
+ * It is the input of the discrepancy report of the migration (Phase 7).
  */
 data class ContentDivergence(
     val productCode: String,
     val location: LocationCode,
-    /** Lo que dice el modelo nuevo (el saldo real). */
+    /** What the new model says (the real balance). */
     val modelSays: Quantity,
-    /** Lo que diría el algoritmo del legacy. */
+    /** What the legacy algorithm would say. */
     val legacySays: Quantity,
 ) {
     val difference: Quantity get() = modelSays - legacySays
@@ -149,26 +149,26 @@ data class ContentDivergence(
     val absoluteDifference: Long get() = abs(difference.value)
 
     /**
-     * Indica si la divergencia se explica **por el bug del doble descuento**.
+     * Indicates whether the divergence is **explained by the double-deduction bug**.
      *
-     * Cuando el legacy ubicaba mercancía, descontaba del total. Por eso su
-     * algoritmo tiende a reportar **menos** de lo que hay, y la diferencia
-     * debería ser positiva (el modelo nuevo ve más stock). Una divergencia
-     * **negativa** no se explica por el bug: apunta a otra causa y merece
-     * revisión manual.
+     * When the legacy located goods, it deducted from the total. That is why its
+     * algorithm tends to report **less** than there is, and the difference
+     * should be positive (the new model sees more stock). A divergence
+     * **negative** is not explained by the bug: it points to another cause and deserves
+     * manual review.
      */
     val explainedByKnownBug: Boolean
         get() = difference.isPositive || difference.isZero
 }
 
 /**
- * Compara los dos métodos sobre todo un libro y devuelve las divergencias.
+ * Compares the two methods over a whole ledger and returns the divergences.
  *
- * **Cómo se usa en la migración:** se carga un histórico real del legacy en el
- * modelo, se corre esto, y el resultado es el informe que se presenta al
- * negocio antes de cortar. Si todas las divergencias son positivas, el
- * descuadre es el bug conocido y la reconciliación es directa. Si hay
- * negativas, hay que investigar antes de tocar nada.
+ * **How it is used in the migration:** a real history from the legacy is loaded into the
+ * model, this is run, and the result is the report presented to the business before
+ * cutover. If all the divergences are positive, the discrepancy is the known bug and
+ * reconciliation is direct. If there are negative ones, one has to investigate before
+ * touching anything.
  */
 object LocationContentComparison {
 
@@ -186,13 +186,13 @@ object LocationContentComparison {
                 )
             }
 
-    /** Solo las ubicaciones donde los dos métodos discrepan. */
+    /** Only the locations where the two methods disagree. */
     fun onlyDivergent(ledger: InventoryLedger): List<ContentDivergence> =
         compare(ledger).filter { it.difference.value != 0L }
 
     /**
-     * Resumen para el informe. Devuelve un texto legible, no una estructura:
-     * el objetivo es que alguien del negocio pueda leerlo y decidir.
+     * Summary for the report. It returns a readable text, not a structure:
+     * the goal is that someone in the business can read it and decide.
      */
     fun report(ledger: InventoryLedger): String {
         val divergences = onlyDivergent(ledger)

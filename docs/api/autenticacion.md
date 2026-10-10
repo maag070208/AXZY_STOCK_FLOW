@@ -1,17 +1,16 @@
-# Autenticación
-> **Referencia.** Las rutas de sesión: inicio, renovación con rotación, cierre,
-> usuario actual y cambio de contraseña. Última verificación: 2026-10-09.
+# Authentication
+> **Reference.** The session routes: sign-in, renewal with rotation, sign-out, current user and password change. Last verified: 2026-10-09.
 
-Las rutas están en
-`api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/identity/AuthController.kt`, y cada
-una llama a un caso de uso de `api/application/.../identity/`: `Login`, `RefreshSession`, `Logout`,
-`ChangePassword` y `ResolveActor`. El cuerpo de error y su catálogo están en
-[errores.md](errores.md); las convenciones de cabeceras y fechas, en [convenciones.md](convenciones.md).
+The routes are in
+`api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/identity/AuthController.kt`, and each
+one calls a use case in `api/application/.../identity/`: `Login`, `RefreshSession`, `Logout`,
+`ChangePassword` and `ResolveActor`. The error body and its catalog are in
+[errores.md](errores.md); the header and date conventions, in [convenciones.md](convenciones.md).
 
-**El token de acceso solo identifica.** Es un JWT firmado con HMAC-SHA256 que lleva el id del
-usuario, la familia de la sesión y un sello de credenciales. **No lleva roles ni permisos**: se leen
-de la base en cada petición, así que quitar un rol o desactivar una cuenta surte efecto en la
-petición siguiente y no cuando el token caduca.
+**The access token only identifies.** It is an HMAC-SHA256-signed JWT that carries the user's id, the session
+family and a credentials stamp. **It carries no roles or permissions**: they are read
+from the database on each request, so removing a role or deactivating an account takes effect on the
+next request and not when the token expires.
 
 ## `POST /v1/auth/login`
 
@@ -37,40 +36,39 @@ petición siguiente y no cuando el token caduca.
 }
 ```
 
-**Errores:**
+**Errors:**
 
-| `code` | Estado | Situación |
+| `code` | Status | Situation |
 |---|---|---|
-| `FIELD_REQUIRED` | 400 | falta `username` o `password` |
-| `INVALID_CREDENTIALS` | 401 | usuario o contraseña incorrectos — **el mismo código para ambos**, para no permitir enumerar usuarios |
-| `ACCOUNT_DISABLED` | 401 | la cuenta está desactivada. **Solo se devuelve si la contraseña es correcta** |
-| `ACCOUNT_LOCKED` | 401 | cinco fallos de credenciales con ese nombre en 15 minutos |
-| `RATE_LIMITED` | 429 | demasiados intentos desde esta IP. **Declarado; todavía no hay limitador de tasa** |
+| `FIELD_REQUIRED` | 400 | `username` or `password` is missing |
+| `INVALID_CREDENTIALS` | 401 | wrong user or password — **the same code for both**, so as not to allow enumerating users |
+| `ACCOUNT_DISABLED` | 401 | the account is deactivated. **It is only returned if the password is correct** |
+| `ACCOUNT_LOCKED` | 401 | five credential failures with that name in 15 minutes |
+| `RATE_LIMITED` | 429 | too many attempts from this IP. **Declared; there is no rate limiter yet** |
 
-**No se puede averiguar si un usuario existe.** Tres reglas lo garantizan (`Login.kt`):
+**It cannot be found out whether a user exists.** Three rules guarantee it (`Login.kt`):
 
-1. Usuario inexistente y contraseña incorrecta devuelven el mismo cuerpo. Cuando no hay cuenta se
-   verifica igualmente contra un hash señuelo, para que la respuesta tarde lo mismo.
-2. El bloqueo se decide por **nombre de usuario**, exista o no la cuenta: se cuentan los fallos en
-   `login_attempts`. Si solo se bloquearan las cuentas reales, cinco intentos bastarían para saber
-   cuáles lo son.
-3. «Cuenta desactivada» solo se dice a quien acertó la contraseña.
+1. A nonexistent user and a wrong password return the same body. When there is no account, the password is
+   verified anyway against a decoy hash, so the response takes the same time.
+2. The lock is decided by **user name**, whether or not the account exists: failures are counted in
+   `login_attempts`. If only real accounts were locked, five attempts would be enough to find out
+   which ones are real.
+3. "Account disabled" is only told to whoever guessed the password.
 
-El bloqueo es temporal y **los intentos hechos durante el bloqueo no lo prolongan**: si lo hicieran,
-bastaría una petición cada cierto tiempo para dejar una cuenta bloqueada para siempre.
+The lock is temporary and **the attempts made during the lock do not extend it**: if they did,
+a single request every so often would leave an account locked forever.
 
-Los intentos de login van a `login_attempts`, no a la bitácora: se escriben mucho más, y un atacante
-no debe poder inundar un libro que se escribe en serie.
+Login attempts go to `login_attempts`, not to the audit log: they are written far more often, and an attacker
+must not be able to flood a book that is written in series.
 
-`expiresIn` en **segundos**, que es lo que esperan las bibliotecas de cliente. El
-`refreshToken` se guarda **hasheado** (SHA-256): el valor en claro solo existe en
-esta respuesta.
+`expiresIn` in **seconds**, which is what client libraries expect. The
+`refreshToken` is stored **hashed** (SHA-256): the plain value only exists in
+this response.
 
-El mensaje de error es **el mismo para usuario inexistente y contraseña
-incorrecta**: distinguirlos permite enumerar qué nombres de usuario son reales y,
-con la lista de nombres, un atacante solo necesita acertar contraseñas. La
-contraseña se verifica con Argon2id contra el hash guardado; si el hash usa
-parámetros obsoletos se registra para regenerarlo.
+The error message is **the same for a nonexistent user and a wrong password**: distinguishing them allows
+enumerating which user names are real and, with the list of names, an attacker only needs to guess
+passwords. The password is verified with Argon2id against the stored hash; if the hash uses
+obsolete parameters it is recorded so that it is regenerated.
 
 ## `POST /v1/auth/refresh`
 
@@ -78,41 +76,38 @@ parámetros obsoletos se registra para regenerarlo.
 { "refreshToken": "8Kd3..." }
 ```
 
-**200:** el mismo cuerpo que el login, con tokens **nuevos** (rotación). El token
-presentado queda marcado como rotado, no como revocado: sigue siendo un registro
-válido de la cadena.
+**200:** the same body as login, with **new** tokens (rotation). The presented token
+is marked as rotated, not as revoked: it remains a valid record of the chain.
 
-**401 con `code = TOKEN_REUSED`:** se detectó reuso y **se revocó toda la
-familia**. El cliente debe descartar sus tokens y pedir credenciales. **Es un
-código distinto de `INVALID_CREDENTIALS`** porque la interfaz debe decir algo
-diferente: «tu sesión se cerró por seguridad».
+**401 with `code = TOKEN_REUSED`:** reuse was detected and **the entire family was revoked**. The client must discard its tokens and ask for credentials. **It is a
+code different from `INVALID_CREDENTIALS`** because the interface must say something
+different: "your session was closed for security reasons".
 
-Otros códigos: `INVALID_CREDENTIALS` (token desconocido, revocado o vencido),
-`ACCOUNT_DISABLED` y `UNAUTHENTICATED` (el usuario ya no existe). Un cambio de
-contraseña posterior a la emisión del token también lo invalida.
+Other codes: `INVALID_CREDENTIALS` (unknown, revoked or expired token),
+`ACCOUNT_DISABLED` and `UNAUTHENTICATED` (the user no longer exists). A password change after the token was issued also invalidates it.
 
-La decisión de rotar, vencer o detectar reuso la toma el dominio
-(`decideRefresh`), y la ruta solo traduce el resultado a HTTP.
+The decision to rotate, expire or detect reuse is made by the domain
+(`decideRefresh`), and the route only translates the result to HTTP.
 
 ## `POST /v1/auth/logout`
 
-**204.** Revoca el refresh token presentado y su familia.
+**204.** Revokes the presented refresh token and its family.
 
-**Es idempotente y no exige token válido**: el cuerpo es opcional. Si el cliente
-quiere cerrar sesión, hay que dejarlo; responder `401` dejaría la sesión viva en el
-servidor justo cuando el usuario pide lo contrario.
+**It is idempotent and does not require a valid token**: the body is optional. If the client
+wants to sign out, it must be left to do so; answering `401` would leave the session alive on the
+server exactly when the user asks for the opposite.
 
 ## `GET /v1/auth/me`
 
-Devuelve el objeto `user` del login. Es lo que la web usa al recargar para reconstruir los permisos
-sin volver a autenticar. La ruta **relee de la base**: los permisos pueden haber cambiado desde que se
-emitió el token.
+Returns the `user` object of the login. It is what the web uses when reloading to rebuild the permissions
+without authenticating again. The route **re-reads from the database**: the permissions may have changed since the
+token was issued.
 
-**401** con `code = UNAUTHENTICATED` si falta el token o el usuario ya no existe;
-`ACCOUNT_DISABLED` si la cuenta está desactivada.
+**401** with `code = UNAUTHENTICATED` if the token is missing or the user no longer exists;
+`ACCOUNT_DISABLED` if the account is deactivated.
 
-Se puede llamar con el cambio de contraseña pendiente, igual que `change-password` y `logout`.
-Cualquier otra ruta responde entonces `403 PASSWORD_CHANGE_REQUIRED`.
+It can be called with a pending password change, the same as `change-password` and `logout`.
+Any other route then answers `403 PASSWORD_CHANGE_REQUIRED`.
 
 ## `POST /v1/auth/change-password`
 
@@ -120,32 +115,32 @@ Cualquier otra ruta responde entonces `403 PASSWORD_CHANGE_REQUIRED`.
 { "currentPassword": "...", "newPassword": "..." }
 ```
 
-**204.** **Invalida todas las sesiones**, incluida la actual: el cliente debe
-volver a entrar.
+**204.** **It invalidates all sessions**, including the current one: the client must
+sign in again.
 
-La contraseña nueva se valida contra la política del dominio (`PasswordPolicy`).
-Errores:
+The new password is validated against the domain policy (`PasswordPolicy`).
+Errors:
 
-| `code` | Estado | Situación |
+| `code` | Status | Situation |
 |---|---|---|
-| `UNAUTHENTICATED` | 401 | falta el token |
-| `INVALID_CREDENTIALS` | 401 | la contraseña actual no es correcta |
-| `WEAK_PASSWORD` | 422 | la contraseña nueva no cumple la política |
-| `SAME_PASSWORD` | 422 | la contraseña nueva es igual a la actual |
+| `UNAUTHENTICATED` | 401 | the token is missing |
+| `INVALID_CREDENTIALS` | 401 | the current password is not correct |
+| `WEAK_PASSWORD` | 422 | the new password does not meet the policy |
+| `SAME_PASSWORD` | 422 | the new password is the same as the current one |
 
-Cambiar la contraseña cierra **todas** las sesiones: quien la cambia suele sospechar que está
-comprometida, y dejar vivas las demás mantendría el acceso del atacante justo cuando el usuario
-intenta cerrarlo.
+Changing the password closes **all** sessions: whoever changes it usually suspects it has been
+compromised, and leaving the others alive would keep the attacker's access exactly when the user
+tries to close it.
 
-El cierre es **inmediato y exacto**. El cambio y la revocación de los refresh tokens van en la misma
-transacción, y los tokens de acceso ya emitidos dejan de servir en la petición siguiente porque su
-sello de credenciales ya no coincide con el de la cuenta. No depende de comparar fechas.
+The closing is **immediate and exact**. The change and the revocation of the refresh tokens are in the same
+transaction, and the access tokens already issued stop working on the next request because their
+credentials stamp no longer matches the account's. It does not depend on comparing dates.
 
-## Verificación
+## Verification
 
-| Archivo | Qué cubre |
+| File | What it covers |
 |---|---|
-| `api/app/src/test/kotlin/dev/axzy/stock/app/AuthFlowTest.kt` | Todas las rutas por HTTP real: login, bloqueo, refresh con reuso, logout, cambio de contraseña |
-| `api/adapters-security/src/test/.../SecurityAdaptersTest.kt` | Argon2id, firma y verificación de tokens, refresh tokens |
-| `api/adapters-persistence/src/test/.../SessionPersistenceTest.kt` | Persistencia de sesiones y dos renovaciones simultáneas |
-| `stock-domain/src/commonTest/.../identity/SessionModelTest.kt` | La decisión de refresh, como función pura |
+| `api/app/src/test/kotlin/dev/axzy/stock/app/AuthFlowTest.kt` | All the routes over real HTTP: login, lock, refresh with reuse, logout, password change |
+| `api/adapters-security/src/test/.../SecurityAdaptersTest.kt` | Argon2id, token signing and verification, refresh tokens |
+| `api/adapters-persistence/src/test/.../SessionPersistenceTest.kt` | Session persistence and two simultaneous renewals |
+| `stock-domain/src/commonTest/.../identity/SessionModelTest.kt` | The refresh decision, as a pure function |

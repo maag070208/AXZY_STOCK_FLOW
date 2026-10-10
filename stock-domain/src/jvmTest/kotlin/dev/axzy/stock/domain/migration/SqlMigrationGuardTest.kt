@@ -8,33 +8,33 @@ import java.io.File
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * GUARDIAS DE LAS MIGRACIONES SQL
+ * SQL MIGRATION GUARDS
  *
- * Este test corre en JVM y lee los archivos `.sql` del repositorio. No se
- * conecta a PostgreSQL: eso lo hace el workflow de CI, que además aplica las
- * migraciones desde cero contra una base real.
+ * This test runs on the JVM and reads the `.sql` files in the repository. It does not
+ * connect to PostgreSQL: that is done by the CI workflow, which also applies the
+ * migrations from scratch against a real database.
  *
- * **¿Por qué un test que lee SQL en lugar de probarlo contra una base?**
- * Porque hay errores que se detectan sin base de datos y que es importante
- * detectar **en cada commit**, no solo en CI: que las migraciones estén
- * versionadas de forma correlativa, que las inmutabilidades del ledger sigan
- * declaradas, y que nadie haya colado un `DROP` o un `DELETE` en una migración.
+ * **Why a test that reads SQL instead of testing it against a database?**
+ * Because there are errors that are detected without a database and that it is important
+ * to catch **in every commit**, not only in CI: that the migrations are
+ * versioned sequentially, that the ledger's immutability guarantees remain
+ * declared, and that nobody has slipped a `DROP` or a `DELETE` into a migration.
  *
- * La división es deliberada: aquí se verifica la **forma** (barato y en cada
- * commit), en CI se verifica la **ejecución** (caro y contra Postgres real).
+ * The split is deliberate: here the **shape** is verified (cheap, in every
+ * commit), in CI the **execution** is verified (expensive, against a real Postgres).
  *
- * La lección del legacy: tenía 36 migraciones en una carpeta que Prisma no leía
- * más 3 en la carpeta correcta, y una de ellas recreaba todo el esquema. Su
- * historial **no reconstruía la base**, así que un despliegue limpio era
- * imposible. Estas guardias son la corrección.
+ * The lesson from the legacy: it had 36 migrations in a folder that Prisma did not read
+ * plus 3 in the correct folder, and one of them recreated the whole schema. Its
+ * history **did not rebuild the database**, so a clean deployment was
+ * impossible. These guards are the fix.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 class SqlMigrationGuardTest : DescribeSpec({
 
     /**
-     * Localiza el directorio de migraciones subiendo desde el directorio de
-     * trabajo, para que el test funcione tanto desde la raíz del monorepo como
-     * desde el directorio del módulo.
+     * It locates the migrations directory by walking up from the working
+     * directory, so that the test works both from the monorepo root and from the
+     * module directory.
      */
     fun migrationsDir(): File {
         val candidates = listOf(
@@ -91,9 +91,9 @@ class SqlMigrationGuardTest : DescribeSpec({
     describe("security guards of the schema") {
 
         it("the domain audit CHECKs are still declared") {
-            // Cada uno de estos impone una regla de negocio en la BASE DE DATOS,
-            // no solo en el código. Borrarlos convertiría una invariante en una
-            // convención que se puede olvidar.
+            // Each of these enforces a business rule in the DATABASE,
+            // not only in the code. Deleting them would turn an invariant into a
+            // convention that can be forgotten.
             val sql = contentComplete()
 
             val checksExpected = mapOf(
@@ -115,10 +115,10 @@ class SqlMigrationGuardTest : DescribeSpec({
         }
 
         it("the immutability of the audit log applies PER PARTITION") {
-            // Éste es el detalle que se descubrió verificando contra PostgreSQL:
-            // un trigger declarado en una tabla particionada NO se aplica a sus
-            // particiones. Ponerlo solo en el padre daba una falsa sensación de
-            // protección, y un UPDATE sobre una partición PASABA.
+            // This is the detail discovered while verifying against PostgreSQL:
+            // a trigger declared on a partitioned table does NOT apply to its
+            // partitions. Putting it only on the parent gave a false sense of
+            // protection, and an UPDATE on a partition PASSED.
             val sql = contentComplete()
 
             withClue("Debe existir la función que aplica la inmutabilidad por partición") {
@@ -145,10 +145,10 @@ class SqlMigrationGuardTest : DescribeSpec({
         }
 
         it("the ledger uses a SHARED SEQUENCE, not IDENTITY per partition") {
-            // El GENERATED ALWAYS AS IDENTITY del padre no se aplica a las
-            // particiones: toda inserción fallaba con 'null value in column id'.
-            // Una secuencia compartida garantiza además un orden GLOBAL del
-            // ledger, no uno por partición.
+            // The parent's GENERATED ALWAYS AS IDENTITY does not apply to the
+            // partitions: every insert failed with 'null value in column id'.
+            // A shared sequence also guarantees a GLOBAL order of the
+            // ledger, not one per partition.
             val sql = contentComplete()
 
             withClue("Debe existir la secuencia compartida") {
@@ -180,9 +180,9 @@ class SqlMigrationGuardTest : DescribeSpec({
         }
 
         it("the ledger is append-only and protects its integrity") {
-            // El ledger es el libro de inventario. En el legacy,
-            // `removeUnitsFromKardex` hacía `kardex.update`: un registro
-            // histórico se modificaba y la trazabilidad se destruía.
+            // The ledger is the inventory book. In the legacy,
+            // `removeUnitsFromKardex` did `kardex.update`: a historical
+            // record was modified and the traceability was destroyed.
             val sql = contentComplete()
 
             withClue("Debe existir la función que bloquea las mutaciones del kardex") {
@@ -204,8 +204,8 @@ class SqlMigrationGuardTest : DescribeSpec({
         }
 
         it("`difference` is a GENERATED COLUMN, not a field that can get out of sync") {
-            // El legacy declaraba `difference` en modelo, DTO, mapper y
-            // respuesta, y siempre escribía 0 (hallazgo R-58).
+            // The legacy declared `difference` in the model, DTO, mapper and
+            // response, and always wrote 0 (finding R-58).
             val sql = contentComplete()
 
             withClue("La columna debe ser GENERATED ALWAYS AS ... STORED") {
@@ -225,9 +225,9 @@ class SqlMigrationGuardTest : DescribeSpec({
         }
 
         it("an invoice line does not reach APPROVED without an approver or without a reason") {
-            // Es la regla B1 y la segregación de funciones (R-74) impuestas en
-            // la base de datos: sin esto, el control interno depende de que el
-            // código se acuerde de validarlo.
+            // It is rule B1 and the segregation of duties (R-74) enforced in
+            // the database: without this, internal control depends on the
+            // code remembering to validate it.
             val sql = contentComplete()
 
             withClue("Debe exigirse aprobador") {
@@ -239,8 +239,8 @@ class SqlMigrationGuardTest : DescribeSpec({
         }
 
         it("deleting documents leaves a trace: nothing is deleted without a reason") {
-            // El legacy declaraba `deleted` en el esquema y hacía DELETE físico,
-            // sin escribir nunca el flag (hallazgo B-1 / R-57).
+            // The legacy declared `deleted` in the schema and did a physical DELETE,
+            // never writing the flag (finding B-1 / R-57).
             val sql = contentComplete()
 
             withClue("La factura exige motivo y fecha si está borrada") {
@@ -252,8 +252,8 @@ class SqlMigrationGuardTest : DescribeSpec({
         }
 
         it("a label is not marked printed until the printer confirms") {
-            // El legacy marcaba `printed = true` sin esperar la respuesta del
-            // POST: si la Zebra estaba apagada, la etiqueta se perdía para
+            // The legacy set `printed = true` without waiting for the response of the
+            // POST: if the Zebra was off, the label was lost for
             // siempre (hallazgo R-83).
             val sql = contentComplete()
 
@@ -269,8 +269,8 @@ class SqlMigrationGuardTest : DescribeSpec({
         }
 
         it("the conversion to the ERP has a status and not only a boolean") {
-            // El flujo de conversión NUNCA existió en el legacy: `converted` y
-            // `sent` estaban y no se escribían ni se leían (hallazgo R-82).
+            // The conversion flow NEVER existed in the legacy: `converted` and
+            // `sent` existed but were neither written nor read (finding R-82).
             val sql = contentComplete()
 
             withClue("Debe registrarse cuándo se convirtió") {
@@ -283,9 +283,9 @@ class SqlMigrationGuardTest : DescribeSpec({
         }
 
         it("transit between warehouses has its own table and requires different warehouses") {
-            // La mercancía que viaja SIGUE contando en el inventario. Si se
-            // modelara como dos movimientos instantáneos, el total bajaría
-            // durante el trayecto y los reportes mentirían.
+            // Goods in transit STILL COUNT in the inventory. If they were
+            // modeled as two instantaneous movements, the total would drop
+            // during transit and the reports would lie.
             val sql = contentComplete()
 
             withClue("Debe existir la tabla de tránsito") {
@@ -297,8 +297,8 @@ class SqlMigrationGuardTest : DescribeSpec({
         }
 
         it("the RECEIVING location exists as a real location, not as a pseudo-location") {
-            // El legacy devolvía 'ADMIN' hardcodeada con un id ficticio que podía
-            // colisionar con la ubicación real 1 (hallazgo R-69).
+            // The legacy returned a hardcoded 'ADMIN' with a fictitious id that could
+            // collide with the real location 1 (finding R-69).
             val sql = contentComplete()
 
             withClue("Debe existir el tipo de ubicación") {
@@ -310,8 +310,8 @@ class SqlMigrationGuardTest : DescribeSpec({
         }
 
         it("the warehouses of the AREA scope live in the PERSON, not in the role") {
-            // Es lo que permite que un solo rol WAREHOUSE_MANAGER sirva para cualquier
-            // bodega, en lugar de crear un rol por cada una.
+            // It is what allows a single WAREHOUSE_MANAGER role to serve any
+            // warehouse, instead of creating one role per warehouse.
             val sql = contentComplete()
 
             withClue("Debe existir la tabla de bodegas por usuario") {
@@ -320,8 +320,8 @@ class SqlMigrationGuardTest : DescribeSpec({
         }
 
         it("a person can hold several roles, with one primary") {
-            // El legacy tenía `User.roleId` único, lo que obligaba a crear roles
-            // híbridos cuando alguien cubría dos funciones.
+            // The legacy had a single `User.roleId`, which forced creating
+            // hybrid roles when someone covered two functions.
             val sql = contentComplete()
 
             withClue("La relación usuario-rol debe ser N:M") {
@@ -358,15 +358,15 @@ class SqlMigrationGuardTest : DescribeSpec({
     describe("guardias contra operaciones destructivas") {
 
         it("no migration DROPs domain tables or TRUNCATEs") {
-            // Un `DROP TABLE` en una migración borra datos de producción. La
-            // única excepción legítima es la limpieza de una tabla temporal.
+            // A `DROP TABLE` in a migration deletes production data. The
+            // only legitimate exception is cleaning up a temporary table.
             val files = filesSql()
 
             val destructive = files.filter { file ->
                 val content = file.readText()
                     .lines()
-                    // Se ignoran los comentarios: documentar una operación
-                    // destructiva no es ejecutarla.
+                    // Comments are ignored: documenting a destructive operation
+                    // is not executing it.
                     .filterNot { it.trimStart().startsWith("--") }
                     .joinToString("\n")
                     .uppercase()
@@ -374,10 +374,10 @@ class SqlMigrationGuardTest : DescribeSpec({
                 val deletesTable = content.contains("DROP TABLE") &&
                     !content.contains("DROP TABLE IF EXISTS")
 
-                // CUIDADO con TRUNCATE: `REVOKE ... TRUNCATE` QUITA el permiso de
-                // truncar, que es una medida de seguridad, no una operación
-                // destructiva. Se busca el truncado real, que empieza la
-                // sentencia, y no la mención del privilegio.
+                // CAREFUL with TRUNCATE: `REVOKE ... TRUNCATE` REMOVES the privilege to
+                // truncate, which is a security measure, not a destructive
+                // operation. The real truncation is what is searched for, the one that starts the
+                // statement, and not the mention of the privilege.
                 val truncatesForReal = Regex("(^|;|\\n)\\s*TRUNCATE\\s", RegexOption.MULTILINE)
                     .containsMatchIn(content)
 
@@ -407,9 +407,9 @@ class SqlMigrationGuardTest : DescribeSpec({
         it("the critical tables and columns are commented in the database") {
             val sql = contentComplete()
 
-            // Los comentarios viven en la base y los ve quien la inspecciona.
-            // Son la diferencia entre un esquema que se entiende y uno que hay
-            // que arqueologizar.
+            // Comments live in the database and are seen by whoever inspects it.
+            // They are the difference between a schema that is understood and one that has
+            // to be archaeologized.
             withClue("El ledger debe estar documentado") {
                 sql shouldContain "COMMENT ON TABLE audit_log"
             }

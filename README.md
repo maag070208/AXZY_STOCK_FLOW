@@ -1,43 +1,43 @@
 # Almacén Integral
 
-Sistema de almacén: catálogo de productos y ubicaciones, existencias y kardex,
-recepción de facturas con captura física, surtido de órdenes, traslados entre
-ubicaciones y bodegas, etiquetas y reportes.
+Warehouse system: product and location catalog, stock and ledger,
+invoice receiving with physical count, order picking, transfers between
+locations and warehouses, labels and reports.
 
-El sistema se está reconstruyendo. Lo que hay hoy es la documentación, el dominio compartido y la
-API con su infraestructura; la app y la web vienen después.
+The system is being rebuilt. What exists today is the documentation, the shared domain and the
+API with its infrastructure; the app and the web come later.
 
-## Arrancar
+## Start
 
-Un comando: **[ARRANQUE.md](ARRANQUE.md)**.
+One command: **[ARRANQUE.md](ARRANQUE.md)**.
 
-## Las partes
+## The parts
 
-| Parte | Carpeta | Qué es | Estado |
+| Part | Folder | What it is | Status |
 |---|---|---|---|
-| Dominio | `stock-domain/` | Reglas de negocio puras, Kotlin Multiplatform, sin frameworks | Construido |
-| API | `api/` | Kotlin + Spring Boot sobre PostgreSQL, en capas | Fases 0 a 10 cerradas; el ERP sin adaptador |
-| Base de datos | `db/` | Migraciones Flyway `V1`–`V15`, y el rol de la API | Construida |
-| Entorno | `docker-compose.yml` | PostgreSQL, migraciones y API | Construido |
-| Web | `web/` | React 19 + Vite + Tailwind + AXZY UI System, en capas FSD | Entrada y catálogo; crece con cada módulo |
-| Marca | `brand/` | Iconos de la app (Android e iOS) y el manifiesto del paquete de arte | Versionado; la web ya lo usa ([identidad visual](docs/guia/identidad-visual.md)) |
-| App | — | Kotlin Multiplatform (Android e iOS) | Pendiente |
-| Legacy | `BASE/` | El sistema anterior (Node + React + Expo). **Solo referencia: no se modifica** | — |
+| Domain | `stock-domain/` | Pure business rules, Kotlin Multiplatform, no frameworks | Built |
+| API | `api/` | Kotlin + Spring Boot over PostgreSQL, layered | Phases 0 to 10 closed; the ERP without adapter |
+| Database | `db/` | Flyway migrations `V1`–`V15`, and the API role | Built |
+| Environment | `docker-compose.yml` | PostgreSQL, migrations and API | Built |
+| Web | `web/` | React 19 + Vite + Tailwind + AXZY UI System, in FSD layers | Entry and catalog; grows with each module |
+| Brand | `brand/` | App icons (Android and iOS) and the art package manifest | Versioned; the web already uses it ([visual identity](docs/guia/identidad-visual.md)) |
+| App | — | Kotlin Multiplatform (Android and iOS) | Pending |
+| Legacy | `BASE/` | The previous system (Node + React + Expo). **Reference only: not modified** | — |
 
-## Documentación
+## Documentation
 
-**El índice está en [docs/README.md](docs/README.md).** Por dónde empezar:
+**The index is in [docs/README.md](docs/README.md).** Where to start:
 
-1. [docs/plan/PLAN-REHACER.md](docs/plan/PLAN-REHACER.md): qué se construye y por qué.
-2. [docs/plan/PLAN-IMPLEMENTACION.md](docs/plan/PLAN-IMPLEMENTACION.md): módulos, fases y criterio de terminado.
-3. [docs/arquitectura/api-spring.md](docs/arquitectura/api-spring.md): cómo está organizada la API.
-4. [docs/flujos/](docs/flujos/README.md): los procesos que el sistema debe cumplir.
+1. [docs/plan/PLAN-REHACER.md](docs/plan/PLAN-REHACER.md): what is being built and why.
+2. [docs/plan/PLAN-IMPLEMENTACION.md](docs/plan/PLAN-IMPLEMENTACION.md): modules, phases and the definition of done.
+3. [docs/arquitectura/api-spring.md](docs/arquitectura/api-spring.md): how the API is organized.
+4. [docs/flujos/](docs/flujos/README.md): the processes the system must fulfill.
 
-Tres reglas resumen cómo está escrita:
+Three rules summarize how it is written:
 
-1. Cada documento declara su tipo en la línea 2: **Normativo**, **Plan**, **Referencia** o **Histórico**.
-2. Cada regla vive en **un solo lugar**; los demás documentos enlazan.
-3. Cada afirmación técnica cita el archivo de código que la sostiene.
+1. Each document declares its type on line 2: **Normative**, **Plan**, **Reference** or **Historical**.
+2. Each rule lives in **one place only**; the other documents link to it.
+3. Each technical claim cites the code file that backs it.
 
-Las cantidades concretas (pruebas, versiones) viven en los documentos de `docs/` y en
-[ARRANQUE.md](ARRANQUE.md), no aquí: un número en la portada caduca y nadie lo actualiza.
+Concrete figures (tests, versions) live in the documents under `docs/` and in
+[ARRANQUE.md](ARRANQUE.md), not here: a number on the front page goes stale and nobody updates it.

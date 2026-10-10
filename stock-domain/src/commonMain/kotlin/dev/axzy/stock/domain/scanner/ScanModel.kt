@@ -5,42 +5,42 @@ import dev.axzy.stock.domain.value.ProductCode
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ESCÁNER DE CÓDIGOS DE BARRAS — modelo compartido
+ * BARCODE SCANNER — shared model
  *
- * Resuelve los **dos defectos del escáner del legacy**, y los dos son de lógica
- * pura, así que se resuelven aquí y no en cada plataforma:
+ * It resolves the **two defects of the legacy scanner**, and both are of
+ * pure logic, so they are resolved here and not in each platform:
  *
- *  · **M4 / ventana desalineada.** La máscara visual del legacy medía 300×100
- *    píxeles, pero la validación por `e.bounds` aceptaba solo 250×50 centrados.
- *    Resultado: **escaneos válidos descartados** y operadores repitiendo el
- *    gesto sin entender por qué.
+ *  · **M4 / misaligned window.** The legacy visual mask measured 300×100
+ *    pixels, but the validation by `e.bounds` accepted only 250×50 centered.
+ *    Result: **valid scans were discarded** and operators repeating the
+ *    gesture without understanding why.
  *
- *    La causa raíz es que había **dos definiciones** de la misma ventana, en dos
- *    archivos distintos, y nada las mantenía sincronizadas. Aquí hay una sola
- *    constante ([ScanWindow.DEFAULT]) que usan la máscara y la validación. Con
- *    una sola fuente, la desalineación es imposible.
+ *    The root cause is that there were **two definitions** of the same window, in two
+ *    different files, and nothing kept them in sync. Here there is a single
+ *    constant ([ScanWindow.DEFAULT]) that both the mask and the validation use. With
+ *    a single source, the misalignment is impossible.
  *
- *  · **M3 / máquina de estados rota.** El legacy usaba un `step` numérico suelto.
- *    `step` se incrementaba una vez y el handler comparaba `step === 1`, así que
- *    la rama que asigna la ubicación **era inalcanzable** hasta que un error lo
- *    devolvía a 0. El operador necesitaba un tercer escaneo.
+ *  · **M3 / broken state machine.** The legacy used a loose numeric `step`.
+ *    `step` was incremented once and the handler compared `step === 1`, so
+ *    the branch that assigns the location **was unreachable** until an error
+ *    set it back to 0. The operator needed a third scan.
  *
- *    Aquí el estado es un tipo sellado: **las transiciones inválidas no se
- *    pueden escribir**. No hay ningún número que comparar mal.
+ *    Here the state is a sealed type: **invalid transitions cannot be
+ *    written**. There is no number that can be compared wrongly.
  *
- * **Este modelo NO accede a la cámara.** La cámara es de plataforma
- * (`expect/actual` con CameraX + ML Kit en Android y AVFoundation + Vision en
- * iOS), pero **el qué hacer con lo escaneado es idéntico** en las dos.
+ * **This model does NOT access the camera.** The camera is platform code
+ * (`expect/actual` with CameraX + ML Kit on Android and AVFoundation + Vision on
+ * iOS), but **what to do with what was scanned is the same** on both.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
 /**
- * Rectángulo en coordenadas normalizadas (0.0 a 1.0) del fotograma.
+ * Rectangle in normalized coordinates (0.0 to 1.0) of the frame.
  *
- * **Normalizado a propósito:** la cámara entrega píxeles y las pantallas tienen
- * densidades distintas. Con píxeles, la misma ventana lógica mediría cosas
- * distintas en un teléfono y en una tablet, y la validación del legacy ya
- * fallaba por trabajar con píxeles absolutos.
+ * **Normalized on purpose:** the camera delivers pixels and the screens have different
+ * densities. With pixels, the same logical window would measure different things on a
+ * phone and on a tablet, and the legacy validation already
+ * failed by working with absolute pixels.
  */
 data class ScanRect(
     val left: Double,
@@ -66,21 +66,21 @@ data class ScanRect(
 }
 
 /**
- * La ventana de escaneo. **Una sola definición para la máscara y la validación.**
+ * The scan window. **A single definition for the mask and the validation.**
  *
- * El legacy tenía la máscara de 300×100 y la validación de 250×50. Aquí la
- * máscara dibuja `window` y la validación comprueba `window`: físicamente no
+ * The legacy had a 300×100 mask and a 250×50 validation. Here the mask draws `window` and the
+ * validation checks `window`: physically they cannot differ.
  * pueden discrepar.
  */
 data class ScanWindow(
-    /** La zona donde debe caer el código para aceptarse. */
+    /** The area where the code must fall to be accepted. */
     val window: ScanRect,
     /**
-     * Margen de tolerancia alrededor de la ventana, en fracción del fotograma.
+     * Tolerance margin around the window, as a fraction of the frame.
      *
-     * Existe porque un operador con el pulso tembloroso no merece repetir el
-     * escaneo. El legacy tenía tolerancia CERO fuera de la ventana, lo que
-     * combinado con el desalineamiento hacía el escaneo frustrante.
+     * It exists because an operator with a shaky hand should not have to repeat the
+     * scan. The legacy had ZERO tolerance outside the window, which
+     * combined with the misalignment made scanning frustrating.
      */
     val tolerance: Double = 0.05,
 ) {
@@ -88,7 +88,7 @@ data class ScanWindow(
         require(tolerance in 0.0..0.5) { "The tolerance must be between 0 and 0.5: $tolerance" }
     }
 
-    /** La ventana efectiva de aceptación: la visual más la tolerancia. */
+    /** The effective acceptance window: the visual one plus the tolerance. */
     val effective: ScanRect
         get() = ScanRect(
             left = (window.left - tolerance).coerceAtLeast(0.0),
@@ -99,11 +99,11 @@ data class ScanWindow(
 
     companion object {
         /**
-         * La ventana por defecto: una banda horizontal centrada en el tercio
-         * superior-medio del fotograma.
+         * The default window: a horizontal band centered in the upper-middle third of the
+         * frame.
          *
-         * Es **una constante compartida**. La máscara visual y la validación la
-         * leen de aquí, así que no pueden desalinearse.
+         * It is **a shared constant**. The visual mask and the validation read it from here, so
+         * they cannot be misaligned.
          */
         val DEFAULT = ScanWindow(
             window = ScanRect(left = 0.10, top = 0.35, width = 0.80, height = 0.20),
@@ -113,12 +113,12 @@ data class ScanWindow(
 }
 
 /**
- * Comprueba si el centro de un código detectado cae dentro de la ventana.
+ * Checks whether the center of a detected code falls inside the window.
  *
- * **Se usa el CENTRO y no el rectángulo completo.** El legacy comprobaba el
- * origen del bounding box (`y < top + 50`), así que un código alto quedaba fuera
- * aunque estuviera visualmente centrado. El centro es lo que el operador
- * percibe como "lo puse en la raya".
+ * **The CENTER is used and not the full rectangle.** The legacy checked the origin of the bounding
+ * box (`y < top + 50`), so a tall code stayed out
+ * even though it was visually centered. The center is what the operator
+ * perceives as "I put it on the line".
  */
 fun ScanWindow.contains(bounds: ScanRect): Boolean {
     val effective = effective
@@ -127,51 +127,51 @@ fun ScanWindow.contains(bounds: ScanRect): Boolean {
     return insideX && insideY
 }
 
-/** Qué debe hacer el escáner en cada paso. */
+/** What the scanner must do at each step. */
 enum class ScanTarget(val displayName: String) {
     PRODUCT("a product code"),
     LOCATION("a location"),
     CONTAINER("a container"),
     ;
 
-    /** Pista de contexto para mostrar al operador. */
+    /** Context hint to show the operator. */
     fun instruction(step: Int): String = "Escanea $displayName (paso $step)"
 }
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * LA MÁQUINA DE ESTADOS DEL ESCÁNER
+ * THE SCANNER STATE MACHINE
  *
- * Reemplaza el `step` numérico del legacy. **Las transiciones inválidas no se
- * pueden expresar**: no existe forma de asignar una ubicación si aún no se ha
- * escaneado el producto, porque el estado no lleva el producto.
+ * Replaces the legacy's numeric `step`. **Invalid transitions cannot be
+ * expressed**: there is no way to assign a location if the product has not yet been
+ * scanned, because the state does not carry the product.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 sealed interface ScanState {
 
-    /** Qué se espera a continuación, para mostrar la instrucción correcta. */
+    /** What is expected next, to show the correct instruction. */
     val expected: ScanTarget
 
-    /** Número de paso, solo para la interfaz. **Nunca para lógica.** */
+    /** Step number, only for the interface. **Never for logic.** */
     val step: Int
 
-    /** No se ha escaneado nada todavía. */
+    /** Nothing has been scanned yet. */
     data object Idle : ScanState {
         override val expected = ScanTarget.PRODUCT
         override val step = 1
     }
 
-    /** Se escaneó el producto y se esperan las unidades. */
+    /** The product was scanned and the units are expected. */
     data class ProductScanned(
         val product: ProductCode,
-        /** Unidades a mover. `null` mientras el operador no las escriba. */
+        /** Units to move. `null` while the operator has not entered them. */
         val units: Long? = null,
     ) : ScanState {
         override val expected = ScanTarget.LOCATION
         override val step = if (units == null) 2 else 3
     }
 
-    /** Producto, unidades y ubicación de destino: listo para confirmar. */
+    /** Product, units and destination location: ready to confirm. */
     data class ReadyToConfirm(
         val product: ProductCode,
         val units: Long,
@@ -181,10 +181,10 @@ sealed interface ScanState {
         override val step = 4
     }
 
-    /** Error recuperable: se muestra el motivo y se puede reintentar. */
+    /** Recoverable error: the reason is shown and it can be retried. */
     data class Failed(
         val reason: String,
-        /** El estado al que volver al reintentar. */
+        /** The state to return to when retrying. */
         val retryFrom: ScanState,
     ) : ScanState {
         override val expected: ScanTarget get() = retryFrom.expected
@@ -192,35 +192,35 @@ sealed interface ScanState {
     }
 }
 
-/** Lo que se escaneó, ya normalizado. */
+/** What was scanned, already normalized. */
 data class ScanInput(val raw: String, val bounds: ScanRect)
 
-/** Resultado de procesar un escaneo. */
+/** Result of processing a scan. */
 sealed interface ScanOutcome {
     data class Advanced(val state: ScanState) : ScanOutcome
     data class Rejected(val reason: String) : ScanOutcome
 }
 
 /**
- * Procesa un escaneo según el estado actual.
+ * Processes a scan according to the current state.
  *
- * **Sin `when` sobre números**: el `when` es sobre el tipo de estado, así que el
- * compilador garantiza que no falta ningún caso. Ése es el defecto M3 resuelto
- * por construcción, no por cuidado.
+ * **No `when` over numbers**: the `when` is over the state type, so the
+ * compiler guarantees that no case is missing. That is the M3 defect resolved
+ * by construction, not by care.
  */
 fun ScanState.onScan(
     input: ScanInput,
     window: ScanWindow = ScanWindow.DEFAULT,
-    /** Resuelve si un código corresponde a un producto real. */
+    /** Resolves whether a code corresponds to a real product. */
     resolveProduct: (String) -> ProductCode?,
-    /** Resuelve si un código corresponde a una ubicación real. */
+    /** Resolves whether a code corresponds to a real location. */
     resolveLocation: (String) -> LocationCode?,
-    /** Unidades escritas por el operador, para el paso intermedio. */
+    /** Units entered by the operator, for the intermediate step. */
     unitsEntered: Long? = null,
 ): ScanOutcome {
-    // Cuerpo de bloque, no de expresión: dentro de un `when` de expresión no se
-    // puede usar `return`, y aquí el retorno temprano hace el flujo más legible
-    // que anidar condicionales.
+    // Block body, not an expression body: inside an expression `when` you cannot use
+    // `return`, and here the early return makes the flow more readable
+    // than nesting conditionals.
     return when (this) {
 
     is ScanState.Idle -> {
@@ -235,10 +235,10 @@ fun ScanState.onScan(
     }
 
     is ScanState.ProductScanned -> {
-        // ── La regla que el legacy no podía expresar ────────────────────────
-        // Aquí el producto YA está en el estado, así que no hay forma de
-        // asignar una ubicación sin haber escaneado el producto antes.
-        // El `step === 1` del legacy permitía justo lo contrario.
+        // ── The rule the legacy could not express ────────────────────────
+        // Here the product IS already in the state, so there is no way to assign a
+        // location without having scanned the product first.
+        // The legacy's `step === 1` allowed exactly the opposite.
         if (units == null && unitsEntered == null) {
             return ScanOutcome.Rejected("Enter the units before scanning the location")
         }
@@ -269,5 +269,5 @@ fun ScanState.onScan(
     }
 }
 
-/** Alias para el nombre de la ubicación de recepción, para no repetir literales. */
+/** Alias for the name of the receiving location, to avoid repeating literals. */
 private const val Receiving = "RECEIVING"

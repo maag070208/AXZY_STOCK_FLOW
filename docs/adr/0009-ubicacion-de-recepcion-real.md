@@ -1,39 +1,39 @@
-# ADR-0009 — La ubicación de recepción es una ubicación real
-> **Normativo.** Decisión aceptada. Última verificación: 2026-10-09.
+# ADR-0009 — The receiving location is a real location
+> **Normative.** Accepted decision. Last verified: 2026-10-09.
 
 | | |
 |---|---|
-| **Estado** | Aceptada |
-| **Fecha** | 2026-10-09 (decisión B7 y R-65 del plan original) |
-| **Reemplaza a** | — |
-| **Reemplazada por** | — |
+| **Status** | Accepted |
+| **Date** | 2026-10-09 (decision B7 and R-65 of the original plan) |
+| **Replaces** | — |
+| **Replaced by** | — |
 
-## Contexto
+## Context
 
-En el legacy, lo recibido y no ubicado se guardaba en una pseudo-ubicación `ADMIN` que no
-era una ubicación real: no tenía id en el mismo sentido que las demás y el stock quedaba
-allí sin un lugar físico. Además, ubicar era una mutación del libro, no un movimiento.
+In the legacy, what was received and not located was kept in a pseudo-location `ADMIN` that was not
+a real location: it did not have an id in the same sense as the others, and the stock stayed
+there without a physical place. Moreover, locating was a mutation of the ledger, not a movement.
 
-## Decisión
+## Decision
 
-- La recepción tiene una ubicación real con su id, marcada `kind = RECEIVING`
+- Receiving has a real location with its id, marked `kind = RECEIVING`
   (`V5__unassigned_location_kind.sql`, `V6__unassigned_location_and_inventory_engine.sql`).
-- Ubicar es un movimiento nuevo: el total del producto no cambia y el registro histórico
-  se conserva (R-65). Esto es consecuencia de [ADR-0008](0008-discrepancias-y-merma.md)
-  y del kardex append-only.
-- La ubicación de recepción está protegida: no se puede desactivar
+- Locating is a new movement: the product's total does not change and the historical record
+  is kept (R-65). This is a consequence of [ADR-0008](0008-discrepancias-y-merma.md)
+  and of the append-only ledger.
+- The receiving location is protected: it cannot be deactivated
   (`RECEIVING_LOCATION_PROTECTED`, `catalog/location/LocationRoutes.kt`).
-- El stock inicial de la importación va a una ubicación propia `SIN-UBICAR`, no a la
-  recepción (ver [migracion/catalogo-excel.md](../migracion/catalogo-excel.md)).
+- The initial stock from the import goes to its own location `SIN-UBICAR`, not to receiving
+  (see [migracion/catalogo-excel.md](../migracion/catalogo-excel.md)).
 
-## Consecuencias
+## Consequences
 
-- Un producto recibido y no ubicado tiene un saldo visible en `RECEIVING`. No desaparece.
-- La regla de «no ubicar una línea en discrepancia» (ADR-0008) se apoya en que la
-  recepción es una ubicación con reglas propias.
+- A product received and not located has a visible balance in `RECEIVING`. It does not disappear.
+- The rule "do not locate a line in discrepancy" (ADR-0008) relies on receiving being a location
+  with its own rules.
 
-## Alternativas descartadas
+## Discarded alternatives
 
-- **Mantener `ADMIN` como pseudo-ubicación.** Oculta el stock fuera del modelo de ubicaciones.
-- **Ubicar mutando el registro de recepción.** Impide reconstruir qué se recibió (B6 del
-  plan original).
+- **Keep `ADMIN` as a pseudo-location.** It hides the stock outside the location model.
+- **Locate by mutating the receiving record.** It makes it impossible to reconstruct what was received (B6 of the
+  original plan).

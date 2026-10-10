@@ -15,23 +15,23 @@ import io.kotest.property.checkAll
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * INVARIANTES DEL INVENTARIO I1–I10 — PROPERTY-BASED TESTS
+ * INVENTORY INVARIANTS I1–I10 — PROPERTY-BASED TESTS
  *
- * Estos tests son la respuesta a la pregunta que el negocio necesita: **"¿el
- * inventario cuadra tras cualquier secuencia de operaciones?"**.
+ * These tests answer the question the business needs answered: **"does the
+ * inventory balance after any sequence of operations?"**.
  *
- * Se generan secuencias **aleatorias** de operaciones y se afirma que las
- * propiedades se mantienen. A diferencia de un test de ejemplo, esto cubre
- * combinaciones que a nadie se le ocurriría escribir a mano: ubicar sin
- * recibir, trasladar sin stock, mermar de más, recibir el mismo movimiento dos
+ * **Random** sequences of operations are generated and the properties are asserted to
+ * hold. Unlike an example test, this covers
+ * combinations nobody would think to write by hand: locating without
+ * receiving, transferring without stock, shrinking too much, receiving the same movement twice
  * veces (idempotencia)…
  *
- * **El generador solo produce operaciones válidas**, y eso es deliberado: si
- * generara operaciones imposibles, el ledger las rechazaría correctamente y el
- * test no estaría probando la propiedad, sino la validación. La validación se
- * prueba aparte con casos concretos.
+ * **The generator only produces valid operations**, and that is deliberate: if
+ * it generated impossible operations, the ledger would reject them correctly and the
+ * test would not be testing the property but the validation. Validation is
+ * tested separately with concrete cases.
  *
- * Cada invariante lleva su identificador (I1…I10) para poder trazarla contra
+ * Each invariant carries its identifier (I1…I10) so it can be traced against
  * docs/historico/PLAN_ALMACEN_INTEGRAL.md §3.6.
  * ═══════════════════════════════════════════════════════════════════════════
  */
@@ -49,12 +49,12 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
     val locations = listOf(shelfA, shelfB, shelfNorth, shelfSouth)
 
     /**
-     * Genera una secuencia de operaciones válidas contra un ledger concreto.
+     * Generates a sequence of valid operations against a concrete ledger.
      *
-     * Es un generador **consciente del estado**: en cada paso mira el libro y
-     * solo elige operaciones que pueden aplicarse. Así la secuencia siempre
-     * avanza y ninguna operación se rechaza por falta de stock, que es lo que
-     * haría fallar la propiedad por una razón que no es la que se está probando.
+     * It is a **state-aware** generator: at each step it looks at the ledger and
+     * only chooses operations that can be applied. So the sequence always
+     * advances, and no operation is rejected for lack of stock, which is what
+     * would make the property fail for a reason other than the one being tested.
      */
     fun operationSequence(
         ledger: InventoryLedger,
@@ -62,8 +62,8 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
         useIdempotency: Boolean = false,
     ): List<Pair<String, () -> Unit>> {
         val operations = mutableListOf<Pair<String, () -> Unit>>()
-        // Semilla determinista por ejecución: el generador de kotest da la
-        // variabilidad; aquí solo se decide QUÉ operación es válida en cada paso.
+        // Deterministic seed per run: the kotest generator provides the
+        // variability; here it only decides WHICH operation is valid at each step.
         val rng = kotlin.random.Random(steps * 7919L + ledger.entries.size)
 
         repeat(steps) { index ->
@@ -76,7 +76,7 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
                 }
 
                 1 -> {
-                    // Solo se ubica si hay stock en recepción.
+                    // Locating is only attempted if there is stock in receiving.
                     val available = ledger.quantityAt(product, receiving)
                     if (available.isPositive) {
                         val quantity = Quantity.of(
@@ -155,12 +155,12 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
         return operations
     }
 
-    /** Aplica la secuencia y devuelve los tipos aplicados, para depurar. */
+    /** Applies the sequence and returns the applied types, for debugging. */
     fun apply(ledger: InventoryLedger, operations: List<Pair<String, () -> Unit>>): List<String> =
         operations.map { (name, action) -> action(); name }
 
     // ═════════════════════════════════════════════════════════════════════════
-    // I1 — CONSERVACIÓN TOTAL
+    // I1 — TOTAL CONSERVATION
     // ═════════════════════════════════════════════════════════════════════════
 
     describe("I1 — total conservation") {
@@ -168,7 +168,7 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
         it("the total always equals the net of the ledger, after any sequence") {
             checkAll(PropTestConfig(iterations = 200), Arb.int(1..60)) { steps ->
                 val ledger = InventoryLedger()
-                // Carga inicial para tener stock con el que operar.
+                // Initial load so there is stock to operate with.
                 products.forEach { p ->
                     ledger.initialLoad(p, receiving, Quantity.of(1000))
                 }
@@ -252,9 +252,9 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
             val entryOriginal = ledger.entries.first()
             val quantityOriginal = entryOriginal.quantity
 
-            // Se aplican operaciones que en el legacy MUTABAN la entrada de
-            // recepción: `removeUnitsFromKardex` hacía `kardex.update` y bajaba
-            // sus `units`. Aquí eso no puede pasar.
+            // Operations that in the legacy MUTATED the receiving
+            // entry are applied: `removeUnitsFromKardex` did `kardex.update` and lowered
+            // its `units`. Here that cannot happen.
             ledger.locate(productA, receiving, shelfA, Quantity.of(60))
             ledger.moveWithinWarehouse(productA, shelfA, shelfB, Quantity.of(20))
             ledger.adjustmentOut(productA, shelfB, Quantity.of(5), "merma")
@@ -291,7 +291,7 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    // I4 — AUTO-AUDITORÍA
+    // I4 — SELF-AUDIT
     // ═════════════════════════════════════════════════════════════════════════
 
     describe("I4 — quantityAfter allows rebuilding the total") {
@@ -324,7 +324,7 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
                 apply(ledger, operationSequence(ledger, steps))
 
                 products.forEach { product ->
-                    // Reproducción desde cero: solo con el ledger.
+                    // Reproduction from scratch: using only the ledger.
                     val reproduced = ledger.entries
                         .filter { it.productCode == product }
                         .fold(Quantity.ZERO) { accumulated, entry ->
@@ -352,7 +352,7 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    // I5 — CONCILIACIÓN
+    // I5 — RECONCILIATION
     // ═════════════════════════════════════════════════════════════════════════
 
     describe("I5 — balances match the ledger") {
@@ -363,7 +363,7 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
                 products.forEach { p -> ledger.initialLoad(p, receiving, Quantity.of(600)) }
                 apply(ledger, operationSequence(ledger, steps))
 
-                // Recalcular cada ubicación desde cero, solo con el ledger.
+                // Recalculate each location from scratch, using only the ledger.
                 val recalculated = mutableMapOf<Pair<String, LocationCode>, Quantity>()
                 ledger.entries.forEach { entry ->
                     entry.from?.let { from ->
@@ -411,7 +411,7 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    // I6 — AJUSTE CON MOTIVO
+    // I6 — ADJUSTMENT WITH REASON
     // ═════════════════════════════════════════════════════════════════════════
 
     describe("I6 — no adjustment without a reason") {
@@ -446,7 +446,7 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
             ledger.adjustmentOut(productA, receiving, Quantity.of(10), "   ").isLeft shouldBe true
             ledger.adjustmentIn(productA, receiving, Quantity.of(10), "").isLeft shouldBe true
 
-            // Y con motivo sí pasa.
+            // And with a reason it does go through.
             ledger.adjustmentOut(productA, receiving, Quantity.of(10), "merma").isRight shouldBe true
         }
     }
@@ -464,15 +464,15 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
             ledger.receipt(productA, receiving, Quantity.of(100), clientUuid = uuid)
             val totalAfterFirst = ledger.totalOf(productA)
 
-            // El móvil reintenta porque no recibió confirmación.
+            // The phone retries because it did not receive confirmation.
             val second = ledger.receipt(productA, receiving, Quantity.of(100), clientUuid = uuid)
 
             second.isLeft shouldBe true
             with(ledger) {
                 totalOf(productA) shouldBe totalAfterFirst
             }
-            // El ledger arranca vacío: solo debe haber la primera recepción.
-            // El reintento del móvil no puede añadir una segunda entrada.
+            // The ledger starts empty: only the first receipt should exist.
+            // The phone's retry must not add a second entry.
             ledger.entries.size shouldBe 1
             ledger.totalOf(productA) shouldBe Quantity.of(100)
         }
@@ -502,7 +502,7 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
                 val totalsBefore = products.associateWith { ledger.totalOf(it) }
                 val balancesBefore = ledger.allBalances().associate { (it.productCode to it.location) to it.quantity }
 
-                // Se intenta una operación imposible: mover 100.000 unidades.
+                // An impossible operation is attempted: moving 100,000 units.
                 val impossible = Quantity.of(100_000)
                 ledger.locate(productA, receiving, shelfA, impossible)
                 ledger.moveWithinWarehouse(productA, shelfA, shelfB, impossible)
@@ -529,7 +529,7 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    // I10 — TRASLADO ENTRE BODEGAS
+    // I10 — TRANSFER BETWEEN WAREHOUSES
     // ═════════════════════════════════════════════════════════════════════════
 
     describe("I10 — the transfer between warehouses keeps the total") {
@@ -576,7 +576,7 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
                 ledger.initialLoad(productA, shelfNorth, Quantity.of(1000))
                 apply(ledger, operationSequence(ledger, steps))
 
-                // El total siempre incluye lo que está en tránsito.
+                // The total always includes what is in transit.
                 val atLocations = ledger.totalAtLocationsOf(productA)
                 val inTransit = ledger.totalInTransitOf(productA)
                 val total = ledger.totalOf(productA)
@@ -590,7 +590,7 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    // EL BUG DEL LEGACY, COMO PROPIEDAD
+    // THE LEGACY BUG, AS A PROPERTY
     // ═════════════════════════════════════════════════════════════════════════
 
     describe("the double-deduction bug on locating cannot be reproduced") {
@@ -620,8 +620,8 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
         }
 
         it("receiving and then locating leaves the total equal to what was received") {
-            // La secuencia exacta que en el legacy dejaba el stock 100 unidades
-            // por debajo del real.
+            // The exact sequence that in the legacy left the stock 100 units
+            // below the real figure.
             val ledger = InventoryLedger()
             ledger.receipt(productA, receiving, Quantity.of(100))
 

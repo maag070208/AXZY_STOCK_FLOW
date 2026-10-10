@@ -10,16 +10,16 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * TESTS DEL IMPORTADOR DEL CATÁLOGO
+ * CATALOG IMPORTER TESTS
  *
- * El test que importa es **el de cuadre**: corre el importador contra el CSV
- * extraído del Excel real y verifica que reproduzca **las cifras exactas del
- * archivo** (1.398 productos y 10.914.130 unidades).
+ * The test that matters is **the reconciliation one**: it runs the importer against the CSV
+ * extracted from the real Excel and verifies that it reproduces **the exact figures of the
+ * file** (1,398 products and 10,914,130 units).
  *
- * Es la diferencia entre "el importador funciona" y "el importador carga los
- * datos correctos". Un importador que descarta filas en silencio pasa el primer
- * test y falla el segundo, y el descuadre aparece después, cuando ya no hay
- * forma de saber qué se perdió.
+ * It is the difference between "the importer works" and "the importer loads the
+ * correct data". An importer that discards rows in silence passes the first
+ * test and fails the second, and the discrepancy appears later, when there is no
+ * way to know what was lost.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 class CatalogImporterTest : DescribeSpec({
@@ -27,13 +27,13 @@ class CatalogImporterTest : DescribeSpec({
     val importer = CatalogImporter()
 
     /**
-     * Lee el CSV real extraído del Excel.
+     * Reads the real CSV extracted from the Excel.
      *
-     * Se lee del classpath para que el test no dependa del directorio de
-     * trabajo desde el que se ejecute. El recurso vive en `jvmTest/resources`,
-     * que es la única fuente de plataforma que la guardia de arquitectura
-     * permite: `jvmMain` está prohibido y `jvmTest` es aceptable porque es
-     * código de prueba, no de dominio.
+     * It is read from the classpath so that the test does not depend on the
+     * working directory it runs from. The resource lives in `jvmTest/resources`,
+     * which is the only platform source the architecture guard allows:
+     * `jvmMain` is forbidden and `jvmTest` is acceptable because it is
+     * test code, not domain code.
      */
     fun readRealCatalog(): String {
         val stream = CatalogImporterTest::class.java.classLoader
@@ -71,8 +71,8 @@ class CatalogImporterTest : DescribeSpec({
                 report.rejectedCount shouldBe 0
             }
 
-            // La verificación de cuadre: si el importador descartara filas en
-            // silencio, esta comprobación lo detecta con los números exactos.
+            // The reconciliation check: if the importer discarded rows in
+            // silence, this check detects it with the exact numbers.
             val discrepancies = report.matchesExpectations(
                 expectedProducts = CatalogImporter.EXPECTED_PRODUCTS,
                 expectedTotalStock = CatalogImporter.EXPECTED_TOTAL_STOCK,
@@ -91,9 +91,9 @@ class CatalogImporterTest : DescribeSpec({
         it("the report identifies the 334 products with zero stock") {
             val report = importer.import(importer.parseCsv(readRealCatalog()))
 
-            // Dato conocido del archivo: el 23,9% de los productos está en cero.
-            // Saberlo importa: son productos que existen en el catálogo pero no
-            // tienen stock, y confundirlos con "no existe" genera errores en piso.
+            // Known fact about the file: 23.9% of the products are at zero.
+            // It matters: they are products that exist in the catalog but have no
+            // stock, and confusing them with "does not exist" causes errors on the floor.
             withClue("Deben ser exactamente 334 productos en cero") {
                 report.zeroStockCount shouldBe CatalogImporter.EXPECTED_ZERO_STOCK_PRODUCTS
             }
@@ -110,8 +110,8 @@ class CatalogImporterTest : DescribeSpec({
         it("the number of rows read matches the 1,398 useful ones in the file") {
             val rows = importer.parseCsv(readRealCatalog())
 
-            // El archivo tiene 1.400 líneas: 1 de cabecera y 2 vacías al final.
-            // El parser descarta las vacías, así que quedan 1.398.
+            // The file has 1,400 lines: 1 header and 2 empty ones at the end.
+            // The parser discards the empty ones, so 1,398 remain.
             withClue("El parser debe descartar las líneas vacías") {
                 rows.size shouldBe 1398
             }
@@ -145,9 +145,9 @@ class CatalogImporterTest : DescribeSpec({
     describe("strict rules: the row is rejected, not guessed") {
 
         it("rejects a lowercase code, stating the row number") {
-            // El alfabeto real es 0-9 y A-Z. Un importador tolerante normalizaría
-            // a mayúsculas; aquí se rechaza, porque una minúscula en el archivo
-            // significa que algo cambió en el origen y hay que mirarlo.
+            // The real alphabet is 0-9 and A-Z. A tolerant importer would normalize
+            // to uppercase; here it is rejected, because a lowercase letter in the file
+            // means something changed at the origin and it has to be checked.
             val report = importer.import(
                 listOf(row(rowNumber = 42, productCode = "abraa1b")),
             )
@@ -177,8 +177,8 @@ class CatalogImporterTest : DescribeSpec({
         }
 
         it("rejects an unknown unit of measure") {
-            // Es la defensa contra el clásico KG / Kg / KGS como tres unidades
-            // distintas: si no está en el catálogo, se rechaza.
+            // It is the defense against the classic KG / Kg / KGS as three
+            // different units: if it is not in the catalog, it is rejected.
             val report = importer.import(listOf(row(unitMeasure = "KGS")))
 
             val rejection = report.rejected.single()
@@ -187,8 +187,8 @@ class CatalogImporterTest : DescribeSpec({
         }
 
         it("accepts the unit in lowercase because it is not ambiguous") {
-            // A diferencia del código, la unidad se normaliza: 'pza' es
-            // inequívocamente la misma unidad.
+            // Unlike the code, the unit is normalized: 'pza' is
+            // unequivocally the same unit.
             val report = importer.import(listOf(row(unitMeasure = "pza")))
 
             report.acceptedCount shouldBe 1
@@ -256,8 +256,8 @@ class CatalogImporterTest : DescribeSpec({
     describe("CSV parser: the real file has quotes and commas inside fields") {
 
         it("handles the escaped double quotes of the real file") {
-            // 876 nombres del archivo llevan comillas dobles: 'ABRAZADERA 1-5/8"'.
-            // Un split ingenuo por comas rompería esas filas.
+            // 876 names in the file carry double quotes: 'ABRAZADERA 1-5/8"'.
+            // A naive split by commas would break those rows.
             val content = listOf(
                 "\$product_id,product_code,name,unit_measure,stock",
                 "1,ABRAA1B,\"ABRAZADERA DE ARRANQUE 1-5/8\"\"\",PZA,5193"

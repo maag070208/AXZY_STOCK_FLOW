@@ -2,129 +2,129 @@ package dev.axzy.stock.domain.audit
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * MODELO DE AUDITORÍA — "TODO debe ser auditable"
+ * AUDIT MODEL — "EVERYTHING must be auditable"
  *
- * El requisito es de primer orden: **quién, cuándo, dónde, de dónde, a qué hora
- * y con qué permiso**. Las seis dimensiones están representadas aquí como
+ * The requirement is of first order: **who, when, where, from where, at what time
+ * and with which permission**. The six dimensions are represented here as
  * campos obligatorios, no como buenas intenciones.
  *
- * **El punto que se suele pasar por alto:** auditar el cambio no basta, hay que
- * auditar **la autorización**. Los permisos cambian con el tiempo. Si dentro de
- * seis meses alguien pregunta si una aprobación de 200 piezas fue legítima,
- * mirar los permisos *actuales* del usuario no responde nada: hay que saber qué
- * roles, qué alcance y **qué políticas estaban vigentes en el instante de la
- * acción**. Por eso cada evento lleva el *trace* de la decisión completa y la
- * **versión** de la matriz y de las políticas.
+ * **The point that is usually overlooked:** auditing the change is not enough: one has to
+ * audit **the authorization**. Permissions change over time. If within
+ * six months someone asks whether an approval of 200 pieces was legitimate,
+ * looking at the user's *current* permissions answers nothing: one has to know which
+ * roles, what scope and **which policies were in force at the moment of the**
+ * **action**. That is why each event carries the *trace* of the full decision and the
+ * **version** of the matrix and of the policies.
  *
- * **El legacy no tiene nada de esto.** Verificado sobre los 13 modelos de su
- * esquema: no existe ninguna tabla de auditoría. Su único rastro es el `Kardex`,
- * y es **mutable** (`removeUnitsFromKardex` hace `kardex.update`), así que
- * tampoco sirve como registro histórico. La consecuencia es que el sistema
- * legacy **no puede responder "quién hizo esto"** para casi nada.
+ * **The legacy has none of this.** Verified over the 13 models of its
+ * schema: there is no audit table at all. Its only trail is the `Kardex`,
+ * and it is **mutable** (`removeUnitsFromKardex` does `kardex.update`), so
+ * it does not serve as a historical record either. The consequence is that the legacy
+ * system **cannot answer "who did this"** for almost anything.
  *
  * Referencia: docs/historico/PLAN_AUDITORIA.md.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
 /**
- * Canal de origen de un evento.
+ * Source channel of an event.
  *
- * Es la dimensión que el legacy **no tenía en absoluto**, y sin ella no se puede
- * interpretar un movimiento sin persona detrás: si aparece un ajuste de
- * inventario sin usuario, hay que poder distinguir "lo hizo el ERP" de "alguien
- * con una API key filtrada" de "es un bug".
+ * It is the dimension the legacy **did not have at all**, and without it a movement cannot be
+ * interpreted without a person behind it: if an inventory adjustment appears
+ * with no user, one has to be able to tell "the ERP did it" from "someone
+ * with a leaked API key" from "it is a bug".
  */
 enum class AuditChannel {
-    /** Persona desde el navegador. */
+    /** A person from the browser. */
     WEB,
 
-    /** Persona desde el móvil, con conexión. */
+    /** A person from the mobile app, online. */
     MOBILE,
 
-    /** Persona en el móvil **sin señal**, sincronizado después. */
+    /** A person on the mobile app **without signal**, synchronized later. */
     MOBILE_OFFLINE,
 
-    /** Sistema externo: el ERP (el antiguo `kardo`). */
+    /** External system: the ERP (formerly `kardo`). */
     SERVICE_ERP,
 
-    /** La impresora Zebra confirmando impresión. */
+    /** The Zebra printer confirming printing. */
     SERVICE_PRINTER,
 
-    /** Proceso interno: reconciliación, vencimiento de excepciones. */
+    /** Internal process: reconciliation, expiry of exceptions. */
     SERVICE_JOB,
 
-    /** Carga inicial de datos, en la migración. */
+    /** Initial data load, in the migration. */
     MIGRATION,
 
-    /** El propio sistema: arranque, cambio de esquema. */
+    /** The system itself: startup, schema change. */
     SYSTEM,
     ;
 
-    /** Indica si el evento lo originó una persona. */
+    /** Indicates whether the event was originated by a person. */
     val isHuman: Boolean get() = this == WEB || this == MOBILE || this == MOBILE_OFFLINE
 
-    /** Indica si el evento vino de una integración con credencial de servicio. */
+    /** Indicates whether the event came from an integration with a service credential. */
     val isService: Boolean
         get() = this == SERVICE_ERP || this == SERVICE_PRINTER || this == SERVICE_JOB
 }
 
 /**
- * Nivel de criticidad, que determina el tratamiento y la retención.
+ * Criticality level, which determines the handling and the retention.
  *
- * **Registrar todo con el mismo detalle no es auditar: es acumular ruido que
- * nadie leerá.** Un listado de inventario paginado genera decenas de registros,
- * y el volumen de escritura supera al de lectura real. La solución no es
- * auditar menos, sino separar por niveles.
+ * **Recording everything with the same detail is not auditing: it is accumulating noise that**
+ * nobody will read.** A paginated inventory listing generates dozens of records,
+ * and the write volume exceeds the real read volume. The solution is not to
+ * audit less, but to separate by levels.
  */
 enum class AuditLevel(val numeric: Int) {
     /**
-     * Mueve inventario, dinero o acceso. Registro completo **en la misma
-     * transacción** que la operación, y retención **permanente**.
+     * Moves inventory, money or access. Complete record **in the same**
+     * **transaction** as the operation, and **permanent** retention.
      */
     CRITICAL(1),
 
-    /** Cambia el trabajo de las personas. Registro completo, retención 3 años. */
+    /** Changes people's work. Complete record, 3-year retention. */
     RELEVANT(2),
 
     /**
-     * Acceso a datos. **Contador agregado** para las lecturas normales, y
-     * registro completo solo para datos sensibles y para las denegaciones.
-     * Retención 1 año.
+     * Data access. **Aggregate counter** for normal reads, and
+     * a complete record only for sensitive data and for denials.
+     * Retention 1 year.
      */
     ACCESS(3),
 
-    /** Observabilidad, no auditoría. Retención 30 días. */
+    /** Observability, not auditing. Retention 30 days. */
     TECHNICAL(4),
 }
 
-/** Resultado de la operación auditada. */
+/** Result of the audited operation. */
 enum class AuditResult {
     SUCCESS,
     FAILURE,
 
     /**
-     * Denegado por el motor de acceso.
+     * Denied by the access engine.
      *
-     * **Los intentos denegados son la señal más valiosa de la auditoría**: son
-     * los que detectan abuso, y también los que detectan un permiso mal
-     * configurado que está bloqueando trabajo legítimo.
+     * **Denied attempts are the most valuable signal of the audit**: they are
+     * the ones that detect abuse, and also the ones that detect a misconfigured permission that
+     * is blocking legitimate work.
      */
     DENIED,
     PARTIAL,
 }
 
 /**
- * Quién ejecutó la acción.
+ * Who executed the action.
  *
- * **Los campos incluyen un snapshot del nombre y los roles**, no solo el id.
- * La razón: si el usuario se renombra o se borra, un FK solo deja el histórico
- * ilegible. Una auditoría que no se puede leer dentro de dos años no sirve.
+ * **The fields include a snapshot of the name and the roles**, not just the id.
+ * The reason: if the user is renamed or deleted, a FK alone leaves the history
+ * unreadable. An audit that cannot be read two years from now is no use.
  */
 data class AuditActor(
     val userId: Long?,
     val username: String?,
     val displayName: String?,
-    /** Snapshot de los roles **vigentes en el momento** de la acción. */
+    /** Snapshot of the roles **in force at the time** of the action. */
     val roles: List<String> = emptyList(),
 ) {
     companion object {
@@ -135,7 +135,7 @@ data class AuditActor(
             roles = emptyList(),
         )
 
-        /** Actor de una integración con credencial de servicio. */
+        /** Actor of an integration with a service credential. */
         fun service(name: String, keyId: Long) = AuditActor(
             userId = null,
             username = "service:$name",
@@ -145,87 +145,87 @@ data class AuditActor(
     }
 }
 
-/** De dónde vino la petición. */
+/** Where the request came from. */
 data class AuditSource(
     val channel: AuditChannel,
     val deviceId: String? = null,
     val ip: String? = null,
     val userAgent: String? = null,
-    /** Si vino de una integración, la clave de servicio usada. */
+    /** If it came from an integration, the service key used. */
     val serviceKeyId: Long? = null,
 )
 
-/** Sobre qué se actuó. */
+/** What was acted upon. */
 data class AuditEntity(
     val type: String,
     val id: String?,
     /**
      * Etiqueta legible: `"Factura F-2024-0158"`.
      *
-     * Sin esto, un reporte de auditoría es una lista de ids que nadie puede
-     * interpretar sin consultar cinco tablas.
+     * Without this, an audit report is a list of ids that nobody can interpret
+     * without querying five tables.
      */
     val label: String? = null,
 )
 
 /**
- * Tiempos del evento.
+ * Times of the event.
  *
- * **Se guardan dos horas distintas a propósito.** El móvil puede capturar a las
- * 22:00 sin señal y sincronizar a las 09:00 del día siguiente. Son dos hechos
- * diferentes y ambos importan: el primero dice cuándo ocurrió, el segundo cuándo
- * se supo. El legacy mezclaba `Z` con hora local y no guardaba ninguno de los
- * dos de forma fiable (hallazgo R-15).
+ * **Two different times are stored on purpose.** The mobile app can capture at
+ * 22:00 without signal and synchronize at 09:00 the next day. These are two different facts
+ * and both matter: the first says when it happened, the second when
+ * it was known. The legacy mixed `Z` with local time and stored neither of the
+ * two reliably (finding R-15).
  */
 data class AuditTiming(
-    /** Instante en UTC en que ocurrió la acción. */
+    /** Instant in UTC when the action occurred. */
     val occurredAt: Long,
-    /** Fecha operativa: para turnos de noche, la "fecha de negocio". */
+    /** Operating date: for night shifts, the "business date". */
     val businessDate: String,
-    /** Cuándo lo capturó el móvil sin señal. `null` si hubo conexión. */
+    /** When the mobile app captured it without signal. `null` if there was a connection. */
     val offlineCreatedAt: Long? = null,
-    /** Cuándo llegó al servidor. `null` si fue en línea. */
+    /** When it reached the server. `null` if it was online. */
     val syncedAt: Long? = null,
-    /** Diferencia detectada con el reloj del servidor, en milisegundos. */
+    /** Difference detected against the server clock, in milliseconds. */
     val clockSkewMs: Long? = null,
 ) {
-    /** Indica si el evento llegó por sincronización diferida. */
+    /** Indicates whether the event arrived through deferred synchronization. */
     val isDeferred: Boolean get() = offlineCreatedAt != null && offlineCreatedAt != occurredAt
 }
 
 /**
- * Un evento de auditoría completo: **las seis dimensiones**.
+ * A complete audit event: **the six dimensions**.
  *
- * Es inmutable. Una vez construido, no se modifica: la auditoría que se puede
- * editar no es auditoría.
+ * It is immutable. Once built, it is not modified: an audit log that can be
+ * edited is not an audit log.
  */
 data class AuditEvent(
-    // ── CUÁNDO ──────────────────────────────────────────────────────────────
+    // ── WHEN ────────────────────────────────────────────────────────────────
     val timing: AuditTiming,
 
-    // ── QUIÉN ───────────────────────────────────────────────────────────────
+    // ── WHO ─────────────────────────────────────────────────────────────────
     val actor: AuditActor,
 
-    // ── DE DÓNDE ────────────────────────────────────────────────────────────
+    // ── FROM WHERE ────────────────────────────────────────────────────────────
     val source: AuditSource,
 
-    // ── SOBRE QUÉ ───────────────────────────────────────────────────────────
+    // ── ON WHAT ───────────────────────────────────────────────────────────
     val entity: AuditEntity,
 
-    // ── QUÉ ─────────────────────────────────────────────────────────────────
+    // ── WHAT ─────────────────────────────────────────────────────────────────
     val action: String,
     val level: AuditLevel,
 
-    // ── CON QUÉ PERMISO ─────────────────────────────────────────────────────
+    // ── WITH WHAT PERMISSION ─────────────────────────────────────────────────
     val permissionKey: String? = null,
     val trace: AccessDecisionTrace? = null,
 
-    // ── QUÉ CAMBIÓ ──────────────────────────────────────────────────────────
+    // ── WHAT CHANGED ──────────────────────────────────────────────────────────
     val previousState: Map<String, Any?>? = null,
     val newState: Map<String, Any?>? = null,
     val changedFields: List<String> = emptyList(),
 
-    // ── POR QUÉ ─────────────────────────────────────────────────────────────
+    // ── WHY ─────────────────────────────────────────────────────────────────
     val reason: String? = null,
     val note: String? = null,
 
@@ -235,11 +235,11 @@ data class AuditEvent(
     val errorMessage: String? = null,
     val durationMs: Long? = null,
 
-    // ── CORRELACIÓN ─────────────────────────────────────────────────────────
-    /** Agrupa todas las acciones de un mismo flujo (una recepción, un cierre). */
+    // ── CORRELATION ─────────────────────────────────────────────────────────
+    /** Groups all the actions of the same flow (a receiving, a closing). */
     val correlationId: String? = null,
     val causationId: String? = null,
-    /** Clave de idempotencia del móvil: permite deduplicar reintentos. */
+    /** The mobile app's idempotency key: it allows deduplicating retries. */
     val idempotencyKey: String? = null,
     val requestId: String? = null,
 
@@ -249,28 +249,28 @@ data class AuditEvent(
     val recordHash: String = "",
 ) {
     /**
-     * Indica si el evento tiene las **seis dimensiones** completas.
+     * Indicates whether the event has the **six dimensions** complete.
      *
-     * Es la comprobación que hace que "todo auditable" sea verificable en lugar
-     * de aspiracional: un evento sin canal de origen o sin hora de ocurrencia
-     * está incompleto, y un test lo detecta.
+     * It is the check that makes "everything auditable" verifiable instead of
+     * aspirational: an event without a source channel or without an occurrence time
+     * is incomplete, and a test detects it.
      */
     val hasAllDimensions: Boolean
         get() {
-            // QUIÉN: si el canal es humano, debe haber una persona identificada.
-            // Si es de servicio o sistema, debe estar identificado el origen.
+            // WHO: if the channel is human, a person must be identified.
+            // If it is a service or system, the origin must be identified.
             val hasActor = when {
                 source.channel.isHuman -> actor.userId != null
                 else -> actor.username != null
             }
-            // CUÁNDO: instante y fecha operativa.
+            // WHEN: instant and operating date.
             val hasWhen = timing.occurredAt > 0 && timing.businessDate.isNotBlank()
-            // DÓNDE: sobre qué entidad.
+            // WHERE: on which entity.
             val hasWhere = entity.type.isNotBlank()
-            // A QUÉ HORA, en el sentido de si fue diferido: si llegó por
-            // sincronización, debe constar cuándo se capturó.
+            // AT WHAT TIME, in the sense of whether it was deferred: if it arrived by
+            // synchronization, the time it was captured must be recorded.
             val hasTimesCoherent = !timing.isDeferred || timing.offlineCreatedAt != null
-            // QUÉ y CON QUÉ PERMISO: la acción siempre; el permiso si es crítica.
+            // WHAT and WITH WHAT PERMISSION: the action always; the permission if it is critical.
             val hasThat = action.isNotBlank()
             val hasPermission = level != AuditLevel.CRITICAL || permissionKey != null
 
@@ -278,7 +278,7 @@ data class AuditEvent(
                 hasTimesCoherent && hasThat && hasPermission
         }
 
-    /** Los campos que difieren entre el estado anterior y el nuevo. */
+    /** The fields that differ between the previous and the new state. */
     fun computeChangedFields(): List<String> {
         val before = previousState ?: return emptyList()
         val after = newState ?: return emptyList()
@@ -289,39 +289,39 @@ data class AuditEvent(
 }
 
 /**
- * La cadena de hashes.
+ * The hash chain.
  *
- * No impide la alteración: la **hace detectable**. Es el máximo que se puede
- * lograr sin hardware especializado, y es la misma lógica que un libro contable
- * foliado. Si alguien modifica un registro del medio, la cadena se rompe en ese
- * punto exacto y la verificación lo señala.
+ * It does not prevent alteration: it makes it **detectable**. It is the most that can be
+ * achieved without specialized hardware, and it is the same logic as an accounting ledger
+ * with numbered pages. If someone modifies a record in the middle, the chain breaks at that
+ * exact point and the verification reports it.
  *
- * **Riesgo residual aceptado y documentado** (decisión R-79): un administrador
- * de base de datos con acceso total puede recalcular la cadena entera. Lo que sí
- * se detecta es cualquier alteración accidental, cualquier cambio hecho a través
- * de la aplicación, y cualquier `UPDATE`/`DELETE` que no recalcule toda la
- * cadena. Si el requisito cambia a "ni el DBA puede alterar sin que se note", la
- * mitigación es exportar los hashes a almacenamiento externo inmutable; el
- * puerto de exportación queda preparado para ese caso.
+ * **Accepted and documented residual risk** (decision R-79): a database administrator
+ * with full access can recompute the entire chain. What is detected is
+ * any accidental alteration, any change made through the application, and
+ * any `UPDATE`/`DELETE` that does not recompute the whole
+ * chain. If the requirement changes to "not even the DBA can alter without it being noticed", the
+ * mitigation is to export the hashes to immutable external storage; the
+ * export port is already prepared for that case.
  */
 interface AuditHashChain {
 
-    /** Calcula el hash de un evento encadenándolo con el anterior. */
+    /** Computes the hash of an event by chaining it with the previous one. */
     fun hash(previousHash: String?, event: AuditEvent): String
 
     /**
-     * Verifica una secuencia completa.
-     * @return el índice del primer evento inválido, o `null` si la cadena es íntegra.
+     * Verifies a complete sequence.
+     * @return the index of the first invalid event, or `null` if the chain is intact.
      */
     fun verify(events: List<AuditEvent>): Int?
 }
 
 /**
- * Implementación determinista de la cadena, sin dependencias externas.
+ * Deterministic implementation of the chain, with no external dependencies.
  *
- * Usa un hash simple y estable: lo que importa no es la fortaleza criptográfica
- * contra un atacante con recursos, sino que **cualquier cambio produzca un hash
- * distinto**. La verificación periódica detecta la alteración.
+ * It uses a simple and stable hash: what matters is not cryptographic strength
+ * against an attacker with resources, but that **any change produces a
+ * different hash**. The periodic verification detects the alteration.
  */
 object DefaultAuditHashChain : AuditHashChain {
 
@@ -341,8 +341,8 @@ object DefaultAuditHashChain : AuditHashChain {
             append('|')
             append(event.entity.id ?: "")
             append('|')
-            // El estado nuevo entra en el hash: alterar un valor sin recalcular
-            // el hash rompe la cadena.
+            // The new state is part of the hash: altering a value without recomputing
+            // the hash breaks the chain.
             append(event.newState?.entries?.sortedBy { it.key }?.joinToString(",") { "${it.key}=${it.value}" } ?: "")
             append('|')
             append(event.reason ?: "")
@@ -361,9 +361,9 @@ object DefaultAuditHashChain : AuditHashChain {
     }
 
     /**
-     * FNV-1a de 64 bits. Es el mismo algoritmo que usa la implementación de
-     * referencia del proyecto para la huella de idempotencia, así que hay un
-     * solo algoritmo de hashing no criptográfico en todo el sistema.
+     * FNV-1a 64-bit. It is the same algorithm that the
+     * project's reference implementation uses for the idempotency fingerprint, so there is
+     * only one non-cryptographic hashing algorithm in the whole system.
      */
     private fun fnv1a64(input: String): ULong {
         var hash = 0xcbf29ce484222325UL

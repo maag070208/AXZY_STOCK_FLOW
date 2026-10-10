@@ -2,27 +2,27 @@ package dev.axzy.stock.domain.identity
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * CONTRASEÑAS — reglas y puerto de hash
+ * PASSWORDS — rules and hash port
  *
- * Dos piezas, y la separación importa:
+ * Two pieces, and the separation matters:
  *
- *  · **[PasswordPolicy]** — qué se acepta como contraseña. Es **lógica pura**,
- *    así que vive en el dominio y se prueba en milisegundos. Además se aplica en
- *    el cliente con el mismo código, para que el usuario vea el requisito antes
- *    de enviar el formulario en lugar de después.
+ *  · **[PasswordPolicy]** — what is accepted as a password. It is **pure logic**,
+ *    so it lives in the domain and is tested in milliseconds. It is also applied in
+ *    the client with the same code, so that the user sees the requirement before
+ *    sending the form instead of afterwards.
  *
- *  · **[PasswordHasher]** — el **puerto** del algoritmo. El dominio declara lo
- *    que necesita y no sabe qué algoritmo se usa. El adaptador con Argon2id vive
- *    en el backend, porque es una dependencia de plataforma.
+ *  · **[PasswordHasher]** — the **port** of the algorithm. The domain declares what it
+ *    needs and does not know which algorithm is used. The Argon2id adapter lives in the
+ *    backend, because it is a platform dependency.
  *
- * **Por qué esto está en el dominio y no en el backend.** El legacy comparaba
- * contraseñas en texto plano y guardaba el usuario `admin` con la contraseña
- * `admin12345`. Poner las reglas aquí, con tests, hace que el defecto no se
- * pueda reintroducir sin que falle un test.
+ * **Why this is in the domain and not in the backend.** The legacy compared
+ * plain-text passwords and stored the `admin` user with the password
+ * `admin12345`. Putting the rules here, with tests, makes the defect impossible to
+ * reintroduce without a test failing.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-/** Por qué se rechaza una contraseña. */
+/** Why a password is rejected. */
 enum class PasswordRejection(val message: String) {
     TOO_SHORT("The password must be at least 12 characters"),
     TOO_LONG("The password cannot exceed 128 characters"),
@@ -32,7 +32,7 @@ enum class PasswordRejection(val message: String) {
     TOO_SIMPLE("The password must combine letters and numbers, or be a long passphrase"),
 }
 
-/** Resultado de validar una contraseña. */
+/** Result of validating a password. */
 sealed interface PasswordValidation {
     data object Valid : PasswordValidation
     data class Invalid(val rejections: List<PasswordRejection>) : PasswordValidation
@@ -41,19 +41,19 @@ sealed interface PasswordValidation {
 }
 
 /**
- * Las reglas de contraseña.
+ * The password rules.
  *
- * **Se sigue la recomendación NIST SP 800-63B, y eso significa ir en contra de
- * la intuición.** La regla que la gente espera —«al menos una mayúscula, una
- * minúscula, un número y un símbolo»— **empeora** la seguridad: empuja a la
- * gente a `Password1!`, que es fácil de adivinar y difícil de recordar.
+ * **NIST SP 800-63B's recommendation is followed, which means going against**
+ * **intuition.** The rule people expect —"at least one uppercase, one lowercase, one digit
+ * and one symbol"— **makes security worse**: it pushes people to
+ * `Password1!`, which is easy to guess and hard to remember.
  *
- * Lo que sí funciona es la **longitud** y el **bloqueo de contraseñas filtradas**.
- * Por eso: mínimo 12 caracteres, y rechazo de las contraseñas que aparecen en
- * las filtraciones conocidas.
+ * What does work is the **length** and the **blocking of leaked passwords**.
+ * So: at least 12 characters, and rejection of the passwords that appear in
+ * known leaks.
  *
- * **No se exige rotación periódica** por el mismo motivo: obliga a cambiarla y
- * la gente la cambia por algo peor.
+ * **Periodic rotation is not required** for the same reason: it forces changing it and
+ * people change it to something worse.
  */
 object PasswordPolicy {
 
@@ -61,16 +61,16 @@ object PasswordPolicy {
     const val MAX_LENGTH = 128
 
     /**
-     * Las contraseñas más usadas del mundo.
+     * The most used passwords in the world.
      *
-     * Es una lista **deliberadamente corta** y de las que de verdad se ven en
-     * producción. No pretende ser exhaustiva: eso es trabajo de un servicio de
-     * contraseñas filtradas, y el puerto [CompromisedPasswordChecker] queda
-     * preparado para conectarlo sin cambiar esta clase.
+     * It is a **deliberately short** list of the ones that really show up in
+     * production. It does not aim to be exhaustive: that is the work of a leaked-passwords service, and
+     * the port [CompromisedPasswordChecker] is
+     * ready to connect it without changing this class.
      *
-     * Aquí están dos que importan especialmente: `admin12345` **era la
-     * contraseña del usuario admin del legacy**, y `puertonuevo` por ser el
-     * nombre del dominio del que viene este sistema.
+     * Two of them matter especially here: `admin12345` **was the password of the legacy's**
+     * **admin user**, and `puertonuevo` because it is the name of the domain
+     * this system comes from.
      */
     val COMMON = setOf(
         "password", "password1", "password123", "contrasena", "password",
@@ -81,11 +81,11 @@ object PasswordPolicy {
     )
 
     /**
-     * Valida una contraseña.
+     * Validates a password.
      *
-     * @param password la contraseña en claro. **Se valida y se descarta**: no se
-     *   registra ni se guarda en ningún sitio.
-     * @param username el nombre de usuario, para rechazar contraseñas que lo
+     * @param password the password in clear. **It is validated and discarded**: it is not
+     *   logged nor stored anywhere.
+     * @param username the username, to reject passwords that contain it.
      *   contengan.
      */
     fun validate(password: String, username: String? = null): PasswordValidation {
@@ -97,27 +97,27 @@ object PasswordPolicy {
 
         if (password.isBlank()) {
             rejections += PasswordRejection.ONLY_WHITESPACE
-            // Sin esto, una contraseña de solo espacios larga pasaría la longitud.
+            // Without this, a password of only spaces but long would pass the length check.
             return PasswordValidation.Invalid(rejections.distinct())
         }
 
-        // ── Contra la lista de filtradas ────────────────────────────────────
-        // Se compara en minúsculas y sin espacios de los extremos, porque
-        // `Password123 ` es la misma contraseña que `password123` para quien la
-        // escribe, y `PASSWORD123` para quien la adivina.
+        // ── Against the list of leaked passwords ───────────────────────────────
+        // It is compared in lowercase and without spaces at the ends, because
+        // `Password123 ` is the same password as `password123` for whoever types it, and `PASSWORD123`
+        // for whoever guesses it.
         val normalized = password.trim().lowercase()
         if (normalized in COMMON) rejections += PasswordRejection.COMMON
 
-        // ── Que no contenga el usuario ──────────────────────────────────────
-        // `jperez` con la contraseña `jperez2026!` es de lo primero que se prueba.
+        // ── Must not contain the username ──────────────────────────────────────
+        // `jperez` with the password `jperez2026!` is one of the first things that gets tried.
         val user = username?.trim()?.lowercase()
         if (!user.isNullOrBlank() && user.length >= 4 && normalized.contains(user)) {
             rejections += PasswordRejection.CONTAINS_USERNAME
         }
 
-        // ── Complejidad: laxa, y solo contra lo trivial ─────────────────────
-        // NO se exige mayúscula, símbolo ni número por separado. Solo se rechaza
-        // lo que es literalmente una sola clase de carácter repetida, que es
+        // ── Complexity: lax, and only against the trivial ─────────────────────
+        // It does NOT require an uppercase letter, symbol or digit separately. It only rejects
+        // what is literally a single character class repeated, which is
         // malo incluso siendo largo.
         if (password.length >= MIN_LENGTH && isSingleCharacterClass(password)) {
             rejections += PasswordRejection.TOO_SIMPLE
@@ -133,18 +133,18 @@ object PasswordPolicy {
     /**
      * Detecta `aaaaaaaaaaaa` o `123456789012`.
      *
-     * Se comprueba que haya al menos dos clases de carácter distintas. Es una
-     * regla débil a propósito: con 12 caracteres, exigir más clases molesta sin
+     * It checks that there are at least two distinct character classes. It is a
+     * deliberately weak rule: with 12 characters, requiring more classes is annoying without
      * aportar seguridad real.
      */
     private fun isSingleCharacterClass(password: String): Boolean {
         val hasLetter = password.any { it.isLetter() }
         val hasDigit = password.any { it.isDigit() }
-        // Si no tiene ni letras ni dígitos, es solo símbolos: también se rechaza.
+        // If it has neither letters nor digits, it is only symbols: it is rejected too.
         return !(hasLetter && hasDigit) && !(hasLetter && password.any { !it.isLetterOrDigit() })
     }
 
-    /** Mensaje legible con todos los motivos del rechazo. */
+    /** Readable message with all the reasons for the rejection. */
     fun explain(validation: PasswordValidation): String = when (validation) {
         is PasswordValidation.Valid -> "The password meets the requirements"
         is PasswordValidation.Invalid ->
@@ -153,60 +153,60 @@ object PasswordPolicy {
 }
 
 /**
- * Puerto para comprobar contraseñas filtradas contra un servicio externo.
+ * Port to check passwords against a leaked-passwords external service.
  *
- * Existe aunque no haya implementación todavía, y es deliberado: la política
- * local cubre las contraseñas obvias, pero un servicio como Have I Been Pwned
- * cubre miles de millones. **El puerto permite conectarlo sin tocar la
- * política**, que es lo que se quiere evitar: que añadir esa capacidad obligue a
- * reescribir las reglas.
+ * It exists even though there is no implementation yet, and that is deliberate: the local
+ * policy covers the obvious passwords, but a service like Have I Been Pwned
+ * covers billions. **The port lets it be connected without touching the
+ * policy**, which is what one wants to avoid: that adding that capability forces
+ * rewriting the rules.
  */
 interface CompromisedPasswordChecker {
     /**
-     * @return `true` si la contraseña aparece en filtraciones conocidas.
+     * @return `true` if the password appears in known leaks.
      *
-     * Se implementa con k-anonimato: se envían los **cinco primeros caracteres
-     * del hash SHA-1**, nunca la contraseña. Así el servicio no aprende la
-     * contraseña de nadie.
+     * It is implemented with k-anonymity: the **first five characters
+     * of the SHA-1 hash**, never the password. This way the service does not learn the
+     * password of anyone.
      */
     suspend fun isCompromised(password: String): Boolean
 }
 
 /**
- * El puerto del algoritmo de hash.
+ * The port of the hash algorithm.
  *
- * El dominio declara lo que necesita —hashear y verificar— y **no sabe si por
- * debajo hay Argon2id, bcrypt o scrypt**. Eso permite cambiar de algoritmo sin
- * tocar la lógica de negocio, y probar la identidad con un doble de prueba en
- * milisegundos en lugar de pagar el coste real de Argon2 en cada test.
+ * The domain declares what it needs —hashing and verifying— and **does not know whether underneath
+ * there is Argon2id, bcrypt or scrypt**. That allows changing the algorithm without
+ * touching the business logic, and testing the identity with a test double in
+ * milliseconds instead of paying the real cost of Argon2 in every test.
  */
 interface PasswordHasher {
 
     /**
-     * Genera el hash de una contraseña.
+     * Generates the hash of a password.
      *
-     * **Se devuelve una cadena autocontenida**: incluye el algoritmo, sus
-     * parámetros y la sal. Nunca se guardan por separado, porque entonces hay
-     * que mantenerlos sincronizados y un cambio de parámetros invalida las
-     * contraseñas existentes.
+     * **A self-contained string is returned**: it includes the algorithm, its
+     * parameters and the salt. They are never stored separately, because then one has to keep
+     * them in sync, and a change of parameters would invalidate
+     * the existing passwords.
      */
     fun hash(password: String): String
 
     /**
-     * Verifica una contraseña contra su hash.
+     * Verifies a password against its hash.
      *
-     * **Nunca lanza por una contraseña incorrecta**: devuelve `false`. Una
-     * excepción ahí filtra información por temporización y complica el flujo.
+     * **It never throws for a wrong password**: it returns `false`. An exception there leaks
+     * information through timing and complicates the flow.
      */
     fun verify(password: String, hash: String): Boolean
 
     /**
-     * Indica si un hash usa parámetros obsoletos y conviene regenerarlo.
+     * Indicates whether a hash uses obsolete parameters and should be regenerated.
      *
-     * Es lo que permite **endurecer los parámetros con el tiempo sin invalidar
-     * nada**: el usuario entra con su contraseña, se verifica con el hash viejo,
-     * y se re-hashea con los parámetros nuevos. Sin esto, subir el coste de
-     * Argon2 obligaría a un cambio de contraseña masivo.
+     * It is what allows **hardening the parameters over time without invalidating**: the user
+     * anything**: the user signs in with their password, it is verified against the old hash,
+     * and it is re-hashed with the new parameters. Without this, raising the cost of
+     * Argon2 would force a massive password change.
      */
     fun needsRehash(hash: String): Boolean
 }

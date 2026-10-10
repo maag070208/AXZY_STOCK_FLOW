@@ -1,37 +1,37 @@
-# Surtido
-> **Referencia.** Órdenes de surtido, empaque, confirmación, exportación al ERP y
-> faltantes. Última verificación: 2026-10-10 (fase 7, M04 y M09 cerradas).
+# Picking
+> **Reference.** Picking orders, packing, confirmation, export to the ERP and shortages.
+> Last verified: 2026-10-10 (phase 7, M04 and M09 closed).
 
-Implementado en capas, como el resto de la API (docs/arquitectura/api-spring.md §1):
+Implemented in layers, like the rest of the API (docs/arquitectura/api-spring.md §1):
 
-| Capa | Archivo |
+| Layer | File |
 |---|---|
-| Rutas | `api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/fulfillment/OrderController.kt` |
-| Casos de uso y puertos | `api/application/src/main/kotlin/dev/axzy/stock/application/fulfillment/` |
-| Reglas de la orden | `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/fulfillment/Order.kt` |
-| Persistencia | `api/adapters-persistence/.../fulfillment/JdbcOrders.kt` |
-| Cableado | `api/app/src/main/kotlin/dev/axzy/stock/app/config/FulfillmentConfig.kt` |
+| Routes | `api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/fulfillment/OrderController.kt` |
+| Use cases and ports | `api/application/src/main/kotlin/dev/axzy/stock/application/fulfillment/` |
+| Order rules | `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/fulfillment/Order.kt` |
+| Persistence | `api/adapters-persistence/.../fulfillment/JdbcOrders.kt` |
+| Wiring | `api/app/src/main/kotlin/dev/axzy/stock/app/config/FulfillmentConfig.kt` |
 
-La paginación está en [convenciones.md](convenciones.md); los códigos, en
+Pagination is in [convenciones.md](convenciones.md); the codes, in
 [errores.md](errores.md).
 
-**La confirmación se reclama con una sentencia condicional**: `UPDATE … WHERE status IN
-(estados que admiten empaque)`. Solo una transacción se lleva la fila, así que dos
-confirmaciones simultáneas no descuentan dos veces (S3); la que pierde recibe
-`409 ORDER_ALREADY_CONFIRMED`. La lista de estados se **compone desde el dominio**
+**The confirmation is claimed with a conditional statement**: `UPDATE … WHERE status IN
+(states that allow packing)`. Only one transaction takes the row, so two
+simultaneous confirmations do not deduct twice (S3); the one that loses gets
+`409 ORDER_ALREADY_CONFIRMED`. The list of states is **composed from the domain**
 (`OrderStatus.allowsPackaging`).
 
 ## `GET|POST /v1/orders`
 
-### Listado (`GET`)
+### Listing (`GET`)
 
-Permiso: `order.view`. Filtros: `status` (uno de `PENDING`, `IN_PROGRESS`,
-`PACKAGED`, `PENDING_TO_OUT`, `COMPLETED`, `CANCELLED`) y `q`. Paginación por
-`page` y `size`.
+Permission: `order.view`. Filters: `status` (one of `PENDING`, `IN_PROGRESS`,
+`PACKAGED`, `PENDING_TO_OUT`, `COMPLETED`, `CANCELLED`) and `q`. Pagination by
+`page` and `size`.
 
-Devuelve **solo la cabecera**. El detalle trae las líneas: la pantalla de empaque
-no puede funcionar sin ellas y obligar a una segunda petición por línea sería
-absurdo con órdenes de decenas de líneas.
+It returns **only the header**. The detail brings the lines: the packing screen
+cannot work without them, and forcing a second request per line would be
+absurd with orders of dozens of lines.
 
 ```json
 {
@@ -43,20 +43,20 @@ absurdo con órdenes de decenas de líneas.
 }
 ```
 
-`status` de la **orden**: `PENDING` | `IN_PROGRESS` | `PACKAGED` | `PENDING_TO_OUT`
+**Order** `status`: `PENDING` | `IN_PROGRESS` | `PACKAGED` | `PENDING_TO_OUT`
 | `COMPLETED` | `CANCELLED`.
 
-`status` de la **línea** (`order_lines.status`), y es una unión **distinta** de la
-de factura: `PENDING` | `ASSIGNED` | `SUPPLIED` | `VERIFIED` | `CANCELLED`.
+**Line** `status` (`order_lines.status`), and it is a union **different** from that
+of the invoice: `PENDING` | `ASSIGNED` | `SUPPLIED` | `VERIFIED` | `CANCELLED`.
 
-**Reutilizar los estados de `InvoiceLineStatus` era un error**: `LOCATED` y
-`DISCREPANCY` son del flujo de recepción y no significan nada en surtido.
-Compartir la unión obligaba a la interfaz a contemplar estados imposibles, y a un
-`when` exhaustivo a tener ramas que nunca se ejecutan.
+**Reusing the states of `InvoiceLineStatus` was a mistake**: `LOCATED` and
+`DISCREPANCY` belong to the receiving flow and mean nothing in picking.
+Sharing the union forced the interface to contemplate impossible states, and an
+exhaustive `when` to have branches that never run.
 
-### Creación (`POST`)
+### Creation (`POST`)
 
-Permiso: `order.create`.
+Permission: `order.create`.
 
 ```json
 {
@@ -68,17 +68,17 @@ Permiso: `order.create`.
 }
 ```
 
-`orderNumber` y `packagingDate` son opcionales; si no se envían, el servidor genera
-el número como `ORD-AAAA-NNNN` y usa la fecha de hoy. **201** con la orden y sus
-líneas. La creación **no toca el inventario**: el stock sale al empacar y al
-confirmar, que son actos con responsable.
+`orderNumber` and `packagingDate` are optional; if they are not sent, the server generates
+the number as `ORD-YYYY-NNNN` and uses today's date. **201** with the order and its
+lines. The creation **does not touch the inventory**: the stock leaves when packing and
+confirming, which are acts with a responsible person.
 
-Errores: `422 EMPTY_ORDER`, `422 PRODUCT_NOT_FOUND`, `422 INVALID_QUANTITY`.
+Errors: `422 EMPTY_ORDER`, `422 PRODUCT_NOT_FOUND`, `422 INVALID_QUANTITY`.
 
 ## `GET /v1/orders/{id}`
 
-Permiso: `order.view`. **Devuelve la orden CON sus líneas.** Es el único endpoint
-del surtido que las trae.
+Permission: `order.view`. **Returns the order WITH its lines.** It is the only endpoint
+of picking that brings them.
 
 ```json
 {
@@ -101,121 +101,120 @@ del surtido que las trae.
 }
 ```
 
-`suppliedQuantity` es **lo ya descontado del inventario**, no «lo empacado»: es el
-acumulado que el inventario ya refleja. Confirmar descuenta `quantity -
+`suppliedQuantity` is **what has already been deducted from the inventory**, not "what was packed": it is the
+accumulated amount that the inventory already reflects. Confirming deducts `quantity -
 suppliedQuantity`.
 
-**404** con `code = ORDER_NOT_FOUND`; `400 INVALID_ID`.
+**404** with `code = ORDER_NOT_FOUND`; `400 INVALID_ID`.
 
 ## `POST /v1/orders/{id}/lines/{lineId}/package`
 
-Permiso: `order.package`.
+Permission: `order.package`.
 
 ```json
 { "quantity": "10.000", "locationId": 2 }
 ```
 
-Descuenta stock y escribe `FULFILLMENT_OUT` en el kardex, en una sola transacción.
-La cantidad se valida contra lo **pendiente** de la línea, no contra `quantity`:
-empacar 7 de 10 dos veces sumaría 14. `locationId` es opcional; sin él se usa la
-ubicación de la línea.
+Deducts stock and writes `FULFILLMENT_OUT` to the ledger, in a single transaction.
+The quantity is validated against the **pending** amount of the line, not against `quantity`:
+packing 7 of 10 twice would add up to 14. `locationId` is optional; without it, the
+line's location is used.
 
-**200** con la orden actualizada. Si no alcanza, `422 INSUFFICIENT_STOCK` con
-`details.available` — y se ofrece la opción de faltante, que es un ajuste con
-origen `FULFILLMENT_SHORTAGE`, no un segundo flujo. Otros errores: `422
+**200** with the updated order. If it is not enough, `422 INSUFFICIENT_STOCK` with
+`details.available` — and the shortage option is offered, which is an adjustment with
+origin `FULFILLMENT_SHORTAGE`, not a second flow. Other errors: `422
 EXCEEDS_PENDING_QUANTITY`, `INVALID_QUANTITY`, `LOCATION_REQUIRED`,
 `INVALID_TRANSITION`; `404 ORDER_LINE_NOT_FOUND`.
 
-La idempotencia **no** se lee en esta ruta: va por cabecera en las operaciones de
-inventario (véase [convenciones.md §1.5](convenciones.md)).
+Idempotency is **not** read on this route: it goes by header in the inventory operations
+(see [convenciones.md §1.5](convenciones.md)).
 
 ## `POST /v1/orders/{id}/confirm`
 
-Permiso: `order.confirm`. **Descuenta `quantity - suppliedQuantity` de cada línea,
-NO `quantity`**, y después dispara la exportación al ERP.
+Permission: `order.confirm`. **Deducts `quantity - suppliedQuantity` from each line,
+NOT `quantity`**, and then triggers the export to the ERP.
 
-Lo empacado ya se descontó al empacar; volver a descontarlo completo dejaría el
-inventario corto y el descuadre se confundiría con una merma. Una línea ya completa
-tiene pendiente cero y no descuenta nada. Si el ERP no responde, **la confirmación
-NO se revierte**: el stock ya salió y el intento queda registrado para el reintento
-manual.
+What was packed was already deducted when packing; deducting the whole amount again would leave the
+inventory short and the imbalance would be confused with a shrinkage. A line already complete
+has pending zero and deducts nothing. If the ERP does not respond, **the confirmation
+is NOT reverted**: the stock has already left and the attempt is recorded for the manual retry.
 
-**200** con la orden. `409` con `code = ORDER_ALREADY_CONFIRMED` si ya estaba
-confirmada: confirmar dos veces restaría dos veces y el total bajaría el doble.
-`422 INSUFFICIENT_STOCK` o `INVALID_TRANSITION`.
+**200** with the order. `409` with `code = ORDER_ALREADY_CONFIRMED` if it was already
+confirmed: confirming twice would subtract twice and the total would drop by double.
+`422 INSUFFICIENT_STOCK` or `INVALID_TRANSITION`.
 
 ## `POST /v1/orders/{id}/export`
 
-Reintento manual de la exportación. Permiso: `order.convert`. **Idempotente**: la
-clave es el `orderNumber` convertido; si la orden ya se exportó, esto no crea una
-segunda salida y solo cuenta el intento.
+Manual retry of the export. Permission: `order.convert`. **Idempotent**: the key
+is the converted `orderNumber`; if the order was already exported, this does not create a
+second outflow and only counts the attempt.
 
 ```json
-{ "attempts": 3, "status": "FAILED", "lastError": "El ERP no responde" }
+{ "attempts": 3, "status": "FAILED", "lastError": "The ERP does not respond" }
 ```
 
-`status`: `SENT` | `FAILED` | `PENDING`. **200** con el resultado del intento. `409`
-con `code = ORDER_NOT_CONVERTED` si aún no se confirmó: exportar algo que no se ha
-surtido mandaría al ERP una salida que no existe. `404 ORDER_NOT_FOUND`.
+`status`: `SENT` | `FAILED` | `PENDING`. **200** with the result of the attempt. `409`
+with `code = ORDER_NOT_CONVERTED` if it has not been confirmed yet: exporting something that has not been
+picked would send the ERP an outflow that does not exist. `404 ORDER_NOT_FOUND`.
 
-> **Estado de la integración.** La conexión real con el ERP **no existe**: el intento
-> falla con un motivo que empieza por `ERP_NOT_CONNECTED`, el contador sube y el error
-> queda guardado para el reintento (S5 y S6). No se registra como enviado —sería mentir
-> en la bitácora y en el estado de la orden—; lo que falta es el adaptador
-> ([lo-no-verificado.md](../historico/LO-NO-VERIFICADO-ANTERIOR.md) y
-> [ADR-0013](../adr/0013-ordenes-al-erp-con-reintentos.md)). La respuesta no incluye
+> **Integration status.** The real connection to the ERP **does not exist**: the attempt
+> fails with a reason that starts with `ERP_NOT_CONNECTED`, the counter goes up and the error
+> is kept for the retry (S5 and S6). It is not recorded as sent —that would be lying
+> in the log and in the order's state—; what is missing is the adapter
+> ([lo-no-verificado.md](../historico/LO-NO-VERIFICADO-ANTERIOR.md) and
+> [ADR-0013](../adr/0013-ordenes-al-erp-con-reintentos.md)). The response does not include
 > `nextRetryAt`.
 
 ## `PUT /v1/orders/{id}/lines/{lineId}/assign`
 
-Asigna la línea a quien la va a surtir. Permiso: `order.assign`.
+Assigns the line to whoever is going to pick it. Permission: `order.assign`.
 
 ```json
 { "userId": 7, "locationId": 2 }
 ```
 
-**`userId` es opcional**: sin él, quien llama **se asigna a sí mismo**, que es el caso diario
-del operador. Con él, un supervisor reparte el trabajo. Asignar a otro no es un privilegio
-aparte: el permiso es el mismo.
+**`userId` is optional**: without it, the caller **assigns themselves**, which is the daily case
+of the operator. With it, a supervisor distributes the work. Assigning to someone else is not a separate
+privilege: the permission is the same.
 
-- **`locationId` es opcional** y, si no viene, se conserva la que tuviera: lo que dice el
-  estado `ASSIGNED` es que **hay alguien a cargo**, no dónde está la mercancía.
-- **Solo desde `PENDING` o `ASSIGNED`.** Una línea ya surtida o anulada responde
-  `409 INVALID_TRANSITION`: asignar trabajo sobre mercancía que ya salió sería decir que
-  alguien la va a sacar dos veces. Reasignar mientras está en curso **sí** se permite —el
-  turno cambia, alguien se pone malo—.
-- Si el empaque surtió la línea entre la lectura y la escritura, responde
-  `409 LINE_CHANGED` en vez de asignar trabajo sobre algo que ya no está.
-- `422 ASSIGNEE_NOT_FOUND` y `422 LOCATION_NOT_FOUND` si el usuario o la ubicación no existen.
+- **`locationId` is optional** and, if it does not come, the one it had is kept: what the
+  `ASSIGNED` state says is that **there is someone in charge**, not where the goods are.
+- **Only from `PENDING` or `ASSIGNED`.** An already picked or voided line answers
+  `409 INVALID_TRANSITION`: assigning work on goods that already left would mean saying that
+  someone is going to take them out twice. Reassigning while it is in progress **is** allowed —the
+  shift changes, someone falls ill—.
+- If packing picked the line between the read and the write, it answers
+  `409 LINE_CHANGED` instead of assigning work on something that is no longer there.
+- `422 ASSIGNEE_NOT_FOUND` and `422 LOCATION_NOT_FOUND` if the user or the location do not exist.
 
-> **Antes no existía.** La tabla y la respuesta tenían `assigned_user_id` y `location_id`
-> desde el principio y **ninguna ruta los escribía**: el operador no tenía forma de
-> asignarse una línea. Corregido el 2026-10-10.
+> **It did not exist before.** The table and the response had `assigned_user_id` and `location_id`
+> since the beginning and **no route wrote them**: the operator had no way to assign
+> a line to themselves. Corrected on 2026-10-10.
 
 ## `POST /v1/orders/{id}/shortage`
 
-Faltante durante el surtido: delega en la regla única de ajuste, con origen
-`FULFILLMENT_SHORTAGE`. Permiso: `order.package`.
+Shortage during picking: it delegates to the single adjustment rule, with origin
+`FULFILLMENT_SHORTAGE`. Permission: `order.package`.
 
 ```json
 { "lineId": 55, "quantity": "3.000", "reason": "SHORTAGE", "note": "..." }
 ```
 
-`reason` **no tiene valor por defecto**: un faltante es un ajuste y el motivo es
-obligatorio, igual que en cualquier merma (`422 REASON_REQUIRED` sin él, S8). Esta
-página decía «`SHORTAGE` por defecto», y eso hacía imposible la prueba de aceptación:
-el ajuste delegado nunca habría visto un motivo ausente. **200** con la orden
-actualizada. Errores: `422 REASON_REQUIRED`, `422 INVALID_QUANTITY`, `422
-LOCATION_REQUIRED`, `404 ORDER_LINE_NOT_FOUND`, `403 PERMISSION_DENIED` sin
+`reason` **has no default value**: a shortage is an adjustment and the reason is
+mandatory, the same as in any shrinkage (`422 REASON_REQUIRED` without it, S8). This
+page said "`SHORTAGE` by default", and that made the acceptance test impossible:
+the delegated adjustment would never have seen a missing reason. **200** with the updated order.
+Errors: `422 REASON_REQUIRED`, `422 INVALID_QUANTITY`, `422
+LOCATION_REQUIRED`, `404 ORDER_LINE_NOT_FOUND`, `403 PERMISSION_DENIED` without
 `inventory.adjust_shortage`.
 
-Duplicar la regla de ajuste aquí crearía una segunda forma de mover inventario, y
-con el tiempo una exigiría aprobación y la otra no.
+Duplicating the adjustment rule here would create a second way to move inventory, and
+over time one would require approval and the other would not.
 
-## Verificación
+## Verification
 
-| Archivo | Qué cubre |
+| File | What it covers |
 |---|---|
-| `api/app/src/test/kotlin/dev/axzy/stock/app/FulfillmentFlowTest.kt` | S1–S8 por HTTP real: empaque, confirmación que descuenta solo lo que falta, doble confirmación, exportación sin ERP, reintento y faltante |
-| `api/adapters-persistence/src/test/.../FulfillmentPersistenceTest.kt` | el presupuesto de consultas y las **dos confirmaciones simultáneas** contra la base |
-| `stock-domain/src/commonTest/kotlin/dev/axzy/stock/domain/fulfillment/` | las transiciones de la orden y de la línea, sin base de datos (incluye S9: una orden exportada no se cancela) |
+| `api/app/src/test/kotlin/dev/axzy/stock/app/FulfillmentFlowTest.kt` | S1–S8 over real HTTP: packing, confirmation that deducts only what is missing, double confirmation, export without ERP, retry and shortage |
+| `api/adapters-persistence/src/test/.../FulfillmentPersistenceTest.kt` | the query budget and the **two simultaneous confirmations** against the database |
+| `stock-domain/src/commonTest/kotlin/dev/axzy/stock/domain/fulfillment/` | the transitions of the order and the line, without a database (includes S9: an exported order is not cancelled) |

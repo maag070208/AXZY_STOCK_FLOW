@@ -1,19 +1,19 @@
-# API: Kotlin con Spring Boot, en capas e inyección por constructor
-> **Normativo.** Cómo está organizada la API. Decisiones en [ADR-0014](../adr/0014-api-spring-boot-clean-architecture.md) y [ADR-0015](../adr/0015-postgresql-flyway-motor-en-sql.md). Cada afirmación cita el archivo que la sostiene. Última revisión: 2026-10-10 (fase 4).
+# API: Kotlin with Spring Boot, layered and constructor injection
+> **Normative.** How the API is organized. Decisions in [ADR-0014](../adr/0014-api-spring-boot-clean-architecture.md) and [ADR-0015](../adr/0015-postgresql-flyway-motor-en-sql.md). Each claim cites the file that backs it. Last revised: 2026-10-10 (phase 4).
 
-## 1. Módulos y dependencias
+## 1. Modules and dependencies
 
-La API es un build de Gradle con seis módulos (`settings.gradle.kts`). Cada módulo es una capa, y la
-dependencia solo apunta hacia el dominio:
+The API is a Gradle build with six modules (`settings.gradle.kts`). Each module is a layer, and the
+dependency only points toward the domain:
 
-| Módulo | Contiene | Puede depender de | No puede depender de |
+| Module | Contains | May depend on | May not depend on |
 |---|---|---|---|
-| `stock-domain` | Reglas, estados, errores, motor de acceso. Compartido con la app (D6) | Kotlin stdlib, kotlinx-datetime, kotlinx-serialization | Cualquier framework |
-| `api/application` | Casos de uso y puertos | `stock-domain` | Spring, JDBC, JSON, adaptadores |
-| `api/adapters-persistence` | Los puertos de salida sobre PostgreSQL | `application`, Spring JDBC, Jackson | `adapters-web`, `adapters-security` |
-| `api/adapters-security` | Criptografía: JWT, Argon2id, refresh tokens | `application`, Spring Security crypto y JOSE | `adapters-web`, `adapters-persistence` |
-| `api/adapters-web` | Controladores y contrato de error | `application`, Spring Web | `adapters-persistence`, `adapters-security` |
-| `api/app` | Arranque, cableado y seguridad HTTP | Todos los anteriores | — |
+| `stock-domain` | Rules, states, errors, access engine. Shared with the app (D6) | Kotlin stdlib, kotlinx-datetime, kotlinx-serialization | Any framework |
+| `api/application` | Use cases and ports | `stock-domain` | Spring, JDBC, JSON, adapters |
+| `api/adapters-persistence` | The outbound ports over PostgreSQL | `application`, Spring JDBC, Jackson | `adapters-web`, `adapters-security` |
+| `api/adapters-security` | Cryptography: JWT, Argon2id, refresh tokens | `application`, Spring Security crypto and JOSE | `adapters-web`, `adapters-persistence` |
+| `api/adapters-web` | Controllers and the error contract | `application`, Spring Web | `adapters-persistence`, `adapters-security` |
+| `api/app` | Startup, wiring and HTTP security | All of the above | — |
 
 ```
                  ┌──→ adapters-web ─────────┐
@@ -21,54 +21,54 @@ app ─────────────┼──→ adapters-persistence ─
                  └──→ adapters-security ────┘
 ```
 
-Los tres adaptadores **no se conocen entre sí**. Un controlador nunca llama a un repositorio: llama a
-un caso de uso, y el caso de uso llama a un puerto.
+The three adapters **do not know each other**. A controller never calls a repository: it calls
+a use case, and the use case calls a port.
 
-No hay un módulo `domain` propio de la API: con el dominio compartido (D6), `stock-domain` **es** la
-capa de dominio. Es Kotlin Multiplatform y se compila a bytecode de Java 17 para que también lo cargue
-Android (`stock-domain/build.gradle.kts`).
+There is no `domain` module of the API's own: with the shared domain (D6), `stock-domain` **is** the
+domain layer. It is Kotlin Multiplatform and is compiled to Java 17 bytecode so that Android can also load it
+(`stock-domain/build.gradle.kts`).
 
-### Cómo se verifica
+### How it is verified
 
-- **El compilador**: cada `build.gradle.kts` declara solo lo que su capa puede ver
-  (`api/*/build.gradle.kts`). Una dependencia prohibida no compila.
-- **`verifyDomainPurity`** (`stock-domain/build.gradle.kts`): falla si el dominio declara o importa un
+- **The compiler**: each `build.gradle.kts` declares only what its layer can see
+  (`api/*/build.gradle.kts`). A forbidden dependency does not compile.
+- **`verifyDomainPurity`** (`stock-domain/build.gradle.kts`): fails if the domain declares or imports a
   framework.
-- **`ArchitectureTest`** (`api/app/src/test/kotlin/dev/axzy/stock/app/ArchitectureTest.kt`): siete
-  reglas sobre las clases compiladas. Repite lo anterior por si entra una dependencia transitiva.
+- **`ArchitectureTest`** (`api/app/src/test/kotlin/dev/axzy/stock/app/ArchitectureTest.kt`): seven
+  rules over the compiled classes. It repeats the above in case a transitive dependency gets in.
 
-## 2. Inyección de dependencias
+## 2. Dependency injection
 
-**Regla: los objetos se crean en un solo lugar, `api/app`, y se pasan por constructor.**
+**Rule: objects are created in a single place, `api/app`, and passed through the constructor.**
 
-- Los casos de uso y los adaptadores son clases Kotlin **sin anotaciones de Spring**. Reciben lo que
-  necesitan en el constructor.
-- Spring solo explora el paquete `dev.axzy.stock.app` (`StockApplication.kt`). Nada de otra capa se
-  registra por llevar una anotación: todo es un `@Bean` explícito en `api/app/.../config/`.
-- Las únicas clases fuera de `app` con anotaciones de Spring son los controladores
-  (`@RestController`) y el manejador de errores (`@RestControllerAdvice`), y aun así los instancia `app`.
-- `ArchitectureTest` falla si aparece un `@Configuration` o un `@Bean` fuera de `app`.
+- Use cases and adapters are Kotlin classes **without Spring annotations**. They receive
+  what they need in the constructor.
+- Spring only scans the package `dev.axzy.stock.app` (`StockApplication.kt`). Nothing from another layer is
+  registered just because it carries an annotation: everything is an explicit `@Bean` in `api/app/.../config/`.
+- The only classes outside `app` with Spring annotations are the controllers
+  (`@RestController`) and the error handler (`@RestControllerAdvice`), and even those are instantiated by `app`.
+- `ArchitectureTest` fails if a `@Configuration` or a `@Bean` appears outside `app`.
 
-| Archivo de `api/app/.../config/` | Qué cablea |
+| File in `api/app/.../config/` | What it wires |
 |---|---|
-| `PersistenceConfig.kt` | Los puertos de salida: transacciones, bitácora, repositorios |
-| `IdentityConfig.kt` | Criptografía, motor de acceso y casos de uso de sesión |
-| `WebConfig.kt` | Controladores, resolutores de argumentos y el filtro de `X-Request-Id` |
-| `SecurityConfig.kt` | La cadena de seguridad HTTP |
-| `SchemaGuard.kt` | La comprobación de versión del esquema al arrancar |
-| `StockProperties.kt` | La configuración tipada (`stock.*` en `application.yml`) |
-| `CatalogConfig.kt` | El catálogo (M01): puertos de entrada y rutas |
-| `InventoryConfig.kt` | Existencias (M02): el motor, las consultas y las rutas |
-| `ReportConfig.kt` | Los reportes de existencias y la exportación del kardex |
-| `ReceivingConfig.kt` | Recepción (M03): facturas, captura y decisiones sobre discrepancias |
-| `FulfillmentConfig.kt` | Surtido (M04) y el puerto del ERP (M09), hoy sin conexión |
-| `TransferConfig.kt` | Traslados (M05), sobre las funciones del motor de la migración V13 |
-| `LabelConfig.kt` | Etiquetas (M06): plantillas, previsualización, cola y reimpresión |
-| `AuditConfig.kt` | La consulta de la bitácora (M08), que además registra su propio acceso |
-| `UserAdminConfig.kt` | Usuarios y roles (M07): alta, consulta, edición y restablecimiento |
-| `RoutePermissionAudit.kt` | I5: una ruta sin declarar qué exige impide el arranque |
+| `PersistenceConfig.kt` | The outbound ports: transactions, audit log, repositories |
+| `IdentityConfig.kt` | Cryptography, access engine and session use cases |
+| `WebConfig.kt` | Controllers, argument resolvers and the `X-Request-Id` filter |
+| `SecurityConfig.kt` | The HTTP security chain |
+| `SchemaGuard.kt` | The schema version check at startup |
+| `StockProperties.kt` | The typed configuration (`stock.*` in `application.yml`) |
+| `CatalogConfig.kt` | The catalog (M01): inbound ports and routes |
+| `InventoryConfig.kt` | Stock (M02): the engine, the queries and the routes |
+| `ReportConfig.kt` | The stock reports and the ledger export |
+| `ReceivingConfig.kt` | Receiving (M03): invoices, capture and discrepancy decisions |
+| `FulfillmentConfig.kt` | Picking (M04) and the ERP port (M09), currently without connection |
+| `TransferConfig.kt` | Transfers (M05), over the engine functions of migration V13 |
+| `LabelConfig.kt` | Labels (M06): templates, preview, queue and reprint |
+| `AuditConfig.kt` | The audit log query (M08), which also records its own access |
+| `UserAdminConfig.kt` | Users and roles (M07): create, read, edit and reset |
+| `RoutePermissionAudit.kt` | I5: a route that does not declare what it requires prevents startup |
 
-Un caso de uso no sabe que existe Spring. `Login` se construye igual en una prueba que en producción:
+A use case does not know that Spring exists. `Login` is built the same way in a test as in production:
 
 ```kotlin
 // api/app/.../config/IdentityConfig.kt
@@ -78,89 +78,86 @@ fun login(users: UserAccounts, attempts: LoginAttempts, hasher: PasswordHasher, 
     Login(users, attempts, hasher, sessions, codec, tx, clock)
 ```
 
-## 3. Puertos
+## 3. Ports
 
-- **Entrada** (casos de uso): una clase por operación con un método `execute`. Verbo y objeto, en
-  inglés: `Login`, `RefreshSession`, `ChangePassword` (`api/application/.../identity/`).
-- **Salida**: interfaces en `application` con nombres del negocio: `UserAccounts`, `RefreshTokens`,
+- **Inbound** (use cases): one class per operation with an `execute` method. Verb and object, in
+  English: `Login`, `RefreshSession`, `ChangePassword` (`api/application/.../identity/`).
+- **Outbound**: interfaces in `application` with business names: `UserAccounts`, `RefreshTokens`,
   `LoginAttempts`, `AuditRecorder`, `AccessCatalogStore`.
-- Un puerto **no expone tipos de la base** (ni `ResultSet` ni filas).
+- A port **does not expose database types** (neither `ResultSet` nor rows).
 
-## 4. Errores
+## 4. Errors
 
-- Un fallo esperado **se devuelve**, no se lanza (ADR-0005). Todo caso de uso devuelve
-  `Outcome<A>`, que es `Either<Failure, A>` (`api/application/.../shared/Failure.kt`).
-- `Failure` lleva un `kind` (qué clase de fallo es, sin hablar de HTTP), un `code` estable y un
-  `message` para una persona.
-- `DomainError.toFailure()` traduce los errores del dominio con un `when` **exhaustivo**: un error
-  nuevo en el dominio deja de compilar hasta que alguien decida qué significa para el cliente.
-- `adapters-web` traduce `kind` a un código de estado (`http/ErrorResponses.kt`) y responde siempre
-  con el mismo cuerpo `{ code, message, details }` ([api/errores.md](../api/errores.md)).
-- Lo que no es un fallo de un caso de uso también respeta el contrato (`http/GlobalErrorHandler.kt`):
-  JSON ilegible, ruta inexistente, método no permitido y error inesperado. Este último responde
-  `500 INTERNAL_ERROR` con un identificador de incidente y **sin** el detalle interno.
-- Un fallo de programación (un estado imposible) **se lanza**: es un bug y tiene que verse.
+- An expected failure **is returned**, not thrown (ADR-0005). Every use case returns
+  `Outcome<A>`, which is `Either<Failure, A>` (`api/application/.../shared/Failure.kt`).
+- `Failure` carries a `kind` (what class of failure it is, without talking about HTTP), a stable `code` and a
+  `message` for a person.
+- `DomainError.toFailure()` translates the domain errors with an **exhaustive** `when`: a new error
+  in the domain stops compiling until someone decides what it means for the client.
+- `adapters-web` translates `kind` into a status code (`http/ErrorResponses.kt`) and always answers
+  with the same body `{ code, message, details }` ([api/errores.md](../api/errores.md)).
+- What is not a failure of a use case also respects the contract (`http/GlobalErrorHandler.kt`):
+  unreadable JSON, nonexistent route, method not allowed and unexpected error. The last one answers
+  `500 INTERNAL_ERROR` with an incident identifier and **without** the internal detail.
+- A programming failure (an impossible state) **is thrown**: it is a bug and it has to be visible.
 
-## 5. Transacciones
+## 5. Transactions
 
-- La frontera la pone el caso de uso con `TransactionRunner.inTransaction { }`
+- The boundary is set by the use case with `TransactionRunner.inTransaction { }`
   (`api/application/.../shared/TransactionRunner.kt`).
-- **Un `Left` revierte la transacción.** Lo implementa `JdbcTransactionRunner`
-  (`api/adapters-persistence/.../shared/`) sobre `TransactionTemplate`.
-- Lo que tiene que quedar escrito aunque el caso de uso falle va en una transacción aparte y se dice
-  en el contrato del puerto. Hay dos casos: una denegación de acceso (`AccessDenialLog`,
-  `PROPAGATION_REQUIRES_NEW`) y la revocación por reuso de un token (`RefreshSession`).
-- `@Transactional` **no se usa** en ninguna capa.
-- Un trabajo lento que no necesita la base se hace **antes** de abrir la transacción. `ChangePassword`
-  calcula el hash Argon2id primero, para no retener una conexión mientras tanto.
+- **A `Left` rolls back the transaction.** It is implemented by `JdbcTransactionRunner`
+  (`api/adapters-persistence/.../shared/`) over `TransactionTemplate`.
+- What has to remain written even if the use case fails goes in a separate transaction and this is stated
+  in the port's contract. There are two cases: an access denial (`AccessDenialLog`,
+  `PROPAGATION_REQUIRES_NEW`) and the revocation due to reuse of a token (`RefreshSession`).
+- `@Transactional` is **not used** in any layer.
+- Slow work that does not need the database is done **before** opening the transaction. `ChangePassword`
+  computes the Argon2id hash first, so as not to hold a connection in the meantime.
 
-## 6. Identidad y autorización
+## 6. Identity and authorization
 
-Son dos preguntas distintas y las responden capas distintas.
+These are two different questions, and different layers answer them.
 
-**¿Quién llama?** La cadena de seguridad HTTP (`api/app/.../config/SecurityConfig.kt`) verifica el
-token y deja en el contexto un `TokenIdentity` con dos datos: el id del usuario y su sello de
-credenciales. Todo exige identidad salvo cuatro rutas públicas declaradas en ese archivo.
+**Who is calling?** The HTTP security chain (`api/app/.../config/SecurityConfig.kt`) verifies the
+token and leaves in the context a `TokenIdentity` with two pieces of data: the user's id and their credentials stamp. Everything requires identity except four public routes declared in that file.
 
-**¿Qué puede hacer?** Lo decide el caso de uso con `AccessDecider`
-(`api/application/.../access/AccessDecider.kt`), que usa el motor del dominio (`AccessEngine`):
-identidad → RBAC → ABAC, denegando por defecto. El controlador no decide permisos.
+**What can they do?** It is decided by the use case with `AccessDecider`
+(`api/application/.../access/AccessDecider.kt`), which uses the domain engine (`AccessEngine`):
+identity → RBAC → ABAC, denying by default. The controller does not decide permissions.
 
-Reglas que el código impone:
+Rules the code enforces:
 
-- **El token solo identifica.** No lleva roles ni permisos (`JwtAccessTokens.kt`). El `Actor` se
-  reconstruye de la base en cada petición (`ActorArgumentResolver` → `ResolveActor`), así que quitar
-  un rol o desactivar una cuenta surte efecto en la petición siguiente.
-- **Sello de credenciales.** El token lleva el instante, con milisegundos, del último cambio de
-  contraseña de la cuenta. Si ya no coincide con el de la base, el token deja de servir. Es una
-  comparación exacta, no de fechas.
-- **El `Actor` es un argumento.** Llega al caso de uso como parámetro, nunca desde un contexto global.
-- **La zona horaria de las políticas es del servidor** (`stock.business-zone`). Una política de
-  horario evaluada con la zona que diga el cliente se salta cambiando una cabecera.
-- **Cada denegación queda en la bitácora**, en su propia transacción.
+- **The token only identifies.** It carries no roles or permissions (`JwtAccessTokens.kt`). The `Actor` is
+  rebuilt from the database on every request (`ActorArgumentResolver` → `ResolveActor`), so removing
+  a role or deactivating an account takes effect on the next request.
+- **Credentials stamp.** The token carries the instant, down to milliseconds, of the account's last password change. If it no longer matches the one in the database, the token stops working. It is an exact
+  comparison, not a date comparison.
+- **The `Actor` is an argument.** It reaches the use case as a parameter, never from a global context.
+- **The policies' time zone belongs to the server** (`stock.business-zone`). A schedule policy evaluated with the
+  zone the client states can be bypassed by changing a header.
+- **Every denial is recorded in the audit log**, in its own transaction.
 
-Flujos y pruebas en [flujos/autenticacion-y-permisos.md](../flujos/autenticacion-y-permisos.md).
+Flows and tests in [flujos/autenticacion-y-permisos.md](../flujos/autenticacion-y-permisos.md).
 
-## 7. Persistencia
+## 7. Persistence
 
-- `adapters-persistence` usa `JdbcClient` con SQL escrito a mano. No hay ORM
+- `adapters-persistence` uses `JdbcClient` with hand-written SQL. There is no ORM
   ([ADR-0015](../adr/0015-postgresql-flyway-motor-en-sql.md)).
-- La API se conecta con un usuario miembro del rol `stock_api` (migración V11). Ese rol no puede
-  crear ni alterar tablas, ni hacer `UPDATE` o `DELETE` sobre `kardex` y `audit_log`
+- The API connects with a user who is a member of the `stock_api` role (migration V11). That role cannot
+  create or alter tables, nor do `UPDATE` or `DELETE` on `kardex` and `audit_log`
   ([infraestructura.md](infraestructura.md) §3).
-- Las escrituras de inventario llaman a las funciones del motor. La API nunca escribe
-  `stock_by_location` ni `product_stock` directamente.
-- La bitácora se escribe con `audit_log_record` (V12), que encadena el hash de cada registro
+- Inventory writes call the engine functions. The API never writes
+  `stock_by_location` or `product_stock` directly.
+- The audit log is written with `audit_log_record` (V12), which chains the hash of each record
   (`audit/JdbcAuditRecorder.kt`).
-- Una lista que se inserta o se sincroniza viaja como **un** documento JSON y la base la expande con
-  `jsonb_to_recordset`: una sentencia por tabla, no una por fila (`identity/JdbcAccessCatalogStore.kt`).
-- Las fechas las pone el reloj de la aplicación (`Clock`), no el de la base, cuando una regla depende
-  de ellas (ventana de bloqueo, caducidad de tokens). Mezclar los dos relojes hace que la regla
-  dependa de qué servidor va adelantado.
+- A list that is inserted or synchronized travels as **one** JSON document and the database expands it with
+  `jsonb_to_recordset`: one statement per table, not one per row (`identity/JdbcAccessCatalogStore.kt`).
+- Dates are set by the application's clock (`Clock`), not by the database's, when a rule depends on them
+  (lock window, token expiry). Mixing the two clocks makes the rule depend on which server is ahead.
 
-## 8. Estructura de paquetes
+## 8. Package structure
 
-Un paquete por concepto de negocio dentro de cada módulo, no por tipo técnico:
+One package per business concept within each module, not per technical type:
 
 ```
 dev.axzy.stock.domain.{access, audit, catalog, fulfillment, identity, inventory, receiving, transfer, …}
@@ -171,62 +168,62 @@ dev.axzy.stock.adapters.web.{catalog, health, http, identity, security}
 dev.axzy.stock.app.config
 ```
 
-## 9. Pruebas
+## 9. Tests
 
-| Nivel | Qué prueba | Dónde | Base de datos |
+| Level | What it tests | Where | Database |
 |---|---|---|---|
-| Dominio | Reglas, estados, errores (408 pruebas) | `stock-domain/src/commonTest`, `jvmTest` | No |
-| Aplicación | Casos de uso y reglas transversales (paginación, nombre visible de una ubicación; 11) | `api/application/src/test` | No |
-| Persistencia | Adaptadores, funciones SQL, permisos del rol, presupuesto de consultas —incluido el listado de usuarios, que no crece con las filas—, concurrencia (incluida la reclamación de la captura), día operativo, el motor de traslados y guardias de escritura (91) | `api/adapters-persistence/src/test` | PostgreSQL real |
-| Web | Controladores, contrato de error, la exportación a CSV/XLSX y la lectura del Excel del catálogo, sin arrancar el servidor (17) | `api/adapters-web/src/test` | No |
-| Criptografía | Argon2id, firma y verificación de tokens (11) | `api/adapters-security/src/test` | No |
-| Arquitectura | Las reglas de §1 y §2, y que toda ruta declare su permiso (I5) | `api/app/src/test/.../ArchitectureTest.kt`, `RoutePermissionTest.kt` | No |
-| Flujo completo | Los flujos de [flujos/](../flujos/README.md) por HTTP real (210) | `api/app/src/test` | PostgreSQL real |
+| Domain | Rules, states, errors (408 tests) | `stock-domain/src/commonTest`, `jvmTest` | No |
+| Application | Use cases and cross-cutting rules (pagination, visible name of a location; 11) | `api/application/src/test` | No |
+| Persistence | Adapters, SQL functions, role permissions, query budget —including the user listing, which does not grow with the rows—, concurrency (including the capture claim), operational day, the transfer engine and write guards (91) | `api/adapters-persistence/src/test` | Real PostgreSQL |
+| Web | Controllers, error contract, CSV/XLSX export and reading the catalog Excel, without starting the server (17) | `api/adapters-web/src/test` | No |
+| Cryptography | Argon2id, token signing and verification (11) | `api/adapters-security/src/test` | No |
+| Architecture | The rules of §1 and §2, and that every route declares its permission (I5) | `api/app/src/test/.../ArchitectureTest.kt`, `RoutePermissionTest.kt` | No |
+| Full flow | The flows of [flujos/](../flujos/README.md) over real HTTP (210) | `api/app/src/test` | Real PostgreSQL |
 
-**La base de pruebas** es PostgreSQL 16 en Testcontainers con las migraciones reales
-(`api/adapters-persistence/src/testFixtures/.../TestDatabase.kt`). El código bajo prueba se conecta
-con un usuario del rol `stock_api`, así que las pruebas ejercen los permisos de verdad.
+**The test database** is PostgreSQL 16 in Testcontainers with the real migrations
+(`api/adapters-persistence/src/testFixtures/.../TestDatabase.kt`). The code under test connects
+with a user of the `stock_api` role, so the tests exercise the permissions for real.
 
-**Las pruebas de flujo** (`ApiTest.kt`) arrancan la aplicación completa: Tomcat en un puerto libre,
-la cadena de seguridad, el cableado real y la base real. Solo se sustituye el reloj, para adelantar el
-tiempo.
+**The flow tests** (`ApiTest.kt`) start the complete application: Tomcat on a free port,
+the security chain, the real wiring and the real database. Only the clock is replaced, to advance the
+time.
 
-**Una prueba que necesita la base falla si no la hay**; no se salta. Si Docker no está disponible,
-Testcontainers lanza un error y el build se rompe.
+**A test that needs the database fails if there is none**; it is not skipped. If Docker is not available,
+Testcontainers throws an error and the build breaks.
 
 ```bash
-GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew verify  # 752 pruebas el 2026-10-10 (incluye jvmTest del dominio)
+GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew verify  # 752 tests on 2026-10-10 (includes the domain jvmTest)
 ```
 
-El build detecta el socket del contexto de Docker activo (Colima, OrbStack, Docker Desktop), así que
-no hace falta exportar `DOCKER_HOST` (`build.gradle.kts`).
+The build detects the socket of the active Docker context (Colima, OrbStack, Docker Desktop), so
+`DOCKER_HOST` does not need to be exported (`build.gradle.kts`).
 
-## 10. Lo que no se hace
+## 10. What is not done
 
-- No hay un servicio por entidad que mezcle reglas y SQL.
-- No hay capas de DTO que repitan el dominio: un DTO HTTP existe solo cuando el contrato lo necesita.
-- No hay `Manager`, `Helper` ni `Util` con reglas de negocio.
-- No hay sesión de servidor ni cookies: la API es sin estado.
+- There is no service per entity that mixes rules and SQL.
+- There are no DTO layers that repeat the domain: an HTTP DTO exists only when the contract needs it.
+- There is no `Manager`, `Helper` or `Util` with business rules.
+- There is no server session nor cookies: the API is stateless.
 
-## 11. Rendimiento y consistencia: reglas verificables
+## 11. Performance and consistency: verifiable rules
 
-Salen de los hallazgos del legacy
+They come from the findings of the legacy
 ([analisis/legacy-entradas-salidas-ajustes-traslados.md](../analisis/legacy-entradas-salidas-ajustes-traslados.md)).
-Cada una tiene una prueba; las que aún no la tienen indican la fase.
+Each one has a test; the ones that do not have one yet indicate the phase.
 
-| Regla | Forma incorrecta (legacy) | Forma correcta | Prueba |
+| Rule | Incorrect form (legacy) | Correct form | Test |
 |---|---|---|---|
-| R-P1. Ninguna consulta dentro de un bucle | `findUnique` de usuario por línea (`invoice.service.ts:178`) | Una consulta con `JOIN`, y mapeo en memoria | `IdentityPersistenceTest`: cargar al actor son 2 consultas con 1 rol o con 3 |
-| R-P2. Ningún listado sin límite | `findMany()` de toda la tabla y filtro en JavaScript (`kardex.service.ts:587`) | Filtro y `LIMIT` en la consulta | `CatalogPersistenceTest`: un listado son 2 sentencias con 1 fila o con 50 |
-| R-P3. El saldo no se recalcula desde el historial | Sumar todo el kardex en cada operación (`kardex.service.ts:408`) | Leer la proyección | `InventoryPersistenceTest`: el total sale de `product_stock` |
-| R-P4. Toda escritura de varios pasos va en una transacción | `addKardex` escribe el kardex y después el stock (`kardex.service.ts:241-258`) | Un solo `inTransaction { }` | `JdbcAuditRecorderTest` (U1): un `Left` no deja nada escrito |
-| R-P5. Ninguna operación queda sin esperar | `orderDetail.map((item) => addKardexOut(...))` sin `await` (`order.service.ts:350`) | Llamadas secuenciales dentro de la transacción | Fase 7 |
-| R-P6. El saldo lo cambia la base con bloqueo | Leer el saldo, calcular y escribir el valor absoluto | `UPDATE … SET quantity = quantity + :delta` en la función SQL | `InventoryEngineConcurrencyTest` (A3, A4) y `InventoryWriteGuardTest` (ningún adaptador escribe el saldo) |
-| R-P7. Un movimiento no se modifica | `kardex.update` y `updateMany` que cambian `moveType` y `moveDate` | Solo `INSERT`; la base rechaza `UPDATE` y `DELETE` | `InventoryEngineConcurrencyTest` (A9) y `ApiRolePrivilegesTest` |
-| R-P8. Ningún log contiene existencias completas | `console.log` con el estado de existencias (`order.service.ts:396`) | Log con identificadores y conteos | Revisión de la fase 5 |
-| R-P9. Una sincronización es una sentencia por tabla | Una sentencia por permiso y por celda en cada arranque | `jsonb_to_recordset` | `IdentityPersistenceTest`: todo el sembrado son ≤ 12 sentencias |
-| R-P10. La cadena de la bitácora no recorre la tabla | `ORDER BY sequence_no DESC LIMIT 1` sin índice: leía todas las filas en cada escritura | Índice por `sequence_no` (V11) | `ApiRolePrivilegesTest` comprueba que el índice existe; medición en [infraestructura.md](infraestructura.md) §4 |
+| R-P1. No query inside a loop | `findUnique` of a user per line (`invoice.service.ts:178`) | One query with a `JOIN`, and in-memory mapping | `IdentityPersistenceTest`: loading the actor is 2 queries with 1 role or with 3 |
+| R-P2. No unbounded listing | `findMany()` of the whole table and filter in JavaScript (`kardex.service.ts:587`) | Filter and `LIMIT` in the query | `CatalogPersistenceTest`: a listing is 2 statements with 1 row or with 50 |
+| R-P3. The balance is not recalculated from history | Summing the whole ledger on every operation (`kardex.service.ts:408`) | Read the projection | `InventoryPersistenceTest`: the total comes from `product_stock` |
+| R-P4. Every multi-step write goes in one transaction | `addKardex` writes the ledger and then the stock (`kardex.service.ts:241-258`) | A single `inTransaction { }` | `JdbcAuditRecorderTest` (U1): a `Left` leaves nothing written |
+| R-P5. No operation is left unawaited | `orderDetail.map((item) => addKardexOut(...))` without `await` (`order.service.ts:350`) | Sequential calls inside the transaction | Phase 7 |
+| R-P6. The balance is changed by the database with a lock | Reading the balance, computing and writing the absolute value | `UPDATE … SET quantity = quantity + :delta` in the SQL function | `InventoryEngineConcurrencyTest` (A3, A4) and `InventoryWriteGuardTest` (no adapter writes the balance) |
+| R-P7. A movement is not modified | `kardex.update` and `updateMany` that change `moveType` and `moveDate` | Only `INSERT`; the database rejects `UPDATE` and `DELETE` | `InventoryEngineConcurrencyTest` (A9) and `ApiRolePrivilegesTest` |
+| R-P8. No log contains full stock | `console.log` with the stock state (`order.service.ts:396`) | Log with identifiers and counts | Phase 5 review |
+| R-P9. A synchronization is one statement per table | One statement per permission and per cell on every startup | `jsonb_to_recordset` | `IdentityPersistenceTest`: the whole seed is ≤ 12 statements |
+| R-P10. The audit chain does not scan the table | `ORDER BY sequence_no DESC LIMIT 1` without an index: it read all rows on every write | Index on `sequence_no` (V11) | `ApiRolePrivilegesTest` checks that the index exists; measurement in [infraestructura.md](infraestructura.md) §4 |
 
-**Criterio de rendimiento.** Cada listado y cada operación de inventario tiene un presupuesto de
-sentencias SQL por llamada, que se fija con la primera medición del módulo. `StatementCounter`
-(`testFixtures`) cuenta las sentencias en las pruebas. Las cifras de tiempo no se fijan antes de medir.
+**Performance criterion.** Each listing and each inventory operation has a budget of SQL
+statements per call, which is set with the first measurement of the module. `StatementCounter`
+(`testFixtures`) counts the statements in the tests. Time figures are not set before measuring.

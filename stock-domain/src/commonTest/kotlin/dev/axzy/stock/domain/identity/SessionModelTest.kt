@@ -8,15 +8,15 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * TESTS DE LA ROTACIÓN DE TOKENS Y LA DETECCIÓN DE REUSO
+ * TOKEN ROTATION AND REUSE DETECTION TESTS
  *
- * El test que más importa es el de **reuso fuera del margen de gracia**: es el
- * que distingue un sistema que de verdad detecta el robo de uno que solo dice
- * que rota tokens.
+ * The test that matters most is **reuse outside the grace window**: it is the
+ * one that tells apart a system that really detects theft from one that only says
+ * that it rotates tokens.
  *
- * Todos son puros: sin base de datos, sin servidor, sin criptografía. Corren en
- * milisegundos, que es lo único que hace viable cubrir la lógica de seguridad de
- * una sesión con tests exhaustivos.
+ * They are all pure: no database, no server, no cryptography. They run in
+ * milliseconds, which is the only thing that makes covering the security logic of
+ * a session with exhaustive tests viable.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 class SessionModelTest : DescribeSpec({
@@ -57,7 +57,7 @@ class SessionModelTest : DescribeSpec({
         }
 
         it("a token that has not expired yet is accepted even if it is old") {
-            // Un refresh token de 29 días sigue siendo válido: su vida es de 30.
+            // A refresh token of 29 days is still valid: its lifetime is 30.
             val decision = decideRefresh(
                 record(issuedDoes = 29L * 24 * oneHour, expiresIn = oneHour),
                 now,
@@ -72,11 +72,11 @@ class SessionModelTest : DescribeSpec({
     describe("REUSE DETECTION: the case that justifies rotation") {
 
         it("an already rotated token, outside the margin, is detected as reuse") {
-            // ÉSTE es el test central. Un refresh token usado dos veces significa
-            // que hay dos partes con el mismo token, y una no es el usuario.
+            // THIS is the central test. A refresh token used twice means
+            // there are two parties with the same token, and one of them is not the user.
             //
-            // No se puede distinguir de un reintento por fallo de red, así que se
-            // asume lo peor: se revoca la familia y el usuario vuelve a entrar.
+            // It cannot be told apart from a retry after a network failure, so
+            // the worst is assumed: the family is revoked and the user logs in again.
             val decision = decideRefresh(
                 record(rotatedDoesMs = 10 * 60 * 1000),   // rotado hace 10 minutos
                 now,
@@ -90,12 +90,12 @@ class SessionModelTest : DescribeSpec({
         }
 
         it("reuse is detected even if the token is also revoked") {
-            // La rotación marca el token como rotado Y como revocado. Si se
-            // comprobara la revocación primero, el reuso se reportaría como «token
-            // revocado», que es un mensaje inofensivo y NO revocaría la familia.
+            // Rotation marks the token as rotated AND as revoked. If the
+            // revocation were checked first, reuse would be reported as "token
+            // revoked", a harmless message that would NOT revoke the family.
             //
-            // El orden de las comprobaciones es una decisión de seguridad, no un
-            // detalle de implementación.
+            // The order of the checks is a security decision, not an
+            // implementation detail.
             val decision = decideRefresh(
                 record(
                     rotatedDoesMs = 10 * 60 * 1000,
@@ -126,12 +126,12 @@ class SessionModelTest : DescribeSpec({
     describe("the grace window: avoids revoking sessions because of a network failure") {
 
         it("a token rotated WITHIN the margin is accepted: it is a retry") {
-            // El cliente recibió el token nuevo pero la respuesta se perdió, así
-            // que reintenta con el viejo. Sin este margen, un fallo de red
-            // cerraría la sesión del usuario.
+            // The client received the new token but the response was lost, so
+            // it retries with the old one. Without this margin, a network failure
+            // would log the user out.
             //
-            // Es la clase de detalle que, si falta, hace que la gente pida
-            // desactivar la rotación porque «cierra sesiones sola».
+            // It is the kind of detail that, if missing, makes people ask to
+            // turn rotation off because it "logs sessions out by itself".
             val decision = decideRefresh(
                 record(rotatedDoesMs = 5_000),   // rotado hace 5 s, margen 30 s
                 now,
@@ -154,8 +154,8 @@ class SessionModelTest : DescribeSpec({
         }
 
         it("a millisecond outside the margin is already detected as reuse") {
-            // El límite es exacto y el test lo fija: un cambio accidental de `<=`
-            // a `<` o al revés abriría o cerraría la ventana sin que nadie lo note.
+            // The limit is exact and the test pins it: an accidental change from `<=`
+            // to `<` or the other way round would open or close the window without anyone noticing.
             val decision = decideRefresh(
                 record(rotatedDoesMs = policy.rotationGraceMs + 1),
                 now,
@@ -166,9 +166,9 @@ class SessionModelTest : DescribeSpec({
         }
 
         it("a token rotated in the FUTURE is not accepted") {
-            // Un `rotatedAt` futuro solo puede venir de un reloj mal, de datos
-            // manipulados o de un desajuste entre servidores. Tratarlo como
-            // reintento abriría una ventana de gracia sin límite.
+            // A future `rotatedAt` can only come from a wrong clock, from data
+            // tampered with or from a mismatch between servers. Treating it as a
+            // retry would open a grace window without limit.
             val decision = decideRefresh(
                 record(rotatedDoesMs = -oneHour),   // rotado una hora en el futuro
                 now,
@@ -181,8 +181,8 @@ class SessionModelTest : DescribeSpec({
         }
 
         it("the grace window is short: 30 seconds") {
-            // La ventana es la misma para el atacante que para el reintento
-            // legítimo, así que debe ser corta. Este test la fija.
+            // The window is the same for the attacker as for the
+            // legitimate retry, so it must be short. This test pins it.
             policy.rotationGraceMs shouldBe 30_000
         }
     }
@@ -191,8 +191,8 @@ class SessionModelTest : DescribeSpec({
     describe("the cases that are NOT reuse and must not be confused with it") {
 
         it("a token that does not exist returns Unknown, not reuse") {
-            // Confundirlo con reuso haría que un token inventado por un escáner
-            // de puertos revocara la sesión de un usuario real.
+            // Confusing it with reuse would let a token invented by a port scanner
+            // revoke a real user's session.
             decideRefresh(null, now, policy) shouldBe RefreshDecision.Unknown
         }
 
@@ -223,8 +223,8 @@ class SessionModelTest : DescribeSpec({
         }
 
         it("an expired token returns Expired, not reuse") {
-            // Un usuario que vuelve después de 31 días no es un atacante: es un
-            // usuario. Se le pide iniciar sesión de nuevo, sin alarmas.
+            // A user who comes back after 31 days is not an attacker: they are a
+            // user. They are asked to log in again, with no alarms.
             val decision = decideRefresh(
                 record(issuedDoes = 31L * 24 * oneHour, expiresIn = -oneHour),
                 now,
@@ -235,8 +235,8 @@ class SessionModelTest : DescribeSpec({
         }
 
         it("a token that is expired AND revoked is reported as revoked") {
-            // El orden: la revocación explícita es más informativa que el
-            // vencimiento, porque dice que alguien actuó.
+            // The order: explicit revocation is more informative than the
+            // expiry, because it says that someone acted.
             val decision = decideRefresh(
                 record(
                     expiresIn = -oneHour,
@@ -251,9 +251,9 @@ class SessionModelTest : DescribeSpec({
         }
 
         it("the five results are distinguishable from one another") {
-            // Si dos casos colapsaran en el mismo valor, el llamador no podría
-            // decidir bien: por ejemplo, revocar la familia solo ante un reuso
-            // real y no ante un token vencido.
+            // If two cases collapsed into the same value, the caller could not
+            // decide well: for example, revoking the family only on a real
+            // reuse and not on an expired token.
             val decisions = listOf(
                 decideRefresh(record(), now, policy),
                 decideRefresh(record(rotatedDoesMs = 10 * 60 * 1000), now, policy),
@@ -277,13 +277,13 @@ class SessionModelTest : DescribeSpec({
         }
 
         it("rejects a value that is too short") {
-            // 42 caracteres son menos de 256 bits: adivinable por fuerza bruta.
+            // 42 characters is less than 256 bits: guessable by brute force.
             RefreshToken.of("a".repeat(42)) shouldBe null
         }
 
         it("rejects a value with characters outside base64url") {
-            // Una barra o un signo más indican base64 estándar, no base64url: si
-            // aparecen, el valor no lo generó este sistema o viajó mal por una URL.
+            // A slash or a plus sign indicates standard base64, not base64url: if
+            // they appear, the value was not generated by this system or it travelled badly through a URL.
             listOf(
                 "a".repeat(42) + "/",
                 "a".repeat(42) + "+",
@@ -306,8 +306,8 @@ class SessionModelTest : DescribeSpec({
         }
 
         it("its representation does NOT reveal the full token") {
-            // Un token en un log es un token que, si el log se filtra, da sesiones
-            // válidas. La huella permite correlacionar sin exponer.
+            // A token in a log is a token that, if the log leaks, gives away sessions
+            // that are valid. The fingerprint allows correlating without exposing it.
             val token = RefreshToken.of("abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG")!!
 
             val text = token.toString()
@@ -334,7 +334,7 @@ class SessionModelTest : DescribeSpec({
         }
 
         it("the refresh token must live longer than the access token") {
-            // Si no, no serviría para refrescar: habría vencido antes.
+            // If not, it would be useless for refreshing: it would already have expired.
             val invalid = runCatching {
                 SessionPolicy(
                     accessTokenTtlMs = 1000,
@@ -371,12 +371,12 @@ class SessionModelTest : DescribeSpec({
     describe("changing the password invalidates the sessions") {
 
         it("always, without asking the user") {
-            // Quien cambia su contraseña suele sospechar que está comprometida.
-            // Dejar vivas las sesiones mantendría el acceso del atacante justo
-            // cuando el usuario intenta cerrarlo.
+            // Whoever changes their password usually suspects it has been compromised.
+            // Leaving the sessions alive would keep the attacker's access exactly
+            // when the user is trying to close it.
             //
-            // Preguntar «¿cerrar las demás sesiones?» es peor: en ese momento el
-            // usuario no quiere decidir, quiere que se cierre.
+            // Asking "close the other sessions?" is worse: at that moment the
+            // user does not want to decide, they want it closed.
             passwordChangeRevokesSessions() shouldBe true
         }
     }

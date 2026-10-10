@@ -1,203 +1,200 @@
-# Recepción: factura, captura física y ubicación
-> **Normativo.** Última revisión: 2026-10-10 (R1–R8 en verde; ver §6-bis). Reglas de origen: [ADR-0008](../adr/0008-discrepancias-y-merma.md), [ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md). Módulo: [M03](../modulos/M03-recepcion/README.md).
+# Receiving: invoice, physical count and location
+> **Normative.** Last revised: 2026-10-10 (R1–R8 green; see §6-bis). Origin rules: [ADR-0008](../adr/0008-discrepancias-y-merma.md), [ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md). Module: [M03](../modulos/M03-recepcion/README.md).
 
-## 1. Objetivo y actores
+## 1. Objective and actors
 
-Registrar lo que llega en una factura, contar físicamente cada línea, resolver las diferencias con un
-supervisor y dejar la mercancía ubicada en su estante.
+Record what arrives on an invoice, physically count each line, resolve the differences with a
+supervisor and leave the goods located on their shelf.
 
-| Actor | Qué hace |
+| Actor | What it does |
 |---|---|
-| Capturista (app o web) | Crea la factura y cuenta físicamente cada línea |
-| Supervisor (web) | Aprueba o rechaza las discrepancias de una factura |
-| Operador de piso (app) | Ubica las líneas aprobadas en su estante |
+| Capturer (app or web) | Creates the invoice and physically counts each line |
+| Supervisor (web) | Approves or rejects the discrepancies of an invoice |
+| Floor operator (app) | Locates the approved lines on their shelf |
 
-## 2. Precondiciones
+## 2. Preconditions
 
-- Existe la ubicación `RECEIVING`, la de recepción, y no se puede desactivar.
-- Los productos de la factura existen en el catálogo.
+- The `RECEIVING` location, the receiving one, exists and cannot be deactivated.
+- The products on the invoice exist in the catalog.
 
-## 3. Estados de la línea
+## 3. Line states
 
 ```mermaid
 stateDiagram-v2
-    [*] --> CAPTURED: captura igual a lo facturado
-    [*] --> DISCREPANCY: captura distinta de lo facturado
-    DISCREPANCY --> APPROVED: supervisor aprueba la factura
-    DISCREPANCY --> REJECTED: supervisor rechaza
-    CAPTURED --> LOCATED: ubicar en estante
-    APPROVED --> LOCATED: ubicar en estante
+    [*] --> CAPTURED: count equal to invoiced
+    [*] --> DISCREPANCY: count different from invoiced
+    DISCREPANCY --> APPROVED: supervisor approves the invoice
+    DISCREPANCY --> REJECTED: supervisor rejects
+    CAPTURED --> LOCATED: locate on the shelf
+    APPROVED --> LOCATED: locate on the shelf
     LOCATED --> [*]
     REJECTED --> [*]
 ```
 
-Una línea en `DISCREPANCY` **no se puede ubicar**. Solo llega a `APPROVED` con la aprobación de un
-supervisor, y la base impide que `APPROVED` exista sin `approved_by`.
+A line in `DISCREPANCY` **cannot be located**. It only reaches `APPROVED` with the approval of a
+supervisor, and the database prevents `APPROVED` from existing without `approved_by`.
 
-## 4. Flujo principal
+## 4. Main flow
 
 ```mermaid
 sequenceDiagram
-    participant C as Capturista
+    participant C as Capturer
     participant S as Supervisor
     participant API
-    participant UC as Caso de uso
-    participant DB as Base
+    participant UC as Use case
+    participant DB as Database
 
-    C->>API: POST /v1/invoices (líneas facturadas)
-    API->>UC: RegisterInvoice(actor, datos)
-    UC->>DB: INSERT factura y líneas (estado inicial)
+    C->>API: POST /v1/invoices (invoiced lines)
+    API->>UC: RegisterInvoice(actor, data)
+    UC->>DB: INSERT invoice and lines (initial state)
     API-->>C: 201
 
-    C->>API: POST /v1/invoices/{id}/lines/{lineId}/capture (cantidad física)
-    API->>UC: CaptureLine(actor, id, lineId, cantidad)
-    UC->>DB: movimiento RECEIPT_IN: lo contado, a RECEPCION
-    Note over UC,DB: La mercancía entra AL CONTAR, y solo la diferencia<br/>contra lo ya ingresado por la línea: un recuento no suma dos veces.
-    UC->>UC: ¿Igual a lo facturado?
-    alt Igual
-        UC->>DB: línea → CAPTURED, captured_by = actor
-    else Distinta
-        UC->>DB: línea → DISCREPANCY, captured_by = actor
-        Note over UC,DB: Toda diferencia requiere aprobación. Sin umbral.
+    C->>API: POST /v1/invoices/{id}/lines/{lineId}/capture (physical quantity)
+    API->>UC: CaptureLine(actor, id, lineId, quantity)
+    UC->>DB: RECEIPT_IN movement: what was counted, to RECEPCION
+    Note over UC,DB: The goods enter WHEN COUNTED, and only the difference<br/>against what the line has already received: a recount does not add twice.
+    UC->>UC: Equal to invoiced?
+    alt Equal
+        UC->>DB: line → CAPTURED, captured_by = actor
+    else Different
+        UC->>DB: line → DISCREPANCY, captured_by = actor
+        Note over UC,DB: Every difference requires approval. No threshold.
     end
 
     S->>API: POST /v1/invoices/{id}/approve
     API->>UC: ApproveInvoiceDiscrepancies(actor, id)
-    UC->>UC: ¿Actor = capturista de alguna línea en discrepancia?
-    alt Mismo actor
+    UC->>UC: Actor = capturer of any line in discrepancy?
+    alt Same actor
         UC-->>API: SEGREGATION_OF_DUTIES (409)
-    else Otro actor
-        UC->>DB: discrepancias → APPROVED, approved_by = actor
-        UC->>DB: bitácora
+    else Another actor
+        UC->>DB: discrepancies → APPROVED, approved_by = actor
+        UC->>DB: audit log
     end
 
-    C->>API: POST /v1/inventory/locate (estante, invoiceLineId)
-    API->>UC: ApplyStockMovement(actor, producto, RECEPCION, estante, cantidad, línea)
-    UC->>UC: ¿Línea CAPTURED o APPROVED? ¿Es del mismo producto?
-    UC->>DB: movimiento LOCATE: RECEPCION → estante (ver existencias)
-    UC->>DB: línea → LOCATED
-    UC->>DB: bitácora
+    C->>API: POST /v1/inventory/locate (shelf, invoiceLineId)
+    API->>UC: ApplyStockMovement(actor, product, RECEPCION, shelf, quantity, line)
+    UC->>UC: Line CAPTURED or APPROVED? Same product?
+    UC->>DB: LOCATE movement: RECEPCION → shelf (see stock)
+    UC->>DB: line → LOCATED
+    UC->>DB: audit log
 ```
 
-**Por qué la aprobación es por factura.** El supervisor resuelve todas las discrepancias de una factura
-en una sola acción. Aprobar línea por línea abría la puerta a que se aprobara lo fácil y se dejara lo
-difícil sin resolver.
+**Why approval is per invoice.** The supervisor resolves all the discrepancies of an invoice
+in a single action. Approving line by line opened the door to approving the easy ones and leaving the
+hard ones unresolved.
 
-## 5. Cierre de la factura
+## 5. Closing the invoice
 
-- Una factura se **cierra** cuando ninguna línea está en `DISCREPANCY`.
-- Si se intenta cerrar con discrepancias pendientes, responde `INVOICE_HAS_PENDING_LINES`.
-- Si se pide aprobar y no hay nada pendiente, responde `NO_PENDING_APPROVAL` (409), no 200.
+- An invoice is **closed** when no line is in `DISCREPANCY`.
+- If closing is attempted with pending discrepancies, it answers `INVOICE_HAS_PENDING_LINES`.
+- If approval is requested and nothing is pending, it answers `NO_PENDING_APPROVAL` (409), not 200.
 
-## 6. Pruebas de aceptación
+## 6. Acceptance tests
 
-**R1. Una línea en discrepancia no se puede ubicar**
-- Dado una línea capturada con 8 cuando se facturaron 10.
-- Cuando se intenta ubicar.
-- Entonces responde 409 y el inventario no cambia.
+**R1. A line in discrepancy cannot be located**
+- Given a line captured with 8 when 10 were invoiced.
+- When locating is attempted.
+- Then it answers 409 and the inventory does not change.
 
-**R2. Toda diferencia pide aprobación, sin umbral**
-- Dado una diferencia de 1 unidad.
-- Cuando se captura.
-- Entonces la línea queda en `DISCREPANCY`.
+**R2. Every difference requires approval, with no threshold**
+- Given a difference of 1 unit.
+- When it is captured.
+- Then the line remains in `DISCREPANCY`.
 
-**R3. Quien capturó no aprueba su discrepancia**
-- Dado una línea capturada por el usuario U.
-- Cuando U aprueba la factura.
-- Entonces responde `SEGREGATION_OF_DUTIES` y la línea sigue en `DISCREPANCY`.
+**R3. Whoever captured does not approve their own discrepancy**
+- Given a line captured by user U.
+- When U approves the invoice.
+- Then it answers `SEGREGATION_OF_DUTIES` and the line remains in `DISCREPANCY`.
 
-**R4. La aprobación cubre toda la factura**
-- Dado una factura con dos discrepancias.
-- Cuando el supervisor aprueba una vez.
-- Entonces ambas quedan `APPROVED` con el mismo aprobador.
+**R4. The approval covers the whole invoice**
+- Given an invoice with two discrepancies.
+- When the supervisor approves once.
+- Then both are `APPROVED` with the same approver.
 
-**R5. No se cierra con pendientes**
-- Dado una factura con una discrepancia sin resolver.
-- Cuando se intenta cerrar.
-- Entonces responde `INVOICE_HAS_PENDING_LINES`.
+**R5. It is not closed with pending items**
+- Given an invoice with an unresolved discrepancy.
+- When closing is attempted.
+- Then it answers `INVOICE_HAS_PENDING_LINES`.
 
-**R6. Aprobar sin pendientes**
-- Dado una factura sin discrepancias.
-- Cuando se pide aprobar.
-- Entonces responde `NO_PENDING_APPROVAL` (409).
+**R6. Approving with nothing pending**
+- Given an invoice without discrepancies.
+- When approval is requested.
+- Then it answers `NO_PENDING_APPROVAL` (409).
 
-**R7. Ubicar mueve de recepción al estante y no cambia el total**
-- Dado 10 unidades en `RECEIVING` y una línea `CAPTURED`.
-- Cuando se ubican en un estante.
-- Entonces el total del producto sigue en 10, el estante tiene 10, y `RECEIVING` tiene 0.
+**R7. Locating moves from receiving to the shelf and does not change the total**
+- Given 10 units in `RECEIVING` and a `CAPTURED` line.
+- When they are located on a shelf.
+- Then the product total remains at 10, the shelf has 10, and `RECEIVING` has 0.
 
-**R8. La paginación rechaza valores inválidos**
-- Dado `page=-1`.
-- Cuando se lista facturas.
-- Entonces responde `INVALID_PAGINATION` (400), no recorta el valor en silencio.
+**R8. Pagination rejects invalid values**
+- Given `page=-1`.
+- When invoices are listed.
+- Then it answers `INVALID_PAGINATION` (400), it does not trim the value silently.
 
-### 6-bis. Estado de estas pruebas (2026-10-10)
+### 6-bis. Status of these tests (2026-10-10)
 
-**Quién mete la mercancía en `RECEPCION` es la captura** (2026-10-10). Antes no lo hacía
-nadie: el saldo aparecía por un ajuste a mano o por la carga inicial de M10, así que ubicar
-desde `RECEPCION` se encontraba cero. Ahora el conteo escribe un `RECEIPT_IN` por **la
-diferencia** entre lo contado y lo ya ingresado por esa línea, y si lo contado es menos, la
-diferencia sale con un ajuste por error de conteo: el conteo anterior estaba alto. Es lo que
-hace que un recuento —una línea descartada por el supervisor vuelve a `PENDING`— no sume la
-mercancía dos veces.
+**Who puts the goods into `RECEPCION` is the count** (2026-10-10). Before, nobody did:
+the balance appeared through a manual adjustment or the M10 initial load, so locating
+from `RECEPCION` found zero. Now the count writes a `RECEIPT_IN` for the **difference** between what was counted and what the line has already received, and if what was counted is less, the
+difference leaves with an adjustment for a count error: the previous count was high. It is what makes
+a recount —a line discarded by the supervisor returns to `PENDING`— not add the goods twice.
 
-**Las ocho están automatizadas y en verde por HTTP real**
-(`api/app/src/test/kotlin/dev/axzy/stock/app/ReceivingFlowTest.kt`): R1 a R8, con R7 en
-`InventoryFlowTest` A1 (ubicar mueve de recepción al estante y no cambia el total) y R1 en la
-misma prueba de la ruta de ubicar, que carga la línea, aplica la regla del dominio **antes de
-mover nada** y al terminar anota lo ubicado.
+**The eight are automated and green over real HTTP**
+(`api/app/src/test/kotlin/dev/axzy/stock/app/ReceivingFlowTest.kt`): R1 to R8, with R7 in
+`InventoryFlowTest` A1 (locating moves from receiving to the shelf and does not change the total) and R1 in the
+same test of the locate route, which loads the line, applies the domain rule **before
+moving anything** and at the end notes what was located.
 
-Además, por lo que este módulo escribe:
+Additionally, for what this module writes:
 
-- **La mercancía entra al contar**, y con ella el módulo se volvió el segundo que mueve
-  inventario: tiene sus propias pruebas de concurrencia
-  (`ReceivingConcurrencyTest`) y su presupuesto de consultas medido —un listado son dos
-  sentencias y el detalle de una factura son dos, con sus líneas—.
+- **The goods enter when counted**, and with that the module became the second one that moves inventory:
+  it has its own concurrency tests (`ReceivingConcurrencyTest`) and its measured query budget —a listing is two
+  statements and the detail of an invoice is two, with its lines—.
 
-Una cosa que el documento daba por hecha y no lo estaba:
+One thing the document took for granted and was not true:
 
-- **Rechazar no cancela la línea: la devuelve a `PENDING`.** El diagrama de estados
-  dice `DISCREPANCY --> REJECTED`, pero no existe el estado `REJECTED` en la base ni en
-  el dominio: lo que existe es `rejectDiscrepancy`, que limpia el conteo para forzar un
-  reconteo. Cancelar dejaría una línea muerta y mercancía sin contar. Corregido en
+- **Rejecting does not cancel the line: it returns it to `PENDING`.** The state diagram
+  says `DISCREPANCY --> REJECTED`, but the `REJECTED` state does not exist in the database nor in
+  the domain: what exists is `rejectDiscrepancy`, which clears the count to force a recount.
+  Cancelling would leave a dead line and goods not counted. Corrected in
   [api/recepcion.md](../api/recepcion.md).
-- **`physicalBoxQuantity` es una cuenta entera de cajas.** El ejemplo del contrato
-  traía `1.600` para 80 piezas con cajas de 50: era el equivalente decimal del legacy,
-  no un conteo. El dominio modela cajas discretas porque «1 caja y 30 sueltas» es lo
-  que se cuenta, y un valor con fracción se rechaza.
+- **`physicalBoxQuantity` is an integer count of boxes.** The contract example
+  had `1.600` for 80 pieces with boxes of 50: it was the decimal equivalent of the legacy,
+  not a count. The domain models discrete boxes because "1 box and 30 loose" is what
+  gets counted, and a value with a fraction is rejected.
 
-## 7. Errores
+## 7. Errors
 
-| Código | HTTP | Cuándo |
+| Code | HTTP | When |
 |---|---|---|
-| `INVOICE_NOT_FOUND` | 404 | La factura no existe o está eliminada |
-| `INVOICE_LINE_NOT_FOUND` | 404 | La línea no pertenece a la factura |
-| `LINE_IN_DISCREPANCY` | 409 | Se intenta ubicar una línea pendiente de aprobación |
-| `SEGREGATION_OF_DUTIES` | 409 | El aprobador es quien capturó |
-| `INVOICE_HAS_PENDING_LINES` | 409 | Se intenta cerrar con discrepancias |
-| `NO_PENDING_APPROVAL` | 409 | No hay nada que aprobar |
-| `INVALID_PAGINATION` | 400 | `page` o `size` inválidos |
+| `INVOICE_NOT_FOUND` | 404 | The invoice does not exist or is deleted |
+| `INVOICE_LINE_NOT_FOUND` | 404 | The line does not belong to the invoice |
+| `LINE_IN_DISCREPANCY` | 409 | Attempt to locate a line pending approval |
+| `SEGREGATION_OF_DUTIES` | 409 | The approver is whoever captured |
+| `INVOICE_HAS_PENDING_LINES` | 409 | Attempt to close with discrepancies |
+| `NO_PENDING_APPROVAL` | 409 | Nothing to approve |
+| `INVALID_PAGINATION` | 400 | Invalid `page` or `size` |
 
-## 8. Permisos
+## 8. Permissions
 
-| Acción | Permiso |
+| Action | Permission |
 |---|---|
-| Ver facturas | `invoice.view` |
-| Crear | `invoice.create` |
-| Capturar | `invoice.capture` |
-| Aprobar y rechazar | `invoice.approve`, `invoice.reject` |
-| Cerrar | `invoice.close` |
-| Ubicar | `invoice.locate`, con alcance `OWN` para el operador |
+| View invoices | `invoice.view` |
+| Create | `invoice.create` |
+| Capture | `invoice.capture` |
+| Approve and reject | `invoice.approve`, `invoice.reject` |
+| Close | `invoice.close` |
+| Locate | `invoice.locate`, with scope `OWN` for the operator |
 
-La segregación de funciones se verifica en el caso de uso, no en el controlador.
+Segregation of duties is verified in the use case, not in the controller.
 
-## 9. Bitácora
+## 9. Audit log
 
-Crear, capturar, aprobar, rechazar, ubicar y cerrar escriben en `audit_log`. Cada registro lleva el
-actor y la línea afectada.
+Creating, capturing, approving, rejecting, locating and closing write to `audit_log`. Each record carries
+the actor and the affected line.
 
-## 10. Reglas y decisiones
+## 10. Rules and decisions
 
-- Toda diferencia es una discrepancia con aprobación; nunca se borra la línea: [ADR-0008](../adr/0008-discrepancias-y-merma.md).
-- La recepción es una ubicación real con id, no un nombre: [ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md).
-- Ubicar es un movimiento: ver [existencias-y-ajustes.md](existencias-y-ajustes.md).
+- Every difference is a discrepancy with approval; the line is never deleted: [ADR-0008](../adr/0008-discrepancias-y-merma.md).
+- The receiving location is a real location with an id, not a name: [ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md).
+- Locating is a movement: see [existencias-y-ajustes.md](existencias-y-ajustes.md).

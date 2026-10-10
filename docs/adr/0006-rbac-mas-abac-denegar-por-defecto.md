@@ -1,84 +1,84 @@
-# ADR-0006 — RBAC + ABAC, denegar por defecto
-> **Normativo.** Decisión aceptada. Última verificación: 2026-10-09.
+# ADR-0006 — RBAC + ABAC, deny by default
+> **Normative.** Accepted decision. Last verified: 2026-10-09.
 
 | | |
 |---|---|
-| **Estado** | Aceptada |
-| **Fecha** | 2026-10-09 |
-| **Reemplaza a** | — |
-| **Reemplazada por** | — |
+| **Status** | Accepted |
+| **Date** | 2026-10-09 |
+| **Replaces** | — |
+| **Replaced by** | — |
 
-## Contexto
+## Context
 
-En el legacy el rol admin no tenía permisos en base de datos y su acceso se resolvía con un
-`if (role === 1)` hardcodeado; además había permisos sembrados que ninguna ruta exigía
+In the legacy the admin role had no database permissions and its access was resolved with a
+hardcoded `if (role === 1)`; there were also seeded permissions that no route required
 (`stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/access/RoleDefinitions.kt`,
 `backend/src/main/kotlin/dev/axzy/stock/backend/security/PermissionChecker.kt`).
 
-El modelo tampoco podía expresar «puede sobre su bodega» ni «puede solo dentro del horario».
-Y había dos listas que debían coincidir —el permiso que exige la ruta y el guard que protege
-su pantalla—; cuando se separaron, un usuario con permiso de reportes entraba a la pantalla y
-recibía un 403 ([roles-permisos.md](../seguridad/roles-permisos.md)).
+The model also could not express "can act on its warehouse" or "can act only within the schedule".
+And there were two lists that had to match —the permission the route requires and the guard that protects its screen—;
+when they separated, a user with the reports permission entered the screen and
+received a 403 ([roles-permisos.md](../seguridad/roles-permisos.md)).
 
-## Decisión
+## Decision
 
-- La decisión de acceso sigue este orden: identidad → RBAC (rol → permisos) → ABAC
-  (políticas sobre atributos del recurso) → decisión ([roles-permisos.md](../seguridad/roles-permisos.md),
+- The access decision follows this order: identity → RBAC (role → permissions) → ABAC
+  (policies over resource attributes) → decision ([roles-permisos.md](../seguridad/roles-permisos.md),
   `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/access/AccessEngine.kt`).
-- **Denegar por defecto.** Sin decisión explícita, se niega (`AccessEngine.kt`,
+- **Deny by default.** Without an explicit decision, it is denied (`AccessEngine.kt`,
   `PermissionChecker.kt`).
-- **`DENY` gana sobre `ALLOW`**, siempre (`AccessEngine.kt`).
-- El alcance es una escalera: `NONE < OWN < AREA < ALL`. Conceder `AREA` no concede `ALL`
+- **`DENY` wins over `ALLOW`**, always (`AccessEngine.kt`).
+- The scope is a ladder: `NONE < OWN < AREA < ALL`. Granting `AREA` does not grant `ALL`
   (`stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/access/AccessModel.kt`).
-- Cada endpoint exige el permiso que necesita, no el rol. El permiso de la ruta tiene que ser
-  el mismo que el del guard que protege su pantalla ([roles-permisos.md](../seguridad/roles-permisos.md) y [api-ktor.md](../historico/API-KTOR.md) §1.13).
-- ABAC no concede lo que RBAC no concedió: sube el listón, no lo baja
+- Each endpoint requires the permission it needs, not the role. The route's permission has to be
+  the same as the guard's that protects its screen ([roles-permisos.md](../seguridad/roles-permisos.md) and [api-ktor.md](../historico/API-KTOR.md) §1.13).
+- ABAC does not grant what RBAC did not grant: it raises the bar, it does not lower it
   (`stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/access/StockPolicies.kt`).
-- El usuario autenticado viaja como argumento explícito (`AccessUser`), nunca en una variable
-  thread-local: una thread-local se pierde cuando el trabajo salta de hilo, y con coroutines
-  el salto es la norma ([api-ktor.md](../historico/API-KTOR.md) §1.13).
-- La implementación por defecto del verificador deniega todo (`DenyAllPermissionChecker`): un
-  verificador permisivo convierte un olvido de configuración en un agujero de seguridad
+- The authenticated user travels as an explicit argument (`AccessUser`), never in a thread-local variable:
+  a thread-local is lost when the work jumps threads, and with coroutines the jump is the norm
+  ([api-ktor.md](../historico/API-KTOR.md) §1.13).
+- The default implementation of the checker denies everything (`DenyAllPermissionChecker`): a permissive
+  checker turns a configuration oversight into a security hole
   (`PermissionChecker.kt`).
-- La matriz de roles declara solo las celdas concedidas; lo ausente es `NONE`, así que un
-  permiso nuevo en el catálogo no se concede por olvido (`RoleDefinitions.kt`).
-- Toda denegación se registra con sus seis dimensiones (`PermissionChecker.kt`).
+- The role matrix declares only the granted cells; what is absent is `NONE`, so a new permission
+  in the catalog is not granted by oversight (`RoleDefinitions.kt`).
+- Every denial is recorded with its six dimensions (`PermissionChecker.kt`).
 
-## Consecuencias
+## Consequences
 
-El modelo expresa el alcance por bodega (`AREA`) y las condiciones por atributo sin
-multiplicar roles: no hay roles por bodega (`RoleDefinitions.kt`, `AccessModel.kt`). El
-catálogo de permisos y los roles se siembran desde el dominio, no se escriben a mano en SQL
+The model expresses scope per warehouse (`AREA`) and attribute conditions without
+multiplying roles: there are no roles per warehouse (`RoleDefinitions.kt`, `AccessModel.kt`). The
+permission catalog and the roles are seeded from the domain, not written by hand in SQL
 (`backend/src/main/kotlin/dev/axzy/stock/backend/identity/IdentitySeeder.kt`,
 `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/access/PermissionCatalog.kt`).
 
-Se paga que hay dos niveles que razonar: un permiso puede estar concedido y aun así denegarse
-por política. Una política `DENY` mal escrita bloquea trabajo legítimo, y por eso el motor
-admite modo sombra para observarla antes de activarla (`AccessEngine.kt`).
+The price is that there are two levels to reason about: a permission can be granted and still be denied
+by policy. A badly written `DENY` policy blocks legitimate work, and that is why the engine
+supports shadow mode to observe it before activating it (`AccessEngine.kt`).
 
-Reglas operativas que se derivan:
+Operational rules that follow:
 
-- No se comprueba el rol: se comprueba la clave `recurso.accion` del catálogo.
-- Un fallo al auditar una denegación no cambia la decisión: el acceso se sigue denegando
+- The role is not checked: the key `recurso.accion` of the catalog is checked.
+- A failure to audit a denial does not change the decision: access is still denied
   (`PermissionChecker.kt`).
-- Un permiso nuevo se añade al catálogo del dominio y al sembrado, y el rol que deba tenerlo
-  se declara explícitamente en la matriz (`PermissionCatalog.kt`, `IdentitySeeder.kt`).
-- El alcance `AREA` se resuelve contra las bodegas de la persona, no contra el rol
+- A new permission is added to the domain catalog and to the seed, and the role that must have it
+  is declared explicitly in the matrix (`PermissionCatalog.kt`, `IdentitySeeder.kt`).
+- The `AREA` scope is resolved against the person's warehouses, not against the role
   (`AccessModel.kt`).
 
-## Alternativas consideradas
+## Alternatives considered
 
-- **Comprobar solo el rol.** No expresa alcance ni atributos, y el legacy ya demostró que el
-  `if (role === 1)` se rompe al reordenar el sembrado (`RoleDefinitions.kt`,
+- **Check only the role.** It does not express scope or attributes, and the legacy already showed that
+  the `if (role === 1)` breaks when the seed is reordered (`RoleDefinitions.kt`,
   `PermissionChecker.kt`).
-- **Una ACL por usuario.** No escala, no se audita y hace imposible explicar por qué alguien
-  tiene un permiso.
-- **Permitir por defecto.** Un olvido de configuración se convierte en acceso abierto; es el
-  defecto del legacy que `DenyAllPermissionChecker` corrige (`PermissionChecker.kt`).
-- **Dejar que ABAC conceda.** Escalaría privilegios hacia arriba y rompería la garantía de que
-  RBAC es el techo (`StockPolicies.kt`).
+- **A per-user ACL.** It does not scale, it is not audited and it makes it impossible to explain why someone
+  has a permission.
+- **Allow by default.** A configuration oversight becomes open access; it is the legacy defect that
+  `DenyAllPermissionChecker` fixes (`PermissionChecker.kt`).
+- **Let ABAC grant.** It would escalate privileges upward and break the guarantee that RBAC is the ceiling
+  (`StockPolicies.kt`).
 
-## Referencias
+## References
 
 - `backend/src/main/kotlin/dev/axzy/stock/backend/security/PermissionChecker.kt`
 - `backend/src/main/kotlin/dev/axzy/stock/backend/identity/IdentitySeeder.kt`
@@ -88,4 +88,4 @@ Reglas operativas que se derivan:
 - `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/access/PermissionCatalog.kt`
 - `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/access/RoleDefinitions.kt`
 - `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/access/StockPolicies.kt`
-- [api-ktor.md](../historico/API-KTOR.md) §1.13, [auditoria.md](../seguridad/auditoria.md) y [roles-permisos.md](../seguridad/roles-permisos.md)
+- [api-ktor.md](../historico/API-KTOR.md) §1.13, [auditoria.md](../seguridad/auditoria.md) and [roles-permisos.md](../seguridad/roles-permisos.md)

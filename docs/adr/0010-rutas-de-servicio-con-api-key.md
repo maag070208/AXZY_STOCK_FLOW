@@ -1,39 +1,39 @@
-# ADR-0010 — Rutas de sistema con clave de servicio, no con usuario
-> **Normativo.** Decisión aceptada. Última verificación: 2026-10-09.
+# ADR-0010 — System routes with a service key, not a user
+> **Normative.** Accepted decision. Last verified: 2026-10-09.
 
 | | |
 |---|---|
-| **Estado** | Aceptada |
-| **Fecha** | 2026-10-09 (decisión B8 del plan original) |
-| **Reemplaza a** | — |
-| **Reemplazada por** | — |
+| **Status** | Accepted |
+| **Date** | 2026-10-09 (decision B8 of the original plan) |
+| **Replaces** | — |
+| **Replaced by** | — |
 
-## Contexto
+## Context
 
-El legacy tenía tres rutas sin autenticación: `GET /kardo` (importa facturas),
-`PATCH /prints` (marca etiquetas como impresas) y `DELETE /invoices/detail/:id` (borrado
-físico). Las dos primeras las usan sistemas, no personas: la impresora Zebra y el ERP.
+The legacy had three routes without authentication: `GET /kardo` (imports invoices),
+`PATCH /prints` (marks labels as printed) and `DELETE /invoices/detail/:id` (physical deletion).
+The first two are used by systems, not by people: the Zebra printer and the ERP.
 
-## Decisión
+## Decision
 
-- La confirmación de impresión (`PATCH /v1/print-jobs/{id}`) se autentica con una
-  **clave de servicio**, no con un token de usuario. La tabla `service_api_keys` la guarda
-  (`V2__audit_and_traceability.sql`); el uso está en `label/LabelService.kt`.
-- Una etiqueta queda `PENDING` hasta que la impresora confirma, y reintenta si la
-  impresora está apagada (R-76).
-- `DELETE` de una factura **no** se conserva como ruta abierta: se cierra con
-  autenticación. Era un descuido, no una necesidad de sistema.
-- La clave de servicio no lleva permisos de usuario ni alcance de bodega.
+- The print confirmation (`PATCH /v1/print-jobs/{id}`) is authenticated with a
+  **service key**, not with a user token. The table `service_api_keys` stores it
+  (`V2__audit_and_traceability.sql`); its use is in `label/LabelService.kt`.
+- A label stays `PENDING` until the printer confirms, and it retries if the
+  printer is off (R-76).
+- The `DELETE` of an invoice is **not** kept as an open route: it is closed with
+  authentication. It was an oversight, not a system need.
+- The service key carries no user permissions and no warehouse scope.
 
-## Consecuencias
+## Consequences
 
-- Hay un tipo de credencial más que rotar y custodiar.
-- El ERP no tiene todavía una clave definida: el contrato del envío está en
-  [ADR-0013](0013-ordenes-al-erp-con-reintentos.md) y su autenticación queda pendiente.
-- Cada uso de una clave de servicio queda en la bitácora con el sistema que llamó.
+- There is one more kind of credential to rotate and keep safe.
+- The ERP does not have a key defined yet: the contract of the dispatch is in
+  [ADR-0013](0013-ordenes-al-erp-con-reintentos.md) and its authentication remains pending.
+- Each use of a service key is recorded in the audit log with the system that called.
 
-## Alternativas descartadas
+## Discarded alternatives
 
-- **Dejar las rutas abiertas.** Es el hallazgo S1 del legacy.
-- **Dar a la impresora una cuenta de usuario.** Mezcla una identidad humana con un
-  dispositivo y hace que sus permisos se revisen como si fueran de una persona.
+- **Leave the routes open.** It is the legacy finding S1.
+- **Give the printer a user account.** It mixes a human identity with a device and makes its permissions
+  reviewed as if they belonged to a person.

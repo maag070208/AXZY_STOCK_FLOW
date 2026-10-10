@@ -11,15 +11,15 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * TESTS DE LA MATRIZ MOVIMIENTO → EFECTO EN STOCK
+ * MOVEMENT → STOCK EFFECT MATRIX TESTS
  *
- * Estos tests son la red de seguridad contra el defecto más grave del legacy:
- * el doble descuento al ubicar mercancía (docs/historico/PLAN_ALMACEN_INTEGRAL.md §2.7).
+ * These tests are the safety net against the most serious defect of the legacy:
+ * the double deduction when locating goods (docs/historico/PLAN_ALMACEN_INTEGRAL.md §2.7).
  *
- * El test más importante es `el total solo cambia por entradas y salidas
- * autorizadas`, porque fija la propiedad estructural que hace imposible el bug:
- * **solo dos efectos pueden mover el total**, y uno suma y el otro resta.
- * Si alguien añade un movimiento que resta del total, ese test falla.
+ * The most important test is `the total only changes through inflows and
+ * authorized outflows`, because it pins the structural property that makes the bug impossible:
+ * **only two effects can move the total**, and one adds and the other subtracts.
+ * If someone adds a movement that subtracts from the total, that test fails.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 class StockMovementMatrixTest : DescribeSpec({
@@ -30,11 +30,11 @@ class StockMovementMatrixTest : DescribeSpec({
 
     describe("effect declared for each movement type") {
 
-        // ── Un caso por cada MovementType. Si se añade uno nuevo, este `when`
-        //    deja de compilar y obliga a declarar su efecto.
+        // ── One case per MovementType. If a new one is added, this `when`
+        //    stops compiling and forces its effect to be declared.
         withData(
             nameFn = { "%-22s → %s" },
-            // (movimiento, efecto esperado, cambia el total)
+            // (movement, expected effect, changes the total)
             Triple(InitialLoad(Quantity.of(100), shelf), "AddToLocation", true),
             Triple(ReceiptIn(Quantity.of(100), receiving), "AddToLocation", true),
             Triple(AdjustmentIn(Quantity.of(50), shelf, "conteo"), "AddToLocation", true),
@@ -59,7 +59,7 @@ class StockMovementMatrixTest : DescribeSpec({
     describe("the total changes ONLY through authorised entries and exits") {
 
         it("no internal movement subtracts from the total") {
-            // Este es el test que hace imposible el bug del legacy.
+            // This is the test that makes the legacy bug impossible.
             val movementsInternal = listOf(
                 Locate(Quantity.of(100), receiving, shelf),
                 MoveWithinWarehouse(Quantity.of(20), shelf, shelfB),
@@ -128,20 +128,20 @@ class StockMovementMatrixTest : DescribeSpec({
         }
 
         it("the legacy subtracted TWICE from the total: documented as a regression") {
-            // Reproducimos la aritmética del legacy para dejar constancia de qué
-            // se está corrigiendo. Este test NO valida el comportamiento nuevo:
-            // documenta el viejo, para que dentro de un año se entienda la
-            // magnitud del defecto y no se reintroduzca.
+            // We reproduce the legacy arithmetic to record what
+            // is being corrected. This test does NOT validate the new behavior:
+            // it documents the old one, so that within a year the
+            // magnitude of the defect is understood and it is not reintroduced.
             //
-            // legacy: removeUnitsFromKardex mutaba la fila de recepción,
-            //         y ADEMÁS el registro LOCATION restaba por el `else` por defecto.
+            // legacy: removeUnitsFromKardex mutated the receiving row,
+            //         AND ALSO the LOCATION record subtracted through the default `else`.
 
             val stockInitial = 1_000L
             val box = 100L
 
-            // 1. Captura física: PENDING-TO-LOCATE sumaba
+            // 1. Physical capture: PENDING-TO-LOCATE added
             val afterCapture = stockInitial + box                              // 1100
-            // 2. addKardexLocation: mutaba la fila (-100) y creaba LOCATION (-100)
+            // 2. addKardexLocation: mutated the row (-100) and created LOCATION (-100)
             val afterLocatingInLegacy = afterCapture - box - box               // 900
 
             withClue("El legacy dejaba el stock por debajo de lo real") {
@@ -151,7 +151,7 @@ class StockMovementMatrixTest : DescribeSpec({
                 (afterCapture - afterLocatingInLegacy) shouldBeExactly box * 2
             }
 
-            // El modelo nuevo: el total es invariante al ubicar.
+            // The new model: the total is invariant when locating.
             val stockAfterCapture = stockInitial + box                    // 1100
             val deltaLocate = Locate(Quantity.of(box), receiving, shelf)
                 .effect.totalDelta(Quantity.of(box))
@@ -212,8 +212,8 @@ class StockMovementMatrixTest : DescribeSpec({
 
         it("an adjustment without a reason cannot be built") {
             // Invariante I6: todo ADJUSTMENT_* tiene motivo.
-            // La regla vive en el TIPO, así que un ajuste sin motivo es
-            // imposible de construir, no algo que haya que recordar validar.
+            // The rule lives in the TYPE, so an adjustment without a reason is
+            // impossible to construct, not something that has to be remembered to validate.
             listOf(
                 { AdjustmentIn(Quantity.of(10), shelf, reason = "  ") },
                 { AdjustmentOut(Quantity.of(10), shelf, reason = "") },
@@ -241,7 +241,7 @@ class StockMovementMatrixTest : DescribeSpec({
     }
 })
 
-/** Helper local para no depender de la firma exacta de shouldThrow entre versiones. */
+/** Local helper so as not to depend on the exact signature of shouldThrow across versions. */
 private inline fun <reified T : Throwable> shouldThrow(block: () -> Unit): T {
     try {
         block()

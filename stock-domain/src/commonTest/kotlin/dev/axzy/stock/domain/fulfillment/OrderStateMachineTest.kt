@@ -9,15 +9,15 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * EL SURTIDO: ESTADOS Y, SOBRE TODO, CUÁNTO SE DESCUENTA
+ * THE PICKING: STATES AND, ABOVE ALL, HOW MUCH IS DEDUCTED
  *
- * La prueba que más importa de este archivo es
- * **«confirmar descuenta lo que FALTA, no la cantidad entera»**. Un error ahí no
- * rompe nada: el sistema arranca, las rutas responden y los tests de ruta pasan.
- * Lo que pasa es que el inventario baja de más, y eso **solo se descubre al
- * cuadrar el almacén** — y entonces no se distingue de una merma real.
+ * The test that matters most in this file is
+ * **"confirming deducts what is MISSING, not the whole quantity"**. A mistake there
+ * breaks nothing: the system starts, the routes respond and the route tests pass.
+ * What happens is that the inventory drops too much, and that is **only discovered
+ * when reconciling the warehouse** — and then it cannot be told apart from a real shrinkage.
  *
- * Son pruebas PURAS: no tocan base ni servidor, corren en milisegundos y **no se
+ * They are PURE tests: they touch neither the database nor the server, run in milliseconds and **are not
  * saltan nunca**.
  * ═══════════════════════════════════════════════════════════════════════════
  */
@@ -68,9 +68,9 @@ class OrderStateMachineTest : DescribeSpec({
                 .getOrNull()!!
 
             empacada.suppliedQuantity shouldBe Quantity.ofScaled(7_000)
-            // **Este 3 es la cifra que confirmar descontará.** Si en su lugar se
-            // descontaran 10, el inventario habría bajado 17 en total por una
-            // línea de 10.
+            // **This 3 is the figure that confirming will deduct.** If instead
+            // 10 were deducted, the inventory would have dropped 17 in total for a
+            // line of 10.
             empacada.pendingQuantity shouldBe Quantity.ofScaled(3_000)
             empacada.isComplete shouldBe false
         }
@@ -81,8 +81,8 @@ class OrderStateMachineTest : DescribeSpec({
                 .packageQuantity(Quantity.ofScaled(3_000)).getOrNull()!!
 
             empacada.suppliedQuantity shouldBe Quantity.ofScaled(10_000)
-            // El pendiente queda EXACTAMENTE en cero: confirmar no descontará nada
-            // más, así que no hay doble descuento.
+            // The pending quantity ends EXACTLY at zero: confirming will deduct nothing
+            // else, so there is no double deduction.
             empacada.pendingQuantity shouldBe Quantity.ZERO
             empacada.isComplete shouldBe true
             empacada.status shouldBe OrderLineStatus.SUPPLIED
@@ -105,8 +105,8 @@ class OrderStateMachineTest : DescribeSpec({
             error.shouldBeInstanceOf<DomainError.ExceedsPendingQuantity>()
             val exceso = error as DomainError.ExceedsPendingQuantity
             exceso.code shouldBe "EXCEEDS_PENDING_QUANTITY"
-            // El mensaje lleva las dos cifras: lo pedido y lo que queda. Sin la
-            // segunda, el operador no sabe cuánto puede empacar.
+            // The message carries both figures: what was requested and what remains. Without the
+            // second one, the operator does not know how much they can pack.
             exceso.pending shouldBe 3_000
             exceso.requested shouldBe 5_000
             exceso.message.contains("3000") shouldBe true
@@ -130,7 +130,7 @@ class OrderStateMachineTest : DescribeSpec({
             val error = order(status = OrderStatus.PENDING_TO_OUT, converted = true)
                 .confirm().errorOrNull()
 
-            // El código es el del contrato §6: `ORDER_ALREADY_CONFIRMED`.
+            // The code is the one from contract §6: `ORDER_ALREADY_CONFIRMED`.
             error.shouldBeInstanceOf<DomainError.OrderAlreadyConfirmed>()
             (error as DomainError.OrderAlreadyConfirmed).code shouldBe "ORDER_ALREADY_CONFIRMED"
         }
@@ -162,9 +162,9 @@ class OrderStateMachineTest : DescribeSpec({
             primera.status shouldBe OrderLineStatus.ASSIGNED
             primera.assignedUserId shouldBe 7L
             primera.locationId shouldBe 3L
-            // Reasignar es del día a día: cambia el turno o alguien se pone malo.
+            // Reassigning is routine: the shift changes or someone falls ill.
             segunda.assignedUserId shouldBe 9L
-            // Sin ubicación nueva se conserva la que tenía: `ASSIGNED` dice quién, no dónde.
+            // Without a new location the existing one is kept: `ASSIGNED` says who, not where.
             segunda.locationId shouldBe 3L
         }
 
@@ -174,7 +174,7 @@ class OrderStateMachineTest : DescribeSpec({
                 .shouldBeInstanceOf<Either.Right<OrderLine>>().value
             val anulada = line(status = OrderLineStatus.CANCELLED)
 
-            // Asignar trabajo sobre mercancía que ya salió sería decir que alguien la va a
+            // Assigning work on goods that already left would mean saying that someone is going to
             // sacar dos veces.
             surtida.assign(userId = 7, locationId = null).isLeft shouldBe true
             anulada.assign(userId = 7, locationId = null).isLeft shouldBe true
@@ -199,8 +199,8 @@ class OrderStateMachineTest : DescribeSpec({
             fallida.exportAttempts shouldBe 1
             fallida.exportStatus shouldBe "FAILED"
             fallida.exportLastError shouldBe "El ERP no responde"
-            // **No se marca como convertida**: un fallo no es una conversión. Si se
-            // marcara, el reintento creería que ya se envió y no lo mandaría nunca.
+            // **It is not marked as converted**: a failure is not a conversion. If it
+            // were marked, the retry would believe it was already sent and would never send it.
             fallida.converted shouldBe false
             fallida.status shouldBe OrderStatus.PENDING_TO_OUT
         }
@@ -212,8 +212,8 @@ class OrderStateMachineTest : DescribeSpec({
 
             exitosa.exportAttempts shouldBe 3
             exitosa.exportStatus shouldBe "SENT"
-            // El error del intento anterior se limpia: dejar «El ERP no responde»
-            // junto a un `SENT` hace dudar de si llegó.
+            // The error from the previous attempt is cleared: leaving "The ERP does not respond"
+            // next to a `SENT` makes one doubt whether it arrived.
             exitosa.exportLastError shouldBe null
             exitosa.converted shouldBe true
             exitosa.status shouldBe OrderStatus.COMPLETED
@@ -224,8 +224,8 @@ class OrderStateMachineTest : DescribeSpec({
                 .recordExportAttempt(success = true).getOrNull()!!
             val segunda = primera.recordExportAttempt(success = true).getOrNull()!!
 
-            // Sigue convertida y completada: el contador sube porque es un intento
-            // real, pero **el estado no cambia** y no se crea una segunda salida.
+            // It stays converted and completed: the counter goes up because it is a real attempt,
+            // but **the state does not change** and no second outflow is created.
             segunda.converted shouldBe true
             segunda.status shouldBe OrderStatus.COMPLETED
         }
@@ -255,9 +255,9 @@ class OrderStateMachineTest : DescribeSpec({
         }
 
         it("a voided line does not stop the order from being PACKAGED") {
-            // Anular una línea es una decisión explícita: el resto del pedido puede
-            // cerrarse. Si la anulada bloqueara el cierre, **una orden con una línea
-            // anulada nunca se podría completar** y quedaría abierta para siempre.
+            // Voiding a line is an explicit decision: the rest of the order can
+            // be closed. If the voided line blocked the closing, **an order with a voided line
+            // could never be completed** and would stay open forever.
             val o = order(
                 lines = listOf(
                     line(id = 1, supplied = 10_000, status = OrderLineStatus.SUPPLIED),
@@ -272,9 +272,9 @@ class OrderStateMachineTest : DescribeSpec({
         it("does NOT overwrite a final state: a completed order stays completed") {
             val o = order(status = OrderStatus.COMPLETED, converted = true)
 
-            // Recalcular es derivar el estado de TRABAJO, no reescribir el
-            // resultado. Si pisara `COMPLETED`, una orden ya exportada volvería a
-            // `PENDING` y el ERP tendría una salida que el sistema no reconoce.
+            // Recalculating means deriving the WORK state, not rewriting the
+            // result. If it overwrote `COMPLETED`, an order already exported would go back to
+            // `PENDING` and the ERP would have an outflow the system does not recognize.
             o.recalculatedStatus().status shouldBe OrderStatus.COMPLETED
         }
 
@@ -296,7 +296,7 @@ class OrderStateMachineTest : DescribeSpec({
             )
 
             o.totalLines shouldBe 3
-            // Solo la primera está completa. El contrato los llama `packagedLines`.
+            // Only the first one is complete. The contract calls them `packagedLines`.
             o.packagedLines shouldBe 1
             o.allLinesDone shouldBe false
         }

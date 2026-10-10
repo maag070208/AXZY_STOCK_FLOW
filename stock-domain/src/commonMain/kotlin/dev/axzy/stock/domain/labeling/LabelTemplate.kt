@@ -7,69 +7,69 @@ import dev.axzy.stock.domain.error.DomainError
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * RESOLUCIÓN DE PLANTILLAS ZPL (contrato §8)
+ * ZPL TEMPLATE RESOLUTION (contract §8)
  *
- * Una plantilla guarda ZPL con **marcadores** (`{{productCode}}`) y los datos
- * llegan por separado. Aquí se sustituyen.
+ * A template stores ZPL with **placeholders** (`{{productCode}}`) and the data
+ * arrive separately. They are substituted here.
  *
- * ── POR QUÉ ESTO VIVE EN EL DOMINIO Y NO EN LA CAPA DE IMPRESIÓN ───────────
+ * ── WHY THIS LIVES IN THE DOMAIN AND NOT IN THE PRINT LAYER ────────────
  *
- * Lo usan **tres sitios**: la previsualización de la web, la de la app móvil
- * —que puede imprimir sin cobertura— y el envío real a la Zebra. Si cada uno
- * resolviera la plantilla a su manera, **la etiqueta impresa desde el móvil
- * podría salir distinta de la de la web**, y el fallo aparecería en el almacén
- * con una etiqueta ilegible, no en un test.
+ * **Three places** use it: the web preview, the mobile app's preview
+ * —which can print without coverage— and the real sending to the Zebra. If each one
+ * resolved the template in its own way, **the label printed from the mobile app
+ * could come out different from the web's**, and the failure would appear in the warehouse
+ * as an unreadable label, not in a test.
  *
- * ── LA REGLA QUE IMPORTA: UN CAMPO OBLIGATORIO QUE FALTA ES UN ERROR ───────
+ * ── THE RULE THAT MATTERS: A MISSING MANDATORY FIELD IS AN ERROR ───────
  *
- * Un marcador `{{productCode}}` sin dato **no se deja tal cual ni se sustituye
- * por vacío**. Las dos alternativas son peores:
+ * A `{{productCode}}` placeholder without data is **neither left as is nor substituted**
+ * with blank**. The two alternatives are worse:
  *
- *   · **Dejarlo tal cual** imprime literalmente `{{productCode}}` en la etiqueta
- *     del estante. Se ve, se nota y hay que reimprimir.
- *   · **Sustituirlo por vacío** imprime una etiqueta que **parece correcta y no
- *     lo está**: un hueco donde va el código no se distingue de una plantilla
- *     mal diseñada, y esa etiqueta acaba pegada en un estante.
+ *   · **Leaving it as is** prints `{{productCode}}` literally on the shelf label.
+ *     It is seen, it is noticed, and it has to be reprinted.
+ *   · **Substituting it with blank** prints a label that **looks correct and
+ *     is not**: a gap where the code goes is not distinguishable from a badly designed template,
+ *     and that label ends up stuck on a shelf.
  *
- * Se devuelve un fallo tipado, y quien llama decide: la previsualización enseña el
- * error al usuario y el envío a la impresora no encola nada.
+ * A typed failure is returned, and the caller decides: the preview shows the
+ * error to the user and the sending to the printer enqueues nothing.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-/** Un campo declarado por la plantilla. */
+/** A field declared by the template. */
 data class LabelField(
     val name: String,
     val label: String,
-    /** `string` o `number`. Decide si el valor se cita en el ZPL. */
+    /** `string` or `number`. Decides whether the value is quoted in the ZPL. */
     val type: String = "string",
     val required: Boolean = false,
 )
 
-/** Una plantilla de etiqueta. */
+/** A label template. */
 data class LabelTemplate(
     val id: Long,
     val code: String,
     val name: String,
     val description: String? = null,
-    /** El ZPL con marcadores. */
+    /** The ZPL with placeholders. */
     val zpl: String,
-    /** Tamaño nominal, `4x6`. */
+    /** Nominal size, `4x6`. */
     val size: String? = null,
     val fields: List<LabelField> = emptyList(),
     val isActive: Boolean = true,
 ) {
 
-    /** Los marcadores que la plantilla USA de verdad, sin repetir. */
+    /** The placeholders the template **actually uses**, without repeating. */
     val usedPlaceholders: List<String>
         get() = PLACEHOLDER.findAll(zpl).map { it.groupValues[1] }.distinct().toList()
 
     /**
-     * Resuelve la plantilla con los datos.
+     * Resolves the template with the data.
      *
-     * @param data valores por nombre de campo.
+     * @param data values by field name.
      */
     fun resolve(data: Map<String, String>): Either<DomainError, String> {
-        // ── 1. Los obligatorios DECLARADOS tienen que venir ─────────────────
+        // ── 1. The DECLARED mandatory fields must be present ─────────────────
         val faltantesDeclarados = fields
             .filter { it.required }
             .map { it.name }
@@ -79,27 +79,27 @@ data class LabelTemplate(
             return DomainError.MissingLabelField(faltantesDeclarados).asLeft()
         }
 
-        // ── 2. Todos los marcadores USADOS tienen que tener dato ────────────
+        // ── 2. Every USED placeholder must have data ────────────
         //
-        // Esta es la comprobación que de verdad protege: una plantilla puede usar
-        // `{{quantity}}` sin haberlo declarado en su `fieldSchema`, y entonces la
-        // comprobación de arriba no lo vería. Se miran los marcadores del ZPL, no
-        // solo los campos declarados.
+        // This is the check that really protects: a template can use `{{quantity}}`
+        // without having declared it in its `fieldSchema`, and then the
+        // check above would not see it. The ZPL placeholders are checked, not
+        // only the declared fields.
         val faltantesUsados = usedPlaceholders.filter { data[it].isNullOrBlank() }
 
         if (faltantesUsados.isNotEmpty()) {
             return DomainError.MissingLabelField(faltantesUsados).asLeft()
         }
 
-        // ── 3. La sustitución ──────────────────────────────────────────────
+        // ── 3. Substitution ─────────────────────────────────────────────────
         val resuelto = PLACEHOLDER.replace(zpl) { coincidencia ->
             val clave = coincidencia.groupValues[1]
             val valor = data.getValue(clave).trim()
             val campo = fields.firstOrNull { it.name == clave }
 
-            // Un campo numérico va SIN comillas y un texto CON ellas: el ZPL
-            // distingue `^FD100^FS` de `^FD"ABRAA1B"^FS`, y comillas de más
-            // imprimen las comillas en la etiqueta.
+            // A numeric field goes WITHOUT quotes and a text one WITH them: the ZPL
+            // distinguishes `^FD100^FS` from `^FD"ABRAA1B"^FS`, and extra quotes
+            // print the quotes on the label.
             if (campo?.type == "number") valor else escaparZpl(valor)
         }
 
@@ -112,12 +112,12 @@ data class LabelTemplate(
 }
 
 /**
- * Escapa un valor para que quepa en un `^FD...^FS`.
+ * Escapes a value so that it fits in a `^FD...^FS`.
  *
- * En ZPL, `^`, `~` y `\` tienen significado de control: un nombre de producto con
- * un `^` —«TORNILLO ^M6»— cerraría el campo antes de tiempo y **el resto del
- * nombre se interpretaría como un comando**, lo que puede dejar la etiqueta en
- * blanco o cambiar la configuración de la impresora.
+ * In ZPL, `^`, `~` and `\` have control meaning: a product name with
+ * a `^` —"TORNILLO ^M6"— would close the field too early and **the rest of the
+ * name would be read as a command**, which can leave the label blank or change the
+ * printer's configuration.
  */
 private fun escaparZpl(valor: String): String = valor
     .replace("\\", "\\\\")
@@ -125,16 +125,16 @@ private fun escaparZpl(valor: String): String = valor
     .replace("~", "\\~")
 
 /**
- * El tamaño de la etiqueta en milímetros.
+ * The size of the label in millimeters.
  *
- * Se usa para que la previsualización pueda dibujar el lienzo con las
- * proporciones correctas **en el servidor**: si lo calculara cada cliente, la
- * vista previa de la web y la del móvil mostrarían tamaños distintos para la
+ * It is used so that the preview can draw the canvas with the correct
+ * proportions **on the server**: if each client computed them, the web preview and
+ * the mobile preview would show different sizes for the same label.
  * misma plantilla.
  */
 data class LabelSize(val widthMm: Double, val heightMm: Double) {
     companion object {
-        /** Interpreta `4x6`, en pulgadas, que es como se nombran las etiquetas. */
+        /** Interprets `4x6`, in inches, which is how labels are named. */
         fun parse(raw: String?): LabelSize {
             val limpio = raw?.trim()?.lowercase() ?: return DEFAULT
             val partes = limpio.split("x").map { it.trim() }
@@ -142,8 +142,8 @@ data class LabelSize(val widthMm: Double, val heightMm: Double) {
             val ancho = partes[0].toDoubleOrNull() ?: return DEFAULT
             val alto = partes[1].toDoubleOrNull() ?: return DEFAULT
             if (ancho <= 0 || alto <= 0) return DEFAULT
-            // Pulgadas → milímetros. `4x6` son 101,6 × 152,4 mm, que es el tamaño
-            // del ejemplo del propio contrato.
+            // Inches → millimeters. `4x6` is 101.6 × 152.4 mm, which is the size
+            // of the contract's own example.
             return LabelSize(ancho * MM_PER_INCH, alto * MM_PER_INCH)
         }
 

@@ -1,213 +1,213 @@
-# Errores de la API
-> **Referencia.** El cuerpo de error común a todos los endpoints y el catálogo
-> cerrado de códigos. Última verificación: 2026-10-09.
+# API errors
+> **Reference.** The common error body for all endpoints and the closed catalog
+> of codes. Last verified: 2026-10-09.
 
-Las reglas de estado y de cabeceras están en [convenciones.md](convenciones.md).
-El cuerpo de error lo define `ErrorBody` en
-`api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/http/ErrorResponses.kt`; el mismo
-archivo traduce cada clase de fallo a su código de estado. Lo que no es un fallo de un caso de uso
-(JSON ilegible, ruta inexistente, error inesperado) lo responde `GlobalErrorHandler.kt`, en la misma
-carpeta, con el mismo cuerpo.
+The status and header rules are in [convenciones.md](convenciones.md).
+The error body is defined by `ErrorBody` in
+`api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/http/ErrorResponses.kt`; the same
+file translates each failure class to its status code. What is not a failure of a use case
+(unreadable JSON, nonexistent route, unexpected error) is answered by `GlobalErrorHandler.kt`, in the same
+folder, with the same body.
 
-## 1.3 El contrato de error — es el mismo en todos los endpoints
+## 1.3 The error contract — it is the same in all endpoints
 
 ```json
 {
   "code": "POLICY_DENIED",
-  "message": "No puedes aprobar tu propio conteo (segregación de funciones)",
-  "details": { "campo": "motivo" }
+  "message": "You cannot approve your own count (segregation of duties)",
+  "details": { "field": "reason" }
 }
 ```
 
-**El cliente decide con `code`, nunca con `message`.** El mensaje se traduce y se
-reescribe; un cliente que compara texto se rompe en silencio. Los códigos son
-estables y en `SCREAMING_SNAKE_CASE`. `details` es opcional y su forma depende del
-código (`available`, `until`, `stock`, `pendingLines`, `allowed`…).
+**The client decides with `code`, never with `message`.** The message is translated and rewritten;
+a client that compares text breaks silently. The codes are
+stable and in `SCREAMING_SNAKE_CASE`. `details` is optional and its shape depends on the
+code (`available`, `until`, `stock`, `pendingLines`, `allowed`…).
 
-La agrupación por estado de las tablas siguientes es orientativa: el mismo `code`
-puede acompañar estados distintos según la ruta (por ejemplo
-`INVALID_PRODUCT_CODE` es `422` al crear un producto y `400` al ajustar
-inventario). **La decisión del cliente se toma por el `code`; el estado indica la
-acción inmediata.**
+The grouping by status in the following tables is indicative: the same `code`
+can accompany different statuses depending on the route (for example
+`INVALID_PRODUCT_CODE` is `422` when creating a product and `400` when adjusting
+inventory). **The client decision is made by the `code`; the status indicates the
+immediate action.**
 
-Códigos de autorización, que **el cliente debe distinguir** porque la acción del
-usuario es distinta:
+Authorization codes, which **the client must tell apart** because the user's action
+is different:
 
-| `code` | Significado | Qué debe hacer el usuario |
+| `code` | Meaning | What the user must do |
 |---|---|---|
-| `UNAUTHENTICATED` | falta token o venció | iniciar sesión |
-| `PERMISSION_DENIED` | no tiene el permiso | pedirlo a un administrador |
-| `SCOPE_INSUFFICIENT` | tiene el permiso, pero no alcanza este recurso | pedir acceso a esa bodega |
-| `POLICY_DENIED` | una política lo prohíbe | cambiar **cuándo** o **cómo** lo hace |
-| `SEGREGATION_OF_DUTIES` | no puede aprobar lo que él mismo capturó | que lo apruebe otra persona |
-| `APPROVER_NOT_AUTHORIZED` | 403 | quien aprueba el ajuste no tiene `inventory.approve_adjustment` en esa bodega |
-| `APPROVER_NOT_FOUND` | 422 | el `approverId` no corresponde a ningún usuario |
+| `UNAUTHENTICATED` | token missing or expired | sign in |
+| `PERMISSION_DENIED` | does not have the permission | request it from an administrator |
+| `SCOPE_INSUFFICIENT` | has the permission, but it does not reach this resource | request access to that warehouse |
+| `POLICY_DENIED` | a policy forbids it | change **when** or **how** it is done |
+| `SEGREGATION_OF_DUTIES` | cannot approve what they themselves captured | have another person approve it |
+| `APPROVER_NOT_AUTHORIZED` | 403 | whoever approves the adjustment does not have `inventory.approve_adjustment` in that warehouse |
+| `APPROVER_NOT_FOUND` | 422 | the `approverId` does not correspond to any user |
 
-Colapsar los cinco en un `403` genérico es el defecto del legacy: el usuario recibe
-«no autorizado» y no sabe si pedir un permiso, esperar, o llamar a otra persona.
+Collapsing the five into a generic `403` is the legacy defect: the user receives
+"not authorized" and does not know whether to request a permission, wait, or call another person.
 
-## 1.3-bis Catálogo de códigos de error
+## 1.3-bis Error code catalog
 
-**Lista cerrada.** Un código nuevo se añade aquí antes de usarlo, y el cliente solo
-necesita contemplar éstos. Escribirlos en el contrato evita el problema de
-siempre: el backend inventa un código, el cliente no lo reconoce y cae en el
-mensaje genérico.
+**Closed list.** A new code is added here before it is used, and the client only
+needs to contemplate these. Writing them in the contract avoids the usual
+problem: the backend invents a code, the client does not recognize it and falls back to the
+generic message.
 
-Errores de la petición (§1.4):
+Request errors (§1.4):
 
-| `code` | Situación |
+| `code` | Situation |
 |---|---|
-| `INVALID_PAGINATION` | `page` o `size` fuera de rango. **Un `size` > 200 se rechaza, no se recorta** |
-| `INVALID_SORT` | el campo o la dirección de `sort` no se admiten en ese endpoint |
-| `INVALID_ID` | el identificador de la ruta no es un número |
-| `INVALID_PARAMETER` | un parámetro de consulta tiene un valor inadmisible |
-| `INVALID_IDEMPOTENCY_KEY` | la cabecera `Idempotency-Key` no es un UUID |
-| `FILE_REQUIRED` | falta el archivo en un `multipart` |
-| `FILE_TOO_LARGE` | el archivo supera el límite |
-| `EMPTY_FILE` | el archivo no tiene filas |
-| `IMPORT_FILE_FORMAT` | el formato no es CSV canónico ni XLSX |
-| `INVALID_DRY_RUN` | `dryRun` no es un booleano |
+| `INVALID_PAGINATION` | `page` or `size` out of range. **A `size` > 200 is rejected, not trimmed** |
+| `INVALID_SORT` | the field or direction of `sort` is not supported on that endpoint |
+| `INVALID_ID` | the identifier in the route is not a number |
+| `INVALID_PARAMETER` | a query parameter has an unacceptable value |
+| `INVALID_IDEMPOTENCY_KEY` | the `Idempotency-Key` header is not a UUID |
+| `FILE_REQUIRED` | the file is missing from a `multipart` request |
+| `FILE_TOO_LARGE` | the file exceeds the limit |
+| `EMPTY_FILE` | the file has no rows |
+| `IMPORT_FILE_FORMAT` | the format is neither canonical CSV nor XLSX |
+| `INVALID_DRY_RUN` | `dryRun` is not a boolean |
 
-Errores de validación de campo (§422, con `details` por campo):
+Field validation errors (§422, with `details` per field):
 
-| `code` | Situación |
+| `code` | Situation |
 |---|---|
-| `FIELD_REQUIRED` | falta un campo obligatorio |
-| `FIELD_TOO_LONG` | supera la longitud de la columna |
-| `INVALID_PRODUCT_CODE` | no cumple el alfabeto `0-9A-Z` ni la longitud 6–14 |
-| `UNKNOWN_UNIT_MEASURE` | la unidad no está en el catálogo |
-| `INVALID_LEVELS` | el número de niveles no es positivo |
-| `INVALID_LOCATION_KIND` | `kind` no es `SHELF` ni `RECEIVING` |
-| `INVALID_LOCATION_PART` | `hall`/`code`/`position` no cumplen el formato |
-| `UNKNOWN_WAREHOUSE` | la bodega no existe |
-| `IMPORT_INVALID_EXTERNAL_ID` | `external_id` no es numérico. **Se rechaza en lugar de guardarlo nulo**: perdería la referencia cruzada con el ERP en silencio |
+| `FIELD_REQUIRED` | a required field is missing |
+| `FIELD_TOO_LONG` | exceeds the column length |
+| `INVALID_PRODUCT_CODE` | does not meet the alphabet `0-9A-Z` or the length 6–14 |
+| `UNKNOWN_UNIT_MEASURE` | the unit is not in the catalog |
+| `INVALID_LEVELS` | the number of levels is not positive |
+| `INVALID_LOCATION_KIND` | `kind` is neither `SHELF` nor `RECEIVING` |
+| `INVALID_LOCATION_PART` | `hall`/`code`/`position` do not meet the format |
+| `UNKNOWN_WAREHOUSE` | the warehouse does not exist |
+| `IMPORT_INVALID_EXTERNAL_ID` | `external_id` is not numeric. **It is rejected instead of being stored as null**: it would silently lose the cross-reference with the ERP |
 
-Errores de recurso inexistente (§404):
+Nonexistent resource errors (§404):
 
-| `code` | Situación |
+| `code` | Situation |
 |---|---|
-| `NOT_FOUND` | la ruta no existe. Lo emite `GlobalErrorHandler`, no un caso de uso |
-| `PRODUCT_NOT_FOUND` | el `{id}` de producto no corresponde a ningún producto |
-| `LOCATION_NOT_FOUND` | el `{id}` de ubicación no corresponde a ninguna ubicación |
+| `NOT_FOUND` | the route does not exist. Emitted by `GlobalErrorHandler`, not by a use case |
+| `PRODUCT_NOT_FOUND` | the product `{id}` does not correspond to any product |
+| `LOCATION_NOT_FOUND` | the location `{id}` does not correspond to any location |
 
-`PRODUCT_NOT_FOUND` y `LOCATION_NOT_FOUND` los emite el dominio
+`PRODUCT_NOT_FOUND` and `LOCATION_NOT_FOUND` are emitted by the domain
 (`stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/error/DomainError.kt`)
-y pertenecen a la lista cerrada: un cliente que decide con `code` distingue «el
-producto no existe» de «la ruta no existe», que para el usuario son dos mensajes
-distintos. Un test (`RoutePermissionTest`) comprueba contra este catálogo que todo
-permiso declarado existe; los códigos de error se comprueban con el `when`
-exhaustivo de `Failure.toFailure()`: un error nuevo en el dominio no compila hasta
-que se decide qué significa para el cliente.
+and belong to the closed list: a client that decides by `code` distinguishes "the
+product does not exist" from "the route does not exist", which for the user are two different
+messages. A test (`RoutePermissionTest`) checks against this catalog that every declared
+permission exists; the error codes are checked with the exhaustive
+`when` of `Failure.toFailure()`: a new error in the domain does not compile until
+it is decided what it means for the client.
 
-Errores de conflicto con el estado actual (§409):
+Conflict errors with the current state (§409):
 
-| `code` | Situación |
+| `code` | Situation |
 |---|---|
-| `DUPLICATE_PRODUCT_CODE` | ya existe ese código |
-| `DUPLICATE_EXTERNAL_ID` | ya existe ese identificador del ERP |
-| `DUPLICATE_LOCATION` | ya existe esa ubicación en la bodega |
-| `PRODUCT_CODE_IMMUTABLE` | se intentó cambiar el código de un producto. **La implementación lo devuelve como `422`** |
-| `WAREHOUSE_IMMUTABLE` | se intentó mover una ubicación de bodega. **La implementación lo devuelve como `422`** |
-| `PRODUCT_ALREADY_INACTIVE` | ya estaba desactivado |
-| `LOCATION_ALREADY_INACTIVE` | ya estaba desactivada |
-| `RECEIVING_LOCATION_PROTECTED` | no se puede desactivar la ubicación de recepción: el flujo de ubicación la necesita |
-| `LOCATION_HAS_STOCK` | la ubicación tiene existencias: `details.quantity` |
-| `PRODUCT_HAS_STOCK` | el producto tiene existencias: `details.stock` |
-| `IMPORT_INVALID_ROWS` | el archivo tiene filas inválidas y **no se escribió ninguna**; `details` trae una entrada `row_N` por fila, hasta 50 |
-| `IMPORT_HAS_REJECTIONS` | **declarado y sin emitir**: era la respuesta del legacy para el mismo caso que hoy responde `IMPORT_INVALID_ROWS` |
+| `DUPLICATE_PRODUCT_CODE` | that code already exists |
+| `DUPLICATE_EXTERNAL_ID` | that ERP identifier already exists |
+| `DUPLICATE_LOCATION` | that location already exists in the warehouse |
+| `PRODUCT_CODE_IMMUTABLE` | an attempt was made to change a product's code. **The implementation returns it as `422`** |
+| `WAREHOUSE_IMMUTABLE` | an attempt was made to move a warehouse location. **The implementation returns it as `422`** |
+| `PRODUCT_ALREADY_INACTIVE` | it was already deactivated |
+| `LOCATION_ALREADY_INACTIVE` | it was already deactivated |
+| `RECEIVING_LOCATION_PROTECTED` | the receiving location cannot be deactivated: the location flow needs it |
+| `LOCATION_HAS_STOCK` | the location has stock: `details.quantity` |
+| `PRODUCT_HAS_STOCK` | the product has stock: `details.stock` |
+| `IMPORT_INVALID_ROWS` | the file has invalid rows and **nothing was written**; `details` carries one `row_N` entry per row, up to 50 |
+| `IMPORT_HAS_REJECTIONS` | **declared and not emitted**: it was the legacy's response for the same case that today responds `IMPORT_INVALID_ROWS` |
 
-### Códigos emitidos por la implementación que la lista cerrada no enumeraba
+### Codes emitted by the implementation that the closed list did not enumerate
 
-La implementación emite los códigos siguientes; se incorporan al catálogo para que
-el cliente pueda contemplarlos. Proceden de las rutas y servicios de cada módulo
+The implementation emits the following codes; they are added to the catalog so that
+the client can contemplate them. They come from the routes and services of each module
 (`application/receiving/ReceivingUseCases.kt`, `order/OrderService.kt`,
 `application/transfer/TransferUseCases.kt`, `label/LabelService.kt`,
-`audit/AuditRoutes.kt`) y de los errores de dominio
+`audit/AuditRoutes.kt`) and from the domain errors
 (`stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/error/DomainError.kt`).
 
-| `code` | Estado | Situación |
+| `code` | Status | Situation |
 |---|---|---|
-| `INVALID_FILTER` | 400 | un filtro de consulta tiene un valor inadmisible; **se rechaza, no se ignora** |
-| `INVALID_FILTER_RANGE` | 400 | `from` es posterior a `to`; un rango invertido no devuelve nada |
-| `INVALID_FILTER_DATE` | 400 | la fecha no es ISO (`AAAA-MM-DD`) ni un instante ISO-8601 |
-| `INVALID_LOCATION_CODE` | 400 | el código de ubicación no es válido |
-| `DUPLICATE_KEY` | 409 | violación de unicidad detectada por la base |
-| `DUPLICATE_WAREHOUSE_CODE` | 409 | ya existe una bodega con ese código |
-| `DUPLICATE_INVOICE_NUMBER` | 409 | ya existe una factura con ese número |
-| `INVOICE_ALREADY_CLOSED` | 409 | la factura ya estaba cerrada |
-| `INVOICE_HAS_PENDING_LINES` | 422 | hay líneas que impiden cerrar: `details.pendingLines` |
-| `LINE_ALREADY_RESOLVED` | 409 | la línea ya está aprobada o ubicada y no se puede volver a capturar |
-| `NO_PENDING_APPROVAL` | 409 | la factura no tiene líneas en discrepancia que aprobar o rechazar |
-| `NOT_PENDING_APPROVAL` | — | **Solo en `stock-domain`**: una línea que no está en `PENDING_APPROVAL` no puede aprobarse. La API de recepción no lo emite; el caso de factura sin pendientes es `NO_PENDING_APPROVAL` |
-| `INVALID_TRANSITION` | 409 | el estado actual no admite la transición pedida |
-| `INVALID_QUANTITY` | 422 | la cantidad no es válida o no es positiva |
-| `INCONSISTENT_BOX_COUNT` | 422 | cajas y unidades no cuadran con `unitsPerBox` |
-| `BOXES_DO_NOT_DIVIDE_EVENLY` | 422 | las cajas no dividen exactamente la cantidad |
-| `EXCEEDS_LINE_QUANTITY` | 422 | lo capturado supera lo facturado |
-| `CANNOT_DELETE_WITH_INVENTORY_EFFECT` | 422 | el borrado tendría efecto sobre el inventario. **Lo declara el error de dominio; ninguna ruta de esta API lo emite todavía** |
-| `EMPTY_ORDER` | 422 | la orden no tiene líneas |
-| `EXCEEDS_PENDING_QUANTITY` | 422 | se empaca más de lo pendiente de la línea |
-| `LOCATION_REQUIRED` | 422 | la línea no tiene ubicación de la que salir |
-| `ORDER_LINE_NOT_FOUND` | 404 | la línea no existe o no pertenece a esa orden |
-| `ORDER_NOT_FOUND` | 404 | la orden no existe |
-| `ORDER_ALREADY_CONFIRMED` | 409 | la orden ya estaba confirmada |
-| `ORDER_NOT_CONVERTED` | 409 | se intentó exportar una orden sin confirmar |
-| `EMPTY_TRANSFER` | 422 | el traslado no tiene líneas |
-| `SAME_WAREHOUSE` | 422 | origen y destino son la misma bodega |
-| `TRANSFER_NOT_FOUND` | 404 | el traslado no existe |
-| `NO_RECEIVING_LOCATION` | 422 | la bodega de destino no tiene ubicación de recepción |
-| `NOTHING_IN_TRANSIT` | 409 | el traslado no tiene mercancía en tránsito que recibir |
-| `INVOICE_NOT_FOUND` | 404 | la factura no existe |
-| `LINE_NOT_FOUND` | 404 | la línea de factura no existe |
-| `LABEL_TEMPLATE_NOT_FOUND` | 404 | la plantilla no existe |
-| `LABEL_TEMPLATE_INACTIVE` | 422 | se intentó imprimir con una plantilla desactivada |
-| `LABEL_ALREADY_PRINTED` | 409 | el trabajo ya está impreso: un reintento no imprime dos veces |
-| `PRINT_JOB_NOT_FOUND` | 404 | el trabajo de impresión no existe |
-| `MISSING_LABEL_FIELD` | 422 | faltan datos obligatorios de la etiqueta |
-| `INVALID_ZPL` | 422 | el ZPL no lleva `^XA` y `^XZ` |
-| `INVALID_SERVICE_KEY` | 401 | falta la cabecera `X-Service-Key` o la clave no vale |
-| `INTERNAL_ERROR` | 500 | error no controlado; el detalle **no** se filtra al cliente |
-| `RATE_LIMITED` | 429 | demasiados intentos. **Declarado en la lista cerrada; la implementación aún no tiene limitador de tasa** |
+| `INVALID_FILTER` | 400 | a query filter has an unacceptable value; **it is rejected, not ignored** |
+| `INVALID_FILTER_RANGE` | 400 | `from` is later than `to`; an inverted range returns nothing |
+| `INVALID_FILTER_DATE` | 400 | the date is neither ISO (`YYYY-MM-DD`) nor an ISO-8601 instant |
+| `INVALID_LOCATION_CODE` | 400 | the location code is not valid |
+| `DUPLICATE_KEY` | 409 | uniqueness violation detected by the database |
+| `DUPLICATE_WAREHOUSE_CODE` | 409 | a warehouse with that code already exists |
+| `DUPLICATE_INVOICE_NUMBER` | 409 | an invoice with that number already exists |
+| `INVOICE_ALREADY_CLOSED` | 409 | the invoice was already closed |
+| `INVOICE_HAS_PENDING_LINES` | 422 | there are lines that prevent closing: `details.pendingLines` |
+| `LINE_ALREADY_RESOLVED` | 409 | the line is already approved or located and cannot be captured again |
+| `NO_PENDING_APPROVAL` | 409 | the invoice has no discrepancy lines to approve or reject |
+| `NOT_PENDING_APPROVAL` | — | **Only in `stock-domain`**: a line that is not in `PENDING_APPROVAL` cannot be approved. The receiving API does not emit it; the invoice case with no pending items is `NO_PENDING_APPROVAL` |
+| `INVALID_TRANSITION` | 409 | the current state does not allow the requested transition |
+| `INVALID_QUANTITY` | 422 | the quantity is not valid or is not positive |
+| `INCONSISTENT_BOX_COUNT` | 422 | boxes and units do not match `unitsPerBox` |
+| `BOXES_DO_NOT_DIVIDE_EVENLY` | 422 | the boxes do not divide the quantity exactly |
+| `EXCEEDS_LINE_QUANTITY` | 422 | what was captured exceeds what was invoiced |
+| `CANNOT_DELETE_WITH_INVENTORY_EFFECT` | 422 | the deletion would affect inventory. **The domain error declares it; no route of this API emits it yet** |
+| `EMPTY_ORDER` | 422 | the order has no lines |
+| `EXCEEDS_PENDING_QUANTITY` | 422 | more is packed than is pending on the line |
+| `LOCATION_REQUIRED` | 422 | the line has no location to leave from |
+| `ORDER_LINE_NOT_FOUND` | 404 | the line does not exist or does not belong to that order |
+| `ORDER_NOT_FOUND` | 404 | the order does not exist |
+| `ORDER_ALREADY_CONFIRMED` | 409 | the order was already confirmed |
+| `ORDER_NOT_CONVERTED` | 409 | an attempt was made to export an unconfirmed order |
+| `EMPTY_TRANSFER` | 422 | the transfer has no lines |
+| `SAME_WAREHOUSE` | 422 | origin and destination are the same warehouse |
+| `TRANSFER_NOT_FOUND` | 404 | the transfer does not exist |
+| `NO_RECEIVING_LOCATION` | 422 | the destination warehouse has no receiving location |
+| `NOTHING_IN_TRANSIT` | 409 | the transfer has no goods in transit to receive |
+| `INVOICE_NOT_FOUND` | 404 | the invoice does not exist |
+| `LINE_NOT_FOUND` | 404 | the invoice line does not exist |
+| `LABEL_TEMPLATE_NOT_FOUND` | 404 | the template does not exist |
+| `LABEL_TEMPLATE_INACTIVE` | 422 | an attempt was made to print with a deactivated template |
+| `LABEL_ALREADY_PRINTED` | 409 | the job is already printed: a retry does not print twice |
+| `PRINT_JOB_NOT_FOUND` | 404 | the print job does not exist |
+| `MISSING_LABEL_FIELD` | 422 | required label data is missing |
+| `INVALID_ZPL` | 422 | the ZPL does not contain `^XA` and `^XZ` |
+| `INVALID_SERVICE_KEY` | 401 | the `X-Service-Key` header is missing or the key is not valid |
+| `INTERNAL_ERROR` | 500 | uncontrolled error; the detail is **not** leaked to the client |
+| `RATE_LIMITED` | 429 | too many attempts. **Declared in the closed list; the implementation does not yet have a rate limiter** |
 
-### Sesión
+### Session
 
-Los emiten los casos de uso de `api/application/src/main/kotlin/dev/axzy/stock/application/identity/`.
-El detalle de cada ruta está en [autenticacion.md](autenticacion.md).
+Emitted by the use cases in `api/application/src/main/kotlin/dev/axzy/stock/application/identity/`.
+The detail of each route is in [autenticacion.md](autenticacion.md).
 
-| `code` | Estado | Situación |
+| `code` | Status | Situation |
 |---|---|---|
-| `INVALID_CREDENTIALS` | 401 | usuario o contraseña incorrectos; refresh token desconocido, revocado o vencido; contraseña actual incorrecta |
-| `ACCOUNT_LOCKED` | 401 | cinco fallos de credenciales con ese nombre de usuario en 15 minutos. **Se aplica igual a nombres que no existen** |
-| `ACCOUNT_DISABLED` | 401 | la cuenta está desactivada. En el login solo se devuelve si la contraseña es correcta |
-| `TOKEN_REUSED` | 401 | se reutilizó un refresh token ya rotado: se revocó la familia entera |
-| `UNAUTHENTICATED` | 401 | falta el token, no es válido, caducó, o la contraseña cambió después de emitirlo |
-| `PASSWORD_CHANGE_REQUIRED` | 403 | la cuenta debe cambiar su contraseña antes de usar cualquier otra ruta |
-| `WEAK_PASSWORD` | 422 | la contraseña nueva no cumple la política |
-| `SAME_PASSWORD` | 422 | la contraseña nueva es igual a la actual |
+| `INVALID_CREDENTIALS` | 401 | wrong user or password; unknown, revoked or expired refresh token; wrong current password |
+| `ACCOUNT_LOCKED` | 401 | five credential failures with that user name in 15 minutes. **It applies the same way to names that do not exist** |
+| `ACCOUNT_DISABLED` | 401 | the account is deactivated. On login it is only returned if the password is correct |
+| `TOKEN_REUSED` | 401 | an already rotated refresh token was reused: the entire family was revoked |
+| `UNAUTHENTICATED` | 401 | token missing, invalid, expired, or the password changed after it was issued |
+| `PASSWORD_CHANGE_REQUIRED` | 403 | the account must change its password before using any other route |
+| `WEAK_PASSWORD` | 422 | the new password does not meet the policy |
+| `SAME_PASSWORD` | 422 | the new password is the same as the current one |
 
-### Transporte
+### Transport
 
-Los emite `GlobalErrorHandler.kt`: la petición no llegó a un caso de uso.
+Emitted by `GlobalErrorHandler.kt`: the request did not reach a use case.
 
-| `code` | Estado | Situación |
+| `code` | Status | Situation |
 |---|---|---|
-| `MALFORMED_REQUEST` | 400 | el cuerpo no es un JSON válido, o un campo tiene un tipo que no se puede leer |
-| `METHOD_NOT_ALLOWED` | 405 | el método HTTP no está permitido en esa ruta |
-| `UNSUPPORTED_MEDIA_TYPE` | 415 | el `Content-Type` no es `application/json` |
-| `NOT_FOUND` | 404 | la ruta no existe. **Sin identidad, una ruta inexistente responde `401`**, no `404` |
+| `MALFORMED_REQUEST` | 400 | the body is not valid JSON, or a field has a type that cannot be read |
+| `METHOD_NOT_ALLOWED` | 405 | the HTTP method is not allowed on that route |
+| `UNSUPPORTED_MEDIA_TYPE` | 415 | the `Content-Type` is not `application/json` |
+| `NOT_FOUND` | 404 | the route does not exist. **Without identity, a nonexistent route answers `401`**, not `404` |
 
-`INTERNAL_ERROR` lleva en `details.incident` un identificador. Con él se busca en el log el error
-completo, que al cliente nunca se le envía.
+`INTERNAL_ERROR` carries an identifier in `details.incident`. With it, the complete error is
+looked up in the log, which is never sent to the client.
 
-## 1.3-ter El catálogo es cerrado
+## 1.3-ter The catalog is closed
 
-> **Normativo.** Los códigos están en esta lista y **no se inventan**. Un error nuevo se
-> añade al catálogo **antes** de usarlo.
+> **Normative.** The codes are in this list and are **not invented**. A new error is
+> added to the catalog **before** it is used.
 
-**Un `500` es una mentira.** Dice «el servidor falló» cuando el servidor está
-bien. Un cliente que reintenta ante un `500` **reintenta para siempre**; ante un
-`400`, corrige.
+**A `500` is a lie.** It says "the server failed" when the server is
+fine. A client that retries on a `500` **retries forever**; on a
+`400`, it corrects.
 
-Un dato que el cliente escribió mal (una fecha, un UUID, un valor de enum de
-PostgreSQL) se valida en Kotlin y se responde `400`; no se deja llegar al `CAST`
-de la base, que lanzaría un `500` por una petición incorrecta.
+A value the client wrote wrong (a date, a UUID, a PostgreSQL enum value) is validated in Kotlin and
+answered with `400`; it is not allowed to reach the database's `CAST`,
+which would throw a `500` for an incorrect request.

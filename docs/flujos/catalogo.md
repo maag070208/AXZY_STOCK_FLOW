@@ -1,142 +1,141 @@
-# Catálogo: productos, ubicaciones, bodegas e importación
-> **Normativo.** Última revisión: 2026-10-10 (K1–K6 en verde; ver §5-bis). Reglas de origen: [ADR-0011](../adr/0011-catalogo-fuente-maestra.md), [ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md), [ADR-0012](../adr/0012-conciliar-stock-heredado-con-conteo.md). Módulo: [M01](../modulos/M01-catalogo/README.md).
+# Catalog: products, locations, warehouses and import
+> **Normative.** Last revised: 2026-10-10 (K1–K6 green; see §5-bis). Origin rules: [ADR-0011](../adr/0011-catalogo-fuente-maestra.md), [ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md), [ADR-0012](../adr/0012-conciliar-stock-heredado-con-conteo.md). Module: [M01](../modulos/M01-catalogo/README.md).
 
-## 1. Objetivo y actores
+## 1. Objective and actors
 
-Tener la lista maestra de productos, bodegas y ubicaciones sobre la que operan todos los demás flujos.
-La API es la fuente maestra; no hay sincronización periódica con otros sistemas (ADR-0011).
+Maintain the master list of products, warehouses and locations on which all the other flows operate.
+The API is the master source; there is no periodic synchronization with other systems (ADR-0011).
 
-| Actor | Qué hace |
+| Actor | What it does |
 |---|---|
-| Administrador (web) | Crea y edita productos, bodegas y ubicaciones; importa el archivo inicial |
-| Operador (app) | Consulta productos y ubicaciones; no los modifica |
+| Administrator (web) | Creates and edits products, warehouses and locations; imports the initial file |
+| Operator (app) | Queries products and locations; does not modify them |
 
-## 2. Precondiciones
+## 2. Preconditions
 
-- Hay al menos una bodega marcada como predeterminada (índice único: solo una).
-- Las ubicaciones especiales (`RECEIVING` y `UNASSIGNED`) existen; las crea la migración inicial.
+- At least one warehouse is marked as default (unique index: only one).
+- The special locations (`RECEIVING` and `UNASSIGNED`) exist; the initial migration creates them.
 
-## 3. Reglas de datos
+## 3. Data rules
 
-| Regla | Por qué |
+| Rule | Why |
 |---|---|
-| El código de producto es único y **no se cambia** | Es la clave que usan las existencias, las órdenes y el ERP |
-| Un código de ubicación se escribe en mayúsculas (hall, código y posición) | Evita dos ubicaciones que solo difieren en mayúsculas |
-| La ubicación de recepción no se puede desactivar | Toda mercancía recibida pasa por ella ([ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md)) |
-| Los productos inactivos no reciben movimientos nuevos, pero conservan su historial | El kardex no se reescribe |
-| Dos códigos `X` y `XN` son dos productos distintos | Decisión de negocio con riesgo aceptado ([ADR-0011](../adr/0011-catalogo-fuente-maestra.md)) |
+| The product code is unique and **is not changed** | It is the key used by stock, orders and the ERP |
+| A location code is written in uppercase (hall, code and position) | Avoids two locations that differ only in case |
+| The receiving location cannot be deactivated | All received goods go through it ([ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md)) |
+| Inactive products do not receive new movements, but keep their history | The ledger is not rewritten |
+| Two codes `X` and `XN` are two different products | Business decision with an accepted risk ([ADR-0011](../adr/0011-catalogo-fuente-maestra.md)) |
 
-## 4. Flujo: importar el archivo inicial
+## 4. Flow: import the initial file
 
-La importación es **estricta**: una fila inválida rechaza el archivo entero. No se corrige nada
-adivinando (ADR-0011). Se ejecuta una sola vez en el corte, y después el catálogo se mantiene desde la API.
+The import is **strict**: an invalid row rejects the entire file. Nothing is corrected by guessing
+(ADR-0011). It is run once at the cutover, and afterwards the catalog is maintained through the API.
 
 ```mermaid
 sequenceDiagram
-    participant Adm as Administrador
+    participant Adm as Administrator
     participant API
     participant UC as ImportCatalog
-    participant DB as Base
+    participant DB as Database
 
-    Adm->>API: POST /v1/products/import (archivo, dryRun)
-    API->>UC: ImportCatalog(actor, archivo, dryRun)
-    UC->>UC: Leer y validar TODAS las filas (sin escribir)
-    alt Alguna fila inválida
-        UC-->>API: IMPORT_INVALID_ROWS (422) con la lista de filas y motivos
-    else Todas válidas
+    Adm->>API: POST /v1/products/import (file, dryRun)
+    API->>UC: ImportCatalog(actor, file, dryRun)
+    UC->>UC: Read and validate ALL rows (without writing)
+    alt Some invalid row
+        UC-->>API: IMPORT_INVALID_ROWS (422) with the list of rows and reasons
+    else All valid
         alt dryRun = true
-            UC-->>API: 200 con el resumen de lo que se crearía
+            UC-->>API: 200 with the summary of what would be created
         else dryRun = false
             UC->>DB: BEGIN
-            UC->>DB: UPSERT productos por product_code (idempotente)
-            UC->>DB: Stock inicial → SIN-UBICAR (movimiento INITIAL, con client_uuid por fila)
-            UC->>DB: bitácora (un registro por importación)
+            UC->>DB: UPSERT products by product_code (idempotent)
+            UC->>DB: Initial stock → SIN-UBICAR (INITIAL movement, with client_uuid per row)
+            UC->>DB: audit log (one record per import)
             UC->>DB: COMMIT
-            UC-->>API: 200 con creados, actualizados y omitidos
+            UC-->>API: 200 with created, updated and skipped
         end
     end
 ```
 
-**Por qué el stock inicial va a `SIN-UBICAR`.** El archivo trae 10.914.130 unidades sin desglose por
-estante. Cargarlas a una ubicación inventaría mal desde el primer día. Se concilian con conteo antes
-del corte ([ADR-0012](../adr/0012-conciliar-stock-heredado-con-conteo.md)).
+**Why the initial stock goes to `SIN-UBICAR`.** The file carries 10,914,130 units without a breakdown by
+shelf. Loading them into a location would misstate the inventory from day one. They are reconciled with a count before
+the cutover ([ADR-0012](../adr/0012-conciliar-stock-heredado-con-conteo.md)).
 
-**Por qué es idempotente.** En el legacy, una segunda importación del mismo archivo volvía a insertar lo
-que ya existía (M3 en el [análisis](../analisis/legacy-entradas-salidas-ajustes-traslados.md)). Aquí la clave
-es el código de producto y el `client_uuid` de cada movimiento se deriva de la fila: importar dos veces no
-duplica nada.
+**Why it is idempotent.** In the legacy, a second import of the same file would re-insert
+what already existed (M3 in the [analysis](../analisis/legacy-entradas-salidas-ajustes-traslados.md)). Here the key
+is the product code and the `client_uuid` of each movement is derived from the row: importing twice
+duplicates nothing.
 
-## 5. Pruebas de aceptación
+## 5. Acceptance tests
 
-**K1. Una fila inválida rechaza el archivo entero**
-- Dado un archivo con 1.398 filas válidas y una con un código vacío.
-- Cuando se importa.
-- Entonces responde `IMPORT_INVALID_ROWS` con esa fila, y no se crea ningún producto.
+**K1. An invalid row rejects the entire file**
+- Given a file with 1,398 valid rows and one with an empty code.
+- When it is imported.
+- Then it answers `IMPORT_INVALID_ROWS` with that row, and no product is created.
 
-**K2. La importación es idempotente**
-- Dado un archivo válido ya importado.
-- Cuando se importa de nuevo.
-- Entonces no hay productos duplicados, el stock inicial no se suma otra vez y el resumen indica `0` creados.
+**K2. The import is idempotent**
+- Given a valid file already imported.
+- When it is imported again.
+- Then there are no duplicate products, the initial stock is not added again and the summary indicates `0` created.
 
-**K3. El código de producto no se cambia**
-- Dado un producto existente.
-- Cuando se intenta cambiar su código.
-- Entonces responde `PRODUCT_CODE_IMMUTABLE` (422).
+**K3. The product code is not changed**
+- Given an existing product.
+- When an attempt is made to change its code.
+- Then it answers `PRODUCT_CODE_IMMUTABLE` (422).
 
-**K4. La recepción no se desactiva**
-- Dado que se intenta desactivar la ubicación `RECEIVING`.
-- Entonces responde `RECEIVING_LOCATION_PROTECTED` (409).
+**K4. The receiving location is not deactivated**
+- Given an attempt to deactivate the `RECEIVING` location.
+- Then it answers `RECEIVING_LOCATION_PROTECTED` (409).
 
-**K5. Un producto inactivo no recibe movimientos**
-- Dado un producto inactivo.
-- Cuando se intenta un movimiento de existencias.
-- Entonces responde `PRODUCT_NOT_FOUND` (el producto activo es el que se busca).
+**K5. An inactive product does not receive movements**
+- Given an inactive product.
+- When a stock movement is attempted.
+- Then it answers `PRODUCT_NOT_FOUND` (the active product is the one that is looked up).
 
-**K6. Solo una bodega predeterminada**
-- Dado que existe una bodega predeterminada.
-- Cuando se marca otra como predeterminada.
-- Entonces la anterior deja de serlo en la misma transacción, o la operación se rechaza. Nunca quedan dos.
+**K6. Only one default warehouse**
+- Given that a default warehouse exists.
+- When another one is marked as default.
+- Then the previous one stops being default in the same transaction, or the operation is rejected. Two are never left.
 
-### 5-bis. Estado de estas pruebas (2026-10-10)
+### 5-bis. Status of these tests (2026-10-10)
 
-Las seis están automatizadas y en verde en `api/app/src/test/kotlin/dev/axzy/stock/app/CatalogFlowTest.kt`,
-por HTTP real. Dos matices que el documento no fijaba y conviene dejar escritos:
+The six are automated and green in `api/app/src/test/kotlin/dev/axzy/stock/app/CatalogFlowTest.kt`,
+over real HTTP. Two nuances that the document did not state and are worth writing down:
 
-- **K1 responde `422 IMPORT_INVALID_ROWS` con cualquier `dryRun`.** La validación ocurre antes de
-  mirar la simulación: un archivo con filas malas no produce un informe válido en ninguno de los dos
-  modos. `IMPORT_HAS_REJECTIONS` queda declarado en el catálogo de errores y **no se emite**.
-- **K5, la parte de «no recibe movimientos», se cierra en la fase 5.** Hoy no existe el endpoint de
-  movimientos; lo que se comprueba es lo que el propio documento dice que debe responder: el producto
-  inactivo deja de encontrarse (`PRODUCT_NOT_FOUND`). Cuando llegue el motor, la prueba se amplía al
-  movimiento.
+- **K1 answers `422 IMPORT_INVALID_ROWS` with any `dryRun`.** Validation happens before
+  looking at the simulation: a file with bad rows does not produce a valid report in either
+  mode. `IMPORT_HAS_REJECTIONS` is declared in the error catalog and **is not emitted**.
+- **K5, the "does not receive movements" part, is closed in phase 5.** Today the movements endpoint
+  does not exist yet; what is checked is what the document itself says it must answer: the inactive product
+  stops being found (`PRODUCT_NOT_FOUND`). When the engine arrives, the test is extended to the
+  movement.
 
-Y un hueco declarado: la importación acepta **CSV y TSV**; el **XLSX** nativo llega con la migración
-de datos (M10). Hasta entonces responde `IMPORT_FILE_FORMAT` diciéndolo, en lugar de fallar de una
-forma que parezca un error del usuario.
+And a declared gap: the import accepts **CSV and TSV**; native **XLSX** arrives with the data migration
+(M10). Until then it answers `IMPORT_FILE_FORMAT` saying so, instead of failing in a way that looks like a user error.
 
-## 6. Errores
+## 6. Errors
 
-| Código | HTTP | Cuándo |
+| Code | HTTP | When |
 |---|---|---|
-| `PRODUCT_NOT_FOUND` | 404 | El producto no existe o está inactivo |
-| `PRODUCT_CODE_IMMUTABLE` | 422 | Se intenta cambiar el código de un producto |
-| `PRODUCT_CODE_DUPLICATE` | 409 | El código ya existe |
-| `LOCATION_NOT_FOUND` | 404 | La ubicación no existe o está inactiva |
-| `RECEIVING_LOCATION_PROTECTED` | 409 | Se intenta desactivar la ubicación de recepción |
-| `IMPORT_INVALID_ROWS` | 422 | El archivo tiene filas inválidas; `details` lista las filas (hasta 50) con su motivo |
+| `PRODUCT_NOT_FOUND` | 404 | The product does not exist or is inactive |
+| `PRODUCT_CODE_IMMUTABLE` | 422 | An attempt is made to change a product's code |
+| `PRODUCT_CODE_DUPLICATE` | 409 | The code already exists |
+| `LOCATION_NOT_FOUND` | 404 | The location does not exist or is inactive |
+| `RECEIVING_LOCATION_PROTECTED` | 409 | An attempt is made to deactivate the receiving location |
+| `IMPORT_INVALID_ROWS` | 422 | The file has invalid rows; `details` lists the rows (up to 50) with their reason |
 
-## 7. Permisos
+## 7. Permissions
 
-| Acción | Permiso |
+| Action | Permission |
 |---|---|
-| Ver productos | `product.view` |
-| Crear, editar, eliminar | `product.create`, `product.edit`, `product.delete` |
-| Importar | `product.import` |
-| Ver y editar ubicaciones | `location.view`, `location.edit` |
-| Crear y eliminar ubicaciones | `location.create`, `location.delete` |
-| Bodegas | `warehouse.view`, `warehouse.create`, `warehouse.edit` |
+| View products | `product.view` |
+| Create, edit, delete | `product.create`, `product.edit`, `product.delete` |
+| Import | `product.import` |
+| View and edit locations | `location.view`, `location.edit` |
+| Create and delete locations | `location.create`, `location.delete` |
+| Warehouses | `warehouse.view`, `warehouse.create`, `warehouse.edit` |
 
-## 8. Bitácora
+## 8. Audit log
 
-Cada alta, edición y desactivación escribe en `audit_log`. Una importación escribe un registro por
-archivo, con el resumen, y no uno por fila.
+Each creation, edit and deactivation writes to `audit_log`. An import writes one record per
+file, with the summary, and not one per row.

@@ -1,60 +1,58 @@
-# Convenciones de la API
-> **Normativo.** Cómo se construyen las rutas, los estados, la paginación, la
-> idempotencia, las cabeceras y los formatos de esta API. Manda sobre el contrato
-> de cada recurso. Última verificación: 2026-10-10.
-> **Nota de reconstrucción (2026-10-10).** Contrato vigente. Las referencias de código apuntan al backend anterior. Las reglas siguen vigentes; las rutas de código que cita pertenecen al sistema anterior y se remapean al código nuevo (ver [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
+# API conventions
+> **Normative.** How routes, statuses, pagination, idempotency, headers and formats of this API are built. It overrides the contract
+> of each resource. Last verified: 2026-10-10.
+> **Reconstruction note (2026-10-10).** Contract in force. The code references point to the previous backend. The rules remain in force; the code paths it cites belong to the previous system and are remapped to the new code (see [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
 
-Este documento define las reglas transversales. El contrato por recurso está en
-[contrato.md](contrato.md); el cuerpo de error y su catálogo, en
+This document defines the cross-cutting rules. The contract per resource is in
+[contrato.md](contrato.md); the error body and its catalog, in
 [errores.md](errores.md).
 
-## 1.1 Rutas
+## 1.1 Routes
 
 ```
-/v1/<recurso>                listado y creación
-/v1/<recurso>/{id}           detalle, actualización y borrado
-/v1/<recurso>/{id}/<accion>  acciones que no son CRUD
+/v1/<resource>                listing and creation
+/v1/<resource>/{id}           detail, update and deletion
+/v1/<resource>/{id}/<action>  actions that are not CRUD
 ```
 
-**Prefijo `/v1` obligatorio.** El legacy no versionaba sus rutas, así que no se
-podía cambiar un contrato sin romper los clientes desplegados.
+**The `/v1` prefix is mandatory.** The legacy did not version its routes, so a contract could not be
+changed without breaking the deployed clients.
 
-La única ruta que no cuelga de `/v1/<recurso>` con esa forma es
-`PATCH /v1/print-jobs/{id}`, y aun así cuelga de un recurso: es la actualización
-del estado de un trabajo de impresión (véase [etiquetas.md](etiquetas.md)).
+The only route that does not hang from `/v1/<resource>` in that form is
+`PATCH /v1/print-jobs/{id}`, and even so it hangs from a resource: it is the update of the
+state of a print job (see [etiquetas.md](etiquetas.md)).
 
-## 1.2 Códigos de estado
+## 1.2 Status codes
 
-| Código | Cuándo | Cuerpo |
+| Code | When | Body |
 |---|---|---|
-| `200` | Éxito con cuerpo | el recurso o el listado |
-| `201` | Recurso creado | el recurso, con su `id` |
-| `202` | Aceptado, pendiente de confirmación | el trabajo o el ajuste con `status` |
-| `204` | Éxito sin cuerpo | vacío (borrado, cierre de sesión) |
-| `400` | Petición mal formada | `ErrorResponse` |
-| `401` | Sin identidad válida | `ErrorResponse`, `code = UNAUTHENTICATED` |
-| `403` | Identidad sin autorización | `ErrorResponse` con el motivo |
-| `404` | El recurso no existe | `ErrorResponse` |
-| `409` | El estado impide la operación | `ErrorResponse` |
-| `422` | Viola una regla de negocio | `ErrorResponse` con `details` por campo |
-| `429` | Demasiados intentos | `ErrorResponse`, `code = RATE_LIMITED` |
-| `503` | Dependencia caída | `ErrorResponse` (health) |
+| `200` | Success with a body | the resource or the listing |
+| `201` | Resource created | the resource, with its `id` |
+| `202` | Accepted, pending confirmation | the job or the adjustment with `status` |
+| `204` | Success without a body | empty (deletion, sign-out) |
+| `400` | Malformed request | `ErrorResponse` |
+| `401` | No valid identity | `ErrorResponse`, `code = UNAUTHENTICATED` |
+| `403` | Identity without authorization | `ErrorResponse` with the reason |
+| `404` | The resource does not exist | `ErrorResponse` |
+| `409` | The state prevents the operation | `ErrorResponse` |
+| `422` | Violates a business rule | `ErrorResponse` with `details` per field |
+| `429` | Too many attempts | `ErrorResponse`, `code = RATE_LIMITED` |
+| `503` | Dependency down | `ErrorResponse` (health) |
 
-La traducción de excepción a estado vive en
-`api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/http/ErrorResponses.kt`, y el
-manejador que la aplica, en `.../http/GlobalErrorHandler.kt`.
-Un error inesperado se responde como `500` con `code = INTERNAL_ERROR` sin filtrar
-el detalle interno.
+The translation of exception to status lives in
+`api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/http/ErrorResponses.kt`, and the
+handler that applies it, in `.../http/GlobalErrorHandler.kt`.
+An unexpected error is answered as `500` with `code = INTERNAL_ERROR` without leaking
+the internal detail.
 
-**Distinguir `401` de `403` no es cosmético.** Ante un `401` el cliente manda al
-usuario a iniciar sesión; ante un `403`, a pedir un permiso. Devolver `403` por
-falta de token manda a iniciar sesión a quien ya tiene sesión abierta.
+**Telling `401` from `403` is not cosmetic.** On a `401` the client sends the
+user to sign in; on a `403`, to request a permission. Returning `403` for a missing token sends someone who already has a session open to sign in.
 
-## 1.4 Paginación
+## 1.4 Pagination
 
-Toda lista se pagina. El legacy devolvía **todos** los registros, y con un
-catálogo de miles de productos y meses de kardex eso significa que el listado
-cargaba la tabla entera.
+Every list is paginated. The legacy returned **all** the records, and with a
+catalog of thousands of products and months of ledger, that meant the listing
+loaded the entire table.
 
 ```
 GET /v1/products?page=0&size=50&sort=productCode,asc&q=abra
@@ -70,143 +68,140 @@ GET /v1/products?page=0&size=50&sort=productCode,asc&q=abra
 }
 ```
 
-- `page` empieza en **0**, como en Spring y en la mayoría de los clientes.
-- `size` por defecto **50**, máximo **200**. Un `size` mayor se rechaza con `400`,
-  no se recorta en silencio: recortar hace que el cliente crea que tiene todos los
-  datos.
-- `sort` es `campo,direccion`. Los campos admitidos se documentan por endpoint.
-- `q` es la búsqueda libre.
-- **`from` y `to` son fechas operativas (`AAAA-MM-DD`) y se interpretan en la zona del
-  negocio** (`stock.business-zone`), no en UTC: `to` incluye el día entero del almacén.
-  Una fecha mal formada responde `400 INVALID_FILTER_DATE` y un rango invertido,
+- `page` starts at **0**, as in Spring and in most clients.
+- `size` defaults to **50**, maximum **200**. A larger `size` is rejected with `400`,
+  it is not trimmed silently: trimming makes the client believe it has all the
+  data.
+- `sort` is `field,direction`. The supported fields are documented per endpoint.
+- `q` is the free-text search.
+- **`from` and `to` are operational dates (`YYYY-MM-DD`) and are interpreted in the business time zone**
+  (`stock.business-zone`), not in UTC: `to` includes the whole warehouse day.
+  A malformed date answers `400 INVALID_FILTER_DATE` and an inverted range,
   `400 INVALID_FILTER_RANGE`.
 
-Un `page` negativo o un `size` fuera de `1..200` responden `400 INVALID_PAGINATION`;
-un `sort` no admitido, `400 INVALID_SORT`. La validación es una sola en toda la
-API: `PageRequest.analyze` en
+A negative `page` or a `size` outside `1..200` answers `400 INVALID_PAGINATION`;
+an unsupported `sort`, `400 INVALID_SORT`. Validation is single across the whole
+API: `PageRequest.analyze` in
 `api/application/src/main/kotlin/dev/axzy/stock/application/shared/Pagination.kt`.
 
-**Excepciones deliberadas.** Devuelven **todas** sus filas, sin sobre de
-paginación y sin límite de 200:
+**Deliberate exceptions.** They return **all** their rows, without a pagination envelope and without the 200 limit:
 
-| Endpoint | Permiso | Motivo |
+| Endpoint | Permission | Reason |
 |---|---|---|
-| `GET /v1/warehouses` | `warehouse.view` | catálogo cerrado y diminuto que la interfaz necesita completo |
-| `GET /v1/label-templates` | `label.template_view` | conjunto de plantillas que crece solo cuando un administrador lo decide |
-| `GET /v1/permissions` | `role.manage` | es la matriz de la pantalla de roles; paginarla obligaría a pedir todas las páginas para dibujar un selector |
+| `GET /v1/warehouses` | `warehouse.view` | closed and tiny catalog that the interface needs in full |
+| `GET /v1/label-templates` | `label.template_view` | set of templates that grows only when an administrator decides so |
+| `GET /v1/permissions` | `role.manage` | it is the matrix of the roles screen; paginating it would force requesting all the pages to draw a selector |
 
-El motivo es siempre el mismo: son **catálogos cerrados y pequeños**. Paginarlos
-obligaría al cliente a pedir todas las páginas antes de poder dibujar un
-`select`, que es trabajo peor y más lento que devolver las filas de una vez. El
-límite que lo hace seguro es que los tres requieren permiso de administración
-sobre un conjunto que no crece con la operación.
+The reason is always the same: they are **closed and small catalogs**. Paginating them
+would force the client to request all the pages before being able to draw a
+`select`, which is slower and worse work than returning the rows at once. The
+limit that makes it safe is that all three require administration permission
+over a set that does not grow with the operation.
 
-Además, `GET /v1/invoices/pending-approval` devuelve `{ "items": [...] }` y
-`GET /v1/transfers/in-transit` devuelve un arreglo: son bandejas acotadas, no
-listados paginables.
+Also, `GET /v1/invoices/pending-approval` returns `{ "items": [...] }` and
+`GET /v1/transfers/in-transit` returns an array: they are bounded inboxes, not
+paginable listings.
 
-### El total se cuenta, no se adivina
+### The total is counted, not guessed
 
 ```kotlin
-Page(items, page.page, page.size, total)   // total de un SELECT count(*)
+Page(items, page.page, page.size, total)   // total from a SELECT count(*)
 ```
 
-**Nunca `items.size`.** Ya hubo dos bugs por esto:
+**Never `items.size`.** There have already been two bugs because of this:
 
-- En inventario: `totalItems` devolvía el tamaño de la página → «50 resultados»
-  siempre.
-- En kardex: el conteo **ignoraba los filtros** → un rango sin resultados daba
-  `items: []` pero `totalItems: 1064`.
+- In inventory: `totalItems` returned the size of the page → "50 results"
+  always.
+- In the ledger: the count **ignored the filters** → a range with no results gave
+  `items: []` but `totalItems: 1064`.
 
-> **Si el conteo ignora los filtros, es peor que no tenerlo.**
+> **If the count ignores the filters, it is worse than not having it.**
 
-El listado y el conteo comparten los filtros en cada endpoint, de modo que el
-sobre no puede decir una cosa y los `items` otra. Ejemplos en el código:
+The listing and the count share the filters in each endpoint, so that the envelope cannot say one
+thing and the `items` another. Examples in the code:
 `InventoryRoutes.kt` (`service.countStock` / `service.countKardex`),
-`AuditRoutes.kt` y `ReportRoutes.kt`.
+`AuditRoutes.kt` and `ReportRoutes.kt`.
 
-**`size` mayor de 200 se RECHAZA con `400`, no se recorta**: recortar hace que el
-cliente crea que tiene todos los datos.
+**A `size` greater than 200 is REJECTED with `400`, not trimmed**: trimming makes the
+client believe it has all the data.
 
-## 1.5 Idempotencia
+## 1.5 Idempotency
 
-Las operaciones que **mueven inventario** o **crean documentos** aceptan la
-cabecera `Idempotency-Key`. Repetir la misma clave devuelve la **misma
-respuesta** y no repite el efecto. El móvil sin señal reintenta; sin esto, un
-reintento duplica un movimiento.
+The operations that **move inventory** or **create documents** accept the
+`Idempotency-Key` header. Repeating the same key returns the **same
+response** and does not repeat the effect. The phone with no signal retries; without this, a
+retry duplicates a movement.
 
-La clave viaja en la **cabecera**, no en el cuerpo. Si viene y no es un UUID, se
-rechaza con `400 INVALID_IDEMPOTENCY_KEY`, no se deja al `CAST` de PostgreSQL
-(que saldría como un `500` por un dato del cliente).
+The key travels in the **header**, not in the body. If it comes and is not a UUID, it is
+rejected with `400 INVALID_IDEMPOTENCY_KEY`, it is not left to PostgreSQL's `CAST`
+(which would come out as a `500` because of client data).
 
-Estado en la implementación:
+Status in the implementation:
 
-| Endpoint | Cómo se garantiza |
+| Endpoint | How it is guaranteed |
 |---|---|
-| `POST /v1/inventory/adjustments` | cabecera `Idempotency-Key` (`InventoryRoutes.kt`, `InventoryUseCases.kt`) |
-| `POST /v1/inventory/locate` | cabecera `Idempotency-Key` |
-| `POST /v1/inventory/move` | cabecera `Idempotency-Key` |
-| `POST /v1/orders/{id}/export` | idempotente por el `orderNumber` convertido, no por cabecera (`OrderService.kt`) |
-| `POST /v1/invoices/{id}/lines/{lineId}/capture` | **no lee la cabecera** en la implementación actual |
-| `POST /v1/orders/{id}/lines/{lineId}/package` | **no lee la cabecera** en la implementación actual |
-| `POST /v1/orders/{id}/confirm` | **no lee la cabecera** en la implementación actual |
-| `POST /v1/products/import` | idempotente por `product_code`: importar dos veces el mismo archivo no duplica (K2) |
+| `POST /v1/inventory/adjustments` | `Idempotency-Key` header (`InventoryRoutes.kt`, `InventoryUseCases.kt`) |
+| `POST /v1/inventory/locate` | `Idempotency-Key` header |
+| `POST /v1/inventory/move` | `Idempotency-Key` header |
+| `POST /v1/orders/{id}/export` | idempotent by the converted `orderNumber`, not by header (`OrderService.kt`) |
+| `POST /v1/invoices/{id}/lines/{lineId}/capture` | **does not read the header** in the current implementation |
+| `POST /v1/orders/{id}/lines/{lineId}/package` | **does not read the header** in the current implementation |
+| `POST /v1/orders/{id}/confirm` | **does not read the header** in the current implementation |
+| `POST /v1/products/import` | idempotent by `product_code`: importing the same file twice does not duplicate (K2) |
 
-`POST /v1/auth/logout` también es idempotente por diseño: no exige token válido y
-revocar dos veces no falla.
+`POST /v1/auth/logout` is also idempotent by design: it does not require a valid token and
+revoking twice does not fail.
 
-## 1.6 Cabeceras
+## 1.6 Headers
 
-| Cabecera | Dirección | Para qué |
+| Header | Direction | What for |
 |---|---|---|
-| `Authorization: Bearer <jwt>` | petición | identidad |
-| `Idempotency-Key: <uuid>` | petición | deduplicar reintentos |
-| `X-Request-Id: <uuid>` | ambas | correlación con la auditoría |
-| `X-Client-Channel` | petición | `WEB`, `MOBILE`, `MOBILE_OFFLINE` |
-| `X-Client-Timezone` | petición | IANA, p. ej. `America/Mexico_City` |
-| `X-Service-Key` | petición | credencial de una integración. **Solo en `PATCH /v1/print-jobs/{id}`** |
+| `Authorization: Bearer <jwt>` | request | identity |
+| `Idempotency-Key: <uuid>` | request | deduplicating retries |
+| `X-Request-Id: <uuid>` | both | correlation with the audit log |
+| `X-Client-Channel` | request | `WEB`, `MOBILE`, `MOBILE_OFFLINE` |
+| `X-Client-Timezone` | request | IANA, e.g. `America/Mexico_City` |
+| `X-Service-Key` | request | credential of an integration. **Only on `PATCH /v1/print-jobs/{id}`** |
 
-**`X-Client-Channel` no es decorativo**: la auditoría registra el canal, y
-`MOBILE_OFFLINE` dispara el camino de sincronización diferida. El canal se lee en
-`api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/http/RequestOrigins.kt` y se
-escribe en `api/adapters-persistence/src/main/kotlin/dev/axzy/stock/adapters/persistence/audit/JdbcAuditRecorder.kt`.
+**`X-Client-Channel` is not decorative**: the audit log records the channel, and
+`MOBILE_OFFLINE` triggers the deferred synchronization path. The channel is read in
+`api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/http/RequestOrigins.kt` and is
+written in `api/adapters-persistence/src/main/kotlin/dev/axzy/stock/adapters/persistence/audit/JdbcAuditRecorder.kt`.
 
-`X-Service-Key` y no `Authorization` para la impresora: así la auditoría distingue
-un trabajo marcado por una máquina (`SERVICE_PRINTER`) de uno hecho por una
-persona. La clave se guarda hasheada en la tabla `service_api_keys` y su secreto
-se muestra una sola vez al crearla (`backend/src/main/kotlin/dev/axzy/stock/backend/label/LabelService.kt`).
+`X-Service-Key` and not `Authorization` for the printer: that way the audit log distinguishes
+a job marked by a machine (`SERVICE_PRINTER`) from one done by a
+person. The key is stored hashed in the `service_api_keys` table and its secret
+is shown only once when it is created (`backend/src/main/kotlin/dev/axzy/stock/backend/label/LabelService.kt`).
 
-## 1.7 Fechas y números
+## 1.7 Dates and numbers
 
-- **Instantes**: ISO 8601 en UTC con `Z` → `"2026-10-07T21:24:37.688Z"`.
-- **Fechas operativas** (sin hora): `"2026-10-07"`. Para el turno de noche, la
-  fecha de negocio, no la del reloj.
-- **Cantidades**: decimal con **3 decimales**. La mayoría de los DTO las
-  serializan como **cadena** (`"100.000"`, `"0.500"`): `KardexDto`,
+- **Instants**: ISO 8601 in UTC with `Z` → `"2026-10-07T21:24:37.688Z"`.
+- **Operational dates** (no time): `"2026-10-07"`. For the night shift, the
+  business date, not the clock's date.
+- **Quantities**: decimal with **3 decimals**. Most DTOs serialize them as a **string** (`"100.000"`, `"0.500"`): `KardexDto`,
   `StockByLocationDto`, `InvoiceLineDto`, `OrderLineResponse`,
   `TransferResponse`, `InventoryReportItem`, `MovementsSummaryItem`,
-  `DivergenceDto` y `MovementResponse` declaran sus cantidades como `String` y las
-  escriben con `BigDecimal.toPlainString()`.
-- **Excepción de transporte en el catálogo**: `ProductDto.stock` y
-  `ImportReportDto.totalStock` se emiten como **número JSON sin comillas con 3
-  decimales** (`5193.000`), con `Quantity.toJson()` en
+  `DivergenceDto` and `MovementResponse` declare their quantities as `String` and write them
+  with `BigDecimal.toPlainString()`.
+- **Transport exception in the catalog**: `ProductDto.stock` and
+  `ImportReportDto.totalStock` are emitted as a **JSON number without quotes with 3
+  decimals** (`5193.000`), with `Quantity.toJson()` in
   `api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/catalog/CatalogDtos.kt`.
 
   ```json
   "stock": 5193.000
   ```
 
-  **Por qué texto y no número en el resto, y es una decisión, no un descuido:**
-  JSON no tiene decimales de precisión arbitraria. Un `number` de JavaScript es un
-  `double` de 64 bits, y `0.1 + 0.2` no es `0.3`. Mandar `5193.000` como número
-  invita a que el cliente lo sume en coma flotante y aparezcan centésimas
-  fantasma. Como **cadena**, la precisión viaja intacta y el cliente decide cómo
-  parsearla.
+  **Why text and not a number in the rest, and it is a decision, not an oversight:**
+  JSON has no arbitrary-precision decimals. A JavaScript `number` is a 64-bit
+  `double`, and `0.1 + 0.2` is not `0.3`. Sending `5193.000` as a number
+  invites the client to sum it in floating point and phantom cents appear. As a **string**,
+  the precision travels intact and the client decides how to parse it.
 
-  **Consecuencia que hay que tener presente:** los tipos compartidos de `web/`
-  (`StockItem`, `KardexEntry`) declaran estos campos como `number`, y **están
-  mal**. Las pantallas que se conectaron tuvieron que declarar interfaces locales
-  con la forma real. Es una deuda pendiente: alinear
+  **Consequence to keep in mind:** the shared types of `web/`
+  (`StockItem`, `KardexEntry`) declare these fields as `number`, and **they are
+  wrong**. The screens that were connected had to declare local interfaces
+  with the real shape. It is a pending debt: align
   `web/src/shared/api/types.ts`.
-- **Identificadores**: número entero. Las claves de negocio (`productCode`) son
-  cadena.
+- **Identifiers**: integer. Business keys (`productCode`) are
+  strings.

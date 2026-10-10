@@ -11,65 +11,65 @@ import dev.axzy.stock.domain.value.Quantity.Companion.ofScaled
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * EL LIBRO DE INVENTARIO — modelo en memoria, puro y determinista
+ * THE INVENTORY LEDGER — in-memory, pure and deterministic model
  *
- * Es la pieza que permite verificar las **invariantes I1–I10** con property-based
- * testing: se generan secuencias aleatorias de operaciones válidas y se afirma
- * que las propiedades se mantienen. Así se cubren combinaciones que a nadie se
- * le ocurriría escribir a mano.
+ * It is the piece that allows verifying the **invariants I1–I10** with property-based
+ * testing: random sequences of valid operations are generated, and it is asserted
+ * that the properties hold. This covers combinations that nobody would
+ * think to write by hand.
  *
- * **Decisiones de diseño, y por qué:**
+ * **Design decisions, and why:**
  *
- *  1. **El ledger es append-only.** Las entradas nunca se modifican ni se
- *     borran. Es lo contrario de lo que hacía el legacy en
- *     `removeUnitsFromKardex`, que hacía `kardex.update` sobre una fila
- *     histórica y con ello destruía la trazabilidad (hallazgo R-02).
+ *  1. **The ledger is append-only.** Entries are never modified or
+ *     deleted. It is the opposite of what the legacy did in
+ *     `removeUnitsFromKardex`, which did `kardex.update` on a historical row
+ *     and thereby destroyed traceability (finding R-02).
  *
- *  2. **El stock por ubicación es la fuente de verdad y el total es su suma.**
- *     En el legacy era al revés: un solo número total (`Store.stock`) del que
- *     se intentaba deducir la ubicación, compensando con restas. De ahí salió
- *     el bug del doble descuento al ubicar (hallazgo R-01).
+ *  2. **Stock by location is the source of truth and the total is its sum.**
+ *     In the legacy it was the other way around: a single total number (`Store.stock`) from which
+ *     the location was attempted to be deduced, compensating with subtractions. That is where
+ *     the double-deduction bug on locating came from (finding R-01).
  *
- *  3. **No hay ninguna operación que reste del total.** El total solo cambia
- *     por `RECEIPT` (suma) y por `ADJUSTMENT_OUT` (resta, y exige motivo).
- *     Todo lo demás es un traslado entre ubicaciones o hacia el tránsito.
+ *  3. **No operation subtracts from the total.** The total only changes
+ *     by `RECEIPT` (adds) and by `ADJUSTMENT_OUT` (subtracts, and requires a reason).
+ *     Everything else is a transfer between locations or toward transit.
  *
- *  4. **El tránsito es explícito.** La mercancía que viaja entre bodegas sigue
- *     contando en el inventario total. Si se modelara como dos movimientos
- *     instantáneos, el total bajaría durante el trayecto y los reportes
- *     mentirían.
+ *  4. **Transit is explicit.** Goods traveling between warehouses still
+ *     count in the total inventory. If it were modeled as two instant movements,
+ *     the total would drop during the journey and the reports would
+ *     lie.
  *
- * **Alcance de la Fase 0:** este modelo es la especificación ejecutable del
- * dominio. La implementación en PostgreSQL con Exposed llega en la Fase 1 y
- * debe reproducir exactamente estas transiciones.
+ * **Scope of Phase 0:** this model is the executable specification of the
+ * domain. The PostgreSQL implementation with Exposed comes in Phase 1 and
+ * must reproduce exactly these transitions.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-/** Una entrada del ledger. Inmutable: una vez escrita, no se toca. */
+/** A ledger entry. Immutable: once written, it is not touched. */
 data class LedgerEntry(
-    /** Número de secuencia. Es el orden total del ledger. */
+    /** Sequence number. It is the total order of the ledger. */
     val sequence: Long,
     val productCode: String,
     val type: MovementType,
     val quantity: Quantity,
     val from: LocationCode?,
     val to: LocationCode?,
-    /** Cantidad total del producto **después** de aplicar esta entrada (I4). */
+    /** Total quantity of the product **after** applying this entry (I4). */
     val quantityAfter: Quantity,
-    /** Motivo, obligatorio en los ajustes (I6). */
+    /** Reason, mandatory for adjustments (I6). */
     val reason: String? = null,
-    /** Identificador del cliente, para la idempotencia del móvil (I8). */
+    /** Client identifier, for the mobile app's idempotency (I8). */
     val clientUuid: String? = null,
 )
 
-/** Saldo de un producto en una ubicación concreta. */
+/** Balance of a product at a specific location. */
 data class LocationBalance(
     val productCode: String,
     val location: LocationCode,
     val quantity: Quantity,
 )
 
-/** Mercancía que salió de una bodega y todavía no entró en la otra. */
+/** Goods that left a warehouse and have not yet entered the other. */
 data class InTransitBalance(
     val productCode: String,
     val fromLocation: LocationCode,
@@ -78,11 +78,11 @@ data class InTransitBalance(
 )
 
 /**
- * El libro de inventario.
+ * The inventory ledger.
  *
- * Es mutable **solo a través de sus operaciones**, que validan antes de
- * escribir. No expone setters: el estado solo cambia por movimientos, igual
- * que en la base de datos, donde el kardex es append-only.
+ * It is mutable **only through its operations**, which validate before
+ * writing. It exposes no setters: the state changes only through movements, just as
+ * in the database, where the ledger is append-only.
  */
 class InventoryLedger {
 
@@ -91,25 +91,25 @@ class InventoryLedger {
     private val _inTransit = mutableListOf<InTransitBalance>()
     private var nextSequence = 1L
 
-    /** El ledger completo, en orden. Es de solo lectura desde fuera. */
+    /** The whole ledger, in order. Read-only from outside. */
     val entries: List<LedgerEntry> get() = _entries.toList()
 
-    /** Mercancía en tránsito entre bodegas. */
+    /** Goods in transit between warehouses. */
     val inTransit: List<InTransitBalance> get() = _inTransit.toList()
 
     // ═════════════════════════════════════════════════════════════════════════
     // CONSULTAS
     // ═════════════════════════════════════════════════════════════════════════
 
-    /** Cantidad de un producto en una ubicación concreta. */
+    /** Quantity of a product at a specific location. */
     fun quantityAt(productCode: String, location: LocationCode): Quantity =
         balances[location]?.get(productCode) ?: Quantity.ZERO
 
     /**
-     * **Total del producto = suma de ubicaciones + tránsito.**
+     * **Product total = sum of locations + transit.**
      *
-     * Es la definición que hace imposible el bug del legacy. No es un número
-     * almacenado que haya que mantener sincronizado: se deriva.
+     * It is the definition that makes the legacy's bug impossible. It is not a stored number to keep
+     * in sync: it is derived.
      */
     fun totalOf(productCode: String): Quantity {
         val atLocations = balances.values.sumOf { byProduct ->
@@ -121,21 +121,21 @@ class InventoryLedger {
         return ofScaled(atLocations + inTransit)
     }
 
-    /** Total del producto sumando **solo** las ubicaciones, sin el tránsito. */
+    /** Product total summing **only** the locations, without transit. */
     fun totalAtLocationsOf(productCode: String): Quantity =
         ofScaled(
             balances.values.sumOf { (it[productCode] ?: Quantity.ZERO).value }
         )
 
-    /** Total en tránsito del producto. */
+    /** Product total in transit. */
     fun totalInTransitOf(productCode: String): Quantity =
         ofScaled(
             _inTransit.filter { it.productCode == productCode }.sumOf { it.quantity.value }
         )
 
     /**
-     * Suma algebraica de todas las entradas del ledger para un producto (I1).
-     * Cada entrada declara su efecto en el total: solo `RECEIPT` suma y
+     * Algebraic sum of all the ledger's entries for a product (I1).
+     * Each entry declares its effect on the total: only `RECEIPT` adds and
      * `ADJUSTMENT_OUT` resta.
      */
     fun ledgerNetOf(productCode: String): Quantity =
@@ -152,7 +152,7 @@ class InventoryLedger {
                 }
         )
 
-    /** Todos los saldos, para recálculos (I5). */
+    /** All the balances, for recalculations (I5). */
     fun allBalances(): List<LocationBalance> =
         balances.flatMap { (location, byProduct) ->
             byProduct.map { (productCode, quantity) ->
@@ -164,7 +164,7 @@ class InventoryLedger {
     // OPERACIONES
     // ═════════════════════════════════════════════════════════════════════════
 
-    /** Carga inicial del catálogo. Entra mercancía por primera vez. */
+    /** Initial catalog load. Goods enter for the first time. */
     fun initialLoad(
         productCode: String,
         location: LocationCode,
@@ -182,7 +182,7 @@ class InventoryLedger {
         return result
     }
 
-    /** Recepción de factura: entra mercancía nueva. Es uno de los dos que suman. */
+    /** Receipt of an invoice: new goods enter. It is one of the two that add. */
     fun receipt(
         productCode: String,
         receivingLocation: LocationCode,
@@ -194,8 +194,8 @@ class InventoryLedger {
         }
 
         // ── Invariante I8: idempotencia ─────────────────────────────────────
-        // Repetir la misma clave no duplica el movimiento. Es lo que permite al
-        // móvil reintentar una sincronización sin duplicar stock.
+        // Repeating the same key does not duplicate the movement. It is what allows the
+        // mobile app to retry a synchronization without duplicating stock.
         if (clientUuid != null && _entries.any { it.clientUuid == clientUuid }) {
             return DomainError.Duplicate(
                 entity = "movimiento",
@@ -214,11 +214,11 @@ class InventoryLedger {
     }
 
     /**
-     * **Ubicar** mercancía recibida en su estante.
+     * **Locating** goods received onto their shelf.
      *
-     * Es el movimiento del bug del legacy: aquí se restaba del total, dos veces
-     * de hecho. En este modelo es un **traslado**: sale de la ubicación de
-     * recepción y entra al estante, y **el total no cambia** (decisión R-65).
+     * It is the movement of the legacy bug: here it was subtracted from the total, twice
+     * in fact. In this model it is a **transfer**: it leaves the receiving location and
+     * enters the shelf, and **the total does not change** (decision R-65).
      */
     fun locate(
         productCode: String,
@@ -252,7 +252,7 @@ class InventoryLedger {
         return result
     }
 
-    /** Traslado entre estantes de la misma bodega. Total invariante. */
+    /** Transfer between shelves of the same warehouse. Invariant total. */
     fun moveWithinWarehouse(
         productCode: String,
         from: LocationCode,
@@ -285,7 +285,7 @@ class InventoryLedger {
         return result
     }
 
-    /** Salida de una bodega hacia otra: la mercancía entra en tránsito. */
+    /** Outflow from one warehouse to another: the goods enter transit. */
     fun transferOut(
         productCode: String,
         fromLocation: LocationCode,
@@ -309,14 +309,14 @@ class InventoryLedger {
         )
         if (result is Either.Left<*>) return result
         addToLocation(productCode, fromLocation, ofScaled(-quantity.value))
-        // Entra en tránsito: sigue contando en el total.
+        // Enters transit: it still counts in the total.
         _inTransit.add(
             InTransitBalance(productCode, fromLocation, toWarehouseId, quantity)
         )
         return result
     }
 
-    /** Llegada desde el tránsito: entra al estante destino y sale del tránsito. */
+    /** Arrival from transit: enters the destination shelf and leaves transit. */
     fun transferIn(
         productCode: String,
         toLocation: LocationCode,
@@ -375,7 +375,7 @@ class InventoryLedger {
         return result
     }
 
-    /** Merma: sale mercancía de forma definitiva. Es el otro que resta. */
+    /** Shrinkage: goods leave definitively. It is the other one that subtracts. */
     fun adjustmentOut(
         productCode: String,
         location: LocationCode,
@@ -418,8 +418,8 @@ class InventoryLedger {
         reason: String? = null,
         clientUuid: String? = null,
     ): DomainResult<LedgerEntry> {
-        // `quantityAfter` se calcula con la suma de ubicaciones más tránsito
-        // ANTES de aplicar el efecto, para que el ledger sea auto-auditable (I4).
+        // `quantityAfter` is computed with the sum of locations plus transit
+        // BEFORE applying the effect, so that the ledger is self-auditing (I4).
         val before = totalOf(productCode)
         val after = when (type) {
             MovementType.RECEIPT_IN, MovementType.ADJUSTMENT_IN, MovementType.INITIAL -> before + quantity
@@ -450,11 +450,11 @@ class InventoryLedger {
 }
 
 /**
- * Pista de bodega derivada del código de ubicación.
+ * Warehouse hint derived from the location code.
  *
- * En el modelo real la ubicación tiene una FK a la bodega. Aquí, para el
- * property test, se deriva del prefijo del código: `NORTE-01` → bodega 1,
- * `SUR-01` → bodega 2. Mantiene el modelo de test sin duplicar el esquema.
+ * In the real model the location has an FK to the warehouse. Here, for the
+ * property test, it is derived from the code's prefix: `NORTE-01` → warehouse 1,
+ * `SUR-01` → warehouse 2. It keeps the test model without duplicating the schema.
  */
 val LocationCode.warehouseHint: Long
     get() = when {

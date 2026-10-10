@@ -1,38 +1,38 @@
-# Inventario
-> **Referencia.** Existencias por ubicación, kardex y las operaciones que mueven
-> inventario: ajustes, ubicación y traslado entre estantes.
-> Última verificación: 2026-10-10 (fase 5, M02: movimientos y consultas).
+# Inventory
+> **Reference.** Stock per location, ledger and the operations that move inventory:
+> adjustments, location and transfer between shelves.
+> Last verified: 2026-10-10 (phase 5, M02: movements and queries).
 
-Implementado en capas, como el resto de la API (docs/arquitectura/api-spring.md §1):
+Implemented in layers, like the rest of the API (docs/arquitectura/api-spring.md §1):
 
-| Capa | Archivo |
+| Layer | File |
 |---|---|
-| Rutas | `api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/inventory/InventoryController.kt` |
-| Casos de uso y puertos | `api/application/src/main/kotlin/dev/axzy/stock/application/inventory/` |
-| Reglas del dominio | `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/inventory/` |
-| Motor y consultas | `api/adapters-persistence/src/main/kotlin/dev/axzy/stock/adapters/persistence/inventory/` |
-| Cableado | `api/app/src/main/kotlin/dev/axzy/stock/app/config/InventoryConfig.kt` |
+| Routes | `api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/inventory/InventoryController.kt` |
+| Use cases and ports | `api/application/src/main/kotlin/dev/axzy/stock/application/inventory/` |
+| Domain rules | `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/inventory/` |
+| Engine and queries | `api/adapters-persistence/src/main/kotlin/dev/axzy/stock/adapters/persistence/inventory/` |
+| Wiring | `api/app/src/main/kotlin/dev/axzy/stock/app/config/InventoryConfig.kt` |
 
-La paginación está en [convenciones.md](convenciones.md); los códigos, en
-[errores.md](errores.md). **La API no escribe existencias**: toda escritura pasa por
-`registrar_movimiento`, y una prueba de código (`InventoryWriteGuardTest`) impide que
-un adaptador escriba `stock_by_location`, `product_stock` o `kardex` a mano.
+Pagination is in [convenciones.md](convenciones.md); the codes, in
+[errores.md](errores.md). **The API does not write stock**: every write goes through
+`registrar_movimiento`, and a code test (`InventoryWriteGuardTest`) prevents
+an adapter from writing `stock_by_location`, `product_stock` or `kardex` by hand.
 
-> **Pendiente de la fase 5:** los reportes de existencias, resumen de movimientos y
-> `kardex-vs-projection` ([reportes.md](reportes.md)). Las consultas y los movimientos
-> de esta página están terminados y probados.
+> **Pending from phase 5:** the stock reports, the movement summary and
+> `kardex-vs-projection` ([reportes.md](reportes.md)). The queries and the movements
+> on this page are finished and tested.
 
 ## `GET /v1/inventory/stock`
 
-Existencias por producto y ubicación. Permiso: `inventory.view`. `sort` admitido:
+Stock per product and location. Permission: `inventory.view`. Supported `sort`:
 `productCode`.
 
 ```
 GET /v1/inventory/stock?productCode=ABRAA1B&locationCode=04-B-C&onlyWithStock=true
 ```
 
-`onlyWithStock` es `true` por defecto: un listado que devuelve miles de filas a
-`0.000` no lo lee nadie.
+`onlyWithStock` is `true` by default: a listing that returns thousands of rows at
+`0.000` is not read by anyone.
 
 ```json
 {
@@ -45,14 +45,14 @@ GET /v1/inventory/stock?productCode=ABRAA1B&locationCode=04-B-C&onlyWithStock=tr
 }
 ```
 
-`locationDisplayName` lo compone el servidor (`04-B-C`, `RECEPCION`, `SIN-UBICAR`),
-nunca el cliente. `totalItems` **se cuenta en la base** con los mismos filtros que
-el listado, no se deduce de `items` (véase
+`locationDisplayName` is composed by the server (`04-B-C`, `RECEPCION`, `SIN-UBICAR`),
+never by the client. `totalItems` **is counted in the database** with the same filters as
+the listing; it is not deduced from `items` (see
 [convenciones.md §1.4](convenciones.md)).
 
 ## `GET /v1/inventory/kardex`
 
-Libro de movimientos. Permiso: `kardex.view`. `sort` admitido: `movedAt`,
+Movement ledger. Permission: `kardex.view`. Supported `sort`: `movedAt`,
 `productCode`, `moveType`.
 
 ```
@@ -79,22 +79,22 @@ GET /v1/inventory/kardex?productCode=ABRAA1B&from=2026-10-01&to=2026-10-31&moveT
 }
 ```
 
-`from` y `to` son fechas operativas (`AAAA-MM-DD`); `to` incluye el día entero.
-Un rango invertido o una fecha mal formada se rechazan con `400`.
+`from` and `to` are operational dates (`YYYY-MM-DD`); `to` includes the whole day.
+An inverted range or a malformed date is rejected with `400`.
 
-**El kardex es append-only y no se puede modificar por API.** No existe `PUT` ni
-`DELETE`. Las correcciones son movimientos nuevos. El listado y el conteo
-comparten los filtros: un rango sin resultados da `items: []` **y** `totalItems:
+**The ledger is append-only and cannot be modified through the API.** There is no `PUT` nor
+`DELETE`. Corrections are new movements. The listing and the count
+share the filters: a range with no results gives `items: []` **and** `totalItems:
 0`.
 
-`productName` y `adjustmentOrigin` viajan en la respuesta; el detalle de origen y
-destino va solo como **nombre visible** (`fromLocationDisplayName`,
-`toLocationDisplayName`), no como identificadores de ubicación.
+`productName` and `adjustmentOrigin` travel in the response; the origin and destination
+detail goes only as **visible name** (`fromLocationDisplayName`,
+`toLocationDisplayName`), not as location identifiers.
 
 ## `POST /v1/inventory/adjustments`
 
-**La regla única `AdjustStock`.** Los cuatro orígenes del legacy se unifican aquí.
-Permiso: **depende de la dirección y del motivo** (véase abajo).
+**The single rule `AdjustStock`.** The four legacy origins are unified here.
+Permission: **depends on the direction and the reason** (see below).
 
 ```json
 {
@@ -104,50 +104,49 @@ Permiso: **depende de la dirección y del motivo** (véase abajo).
   "direction": "DECREASE",
   "reason": "DAMAGE",
   "origin": "DAMAGE_REPORT",
-  "note": "Caja rota en el pasillo 3",
+  "note": "Broken box in aisle 3",
   "approverId": null
 }
 ```
 
-- `productCode` y `locationCode` identifican producto y ubicación (no `productId`
-  ni `locationId`).
-- `quantity`: número decimal con 3 decimales.
+- `productCode` and `locationCode` identify the product and the location (not `productId`
+  nor `locationId`).
+- `quantity`: decimal number with 3 decimals.
 - `direction`: `INCREASE` | `DECREASE`.
 - `reason`: `SHORTAGE` | `DAMAGE` | `THEFT` | `SUPPLIER_ERROR` | `COUNT_ERROR` |
-  `RETURN_TO_SUPPLIER` | `EXPIRED` | `OTHER`. **Obligatorio siempre.**
+  `RETURN_TO_SUPPLIER` | `EXPIRED` | `OTHER`. **Always required.**
 - `origin`: `INVOICE_DISCREPANCY` | `FULFILLMENT_SHORTAGE` | `MANUAL_COUNT` |
   `DAMAGE_REPORT`.
-- `approverId`: quién aprueba, si el ajuste supera el umbral. Va en el **cuerpo**
-  y no se deduce del token porque tiene que ser **otra persona**: el dominio
-  rechaza que coincida con quien solicita.
+- `approverId`: who approves, if the adjustment exceeds the threshold. It goes in the **body**
+  and is not deduced from the token because it has to be **another person**: the domain
+  rejects it if it matches whoever requests.
 
-La idempotencia va en la **cabecera `Idempotency-Key`**, no en el cuerpo.
+Idempotency goes in the **`Idempotency-Key` header**, not in the body.
 
-**201** con el movimiento creado. Un ajuste que supera el umbral queda en
-`PENDING_APPROVAL` y responde **`202 Accepted`** con `status = PENDING_APPROVAL`.
+**201** with the created movement. An adjustment that exceeds the threshold stays in
+`PENDING_APPROVAL` and answers **`202 Accepted`** with `status = PENDING_APPROVAL`.
 
-El permiso lo determina `InventoryRoutes.adjustmentPermission`:
+The permission is determined by `InventoryRoutes.adjustmentPermission`:
 
-| Dirección / motivo | Permiso |
+| Direction / reason | Permission |
 |---|---|
 | `INCREASE` | `inventory.adjust_increase` |
 | `THEFT` | `inventory.adjust_theft` |
 | `DAMAGE` | `inventory.adjust_damage` |
 | `SHORTAGE` | `inventory.adjust_shortage` |
-| cualquier otro motivo | `inventory.adjust_count_error` |
+| any other reason | `inventory.adjust_count_error` |
 
-**No hay un permiso genérico de «ajustar»**, y es deliberado: aumentar no es lo
-mismo que mermar, y un robo no es lo mismo que un error de conteo. Un permiso
-único daría a cualquiera la capacidad de tapar un robo con un ajuste que él mismo
-firma.
+**There is no generic "adjust" permission**, and it is deliberate: increasing is not the
+same as shrinking, and a theft is not the same as a count error. A single permission
+would give anyone the ability to cover up a theft with an adjustment that they themselves
+sign.
 
-Errores: `422 REASON_REQUIRED` si falta el motivo, `422 INSUFFICIENT_STOCK` con
-`details.available` si no hay existencia, **`403 SEGREGATION_OF_DUTIES`** si el
-aprobador es quien solicita (pertenece a la familia de autorización, no a la de
-reglas de negocio: `docs/api/errores.md`), `400 INVALID_PARAMETER` si la dirección,
-el motivo o el origen no están en la lista (con `details.allowed`).
+Errors: `422 REASON_REQUIRED` if the reason is missing, `422 INSUFFICIENT_STOCK` with
+`details.available` if there is no stock, **`403 SEGREGATION_OF_DUTIES`** if the
+approver is the requester (it belongs to the authorization family, not to the business rules family: `docs/api/errores.md`), `400 INVALID_PARAMETER` if the direction,
+the reason or the origin are not in the list (with `details.allowed`).
 
-Respuesta:
+Response:
 
 ```json
 { "kardexIds": [501], "status": "APPLIED", "total": "95.000", "message": null }
@@ -155,47 +154,47 @@ Respuesta:
 
 ## `POST /v1/inventory/locate`
 
-Ubicar mercancía: traslado de la ubicación de recepción al estante. Permiso:
+Locate goods: transfer from the receiving location to the shelf. Permission:
 `invoice.locate`.
 
 ```json
 { "productCode": "ABRAA1B", "fromLocationCode": "RECEPCION", "toLocationCode": "04-B-C", "quantity": 100.000 }
 ```
 
-**El total NO cambia**: es un traslado. El legacy mutaba el registro de recepción
-del kardex y por eso su libro dejaba de ser un libro. La respuesta es un
-`MovementResponse` con `status = "APPLIED"` y `total` vacío, y un `message` que lo
-explica.
+**The total does NOT change**: it is a transfer. The legacy mutated the receiving record
+in the ledger, and that is why its book stopped being a book. The response is a
+`MovementResponse` with `status = "APPLIED"` and an empty `total`, and a `message` that
+explains it.
 
-El cuerpo es el mismo que el de `move`. **No existe `invoiceLineId`.**
+The body is the same as that of `move`. **There is no `invoiceLineId`.**
 
-Errores: `409 DISCREPANCY_NOT_APPROVED` (una línea con discrepancia sin aprobar no
-se puede ubicar; regla B1), `422 SAME_SOURCE_AND_DESTINATION`,
+Errors: `409 DISCREPANCY_NOT_APPROVED` (a line with an unapproved discrepancy cannot be
+located; rule B1), `422 SAME_SOURCE_AND_DESTINATION`,
 `422 INSUFFICIENT_STOCK`, `400 INVALID_PRODUCT_CODE`, `400 INVALID_LOCATION_CODE`.
 
 ## `POST /v1/inventory/move`
 
-Traslado entre estantes de la misma bodega. Permiso: `inventory.move`. El cuerpo
-es el mismo que el de `locate`.
+Transfer between shelves of the same warehouse. Permission: `inventory.move`. The body
+is the same as that of `locate`.
 
 ```json
 { "productCode": "ABRAA1B", "fromLocationCode": "04-B-C", "toLocationCode": "04-B-D", "quantity": 10.000 }
 ```
 
-Mover entre estantes es una operación **distinta** de ubicar: ubicar saca de
-recepción, mover reorganiza. El operador tiene la primera pero no necesariamente
-la segunda.
+Moving between shelves is a **different** operation from locating: locating takes goods out of
+receiving, moving reorganizes. The operator has the first but not necessarily
+the second.
 
-`422 SAME_SOURCE_AND_DESTINATION` si origen y destino coinciden, `422
-INSUFFICIENT_STOCK` si no hay existencia en el origen.
+`422 SAME_SOURCE_AND_DESTINATION` if origin and destination match, `422
+INSUFFICIENT_STOCK` if there is no stock at the origin.
 
-## Verificación
+## Verification
 
-| Archivo | Qué cubre |
+| File | What it covers |
 |---|---|
-| `api/app/src/test/kotlin/dev/axzy/stock/app/InventoryFlowTest.kt` | A1, A2, A5, A6, A7, A8, A10 y la aprobación, por HTTP real |
-| `api/adapters-persistence/src/test/kotlin/dev/axzy/stock/adapters/persistence/InventoryEngineConcurrencyTest.kt` | A3, A4 y A9: concurrencia y kardex inmutable, con dos transacciones reales |
-| `api/adapters-persistence/src/test/kotlin/dev/axzy/stock/adapters/persistence/InventoryPersistenceTest.kt` | el motor, la idempotencia, el presupuesto de consultas (R-P2) y la resolución del nombre visible |
-| `api/adapters-persistence/src/test/kotlin/dev/axzy/stock/adapters/persistence/InventoryWriteGuardTest.kt` | que ningún adaptador escribe el inventario por fuera del motor |
-| `api/application/src/test/kotlin/dev/axzy/stock/application/inventory/LocationRefTest.kt` | que el nombre visible y su intérprete no se separen |
-| `stock-domain/src/commonTest/kotlin/dev/axzy/stock/domain/inventory/AdjustmentTest.kt` | las reglas del ajuste, sin base de datos |
+| `api/app/src/test/kotlin/dev/axzy/stock/app/InventoryFlowTest.kt` | A1, A2, A5, A6, A7, A8, A10 and approval, over real HTTP |
+| `api/adapters-persistence/src/test/kotlin/dev/axzy/stock/adapters/persistence/InventoryEngineConcurrencyTest.kt` | A3, A4 and A9: concurrency and immutable ledger, with two real transactions |
+| `api/adapters-persistence/src/test/kotlin/dev/axzy/stock/adapters/persistence/InventoryPersistenceTest.kt` | the engine, idempotency, query budget (R-P2) and visible name resolution |
+| `api/adapters-persistence/src/test/kotlin/dev/axzy/stock/adapters/persistence/InventoryWriteGuardTest.kt` | that no adapter writes the inventory outside the engine |
+| `api/application/src/test/kotlin/dev/axzy/stock/application/inventory/LocationRefTest.kt` | that the visible name and its interpreter do not separate |
+| `stock-domain/src/commonTest/kotlin/dev/axzy/stock/domain/inventory/AdjustmentTest.kt` | the adjustment rules, without a database |

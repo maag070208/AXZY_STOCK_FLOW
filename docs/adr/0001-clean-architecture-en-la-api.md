@@ -1,86 +1,85 @@
-# ADR-0001 — Clean Architecture por feature en la API
-> **Reemplazo parcial.** El framework de esta decisión (Ktor) queda reemplazado por [ADR-0014](0014-api-spring-boot-clean-architecture.md). La regla de dependencias se mantiene.
-> **Normativo.** Decisión aceptada. Última verificación: 2026-10-09.
+# ADR-0001 — Clean Architecture per feature in the API
+> **Partial replacement.** The framework of this decision (Ktor) is replaced by [ADR-0014](0014-api-spring-boot-clean-architecture.md). The dependency rule is kept.
+> **Normative.** Accepted decision. Last verified: 2026-10-09.
 
 | | |
 |---|---|
-| **Estado** | Aceptada |
-| **Fecha** | 2026-10-09 |
-| **Reemplaza a** | — (revierte la decisión previa de vertical slice en la API, que no tuvo ADR) |
-| **Reemplazada por** | — |
+| **Status** | Accepted |
+| **Date** | 2026-10-09 |
+| **Replaces** | — (reverts the previous vertical slice decision in the API, which had no ADR) |
+| **Replaced by** | — |
 
-## Contexto
+## Context
 
-La API se organizaba por feature con todo lo suyo dentro: rutas, servicio, DTOs,
-repositorio y tablas en la misma carpeta, sin capas horizontales. La justificación era la
-localidad: cambiar una funcionalidad tocaba una sola carpeta ([api-ktor.md](../historico/API-KTOR.md) §1.1).
+The API was organized by feature with everything it needed inside: routes, service, DTOs,
+repository and tables in the same folder, with no horizontal layers. The justification was
+locality: changing a feature touched a single folder ([api-ktor.md](../historico/API-KTOR.md) §1.1).
 
-Sin la regla de dependencias escrita, cada archivo decide por su cuenta: una ruta puede
-importar el driver JDBC y un DTO puede importar Ktor. El diseño se degrada sin que nadie tome
-la decisión. La lógica de negocio quedó además atrapada en las rutas y, sin puertos, la regla
-no se puede probar sin PostgreSQL: la única prueba posible corre contra la base real
+Without the dependency rule written down, each file decides for itself: a route can import the
+JDBC driver and a DTO can import Ktor. The design degrades without anyone making the decision.
+Business logic was also trapped in the routes and, without ports, the rule cannot be tested
+without PostgreSQL: the only possible test runs against the real database
 ([api-ktor.md](../historico/API-KTOR.md) §1.1).
 
-La reversión es solo de la API. La app móvil sigue en vertical slice (ADR-0003) y la web
-sigue en FSD (ADR-0002). No es la misma arquitectura a propósito: cada parte la elige por
-una razón distinta ([general.md](../arquitectura/general.md)).
+The reversal applies only to the API. The mobile app stays on vertical slice (ADR-0003) and the web
+stays on FSD (ADR-0002). It is not the same architecture on purpose: each part chooses it for a
+different reason ([general.md](../arquitectura/general.md)).
 
-## Decisión
+## Decision
 
-La API usa Clean Architecture (hexagonal) organizada por feature, y dentro de la feature,
-por capa.
+The API uses Clean Architecture (hexagonal) organized by feature, and within the feature,
+by layer.
 
-- La regla de dependencias es `infrastructure → application → domain`. Nunca al revés y
-  nunca un salto ([api-ktor.md](../historico/API-KTOR.md) §1.3).
-- `domain/` usa el stdlib de Kotlin y `stock-domain`. `application/` no importa Ktor,
-  Exposed, JDBC, HikariCP ni `kotlinx.serialization` en el caso de uso ni en los puertos.
-  Los DTOs de la feature sí pueden usar `kotlinx.serialization`; el archivo del caso de uso
-  nunca lleva `@Serializable` ([api-ktor.md](../historico/API-KTOR.md) §1.3).
-- Las capas viven dentro de la feature, nunca en carpetas globales del tipo `services/`,
-  `repositories/` o `routes/` ([api-ktor.md](../historico/API-KTOR.md) §1.2, §1.4).
-- El ámbito transaccional lo define el caso de uso, no la ruta ([api-ktor.md](../historico/API-KTOR.md) §1.12).
-- Las dependencias se inyectan por constructor, nunca con un `object` ([api-ktor.md](../historico/API-KTOR.md) §1.8, `backend/src/main/kotlin/dev/axzy/stock/backend/config/AppDependencies.kt`).
-- La migración se hace por feature y compilando entre fases. `catalog/` ya está partido por
-  recurso (`backend/src/main/kotlin/dev/axzy/stock/backend/catalog/`).
+- The dependency rule is `infrastructure → application → domain`. Never the reverse and
+  never a skip ([api-ktor.md](../historico/API-KTOR.md) §1.3).
+- `domain/` uses the Kotlin stdlib and `stock-domain`. `application/` does not import Ktor,
+  Exposed, JDBC, HikariCP or `kotlinx.serialization` in the use case or in the ports.
+  The feature's DTOs may use `kotlinx.serialization`; the use case file
+  never carries `@Serializable` ([api-ktor.md](../historico/API-KTOR.md) §1.3).
+- The layers live inside the feature, never in global folders such as `services/`,
+  `repositories/` or `routes/` ([api-ktor.md](../historico/API-KTOR.md) §1.2, §1.4).
+- The transactional scope is defined by the use case, not by the route ([api-ktor.md](../historico/API-KTOR.md) §1.12).
+- Dependencies are injected through the constructor, never with an `object` ([api-ktor.md](../historico/API-KTOR.md) §1.8, `backend/src/main/kotlin/dev/axzy/stock/backend/config/AppDependencies.kt`).
+- The migration is done per feature and compiling between phases. `catalog/` is already split
+  by resource (`backend/src/main/kotlin/dev/axzy/stock/backend/catalog/`).
 
-## Consecuencias
+## Consequences
 
-Se gana una dirección de dependencias explícita, una regla de negocio que se prueba sin base
-de datos y un caso de uso que se puede exponer por otro canal sin arrastrar la representación
-HTTP.
+An explicit dependency direction is gained, a business rule that is tested without a database,
+and a use case that can be exposed through another channel without dragging the HTTP representation along.
 
-Se paga más estructura por feature: más archivos, más imports que mantener y una migración
-que todavía no termina. El árbol objetivo de [api-ktor.md](../historico/API-KTOR.md) §1.2
-**existe ya para `inventory/`, `receiving/` y `transfer/`**, y `catalog/` está partido por
-recurso con sus servicios; el resto de features sigue `package-by-feature`
-([migracion-capas.md](../historico/MIGRACION-CAPAS-KTOR.md) y
+More structure per feature is paid for: more files, more imports to maintain and a migration
+that has not finished yet. The target tree of [api-ktor.md](../historico/API-KTOR.md) §1.2
+**already exists for `inventory/`, `receiving/` and `transfer/`**, and `catalog/` is split
+by resource with its services; the rest of the features still follow `package-by-feature`
+([migracion-capas.md](../historico/MIGRACION-CAPAS-KTOR.md) and
 [lo-no-verificado.md](../historico/LO-NO-VERIFICADO-ANTERIOR.md)).
 
-Reglas operativas que se derivan:
+Operational rules that follow:
 
-- El backend no puede tener carpetas globales de capas. Lo que usan dos o más features va a
-  `config/`, `error/`, `security/` o `application/shared/`, no a un cajón por tipo de
-  archivo ([api-ktor.md](../historico/API-KTOR.md) §1.4).
-- Un archivo de caso de uso no se anota con `@Serializable`.
-- La regla no tiene guardia automática todavía: se comprueba a mano con el `grep` de
+- The backend cannot have global layer folders. What two or more features use goes to
+  `config/`, `error/`, `security/` or `application/shared/`, not to a drawer per file
+  type ([api-ktor.md](../historico/API-KTOR.md) §1.4).
+- A use case file is not annotated with `@Serializable`.
+- The rule has no automatic guard yet: it is checked by hand with the `grep` of
   [api-ktor.md](../historico/API-KTOR.md) §1.3.
 
-## Alternativas consideradas
+## Alternatives considered
 
-- **Mantener vertical slice en la API.** La localidad es real, pero no hay dirección de
-  dependencias escrita y la regla de negocio acaba repartida por los handlers
+- **Keep vertical slice in the API.** Locality is real, but there is no written dependency
+  direction and the business rule ends up spread across the handlers
   ([api-ktor.md](../historico/API-KTOR.md) §1.1).
-- **Volver a carpetas globales por capa.** El servicio en una carpeta y todas las rutas HTTP
-  en otra obliga a saltar entre dos sitios para tocar una feature, y `routes/` acaba siendo un
-  cajón de archivos sin relación entre sí
+- **Go back to global folders per layer.** The service in one folder and all the HTTP routes in
+  another forces jumping between two places to touch one feature, and `routes/` ends up being a
+  drawer of files with no relation to each other
   ([api-ktor.md](../historico/API-KTOR.md) §1.2).
-- **Migrar todo de una vez con un script.** Se intentó y se revirtió a propósito: el
-  refactor rompió imports en masa y lo único verificable que quedó fue el destrozo. Se hace
-  por feature y compilando entre fases ([api-ktor.md](../historico/API-KTOR.md) §1.2).
+- **Migrate everything at once with a script.** It was tried and reverted on purpose: the
+  refactor broke imports en masse and the only thing that could be verified was the wreckage. It is done
+  per feature and compiling between phases ([api-ktor.md](../historico/API-KTOR.md) §1.2).
 
-## Referencias
+## References
 
-- [general.md](../arquitectura/general.md) y [api-ktor.md](../historico/API-KTOR.md) §1.1, §1.2, §1.3, §1.4, §1.8, §1.12, §1.18
+- [general.md](../arquitectura/general.md) and [api-ktor.md](../historico/API-KTOR.md) §1.1, §1.2, §1.3, §1.4, §1.8, §1.12, §1.18
 - `backend/src/main/kotlin/dev/axzy/stock/backend/catalog/product/ProductRoutes.kt`
 - `backend/src/main/kotlin/dev/axzy/stock/backend/catalog/product/ProductRepository.kt`
 - `backend/src/main/kotlin/dev/axzy/stock/backend/config/AppDependencies.kt`

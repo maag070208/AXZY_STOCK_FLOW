@@ -1,75 +1,72 @@
-# ADR-0003 — Vertical slice en la app móvil
-> **Vigente.** Se mantiene para la app KMP; ver [arquitectura/app-kmp.md](../arquitectura/app-kmp.md).
-> **Normativo.** Decisión aceptada. Última verificación: 2026-10-09.
+# ADR-0003 — Vertical slice in the mobile app
+> **In force.** Kept for the KMP app; see [arquitectura/app-kmp.md](../arquitectura/app-kmp.md).
+> **Normative.** Accepted decision. Last verified: 2026-10-09.
 
 | | |
 |---|---|
-| **Estado** | Aceptada |
-| **Fecha** | 2026-10-09 |
-| **Reemplaza a** | — |
-| **Reemplazada por** | — |
+| **Status** | Accepted |
+| **Date** | 2026-10-09 |
+| **Replaces** | — |
+| **Replaced by** | — |
 
-## Contexto
+## Context
 
-La app se compila como un build de Gradle propio, separado del monorepo, porque un
-directorio no puede ser raíz de dos builds y meterlo con `include(":mobile-app")` deja el
-proyecto sin raíz y rompe la sincronización del IDE (`mobile-app/settings.gradle.kts`,
-`settings.gradle.kts`, [app-kmp.md](../arquitectura/app-kmp.md) §3.1).
+The app is compiled as its own Gradle build, separate from the monorepo, because a directory cannot be the root of two
+builds, and including it with `include(":mobile-app")` leaves the project without a root and breaks the IDE sync
+(`mobile-app/settings.gradle.kts`, `settings.gradle.kts`, [app-kmp.md](../arquitectura/app-kmp.md) §3.1).
 
-La app consume el dominio como build incluido (`includeBuild("..")`), que es la misma
-instancia y no una copia: las decisiones de negocio son idénticas en backend y móvil por
-construcción (`mobile-app/settings.gradle.kts`).
+The app consumes the domain as an included build (`includeBuild("..")`), which is the same
+instance and not a copy: the business decisions are identical in backend and mobile by construction
+(`mobile-app/settings.gradle.kts`).
 
-Su arquitectura es vertical slice: la feature es la unidad de organización y tiene un
-`core/` compartido. Su fuerza es la localidad —cambiar una funcionalidad toca una sola
-carpeta— y es, a propósito, la arquitectura que la API abandonó en ADR-0001
-([general.md](../arquitectura/general.md) y [app-kmp.md](../arquitectura/app-kmp.md) §3.1).
+Its architecture is vertical slice: the feature is the unit of organization and there is a shared
+`core/`. Its strength is locality —changing a feature touches a single folder— and it is, on purpose, the
+architecture that the API abandoned in ADR-0001 ([general.md](../arquitectura/general.md) and [app-kmp.md](../arquitectura/app-kmp.md) §3.1).
 
-## Decisión
+## Decision
 
-- `mobile-app/` es un build KMP autocontenido con dos módulos, `shared/` y `androidApp/`, y
-  su propio `settings.gradle.kts` (`mobile-app/settings.gradle.kts`).
-- El dominio no se duplica: se consume por `includeBuild("..")` con sustitución por
-  coordenada (`mobile-app/settings.gradle.kts`).
-- Dentro de `shared`, el código se parte en `core/` (compartido: `theme`, `ui`, `camera`,
-  `nav`, `data`) y `feature/` (una carpeta por funcionalidad: `auth`, `home`, `inventory`,
+- `mobile-app/` is a self-contained KMP build with two modules, `shared/` and `androidApp/`, and
+  its own `settings.gradle.kts` (`mobile-app/settings.gradle.kts`).
+- The domain is not duplicated: it is consumed through `includeBuild("..")` with substitution by
+  coordinate (`mobile-app/settings.gradle.kts`).
+- Inside `shared`, the code is split into `core/` (shared: `theme`, `ui`, `camera`,
+  `nav`, `data`) and `feature/` (one folder per feature: `auth`, `home`, `inventory`,
   `invoices`, `labels`, `locations`, `orders`).
-- Un cambio de funcionalidad toca una sola carpeta de `feature/`. Lo que usan dos features se
-  promueve a `core/`; no se copia.
-- Los targets JVM y Android están siempre. iOS es opt-in con `-PenableIosTargets=true`
+- A feature change touches a single folder of `feature/`. What two features use is promoted to
+  `core/`; it is not copied.
+- The JVM and Android targets are always present. iOS is opt-in with `-PenableIosTargets=true`
   ([app-kmp.md](../arquitectura/app-kmp.md) §3.2).
-- Los comandos del móvil se lanzan desde `mobile-app/`, no desde la raíz
+- The mobile commands are run from `mobile-app/`, not from the root
   ([app-kmp.md](../arquitectura/app-kmp.md) §3.3).
 
-## Consecuencias
+## Consequences
 
-Se gana localidad y un test que corre en JVM en segundos, sin emulador: es lo que valida el
-código común de la app ([app-kmp.md](../arquitectura/app-kmp.md) §3.2).
+Locality is gained, and a test that runs on the JVM in seconds, without an emulator: it is what validates the
+common code of the app ([app-kmp.md](../arquitectura/app-kmp.md) §3.2).
 
-Se paga que los comandos no se lancen desde la raíz, que iOS exija recordar el flag y que el
-`.xcodeproj` no esté verificado en Xcode ([app-kmp.md](../arquitectura/app-kmp.md) §3.2 y [lo-no-verificado.md](../historico/LO-NO-VERIFICADO-ANTERIOR.md)).
+The price is that the commands cannot be run from the root, that iOS requires remembering the flag and that the
+`.xcodeproj` is not verified in Xcode ([app-kmp.md](../arquitectura/app-kmp.md) §3.2 and [lo-no-verificado.md](../historico/LO-NO-VERIFICADO-ANTERIOR.md)).
 
-Reglas operativas que se derivan:
+Operational rules that follow:
 
-- Las reglas de negocio viven en `stock-domain`, no en `feature/`. Si una regla se escribe
-  dos veces, una de las dos dejará de ser cierta.
-- El dominio no se copia dentro de la app: se consume como build incluido.
-- La vertical slice no tiene guardia automática. La disciplina es del revisor: una feature no
-  importa de otra feature, y lo compartido se declara en `core/`.
+- The business rules live in `stock-domain`, not in `feature/`. If a rule is written twice, one of the two
+  will stop being true.
+- The domain is not copied into the app: it is consumed as an included build.
+- The vertical slice has no automatic guard. Discipline belongs to the reviewer: a feature does not
+  import from another feature, and what is shared is declared in `core/`.
 
-## Alternativas consideradas
+## Alternatives considered
 
-- **Incluir `mobile-app` como submódulo del monorepo.** Comprobado y descartado: el
-  directorio deja de ser raíz de su build, IntelliJ no sincroniza y
-  `./gradlew :mobile-app:shared:jvmTest` falla (`settings.gradle.kts`).
-- **FSD en la app.** Las capas dentro de cada feature complican el montaje de Compose y no
-  aportan la regla que sí importa en la web, que es la dirección entre pantallas
+- **Include `mobile-app` as a submodule of the monorepo.** Checked and discarded: the
+  directory stops being the root of its build, IntelliJ does not sync and
+  `./gradlew :mobile-app:shared:jvmTest` fails (`settings.gradle.kts`).
+- **FSD in the app.** The layers inside each feature complicate the Compose setup and do not
+  provide the rule that matters in the web, which is the direction between screens
   ([general.md](../arquitectura/general.md)).
-- **Copiar `stock-domain` dentro de la app.** Sería tener dos definiciones de la misma regla
-  de negocio, que es justo lo que el módulo compartido evita
-  (`mobile-app/settings.gradle.kts`).
+- **Copy `stock-domain` inside the app.** It would mean two definitions of the same business rule,
+  which is exactly what the shared module avoids (`mobile-app/settings.gradle.kts`).
 
-## Referencias
+## References
 
 - `mobile-app/settings.gradle.kts`
 - `settings.gradle.kts`
@@ -77,4 +74,4 @@ Reglas operativas que se derivan:
 - `mobile-app/shared/src/commonMain/kotlin/dev/axzy/stock/mobile/core/`
 - `mobile-app/shared/src/commonMain/kotlin/dev/axzy/stock/mobile/feature/`
 - `stock-domain/build.gradle.kts`
-- [general.md](../arquitectura/general.md) y [app-kmp.md](../arquitectura/app-kmp.md) §3.1, §3.2, §3.3
+- [general.md](../arquitectura/general.md) and [app-kmp.md](../arquitectura/app-kmp.md) §3.1, §3.2, §3.3

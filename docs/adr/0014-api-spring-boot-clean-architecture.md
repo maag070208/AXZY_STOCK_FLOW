@@ -1,26 +1,26 @@
-# ADR-0014 — La API en Kotlin con Spring Boot, en capas, con inyección por constructor
-> **Normativo.** Decisión aceptada. Reemplaza la parte de framework de [ADR-0001](0001-clean-architecture-en-la-api.md).
+# ADR-0014 — The API in Kotlin with Spring Boot, layered, with constructor injection
+> **Normative.** Accepted decision. It replaces the framework part of [ADR-0001](0001-clean-architecture-en-la-api.md).
 
 | | |
 |---|---|
-| **Estado** | Aceptada |
-| **Fecha** | 2026-10-09 |
-| **Reemplaza a** | [ADR-0001](0001-clean-architecture-en-la-api.md) (solo el framework; la regla de dependencias sigue) |
-| **Reemplazada por** | — |
+| **Status** | Accepted |
+| **Date** | 2026-10-09 |
+| **Replaces** | [ADR-0001](0001-clean-architecture-en-la-api.md) (the framework only; the dependency rule still applies) |
+| **Replaced by** | — |
 
-## Contexto
+## Context
 
-La API anterior era Ktor con el cableado a mano (`by lazy`) y Koin en el classpath sin usarse.
-Cada dependencia se resolvía con código propio, y eso dejó dos problemas: el ciclo de vida de
-los objetos no era visible en un solo sitio, y la regla de dependencias se verificaba por
-convención, no por el compilador. El equipo conoce Spring Boot y necesita un framework con
-inyección de dependencias madura, documentación amplia y soporte de Docker sin fricción.
+The previous API was Ktor with hand-wired dependencies (`by lazy`) and Koin on the classpath without being used.
+Each dependency was resolved with custom code, and that left two problems: the lifecycle of the
+objects was not visible in a single place, and the dependency rule was verified by convention, not by the
+compiler. The team knows Spring Boot and needs a framework with mature dependency injection,
+broad documentation and frictionless Docker support.
 
-## Decisión
+## Decision
 
-1. **Kotlin con Spring Boot** para la API, sobre JDK LTS (la versión exacta se fija en la fase 0,
+1. **Kotlin with Spring Boot** for the API, on a JDK LTS (the exact version is pinned in phase 0,
    [stack.md](../arquitectura/stack.md)).
-2. **Capas en módulos de Gradle separados**, y la dependencia solo puede apuntar hacia dentro:
+2. **Layers in separate Gradle modules**, and the dependency can only point inward:
 
    ```
                     ┌──→ adapters-web ─────────┐
@@ -28,41 +28,41 @@ inyección de dependencias madura, documentación amplia y soporte de Docker sin
                     └──→ adapters-security ────┘
    ```
 
-   - `stock-domain`: entidades, estados, errores tipados y reglas. **No depende de Spring ni de JDBC.**
-     Es el dominio compartido con la app (plan D6); la API no tiene un módulo de dominio propio.
-   - `application`: casos de uso y **puertos** (interfaces). Depende solo de `stock-domain`.
-   - `adapters-persistence`: implementa los puertos de salida con PostgreSQL.
-   - `adapters-security`: implementa los puertos de criptografía (tokens, hash de contraseñas).
-   - `adapters-web`: controladores HTTP que llaman a los casos de uso.
-   - `app`: el único módulo que **cablea** todo. Es el único que depende de todos.
+   - `stock-domain`: entities, states, typed errors and rules. **It does not depend on Spring or JDBC.**
+     It is the domain shared with the app (plan D6); the API has no domain module of its own.
+   - `application`: use cases and **ports** (interfaces). It depends only on `stock-domain`.
+   - `adapters-persistence`: implements the outbound ports with PostgreSQL.
+   - `adapters-security`: implements the cryptography ports (tokens, password hashing).
+   - `adapters-web`: HTTP controllers that call the use cases.
+   - `app`: the only module that **wires** everything. It is the only one that depends on all of them.
 
-   Los tres adaptadores no se conocen entre sí. `adapters-security` se separó de los otros dos al
-   implementar: la criptografía no es ni persistencia ni HTTP, y aislarla permite probarla sola.
+   The three adapters do not know each other. `adapters-security` was split off from the other two while
+   implementing: cryptography is neither persistence nor HTTP, and isolating it allows testing it on its own.
 
-3. **Inyección de dependencias por constructor.** Los casos de uso son clases Kotlin simples con
-   sus puertos en el constructor. Spring solo se usa para instanciarlos en `app`, en una
-   configuración por módulo. Un caso de uso se puede probar sin levantar Spring.
-4. **Las transacciones son un puerto.** `application` define `TransactionRunner`; el adaptador de
-   Spring (`TransactionTemplate`) lo implementa en `app`. Así la aplicación no depende de
+3. **Dependency injection through the constructor.** The use cases are plain Kotlin classes with
+   their ports in the constructor. Spring is only used to instantiate them in `app`, in a
+   configuration per module. A use case can be tested without starting Spring.
+4. **Transactions are a port.** `application` defines `TransactionRunner`; the Spring adapter
+   (`TransactionTemplate`) implements it in `app`. That way the application does not depend on
    `@Transactional`.
-5. **La autorización se decide en `application`**, no solo en el controlador. Un endpoint nuevo que
-   olvide el controlador no puede saltarse la regla de permisos.
+5. **Authorization is decided in `application`**, not only in the controller. A new endpoint that
+   forgets the controller cannot skip the permission rule.
 
-## Consecuencias
+## Consequences
 
-- La regla de dependencias la comprueba el compilador (los módulos no se ven entre sí en la
-  dirección prohibida) y una prueba ArchUnit la repite en cada build.
-- El cableado completo está en un solo lugar (`app`); es lo primero que se lee al buscar
-  dónde se crea un objeto.
-- Más módulos de Gradle que un proyecto de un solo módulo: se paga en configuración inicial.
-- Spring queda fuera del dominio: si el framework cambia, cambia `app` y los adaptadores, no
-  las reglas.
+- The dependency rule is checked by the compiler (the modules cannot see each other in the forbidden
+   direction) and an ArchUnit test repeats it on every build.
+- The full wiring is in a single place (`app`); it is the first thing read when looking for
+  where an object is created.
+- More Gradle modules than a single-module project: the cost is paid in initial configuration.
+- Spring stays outside the domain: if the framework changes, `app` and the adapters change, not
+  the rules.
 
-## Alternativas descartadas
+## Discarded alternatives
 
-- **Un solo módulo con paquetes y sin enforcement.** Las capas se degradan con el tiempo sin que
-  nadie lo note; es el problema que la arquitectura anterior ya tuvo.
-- **Anotaciones de Spring en el dominio** (`@Service`, `@Transactional`). Acopla las reglas al
-  framework y hace que las pruebas del dominio necesiten contexto de Spring.
-- **Koin en lugar de Spring.** Ya estaba en el classpath de la API anterior sin usarse; el equipo
-  no tiene experiencia con él y Spring ofrece lo mismo con más documentación.
+- **A single module with packages and no enforcement.** The layers degrade over time without
+  anyone noticing; it is the problem the previous architecture already had.
+- **Spring annotations in the domain** (`@Service`, `@Transactional`). It couples the rules to the framework and
+  makes the domain tests need a Spring context.
+- **Koin instead of Spring.** It was already on the classpath of the previous API without being used; the team
+  has no experience with it and Spring offers the same with more documentation.

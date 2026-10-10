@@ -14,15 +14,15 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * TESTS DE LAS REGLAS DE NEGOCIO DE LA LÍNEA DE FACTURA
+ * INVOICE LINE BUSINESS RULE TESTS
  *
- * Las tres reglas que el legacy no tenía se prueban aquí, y cada una incluye
- * **el caso negativo**, que es el que de verdad importa: no basta con que el
- * flujo feliz funcione, hay que demostrar que el control **bloquea**.
+ * The three rules the legacy did not have are tested here, and each one includes
+ * **the negative case**, which is the one that really matters: it is not enough for the
+ * happy path to work, it must be shown that the control **blocks**.
  *
- *   · B1 / R-75: la discrepancia bloquea la ubicación
- *   · R-74:      quien captura no aprueba su propia discrepancia
- *   · R-80:      las cajas deben cuadrar
+ *   · B1 / R-75: the discrepancy blocks the location
+ *   · R-74:      whoever captures does not approve their own discrepancy
+ *   · R-80:      the boxes must add up
  * ═══════════════════════════════════════════════════════════════════════════
  */
 class InvoiceLineStateMachineTest : DescribeSpec({
@@ -33,7 +33,7 @@ class InvoiceLineStateMachineTest : DescribeSpec({
     val operator = 10L
     val supervisor = 20L
 
-    /** Línea recién dada de alta: 100 piezas facturadas, 50 por caja. */
+    /** Line just created: 100 pieces invoiced, 50 per box. */
     fun lineNew(): InvoiceLine = InvoiceLine(
         id = 1L,
         productCode = product,
@@ -43,11 +43,11 @@ class InvoiceLineStateMachineTest : DescribeSpec({
     )
 
     /**
-     * Línea ya contada, con el resultado indicado.
+     * Line already counted, with the stated result.
      *
-     * Las cajas son las **completas** que caben en lo contado: contar 80 piezas
-     * con cajas de 50 es 1 caja y 30 sueltas. El remanente es un faltante
-     * legítimo, no un error de captura.
+     * The boxes are the **complete** ones that fit in what was counted: counting 80 pieces
+     * with boxes of 50 is 1 box and 30 loose. The remainder is a shortage
+     * that is legitimate, not a capture error.
      */
     fun lineCaptured(quantityPhysical: Long): InvoiceLine =
         lineNew()
@@ -62,9 +62,9 @@ class InvoiceLineStateMachineTest : DescribeSpec({
                 )
             }.getOrThrow()
 
-    /** Línea con una discrepancia ya autorizada por un supervisor. */
+    /** Line with a discrepancy already authorized by a supervisor. */
     fun lineApproved(quantityPhysical: Long): InvoiceLine =
-        // 90 contra 100 facturadas: hay diferencia, así que se puede aprobar.
+        // 90 against 100 invoiced: there is a difference, so it can be approved.
         lineCaptured(quantityPhysical)
             .approveDiscrepancy(approvedBy = supervisor, reason = "SUPPLIER_ERROR")
             .getOrThrow()
@@ -102,7 +102,7 @@ class InvoiceLineStateMachineTest : DescribeSpec({
     describe("B1 / R-75: every discrepancy blocks the location (no threshold)") {
 
         it("a difference of ONE single piece already blocks the location") {
-            // Decisión R-75: sin umbral. No hay diferencia "pequeña" que pase.
+            // Decision R-75: no threshold. There is no "small" difference that gets through.
             val line = lineCaptured(99)
             line.status shouldBe InvoiceLineStatus.DISCREPANCY
 
@@ -141,8 +141,8 @@ class InvoiceLineStateMachineTest : DescribeSpec({
             val partial = line.locate(Quantity.of(40), shelf).getOrThrow()
 
             withClue("Ubicar 40 de 100 no cierra la línea, y tampoco la aprueba") {
-                // Sigue contada: no hubo ninguna discrepancia que aprobar, y la base
-                // prohíbe `APPROVED` sin aprobador.
+                // Still counted: there was no discrepancy to approve, and the database
+                // forbids `APPROVED` without an approver.
                 partial.status shouldBe InvoiceLineStatus.CAPTURED
                 partial.pendingToLocate shouldBe Quantity.of(60)
             }
@@ -154,7 +154,7 @@ class InvoiceLineStateMachineTest : DescribeSpec({
         }
 
         it("locating partially an approved line leaves it approved") {
-            // 90 contadas de 100 facturadas: discrepancia aprobada por el supervisor.
+            // 90 counted of 100 invoiced: discrepancy approved by the supervisor.
             val line = lineApproved(90)
             val partial = line.locate(Quantity.of(30), shelf).getOrThrow()
 
@@ -264,8 +264,8 @@ class InvoiceLineStateMachineTest : DescribeSpec({
     describe("R-80: consistency of packing and of the box count") {
 
         it("an invoice of 100 pieces with boxes of 30 is REJECTED: an impossible figure") {
-            // Nadie empaca 3 cajas y 10 sueltas cuando la especificación dice
-            // que las cajas son de 30. Es un error de captura de la factura.
+            // Nobody packs 3 boxes and 10 loose when the specification says
+            // the boxes hold 30. It is an invoice capture error.
             val result = InvoiceLine.validatePackingSpecification(
                 invoicedQuantity = Quantity.of(100),
                 unitsPerBox = UnitsPerBox.of(30),
@@ -296,9 +296,9 @@ class InvoiceLineStateMachineTest : DescribeSpec({
         }
 
         it("COUNTING 80 of a 100-unit invoice with boxes of 50 IS accepted: it is a shortage") {
-            // Éste es el caso que una validación ingenua bloquearía. Contar 80
-            // con cajas de 50 es 1 caja y 30 sueltas: un faltante real, que es
-            // exactamente lo que el flujo de discrepancia existe para capturar.
+            // This is the case that a naive validation would block. Counting 80
+            // with boxes of 50 is 1 box and 30 loose: a real shortage, which is
+            // exactly what the discrepancy flow exists to capture.
             val line = lineCaptured(80)
 
             withClue("Debe quedar en DISCREPANCY, no fallar la captura") {
@@ -313,7 +313,7 @@ class InvoiceLineStateMachineTest : DescribeSpec({
         }
 
         it("declaring more boxes than fit in the count IS rejected") {
-            // 80 piezas no pueden ser 2 cajas de 50: serían 100.
+            // 80 pieces cannot be 2 boxes of 50: that would be 100.
             val result = lineNew().capture(
                 physicalQuantity = Quantity.of(80),
                 physicalBoxQuantity = BoxQuantity.of(2),
@@ -325,8 +325,8 @@ class InvoiceLineStateMachineTest : DescribeSpec({
         }
 
         it("declaring fewer boxes than fit is accepted: the operator counts loose pieces") {
-            // 100 piezas con 50 por caja declaradas como 1 caja: quedan 50
-            // sueltas contadas. Es una descripción válida del conteo.
+            // 100 pieces with 50 per box declared as 1 box: 50 remain
+            // counted loose. It is a valid description of the count.
             val result = lineNew().capture(
                 physicalQuantity = Quantity.of(100),
                 physicalBoxQuantity = BoxQuantity.of(1),
@@ -406,7 +406,7 @@ class InvoiceLineStateMachineTest : DescribeSpec({
         it("every state has a defined response (the `when` is exhaustive)") {
             InvoiceLineStatus.entries.forEach { status ->
                 withClue("El estado ${status.name} debe tener ambas consultas definidas") {
-                    // Si falta un caso en los `when` de arriba, esto no compila.
+                    // If a case is missing in the `when`s above, this does not compile.
                     status.allowsLocating
                     status.blocksInvoiceClosing
                 }

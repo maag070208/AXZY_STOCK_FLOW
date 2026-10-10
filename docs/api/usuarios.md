@@ -1,68 +1,64 @@
-# Usuarios y roles
-> **Referencia.** Administración de usuarios: alta, consulta, edición, asignación de roles y
-> restablecimiento de contraseña. Última verificación: 2026-10-10 (fase 9).
+# Users and roles
+> **Reference.** User administration: creation, lookup, editing, role assignment and password reset. Last verified: 2026-10-10 (phase 9).
 
-Implementado en capas: rutas en `api/adapters-web/.../identity/UserAdminController.kt`,
-casos de uso en `api/application/.../identity/UserAdminUseCases.kt`, persistencia en
-`api/adapters-persistence/.../identity/JdbcUserAdmin.kt` y cableado en
+Implemented in layers: routes in `api/adapters-web/.../identity/UserAdminController.kt`,
+use cases in `api/application/.../identity/UserAdminUseCases.kt`, persistence in
+`api/adapters-persistence/.../identity/JdbcUserAdmin.kt` and wiring in
 `api/app/.../config/UserAdminConfig.kt`.
 
-Es la puerta de todo lo demás: **quien puede asignar roles puede darse cualquier
-permiso**. Por eso todo lo que se escribe aquí queda en la bitácora con nivel `CRITICAL`.
+It is the gate to everything else: **whoever can assign roles can grant any
+permission**. That is why everything written here is recorded in the audit log with level `CRITICAL`.
 
-## Rutas
+## Routes
 
-| Ruta | Permiso | Qué hace |
+| Route | Permission | What it does |
 |---|---|---|
-| `GET /v1/users` | `user.view` | Listado paginado, filtros `q`, `role` y `active` |
-| `POST /v1/users` | `user.create` | Alta, con sus roles. **201** |
-| `GET /v1/users/{id}` | `user.view` | Detalle: roles, bodegas y cuándo cambió la contraseña |
-| `PUT /v1/users/{id}` | `user.edit` / `role.assign` | Edición parcial; lo que no viene queda igual. **Mandar `roles` exige `role.assign`**: decidir qué puede hacer alguien no es lo mismo que corregir su nombre |
-| `POST /v1/users/{id}/reset-password` | `user.reset_password` | Contraseña nueva y, por defecto, cambio obligatorio |
-| `POST /v1/users/{id}/revoke-sessions` | `session.revoke` | Cierra **todas** las sesiones abiertas de esa persona |
-| `GET /v1/roles` | `role.manage` | Los roles con cuántos permisos tiene cada uno |
-| `POST /v1/roles` | `role.manage` | Alta de un rol con su matriz. **201** |
-| `GET /v1/roles/{key}` | `role.manage` | El rol con **su matriz** y cuántas personas lo tienen |
-| `PUT /v1/roles/{key}` | `role.manage` | Nombre, descripción y `active`; lo que no viene queda igual |
-| `PUT /v1/roles/{key}/permissions` | `role.manage` | Reemplaza la matriz: **lo que no venga, deja de estar concedido** |
-| `GET /v1/permissions` | `role.manage` | El catálogo, que es **código**, no una tabla editable |
+| `GET /v1/users` | `user.view` | Paginated listing, filters `q`, `role` and `active` |
+| `POST /v1/users` | `user.create` | Creation, with its roles. **201** |
+| `GET /v1/users/{id}` | `user.view` | Detail: roles, warehouses and when the password last changed |
+| `PUT /v1/users/{id}` | `user.edit` / `role.assign` | Partial edit; what does not come stays the same. **Sending `roles` requires `role.assign`**: deciding what someone can do is not the same as correcting their name |
+| `POST /v1/users/{id}/reset-password` | `user.reset_password` | New password and, by default, mandatory change |
+| `POST /v1/users/{id}/revoke-sessions` | `session.revoke` | Closes **all** the open sessions of that person |
+| `GET /v1/roles` | `role.manage` | The roles with how many permissions each one has |
+| `POST /v1/roles` | `role.manage` | Creation of a role with its matrix. **201** |
+| `GET /v1/roles/{key}` | `role.manage` | The role with **its matrix** and how many people have it |
+| `PUT /v1/roles/{key}` | `role.manage` | Name, description and `active`; what does not come stays the same |
+| `PUT /v1/roles/{key}/permissions` | `role.manage` | Replaces the matrix: **whatever does not come stops being granted** |
+| `GET /v1/permissions` | `role.manage` | The catalog, which is **code**, not an editable table |
 
-## Lo que la implementación fija
+## What the implementation fixes
 
-- **La contraseña nunca se devuelve**, y la bitácora no la registra: dice que se cambió, no
-  cuál es.
-- **Un usuario nuevo nace obligado a cambiar la contraseña** salvo que se diga lo
-  contrario: quien la creó la conoce.
-- **Restablecer invalida las sesiones abiertas.** El sello de credenciales del token es
-  `password_changed_at`, así que al cambiarla los tokens vivos dejan de coincidir (R3). Si
-  a alguien se le restablece porque sospecha que se la robaron, dejar vivo el token del
-  ladrón sería no haber hecho nada.
-- **Un usuario sin roles no se admite**: no podría hacer nada y lo descubriría al entrar.
-- La contraseña se valida con la **misma política** que el inicio de sesión (NIST SP
+- **The password is never returned**, and the audit log does not record it: it says that it was changed, not
+  what it is.
+- **A new user is born required to change the password** unless stated otherwise: whoever
+  created it knows it.
+- **Resetting invalidates the open sessions.** The token's credentials stamp is
+  `password_changed_at`, so when it is changed the live tokens stop matching (R3). If
+  someone is reset because it is suspected their password was stolen, leaving the thief's token alive would mean having done nothing.
+- **A user without roles is not admitted**: they could not do anything and would discover it on entering.
+- The password is validated with the **same policy** as sign-in (NIST SP
   800-63B): `422 WEAK_PASSWORD`.
 
-## Revocar las sesiones de otro
+## Revoking another person's sessions
 
-`POST /v1/users/{id}/revoke-sessions` responde `200` con `revokedSessions` (cuántos tokens de
-refresco se revocaron). Cero **no es un error**: la persona no tenía la sesión abierta, que es
-justo lo que se quería. `404 USER_NOT_FOUND` si el usuario no existe.
+`POST /v1/users/{id}/revoke-sessions` answers `200` with `revokedSessions` (how many refresh
+tokens were revoked). Zero **is not an error**: the person did not have a session open, which is
+exactly what was wanted. `404 USER_NOT_FOUND` if the user does not exist.
 
-Es la respuesta a «le robaron el portátil» o «se va hoy» sin tener que cambiarle la contraseña,
-que es una decisión mucho más grande: se la comunicas, la cambia, y con eso invalidas también lo
-que estaba haciendo.
+It is the answer to "they stole the laptop" or "they leave today" without having to change their password,
+which is a much bigger decision: you tell them, they change it, and with that you also invalidate what they were doing.
 
-**Lo que corta es la renovación, y conviene decirlo con precisión.** El token de acceso ya
-emitido es un JWT firmado que no se consulta en la base en cada petición, así que vive hasta que
-expira por su cuenta. Lo que se revoca son los tokens de refresco, que son los que mantienen la
-sesión viva. Quedan dos matices, ambos por diseño:
+**What it cuts is the renewal, and it is worth saying so precisely.** The access token already
+issued is a signed JWT that is not checked against the database on each request, so it lives until it
+expires on its own. What is revoked are the refresh tokens, which are the ones that keep the
+session alive. There are two nuances, both by design:
 
-- Un token de refresco **ya rotado** sigue siendo aceptado durante su **ventana de gracia de 30
-  segundos**, pensada para el reintento de un cliente al que se le cayó la red. Revocar no la
-  cambia: la ventana es de la rotación, no de la sesión.
-- Para cortar el acceso **de inmediato** está restablecer la contraseña, que sí mueve el sello de
-  credenciales (`password_changed_at`) e invalida todo lo emitido.
+- A refresh token **already rotated** is still accepted during its **30-second grace window**,
+  designed for the retry of a client whose network dropped. Revoking does not change it: the window belongs to the rotation, not to the session.
+- To cut access **immediately**, there is password reset, which does move the credentials stamp
+  (`password_changed_at`) and invalidates everything issued.
 
-## La matriz de un rol
+## A role's matrix
 
 ```json
 PUT /v1/roles/SUPERVISOR_BODEGA/permissions
@@ -70,66 +66,64 @@ PUT /v1/roles/SUPERVISOR_BODEGA/permissions
                    { "permissionKey": "kardex.view", "scope": "AREA" } ] }
 ```
 
-- **El catálogo de permisos es código, no una tabla editable.** Una matriz no puede conceder
-  un permiso que no exista en `PermissionCatalog`: sería un permiso que nadie comprueba y
-  daría una falsa sensación de control (`422 UNKNOWN_PERMISSION`).
-- **El alcance tiene que ser uno de los que el permiso admite** (`422 SCOPE_NOT_ALLOWED` con
-  `details.allowed`): conceder `OWN` sobre un permiso que solo admite `ALL` es una celda que
-  el motor no sabe evaluar.
-- **`NONE` no se concede**: para quitar una celda, no se manda.
-- **Un permiso repetido se rechaza**: dos celdas del mismo permiso con alcances distintos
-  dejarían la decisión en manos del orden de lectura.
-- **`active: false` en el rol le quita los permisos a quien lo tenga**, sin tocar la matriz:
-  es la forma de retirar un rol sin perder lo que concedía.
-- La clave del rol se normaliza a mayúsculas y solo admite letras, dígitos y guion bajo:
-  viaja en el token y en la bitácora, y con espacios acabaría siendo dos cosas distintas
-  según quién la escriba.
-- Todo cambio de matriz queda en la bitácora **con la matriz anterior y la nueva**, permiso a
-  permiso, y con una nota de a cuántas personas afecta.
+- **The permission catalog is code, not an editable table.** A matrix cannot grant
+  a permission that does not exist in `PermissionCatalog`: it would be a permission nobody checks and
+  would give a false sense of control (`422 UNKNOWN_PERMISSION`).
+- **The scope has to be one of those the permission allows** (`422 SCOPE_NOT_ALLOWED` with
+  `details.allowed`): granting `OWN` on a permission that only allows `ALL` is a cell that
+  the engine does not know how to evaluate.
+- **`NONE` is not granted**: to remove a cell, it is not sent.
+- **A repeated permission is rejected**: two cells of the same permission with different scopes
+  would leave the decision in the hands of the reading order.
+- **`active: false` on the role removes the permissions from whoever has it**, without touching the matrix:
+  it is the way to withdraw a role without losing what it granted.
+- The role key is normalized to uppercase and only accepts letters, digits and underscore:
+  it travels in the token and in the audit log, and with spaces it would end up being two different things
+  depending on who types it.
+- Every matrix change is recorded in the audit log **with the previous and the new matrix**, permission by
+  permission, and with a note of how many people it affects.
 
-> **La versión de la matriz no se mueve.** `config_versions` guarda la versión que se sembró
-> al arrancar, y es la que el motor lleva en memoria para la traza de la bitácora: una
-> edición por API cambia los permisos **de inmediato** —el actor se lee de la base en cada
-> petición— pero la versión que aparece en la traza sigue siendo la del proceso hasta el
-> siguiente arranque.
+> **The matrix version does not move.** `config_versions` stores the version that was seeded
+> at startup, and it is the one the engine keeps in memory for the audit log trace: an
+> edit through the API changes the permissions **immediately** —the actor is read from the database on each
+> request— but the version that appears in the trace remains the process's until the next startup.
 
-## Una intermitencia que se investigó
+## An intermittent failure that was investigated
 
-Durante la fase 9, mandar `roles` en el primer `PUT` respondió **`403` con el cuerpo vacío** en
-algunas ejecuciones y `200` en otras. Se investigó: el rechazo no salía del motor de acceso —la
-matriz tiene `role.assign` con alcance `ALL` para el rol ADMIN y el mismo actor edita el perfil sin
-problema—, y **no se volvió a reproducir** tras arreglar el cableado de la política de contraseñas,
-que en esas ejecuciones dejaba el contexto a medias. Con la ruta activada, la asignación de roles
-pasó **cinco ejecuciones seguidas** del módulo completo, y la prueba comprueba además que los roles
-quedan escritos en la base.
+During phase 9, sending `roles` in the first `PUT` answered **`403` with an empty body** in
+some runs and `200` in others. It was investigated: the rejection did not come from the access engine —the
+matrix has `role.assign` with scope `ALL` for the ADMIN role and the same actor edits the profile without
+problem— and it **was not reproduced again** after fixing the wiring of the password policy,
+which in those runs left the context half-done. With the route enabled, role assignment
+passed **five consecutive runs** of the complete module, and the test also checks that the roles
+are written in the database.
 
-El cuerpo vacío del `403` original **quedó sin explicación**, y así se dice: no se inventó una causa.
-Si vuelve a aparecer, lo que se sabe está en `PLAN-IMPLEMENTACION §6`.
+The empty body of the original `403` **was left unexplained**, and it is stated so: no cause was made up.
+If it appears again, what is known is in `PLAN-IMPLEMENTACION §6`.
 
-## Errores
+## Errors
 
-| Código | HTTP | Cuándo |
+| Code | HTTP | When |
 |---|---|---|
-| `DUPLICATE_USERNAME` | 409 | el nombre ya existe |
-| `UNKNOWN_ROLE` | 422 | el rol no existe; `details.allowed` trae los que hay |
-| `WEAK_PASSWORD` | 422 | no cumple la política |
-| `FIELD_REQUIRED` | 422 | falta `username`, `name`, `password` o `roles` |
-| `USER_NOT_FOUND` | 404 | el usuario no existe |
-| `ROLE_NOT_FOUND` | 404 | el rol no existe |
-| `DUPLICATE_ROLE` | 409 | ya existe un rol con esa clave |
-| `UNKNOWN_PERMISSION` | 422 | un permiso de la matriz no está en el catálogo |
-| `SCOPE_NOT_ALLOWED` | 422 | el permiso no admite ese alcance; `details.allowed` trae los que sí |
-| `PERMISSION_DENIED` | 403 | falta el permiso de la ruta |
+| `DUPLICATE_USERNAME` | 409 | the name already exists |
+| `UNKNOWN_ROLE` | 422 | the role does not exist; `details.allowed` lists the ones that do |
+| `WEAK_PASSWORD` | 422 | does not meet the policy |
+| `FIELD_REQUIRED` | 422 | `username`, `name`, `password` or `roles` is missing |
+| `USER_NOT_FOUND` | 404 | the user does not exist |
+| `ROLE_NOT_FOUND` | 404 | the role does not exist |
+| `DUPLICATE_ROLE` | 409 | a role with that key already exists |
+| `UNKNOWN_PERMISSION` | 422 | a permission in the matrix is not in the catalog |
+| `SCOPE_NOT_ALLOWED` | 422 | the permission does not allow that scope; `details.allowed` lists the ones that do |
+| `PERMISSION_DENIED` | 403 | the route's permission is missing |
 
-## Verificación
+## Verification
 
-`api/app/src/test/kotlin/dev/axzy/stock/app/RoleAdminFlowTest.kt`: que un rol nuevo conceda
-**lo que dice su matriz y nada más**, que quitar una celda o desactivar el rol quite el
-acceso de verdad, el detalle con su matriz, la validación de permisos y alcances, la forma
-de la clave, y los permisos por ruta.
+`api/app/src/test/kotlin/dev/axzy/stock/app/RoleAdminFlowTest.kt`: that a new role grants
+**what its matrix says and nothing more**, that removing a cell or deactivating the role removes
+access for real, the detail with its matrix, the validation of permissions and scopes, the shape
+of the key, and the per-route permissions.
 
-`api/app/src/test/kotlin/dev/axzy/stock/app/UserAdminFlowTest.kt`: el listado con filtros y
-roles, el alta con sus rechazos, que un usuario nuevo entra obligado a cambiar la
-contraseña, la edición parcial, la **asignación de roles** (con los roles escritos en la
-base), la desactivación (que corta el acceso con `ACCOUNT_DISABLED`), que restablecer deja
-fuera la sesión abierta, y los permisos por ruta.
+`api/app/src/test/kotlin/dev/axzy/stock/app/UserAdminFlowTest.kt`: the listing with filters and
+roles, the creation with its rejections, that a new user enters required to change the
+password, the partial edit, the **role assignment** (with the roles written to the
+database), the deactivation (which cuts access with `ACCOUNT_DISABLED`), that resetting leaves the open session out, and the per-route permissions.

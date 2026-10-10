@@ -8,106 +8,106 @@ import dev.axzy.stock.domain.value.Quantity
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * SURTIDO DE ÓRDENES (contrato §6)
+ * ORDER FULFILLMENT (contract §6)
  *
- * ── LA UNIÓN DE ESTADOS DE LA LÍNEA ES PROPIA, Y ESO ES UNA CORRECCIÓN ────
+ * ── THE LINE STATUS UNION IS OWN, AND THAT IS A CORRECTION ────
  *
- * El contrato lo dice explícitamente y aquí se respeta:
+ * The contract says so explicitly, and it is respected here:
  *
- * > «**Antes reutilizaba los estados de `InvoiceLineStatus` y era un error**:
- * > `LOCATED` y `DISCREPANCY` son del flujo de recepción y no significan nada en
- * > surtido. Compartir la unión obligaba a la interfaz a contemplar estados
- * > imposibles, y a un `when` exhaustivo a tener ramas que nunca se ejecutan.»
+ * > "**Before, it reused the states of `InvoiceLineStatus` and that was an error**:
+ * > `LOCATED` and `DISCREPANCY` belong to the receiving flow and mean nothing in
+ * > fulfillment. Sharing the union forced the interface to handle impossible states, and an
+ * > exhaustive `when` to have branches that never run.»
  *
- * `ALLOCATED` sustituye a `LOCATED`: en surtido la mercancía se **asigna** a un
- * pedido, no se ubica. Y `DISCREPANCY` no existe: el equivalente es el FALTANTE,
- * que es una salida con motivo `SHORTAGE` y origen `FULFILLMENT_SHORTAGE`, no un
- * estado de la línea.
+ * `ALLOCATED` replaces `LOCATED`: in fulfillment the goods are **assigned** to an
+ * order, not located. And `DISCREPANCY` does not exist: the equivalent is the SHORTAGE,
+ * which is an outflow with reason `SHORTAGE` and origin `FULFILLMENT_SHORTAGE`, not a
+ * line status.
  *
- * ── LA REGLA DE STOCK, QUE ES LO QUE MÁS FÁCIL SERÍA EQUIVOCAR ─────────────
+ * ── THE STOCK RULE, THE ONE THAT IS EASIEST TO GET WRONG ─────────────
  *
- * > **`supplied_quantity` es SIEMPRE lo ya descontado del inventario.**
+ * > **`supplied_quantity` is ALWAYS what has already been deducted from the inventory.**
  *
- * Empacar descuenta lo empacado. Confirmar descuenta **lo que FALTA** hasta
- * `quantity`, y no `quantity` entera:
+ * Packing deducts what is packed. Confirming deducts **what is MISSING** up to
+ * `quantity`, not the whole `quantity`:
  *
  * ```
- *   quantity = 10, supplied = 7   →  empacar 7 descontó 7
+ *   quantity = 10, supplied = 7   →  packing 7 deducted 7
  *                                    confirmar descuenta 3  (7 + 3 = 10)
  *                                    total descontado   10  ✔
  * ```
  *
- * Si confirmar descontara `quantity` completa, el total descontado sería 17 y
- * **el inventario habría bajado 7 unidades de más**. Es un descuadre que solo
- * aparece al cuadrar el almacén, y que no se distingue de una merma real.
+ * If confirming deducted the full `quantity`, the total deducted would be 17 and
+ * **the inventory would have dropped 7 units too many**. It is a discrepancy that only
+ * appears when the warehouse is reconciled, and it is not distinguishable from a real shrinkage.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-/** Estado de la ORDEN. Valores del enum `order_status`. */
+/** Order status. Values of the `order_status` enum. */
 enum class OrderStatus {
-    /** Creada, sin empezar. */
+    /** Created, not started. */
     PENDING,
 
-    /** Alguien está surtiendo: hay líneas asignadas o parcialmente empacadas. */
+    /** Someone is fulfilling it: there are lines assigned or partially packed. */
     IN_PROGRESS,
 
-    /** Todo empacado, pendiente de confirmar. */
+    /** Everything packed, pending confirmation. */
     PACKAGED,
 
-    /** Confirmada y pendiente de salir al ERP. */
+    /** Confirmed and pending export to the ERP. */
     PENDING_TO_OUT,
 
-    /** Exportada al ERP. Es el final del flujo. */
+    /** Exported to the ERP. It is the end of the flow. */
     COMPLETED,
 
-    /** Anulada. Nunca se borra: se anula con trazabilidad. */
+    /** Cancelled. Never deleted: it is cancelled with traceability. */
     CANCELLED,
     ;
 
-    /** ¿Se puede todavía empacar en esta orden? */
+    /** Can it still be packed in this order? */
     val allowsPackaging: Boolean
         get() = this == PENDING || this == IN_PROGRESS || this == PACKAGED
 }
 
 /**
- * Estado de la LÍNEA de orden. Valores del enum `order_line_status`.
+ * Status of the ORDER LINE. Values of the `order_line_status` enum.
  *
- * **Unión propia, no la de factura** (ver la cabecera de este archivo).
+ * **Own union, not the invoice's one** (see the header of this file).
  */
 enum class OrderLineStatus {
-    /** Sin empezar. */
+    /** Not started. */
     PENDING,
 
-    /** Asignada a un operador, que la tiene en su lista. */
+    /** Assigned to an operator, who has it on their list. */
     ASSIGNED,
 
-    /** Surtida del estante. La mercancía ya se descontó. */
+    /** Fulfilled from the shelf. The goods have already been deducted. */
     SUPPLIED,
 
-    /** Verificada por un segundo par de ojos antes de cerrar el paquete. */
+    /** Verified by a second pair of eyes before the package is closed. */
     VERIFIED,
 
     /** Anulada. */
     CANCELLED,
     ;
 
-    /** ¿Queda trabajo por hacer en esta línea? */
+    /** Is there work left to do on this line? */
     val isOpen: Boolean
         get() = this == PENDING || this == ASSIGNED
 }
 
-/** Una línea de la orden. */
+/** A line of the order. */
 data class OrderLine(
     val id: Long,
     val productId: Long,
     val productCode: String,
     val productName: String,
     val unitMeasure: String,
-    /** Lo que pide el cliente. */
+    /** What the client requests. */
     val quantity: Quantity,
     /**
-     * **Lo ya descontado del inventario.** No es «lo empacado»: es el acumulado
-     * que el inventario ya refleja.
+     * **What has already been deducted from the inventory.** It is not "what was packed": it is the accumulated
+     * amount the inventory already reflects.
      */
     val suppliedQuantity: Quantity = Quantity.ZERO,
     val status: OrderLineStatus = OrderLineStatus.PENDING,
@@ -115,22 +115,22 @@ data class OrderLine(
     val locationId: Long? = null,
 ) {
 
-    /** Lo que FALTA por sacar del inventario. */
+    /** What is still MISSING to take out of the inventory. */
     val pendingQuantity: Quantity
         get() = quantity - suppliedQuantity
 
-    /** ¿Está completa? */
+    /** Is it complete? */
     val isComplete: Boolean
         get() = suppliedQuantity >= quantity
 
     /**
-     * Empaca una cantidad de esta línea.
+     * Packs a quantity of this line.
      *
-     * **Devuelve la línea nueva, no toca stock.** El movimiento del inventario lo
-     * ejecuta el motor SQL en la misma transacción que escribe el kardex; el
-     * dominio decide si la operación es legal y cuánto hay que descontar. Si el
-     * dominio moviera el stock y la escritura del kardex fallara, la mercancía
-     * habría cambiado de sitio sin registro.
+     * **Returns the new line, does not touch stock.** The inventory movement is
+     * executed by the SQL engine in the same transaction that writes the ledger; the
+     * domain decides whether the operation is legal and how much must be deducted. If the
+     * domain moved the stock and the ledger write failed, the goods would have
+     * changed place without a record.
      */
     fun packageQuantity(amount: Quantity): Either<DomainError, OrderLine> {
         if (status == OrderLineStatus.CANCELLED) {
@@ -143,9 +143,9 @@ data class OrderLine(
         if (amount <= Quantity.ZERO) {
             return DomainError.InvalidQuantity("The quantity to pack must be positive.").asLeft()
         }
-        // Se comprueba contra lo PENDIENTE y no contra `quantity`: empacar 7 de 10
-        // dos veces sumaría 14. La base lo impide con un `CHECK`, pero aquí se
-        // puede decir cuánto queda, que es lo que el operador necesita.
+        // It is checked against what is PENDING and not against `quantity`: packing 7 of 10
+        // twice would add up to 14. The database prevents it with a `CHECK`, but here
+        // it can say how much remains, which is what the operator needs.
         if (amount > pendingQuantity) {
             return DomainError.ExceedsPendingQuantity(
                 requested = amount.value,
@@ -161,15 +161,15 @@ data class OrderLine(
     }
 
     /**
-     * Asigna la línea a quien la va a surtir, y opcionalmente en qué estantería.
+     * Assigns the line to whoever is going to fulfill it, and optionally on which shelf.
      *
-     * **Solo desde `PENDING` o `ASSIGNED`.** Una línea ya surtida o anulada no se reasigna:
-     * asignar trabajo sobre mercancía que ya salió sería decir que alguien la va a sacar dos
-     * veces. Reasignar mientras está en curso sí se permite —el turno cambia, alguien se pone
-     * malo— y por eso no es una transición de un solo uso.
+     * **Only from `PENDING` or `ASSIGNED`.** A line already fulfilled or cancelled is not reassigned:
+     * assigning work on goods that already left would mean someone is going to take them out
+     * twice. Reassigning while it is in progress is allowed —the shift changes, someone gets
+     * sick— and that is why it is not a single-use transition.
      *
-     * El estado va a `ASSIGNED` aunque la línea se quede sin ubicación: lo que dice el estado
-     * es que **hay alguien a cargo**, no dónde está la mercancía.
+     * The status goes to `ASSIGNED` even if the line is left without a location: what the status says
+     * is that **someone is in charge**, not where the goods are.
      */
     fun assign(userId: Long, locationId: Long?): Either<DomainError, OrderLine> {
         if (status != OrderLineStatus.PENDING && status != OrderLineStatus.ASSIGNED) {
@@ -187,7 +187,7 @@ data class OrderLine(
     }
 }
 
-/** Una orden con su cabecera y sus líneas. */
+/** An order with its header and its lines. */
 data class Order(
     val id: Long,
     val orderNumber: String,
@@ -203,19 +203,19 @@ data class Order(
 
     val totalLines: Int get() = lines.size
 
-    /** Líneas completas. Es el `packagedLines` del contrato. */
+    /** Complete lines. It is the contract's `packagedLines`. */
     val packagedLines: Int get() = lines.count { it.isComplete }
 
-    /** ¿Están todas las líneas completas o anuladas? */
+    /** Are all the lines complete or cancelled? */
     val allLinesDone: Boolean
         get() = lines.all { it.isComplete || it.status == OrderLineStatus.CANCELLED }
 
     /**
-     * Marca la orden como confirmada.
+     * Marks the order as confirmed.
      *
-     * **No descuenta stock: devuelve las líneas con lo que hay que descontar.**
-     * El descuento de lo pendiente lo hace el motor SQL, y esta función es la que
-     * define CUÁNTO es «lo pendiente».
+     * **It does not deduct stock: it returns the lines with what must be deducted.**
+     * The deduction of what is pending is done by the SQL engine, and this function is the one that
+     * defines HOW MUCH "pending" is.
      */
     fun confirm(): Either<DomainError, Order> {
         if (converted) return DomainError.OrderAlreadyConfirmed(orderNumber).asLeft()
@@ -234,12 +234,12 @@ data class Order(
     }
 
     /**
-     * Registra un intento de exportación al ERP.
+     * Records an export attempt to the ERP.
      *
-     * **Idempotente por el `orderNumber` convertido**, como exige el contrato: si
-     * el ERP ya lo recibió, volver a exportar no debe crear una segunda salida.
-     * Esta función solo lleva el contador y el estado del intento; el envío real
-     * es de la capa de infraestructura.
+     * **Idempotent by the converted `orderNumber`**, as the contract requires: if
+     * the ERP already received it, exporting again must not create a second outflow.
+     * This function only keeps the counter and the status of the attempt; the actual sending
+     * belongs to the infrastructure layer.
      */
     fun recordExportAttempt(success: Boolean, error: String? = null): Either<DomainError, Order> {
         if (!converted && status != OrderStatus.PENDING_TO_OUT && status != OrderStatus.COMPLETED) {
@@ -256,10 +256,10 @@ data class Order(
     }
 
     /**
-     * Cancela la orden.
+     * Cancels the order.
      *
-     * **No se puede cancelar una orden ya exportada**: el ERP tiene una salida que
-     * el sistema dejaría de reconocer. Para deshacerla se hace una entrada, que
+     * **An exported order cannot be cancelled**: the ERP has an outflow that
+     * the system would stop recognizing. To undo it, an inflow is made, which
      * deja rastro.
      */
     fun cancel(): Either<DomainError, Order> {
@@ -274,12 +274,12 @@ data class Order(
     }
 
     /**
-     * Recalcula el estado de la cabecera a partir de sus líneas.
+     * Recalculates the header status from its lines.
      *
-     * **Se deriva, no se escribe a mano.** Un `status` que se asigna en cada
-     * endpoint acaba diciendo cosas distintas según por dónde se entró: es
-     * exactamente el defecto del legacy, donde `status = 'done'` se escribía desde
-     * cualquier sitio. Aquí hay UNA función que lo decide, y se puede probar.
+     * **It is derived, not written by hand.** A `status` assigned at each
+     * endpoint ends up saying different things depending on the entry point: it is
+     * exactly the legacy's defect, where `status = 'done'` was written from
+     * anywhere. Here there is ONE function that decides it, and it can be tested.
      */
     fun recalculatedStatus(): Order {
         if (status == OrderStatus.CANCELLED || status == OrderStatus.COMPLETED ||

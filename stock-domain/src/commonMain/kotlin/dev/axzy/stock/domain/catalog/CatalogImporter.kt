@@ -5,28 +5,28 @@ import dev.axzy.stock.domain.value.Quantity
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * IMPORTADOR DEL CATÁLOGO
+ * CATALOG IMPORTER
  *
- * Carga inicial de productos desde el archivo de inventario real. Fase 0:
- * implementación pura, sin base de datos, para que las reglas se prueben contra
- * el **archivo de verdad** (1.398 productos, 10.914.130 unidades) en lugar de
+ * Initial load of products from the real inventory file. Phase 0:
+ * pure implementation, with no database, so that the rules are tested against
+ * the **real file** (1,398 products, 10,914,130 units) instead of
  * contra datos inventados.
  *
- * **Reglas estrictas por diseño.** El archivo tiene calidad excelente —cero
- * nulos, cero negativos, cero decimales, códigos únicos— así que el importador
- * puede **rechazar una fila** en lugar de intentar adivinar. Un importador
- * tolerante esconde errores de captura que después reaparecen como stock mal
+ * **Strict rules by design.** The file has excellent quality —zero
+ * nulls, zero negatives, zero decimals, unique codes— so the importer
+ * can **reject a row** instead of trying to guess. A tolerant
+ * importer hides capture errors that later reappear as miscounted stock.
  * contado.
  *
- * **Modo dry-run obligatorio.** Se puede simular el import completo y ver el
- * informe **sin escribir nada**. Sin eso, la primera ejecución sobre datos
- * reales es un acto de fe.
+ * **Mandatory dry-run mode.** The whole import can be simulated and the report seen
+ * **without writing anything**. Without that, the first run on real data
+ * is an act of faith.
  *
  * Referencia: docs/historico/PLAN_ALMACEN_INTEGRAL.md §3.5.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-/** Una fila cruda del archivo, tal como llega. */
+/** A raw row of the file, as it arrives. */
 data class CatalogRow(
     val rowNumber: Int,
     val externalId: String,
@@ -36,7 +36,7 @@ data class CatalogRow(
     val stock: String,
 )
 
-/** Por qué se rechazó una fila. */
+/** Why a row was rejected. */
 sealed interface RowRejection {
     val rowNumber: Int
     val reason: String
@@ -76,11 +76,11 @@ sealed interface RowRejection {
     }
 
     /**
-     * El `external_id` no es numérico.
+     * The `external_id` is not numeric.
      *
-     * Se rechaza la fila en lugar de guardarlo nulo: es la referencia cruzada con
-     * el ERP, y perderla en silencio deja productos que después no se pueden
-     * conciliar con el sistema del que vinieron.
+     * The row is rejected instead of being stored as null: it is the cross-reference with
+     * the ERP, and losing it in silence leaves products that cannot later be
+     * reconciled with the system they came from.
      */
     data class InvalidExternalId(
         override val rowNumber: Int,
@@ -101,7 +101,7 @@ sealed interface RowRejection {
     }
 }
 
-/** Un producto ya validado, listo para persistir. */
+/** A product already validated, ready to persist. */
 data class ValidatedProduct(
     val rowNumber: Int,
     val externalId: String?,
@@ -112,11 +112,11 @@ data class ValidatedProduct(
 )
 
 /**
- * Informe del import.
+ * Import report.
  *
- * Es el entregable del dry-run: **lo que se presenta antes de escribir nada**.
- * Incluye el cuadre contra las cifras conocidas del archivo, porque un import
- * que "funcionó" pero no cuadra es un import que falló en silencio.
+ * It is the deliverable of the dry-run: **what is presented before writing anything**.
+ * It includes the reconciliation against the known figures of the file, because an import
+ * that "worked" but does not reconcile is an import that failed silently.
  */
 data class ImportReport(
     val totalRows: Int,
@@ -127,19 +127,19 @@ data class ImportReport(
     val acceptedCount: Int get() = accepted.size
     val rejectedCount: Int get() = rejected.size
 
-    /** Suma de existencias de las filas aceptadas. */
+    /** Sum of the stock of the accepted rows. */
     val totalStock: Quantity
         get() = accepted.fold(Quantity.ZERO) { acc, p -> acc + p.stock }
 
-    /** Productos aceptados con stock cero. */
+    /** Accepted products with zero stock. */
     val zeroStockCount: Int get() = accepted.count { it.stock.isZero }
 
-    /** Unidades de medida encontradas, ordenadas. */
+    /** Units of measure found, sorted. */
     val unitMeasures: List<String> get() = accepted.map { it.unitMeasure }.distinct().sorted()
 
     val hasRejections: Boolean get() = rejected.isNotEmpty()
 
-    /** Informe legible, para presentarlo al negocio antes de importar. */
+    /** Readable report, to present to the business before importing. */
     fun render(): String = buildString {
         appendLine("Catalog import report${if (isDryRun) " (DRY RUN)" else ""}")
         appendLine("─".repeat(58))
@@ -162,11 +162,11 @@ data class ImportReport(
     }
 
     /**
-     * Comprueba que el import cuadre con las cifras conocidas del archivo.
+     * Checks that the import reconciles with the known figures of the file.
      *
-     * Sin esta verificación, un import que descarta filas en silencio "pasa" y
-     * el descuadre aparece después, cuando ya no hay forma de saber qué se
-     * perdió.
+     * Without this check, an import that discards rows in silence "passes" and
+     * the discrepancy appears later, when there is no way to know what was
+     * lost.
      */
     fun matchesExpectations(
         expectedProducts: Int,
@@ -186,16 +186,16 @@ data class ImportReport(
 }
 
 /**
- * El importador.
+ * The importer.
  *
- * @param knownUnitMeasures unidades válidas. Si una fila trae otra, se rechaza:
- *   es la defensa contra el clásico `KG`/`Kg`/`KGS` como tres unidades distintas.
+ * @param knownUnitMeasures valid units. If a row brings another one, it is rejected:
+ *   it is the defense against the classic `KG`/`Kg`/`KGS` as three different units.
  */
 class CatalogImporter(
     private val knownUnitMeasures: Set<String> = setOf("PZA"),
 ) {
 
-    /** Cifras conocidas del archivo real, para el cuadre automático. */
+    /** Known figures of the real file, for the automatic reconciliation. */
     companion object {
         const val EXPECTED_PRODUCTS = 1398
         val EXPECTED_TOTAL_STOCK: Quantity = Quantity.of(10_914_130)
@@ -203,11 +203,11 @@ class CatalogImporter(
     }
 
     /**
-     * Procesa las filas.
+     * Processes the rows.
      *
-     * @param dryRun si es `true`, **no se persiste nada**. Es el modo por
-     *   defecto conceptual: la primera ejecución sobre datos reales debe ser
-     *   una simulación.
+     * @param dryRun if it is `true`, **nothing is persisted**. It is the conceptual
+     *   default mode: the first run on real data must be
+     *   a simulation.
      */
     fun import(rows: List<CatalogRow>, dryRun: Boolean = true): ImportReport {
         val accepted = mutableListOf<ValidatedProduct>()
@@ -215,16 +215,16 @@ class CatalogImporter(
         val seenCodes = mutableMapOf<String, Int>()
 
         rows.forEach { row ->
-            // ── Fila vacía ──────────────────────────────────────────────────
+            // ── Empty row ──────────────────────────────────────────────────
             if (row.productCode.isBlank() && row.name.isBlank() && row.stock.isBlank()) {
                 rejected += RowRejection.BlankRow(row.rowNumber)
                 return@forEach
             }
 
-            // ── Código de producto ──────────────────────────────────────────
-            // Se valida con el objeto de valor del dominio: el alfabeto real es
-            // 0-9 y A-Z, sin minúsculas ni espacios. Si una fila los trae, se
-            // RECHAZA indicando el número de fila; no se corrige en silencio.
+            // ── Product code ──────────────────────────────────────────────────
+            // It is validated with the domain value object: the real alphabet is
+            // 0-9 and A-Z, with no lowercase or spaces. If a row brings them, it is
+            // REJECTED indicating the row number; it is not corrected in silence.
             val codeResult = ProductCode.validate(row.productCode)
             val code = codeResult.getOrNull()
             if (code == null) {
@@ -237,7 +237,7 @@ class CatalogImporter(
             }
 
             // ── Duplicado ──────────────────────────────────────────────────
-            // `product_code` es la clave de identidad para el upsert.
+            // `product_code` is the identity key for the upsert.
             val alreadySeen = seenCodes[code.value]
             if (alreadySeen != null) {
                 rejected += RowRejection.DuplicateCode(row.rowNumber, code.value, alreadySeen)
@@ -245,10 +245,10 @@ class CatalogImporter(
             }
             seenCodes[code.value] = row.rowNumber
 
-            // ── Identificador del ERP ──────────────────────────────────────
-            // Vacío es nulo (el producto nace en esta API); con valor, tiene que
-            // ser numérico. Guardarlo nulo ante un valor raro perdería la
-            // referencia cruzada sin que nadie se entere.
+            // ── ERP identifier ──────────────────────────────────────────────────
+            // Empty is null (the product is born in this API); with a value, it has to be
+            // numeric. Storing it as null on an odd value would lose the cross-reference
+            // without anyone finding out.
             val externalId = row.externalId.trim().ifBlank { null }
             if (externalId != null && externalId.toLongOrNull() == null) {
                 rejected += RowRejection.InvalidExternalId(row.rowNumber, code.value, row.externalId)
@@ -261,7 +261,7 @@ class CatalogImporter(
                 return@forEach
             }
 
-            // ── Unidad de medida ───────────────────────────────────────────
+            // ── Unit of measure ────────────────────────────────────────────────
             val unit = row.unitMeasure.trim().uppercase()
             if (unit !in knownUnitMeasures) {
                 rejected += RowRejection.UnknownUnitMeasure(row.rowNumber, code.value, row.unitMeasure)
@@ -280,7 +280,7 @@ class CatalogImporter(
                 )
                 return@forEach
             }
-            // Un stock negativo es imposible en un inventario físico.
+            // A negative stock is impossible in a physical inventory.
             if (stock.isNegative) {
                 rejected += RowRejection.InvalidStock(
                     rowNumber = row.rowNumber,
@@ -310,20 +310,20 @@ class CatalogImporter(
     }
 
     /**
-     * Convierte un CSV en filas, tolerando comillas y comas dentro de campos.
+     * Converts a CSV into rows, tolerating quotes and commas inside fields.
      *
-     * Es un parser deliberadamente mínimo: el archivo real usa comillas dobles
-     * para los nombres que contienen comillas y comas (876 nombres llevan
-     * comillas dobles y 290 llevan `#`). Se implementa aquí en lugar de añadir
-     * una dependencia al dominio, que debe seguir siendo Kotlin puro.
+     * It is a deliberately minimal parser: the real file uses double quotes
+     * for names that contain quotes and commas (876 names carry
+     * double quotes and 290 have `#`). It is implemented here instead of adding
+     * a dependency to the domain, which must remain pure Kotlin.
      */
     fun parseCsv(content: String, delimiter: Char = ','): List<CatalogRow> {
-        // El BOM de Excel sobrevive a `lines()` y rompería la primera columna de la
-        // cabecera. Se quita aquí, una vez, y no en cada fila.
+        // Excel's BOM survives `lines()` and would break the first column of the
+        // header. It is removed here, once, and not in every row.
         val lines = content.removePrefix("\uFEFF").lines().filter { it.isNotBlank() }
         if (lines.isEmpty()) return emptyList()
 
-        // La primera línea es la cabecera.
+        // The first line is the header.
         return lines.drop(1).mapIndexed { index, line ->
             val fields = splitCsvLine(line, delimiter)
             CatalogRow(
@@ -338,10 +338,10 @@ class CatalogImporter(
     }
 
     /**
-     * Divide una línea respetando las comillas dobles.
+     * Splits a line respecting double quotes.
      *
-     * El delimitador es un parámetro porque el archivo real de la migración viaja
-     * como TSV: el mismo formato, separado por tabuladores.
+     * The delimiter is a parameter because the migration's real file travels
+     * as TSV: the same format, separated by tabs.
      */
     private fun splitCsvLine(line: String, delimiter: Char): List<String> {
         val fields = mutableListOf<String>()
@@ -353,7 +353,7 @@ class CatalogImporter(
             val c = line[i]
             when {
                 c == '"' -> {
-                    // Comilla escapada dentro de un campo entrecomillado.
+                    // Escaped quote inside a quoted field.
                     if (betweenQuotes && i + 1 < line.length && line[i + 1] == '"') {
                         current.append('"')
                         i++

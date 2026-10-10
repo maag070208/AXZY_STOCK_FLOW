@@ -1,72 +1,71 @@
-# ADR-0002 — FSD en la web
-> **Vigente.** La web se construye con React y AXZY UI System; ver [arquitectura/web-react.md](../arquitectura/web-react.md) para las convenciones del kit.
-> **Normativo.** Decisión aceptada. Última verificación: 2026-10-09.
+# ADR-0002 — FSD in the web
+> **In force.** The web is built with React and AXZY UI System; see [arquitectura/web-react.md](../arquitectura/web-react.md) for the kit's conventions.
+> **Normative.** Accepted decision. Last verified: 2026-10-09.
 
 | | |
 |---|---|
-| **Estado** | Aceptada |
-| **Fecha** | 2026-10-09 |
-| **Reemplaza a** | — |
-| **Reemplazada por** | — |
+| **Status** | Accepted |
+| **Date** | 2026-10-09 |
+| **Replaces** | — |
+| **Replaced by** | — |
 
-## Contexto
+## Context
 
-La web es React 19 + Vite + TypeScript. Una interfaz con estado tiene muchos módulos que se
-importan entre sí, y sin una regla de dirección de dependencias dos pantallas acaban
-acopladas: cambiar una rompe la otra y nadie lo ve hasta el despliegue
-([web-fsd.md](../arquitectura/web-fsd.md) §2.2).
+The web is React 19 + Vite + TypeScript. A stateful interface has many modules that import
+each other, and without a dependency direction rule two screens end up coupled: changing one breaks
+the other and nobody sees it until deployment ([web-fsd.md](../arquitectura/web-fsd.md) §2.2).
 
-Se eligió FSD (Feature-Sliced Design) porque su fuerza es exactamente esa: la dirección de
-dependencias. A diferencia de la API, aquí la unidad de organización es la capa, y dentro de
-la capa la feature ([general.md](../arquitectura/general.md)).
+FSD (Feature-Sliced Design) was chosen because its strength is exactly that: the dependency
+direction. Unlike the API, here the unit of organization is the layer, and within the layer
+the feature ([general.md](../arquitectura/general.md)).
 
-## Decisión
+## Decision
 
-`web/src/` se organiza en capas FSD: `app/`, `pages/`, `widgets/`, `features/`, `entities/`
-y `shared/` ([web-fsd.md](../arquitectura/web-fsd.md) §2.1).
+`web/src/` is organized into FSD layers: `app/`, `pages/`, `widgets/`, `features/`, `entities/`
+and `shared/` ([web-fsd.md](../arquitectura/web-fsd.md) §2.1).
 
-- Una capa solo puede importar de las capas inferiores:
+- A layer can only import from the layers below it:
   `app → pages → widgets → features → entities → shared` ([web-fsd.md](../arquitectura/web-fsd.md) §2.2).
-- Está prohibido que una página importe de otra página, que una feature importe de otra
-  feature y que `shared/` importe de cualquier capa. Si `shared/` importa de `entities/`, la
-  arquitectura está rota ([web-fsd.md](../arquitectura/web-fsd.md) §2.2).
-- La regla la impone el lint, no la convención: `eslint-plugin-boundaries` con
-  `default: "disallow"` y una política explícita por capa (`web/eslint.config.js`).
-- Los datos de servidor se tratan según el contrato: las rutas van sin `/v1` porque
-  `API_CONSTANTS.BASE_URL` ya lo incluye (`web/src/shared/api/constants/API_CONSTANTS.ts`),
-  el nombre visible de una ubicación lo compone el servidor y los decimales llegan como
-  `string`, no como `number` ([web-fsd.md](../arquitectura/web-fsd.md) §2.3).
-- Una pantalla sin endpoint no muestra filas inventadas: dice qué hará y que el endpoint no
-  existe ([web-fsd.md](../arquitectura/web-fsd.md) §2.3).
+- It is forbidden for a page to import from another page, for a feature to import from another
+  feature, and for `shared/` to import from any layer. If `shared/` imports from `entities/`, the
+  architecture is broken ([web-fsd.md](../arquitectura/web-fsd.md) §2.2).
+- The rule is enforced by the lint, not by convention: `eslint-plugin-boundaries` with
+  `default: "disallow"` and an explicit policy per layer (`web/eslint.config.js`).
+- Server data is handled according to the contract: the routes go without `/v1` because
+  `API_CONSTANTS.BASE_URL` already includes it (`web/src/shared/api/constants/API_CONSTANTS.ts`),
+  the visible name of a location is composed by the server, and decimals arrive as
+  `string`, not as `number` ([web-fsd.md](../arquitectura/web-fsd.md) §2.3).
+- A screen without an endpoint does not show invented rows: it says what it will do and that the endpoint
+  does not exist ([web-fsd.md](../arquitectura/web-fsd.md) §2.3).
 
-## Consecuencias
+## Consequences
 
-Cambiar una pantalla no rompe otra, y la dirección de dependencias se comprueba en cada
-ejecución del lint en lugar de depender de la memoria del revisor.
+Changing one screen does not break another, and the dependency direction is checked on every
+lint run instead of depending on the reviewer's memory.
 
-Se paga ceremonia al mover código: si un widget necesita una acción de una feature, o se le
-pasa por props o el código baja de capa. `shared/` no puede contener lógica de negocio.
+Ceremony is paid when moving code: if a widget needs an action from a feature, either it is
+passed through props or the code moves down a layer. `shared/` cannot contain business logic.
 
-Reglas operativas que se derivan:
+Operational rules that follow:
 
-- Cuando una capa necesita importar de una superior, el diseño está mal. El arreglo es bajar
-  el código de capa, no silenciar la regla del lint.
-- `shared/` aloja `api`, `ui`, `lib` y `config`, sin reglas de negocio
+- When a layer needs to import from a higher one, the design is wrong. The fix is to move the
+  code down a layer, not to silence the lint rule.
+- `shared/` holds `api`, `ui`, `lib` and `config`, without business rules
   ([web-fsd.md](../arquitectura/web-fsd.md) §2.1).
 
-## Alternativas consideradas
+## Alternatives considered
 
-- **Organizar por tipo de archivo** (`components/`, `hooks/`, `services/`). Es el cajón por
-  tipo que FSD existe para evitar: no hay forma de saber qué puede importar qué.
-- **Dejar la dirección de dependencias sin comprobar.** Es lo que había antes de la regla: el
-  acoplamiento vuelve en el primer atajo.
-- **Organizar por feature sin capas.** Se pierde la distinción entre entidad, feature, widget
-  y página, y una página puede acabar importando de otra.
+- **Organize by file type** (`components/`, `hooks/`, `services/`). It is the drawer by type that FSD
+  exists to avoid: there is no way to know what can import what.
+- **Leave the dependency direction unchecked.** It is what existed before the rule: the coupling
+  comes back with the first shortcut.
+- **Organize by feature without layers.** The distinction between entity, feature, widget
+  and page is lost, and a page can end up importing from another page.
 
-## Referencias
+## References
 
 - `web/eslint.config.js`
 - `web/src/app/`, `web/src/pages/`, `web/src/widgets/`, `web/src/features/`,
   `web/src/entities/`, `web/src/shared/`
 - `web/src/shared/api/constants/API_CONSTANTS.ts`
-- [general.md](../arquitectura/general.md) y [web-fsd.md](../arquitectura/web-fsd.md) §2.1, §2.2, §2.3
+- [general.md](../arquitectura/general.md) and [web-fsd.md](../arquitectura/web-fsd.md) §2.1, §2.2, §2.3

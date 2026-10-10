@@ -13,63 +13,63 @@ import dev.axzy.stock.domain.value.UnitsPerBox
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * MÁQUINA DE ESTADOS DE LA LÍNEA DE FACTURA
+ * STATE MACHINE OF THE INVOICE LINE
  *
- * Es el artefacto 2 de los cuatro críticos. Aquí viven tres reglas de negocio
- * que el legacy no tenía (o tenía mal), y las tres están confirmadas contigo:
+ * It is artifact 2 of the four critical ones. Three business rules live here that
+ * the legacy did not have (or had wrong), and all three are confirmed with you:
  *
- *   · **B1 / R-75 — Toda discrepancia bloquea.** Sin umbral: cualquier
- *     diferencia con la factura impide ubicar la mercancía hasta que alguien
- *     la autorice. En el legacy esto no existía y la mercancía se ubicaba con
- *     la diferencia sin resolver.
+ *   · **B1 / R-75 — Every discrepancy blocks.** No threshold: any
+ *     difference from the invoice prevents locating the goods until someone
+ *     authorizes it. In the legacy this did not exist and goods were located with the
+ *     difference unresolved.
  *
- *   · **R-74 — Segregación de funciones.** Quien capturó **no puede aprobar**
- *     su propia discrepancia. Evita que alguien tape su propio error de conteo.
+ *   · **R-74 — Segregation of duties.** Whoever counted **cannot approve**
+ *     their own discrepancy. It prevents someone from covering up their own counting error.
  *
- *   · **R-80 — Las cajas deben cuadrar.** Si `cantidad / unidadesPorCaja` no
- *     da entero, la captura se rechaza. Una factura de 100 piezas con cajas de
- *     30 es siempre un dato mal capturado, no un caso a manejar.
+ *   · **R-80 — The boxes must add up.** If `quantity / unitsPerBox`
+ *     does not give an integer, the count is rejected. An invoice for 100 pieces with boxes of
+ *     30 is always wrongly captured data, not a case to handle.
  *
- * **El diseño hace imposibles los saltos ilegales**: no hay un `status` que se
- * pueda asignar a mano, solo funciones de transición que validan el estado de
- * origen. En el legacy, los estados eran strings libres y `invoiceDetail.status
- * = 'done'` se escribía desde cualquier sitio (hallazgo L1 y B-3).
+ * **The design makes illegal jumps impossible**: there is no `status` that can
+ * be assigned by hand, only transition functions that validate the state of
+ * origin. In the legacy, the states were free strings and `invoiceDetail.status
+ * = 'done'` was written from anywhere (finding L1 and B-3).
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
 /**
- * Estado de una línea de factura.
+ * Status of an invoice line.
  *
- * Nombres en inglés para el enum (consistencia con el resto del modelo y con
- * los valores de la base de datos), documentados en español.
+ * English names for the enum (consistency with the rest of the model and with
+ * the database values), documented in English.
  */
 enum class InvoiceLineStatus {
-    /** Alta de la línea: la mercancía aún no se ha contado. */
+    /** Line created: the goods have not been counted yet. */
     PENDING,
 
-    /** Contada y la cantidad **coincide** con la factura. */
+    /** Counted and the quantity **matches** the invoice. */
     CAPTURED,
 
-    /** Contada y la cantidad **NO coincide**: requiere aprobación. */
+    /** Counted and the quantity **does NOT match**: it requires approval. */
     DISCREPANCY,
 
     /**
-     * Un supervisor la revisó y autorizó el ajuste.
-     * Es el paso que añade el sistema nuevo: sin él no se puede ubicar.
+     * A supervisor reviewed it and authorized the adjustment.
+     * It is the step the new system adds: without it, it cannot be located.
      */
     APPROVED,
 
-    /** Trabajo asignado a un operador (etapa previa a la captura). */
+    /** Work assigned to an operator (stage before the count). */
     ASSIGNED,
 
-    /** Mercancía ubicada en un estante, total o parcialmente. */
+    /** Goods located on a shelf, fully or partially. */
     LOCATED,
 
-    /** Línea anulada. Nunca se borra: se anula con trazabilidad. */
+    /** Cancelled line. It is never deleted: it is cancelled with traceability. */
     CANCELLED,
     ;
 
-    /** Indica si la línea permite ubicar mercancía. */
+    /** Indicates whether the line allows locating goods. */
     val allowsLocating: Boolean
         get() = when (this) {
             CAPTURED, APPROVED, ASSIGNED, LOCATED -> true
@@ -77,8 +77,8 @@ enum class InvoiceLineStatus {
         }
 
     /**
-     * Indica si la línea impide cerrar la factura.
-     * Es la consulta que el legacy respondía con un `filter` de strings sueltos.
+     * Indicates whether the line prevents closing the invoice.
+     * It is the query that the legacy answered with a `filter` over loose strings.
      */
     val blocksInvoiceClosing: Boolean
         get() = when (this) {
@@ -88,72 +88,72 @@ enum class InvoiceLineStatus {
 }
 
 /**
- * Una línea de factura con su estado y sus cantidades.
+ * An invoice line with its status and its quantities.
  *
- * Inmutable: cada transición devuelve una línea nueva. Eso hace que el estado
- * sea siempre consistente y que las transiciones se puedan probar sin mocks.
+ * Immutable: each transition returns a new line. That makes the state always
+ * consistent and makes the transitions testable without mocks.
  */
 data class InvoiceLine(
     val id: Long,
     val productCode: ProductCode,
-    /** Cantidad según la factura del proveedor. */
+    /** Quantity according to the supplier's invoice. */
     val invoicedQuantity: Quantity,
-    /** Unidades por caja. No puede ser cero (lo impide el tipo). */
+    /** Units per box. It cannot be zero (the type prevents it). */
     val unitsPerBox: UnitsPerBox,
     val status: InvoiceLineStatus,
-    /** Cantidad contada físicamente. `null` mientras no se haya contado. */
+    /** Physically counted quantity. `null` while it has not been counted. */
     val physicalQuantity: Quantity? = null,
-    /** Cajas contadas físicamente. */
+    /** Physically counted boxes. */
     val physicalBoxQuantity: BoxQuantity? = null,
-    /** Unidades ya ubicadas en estantes. */
+    /** Units already located on shelves. */
     val locatedQuantity: Quantity = Quantity.ZERO,
-    /** Operador que hizo la captura física. Necesario para R-74. */
+    /** Operator who did the physical count. Necessary for R-74. */
     val capturedBy: Long? = null,
-    /** Supervisor que autorizó la discrepancia. Necesario para la auditoría. */
+    /** Supervisor who authorized the discrepancy. Necessary for the audit. */
     val approvedBy: Long? = null,
-    /** Motivo del ajuste autorizado (invariante I6). */
+    /** Reason for the authorized adjustment (invariant I6). */
     val adjustmentReason: String? = null,
-    /** Ubicación de destino. */
+    /** Destination location. */
     val location: LocationCode? = null,
     /**
-     * Unidades ya **ingresadas** en `RECEIVING` por esta línea.
+     * Units already **entered** into `RECEIVING` by this line.
      *
-     * Es lo que hace que contar dos veces no sume dos veces: la entrada se escribe por la
-     * diferencia entre lo contado ahora y lo que ya se ingresó. Existe porque una línea con
-     * discrepancia que el supervisor descarta vuelve a `PENDING` y se recuenta
-     * ([rejectDiscrepancy]), y sin este número el kardex contaría la mercancía dos veces.
+     * It is what makes counting twice not add up twice: the entry is written for the
+     * difference between what is counted now and what was already entered. It exists because a line with a
+     * discrepancy that the supervisor discards goes back to `PENDING` and is recounted
+     * ([rejectDiscrepancy]), and without this number the ledger would count the goods twice.
      */
     val receivedQuantity: Quantity = Quantity.ZERO,
     /**
-     * Quién tiene la línea asignada para contarla.
+     * Who has the line assigned to count it.
      *
-     * La columna existe en la base desde la primera migración y **nadie la escribía**: la ruta de
-     * asignación era la que faltaba. El estado `ASSIGNED` solo decía «alguien la tiene», sin
-     * decir quién.
+     * The column has existed in the database since the first migration and **nobody wrote it**: the
+     * assignment route was the one missing. The `ASSIGNED` status only said "someone has it", without
+     * saying who.
      */
     val assignedUserId: Long? = null,
 ) {
 
     /**
-     * Diferencia entre lo contado y lo facturado.
+     * Difference between what was counted and what was invoiced.
      *
-     * **Este es el campo que el legacy declaraba en modelo, DTO, mapper y
-     * respuesta y siempre devolvía `0`** (hallazgo R-58 / L1). Aquí es una
-     * propiedad derivada: no hay forma de que se desincronice porque no se
-     * almacena, se calcula.
+     * **This is the field the legacy declared in the model, DTO, mapper and
+     * response and always returned `0`** (finding R-58 / L1). Here it is a
+     * derived property: there is no way for it to drift out of sync because it is not
+     * stored, it is computed.
      *
-     * Positivo = llegó más de lo facturado. Negativo = llegó menos.
+     * Positive = more arrived than invoiced. Negative = less arrived.
      */
     val difference: Quantity?
         get() = physicalQuantity?.let { it - invoicedQuantity }
 
-    /** Indica si hay una diferencia sin resolver. */
+    /** Indicates whether there is an unresolved discrepancy. */
     val hasUnresolvedDifference: Boolean
         get() = status == InvoiceLineStatus.DISCREPANCY
 
     /**
-     * Unidades pendientes de ubicar.
-     * Diferencia entre lo contado (o facturado si aún no se contó) y lo ubicado.
+     * Units still pending to be located.
+     * Difference between what was counted (or invoiced if not yet counted) and what was located.
      */
     val pendingToLocate: Quantity
         get() = (physicalQuantity ?: invoicedQuantity) - locatedQuantity
@@ -163,15 +163,15 @@ data class InvoiceLine(
     // ═════════════════════════════════════════════════════════════════════════
 
     /**
-     * Captura física de la línea.
+     * Physical count of the line.
      *
      * Reglas aplicadas:
-     *  · Solo se puede capturar desde `PENDING` o `ASSIGNED`.
-     *  · La cantidad física debe ser positiva.
-     *  · **Las cajas deben cuadrar exactamente** (R-80).
-     *  · Si `física == factura` → `CAPTURED`; si difiere → `DISCREPANCY`.
+     *  · It can only be counted from `PENDING` or `ASSIGNED`.
+     *  · The physical quantity must be positive.
+     *  · **The boxes must add up exactly** (R-80).
+     *  · If `physical == invoiced` → `CAPTURED`; if it differs → `DISCREPANCY`.
      *
-     * @return línea nueva, o el error de dominio correspondiente.
+     * @return new line, or the corresponding domain error.
      */
     fun capture(
         physicalQuantity: Quantity,
@@ -192,17 +192,17 @@ data class InvoiceLine(
             ).asLeft()
         }
 
-        // NOTA DE DISEÑO: aquí NO se valida que la cantidad contada divida exacto
-        // entre las unidades por caja. Contar 80 piezas de una factura de 100 con
-        // cajas de 50 significa "1 caja y 30 sueltas": es un FALTANTE legítimo,
-        // no un dato mal capturado. Validarlo aquí bloquearía exactamente el caso
-        // que el flujo de discrepancia existe para resolver.
+        // DESIGN NOTE: it is NOT validated here that the counted quantity divides exactly
+        // by the units per box. Counting 80 pieces of an invoice of 100 with boxes of 50
+        // means "1 box and 30 loose": it is a legitimate SHORTAGE, not
+        // a wrongly captured datum. Validating it here would block exactly the case
+        // that the discrepancy flow exists to resolve.
         //
-        // La validación de cajas es sobre la ESPECIFICACIÓN de la factura y se
-        // hace al crear la línea (ver validatePackingSpecification).
+        // The box validation applies to the invoice's SPECIFICATION and is done
+        // when the line is created (see validatePackingSpecification).
 
-        // La caja contada debe corresponder con la cantidad contada: si se
-        // cuentan 80 piezas no pueden ser 2 cajas de 50 (serían 100).
+        // The counted boxes must match the counted quantity: if 80 pieces are counted they
+        // cannot be 2 boxes of 50 (that would be 100).
         if (!physicalBoxQuantity.isConsistentWith(physicalQuantity, unitsPerBox)) {
             return DomainError.InconsistentBoxCount(
                 quantity = physicalQuantity.units,
@@ -221,14 +221,14 @@ data class InvoiceLine(
     }
 
     /**
-     * Aprueba una discrepancia y ajusta la cantidad de la línea a lo contado.
+     * Approves a discrepancy and adjusts the line's quantity to what was counted.
      *
-     * **La regla de segregación de funciones (R-74) se aplica aquí**: si quien
-     * aprueba es la misma persona que capturó, se devuelve
-     * [DomainError.SegregationOfDuties] y no se modifica nada.
+     * **The segregation-of-duties rule (R-74) applies here**: if whoever approves is
+     * the same person who counted, it returns
+     * [DomainError.SegregationOfDuties] and nothing is modified.
      *
-     * El motivo ([reason]) es obligatorio: el ajuste mueve inventario y sin
-     * motivo es un agujero de auditoría (invariante I6).
+     * The reason ([reason]) is mandatory: the adjustment moves inventory and without a reason it is an
+     * audit hole (invariant I6).
      */
     fun approveDiscrepancy(
         approvedBy: Long,
@@ -242,17 +242,17 @@ data class InvoiceLine(
             return DomainError.ReasonRequired("authorize an inventory discrepancy").asLeft()
         }
 
-        // ── Segregación de funciones (R-74) ─────────────────────────────────
-        // El control interno más importante del flujo: nadie firma su propio
-        // error de conteo. Si el negocio algún día decide relajarlo, se hace
-        // desactivando una política, no borrando este código.
+        // ── Segregation of duties (R-74) ─────────────────────────────────
+        // The most important internal control of the flow: nobody signs their own
+        // counting error. If the business someday decides to relax it, it is done
+        // by disabling a policy, not by deleting this code.
         if (capturedBy != null && capturedBy == approvedBy) {
             return DomainError.SegregationOfDuties().asLeft()
         }
 
         return copy(
-            // La cantidad facturada se ajusta a la realidad contada: es lo que
-            // autoriza el supervisor al aprobar.
+            // The invoiced quantity is adjusted to the counted reality: that is what the
+            // supervisor authorizes when approving.
             invoicedQuantity = physicalQuantity ?: invoicedQuantity,
             approvedBy = approvedBy,
             adjustmentReason = reason,
@@ -261,8 +261,8 @@ data class InvoiceLine(
     }
 
     /**
-     * Rechaza la discrepancia y devuelve la línea a captura.
-     * El contador de cajas y la cantidad se limpian para forzar un reconteo.
+     * Rejects the discrepancy and returns the line to counting.
+     * The box counter and the quantity are cleared to force a recount.
      */
     fun rejectDiscrepancy(reason: String): DomainResult<InvoiceLine> {
         if (status != InvoiceLineStatus.DISCREPANCY) {
@@ -281,17 +281,17 @@ data class InvoiceLine(
     }
 
     /**
-     * Ubica mercancía en un estante.
+     * Locates goods on a shelf.
      *
-     * **Aquí es donde la regla B1 se hace efectiva**: si la línea tiene una
-     * discrepancia sin aprobar, no se puede ubicar. El error devuelto incluye
-     * la diferencia para que la UI pueda explicar cuánto falta autorizar.
+     * **This is where rule B1 takes effect**: if the line has an
+     * unapproved discrepancy, it cannot be located. The error returned includes
+     * the difference so that the UI can explain how much remains to be authorized.
      */
     fun locate(
         quantity: Quantity,
         toLocation: LocationCode? = null,
     ): DomainResult<InvoiceLine> {
-        // ── Regla B1: discrepancia bloquea la ubicación ─────────────────────
+        // ── Rule B1: a discrepancy blocks the location ─────────────────────
         if (status == InvoiceLineStatus.DISCREPANCY) {
             return DomainError.DiscrepancyNotApproved(
                 difference = difference?.value ?: 0L,
@@ -328,14 +328,14 @@ data class InvoiceLine(
         val newLocated = locatedQuantity + quantity
         val target = physicalQuantity ?: invoicedQuantity
         /*
-         * Ubicar **parcialmente** no aprueba nada: se conserva el estado.
+         * Locating **partially** approves nothing: the state is kept.
          *
-         * Antes pasaba a `APPROVED`, y eso era un error por dos razones: una línea
-         * contada que coincide con la factura no tiene ninguna discrepancia que
-         * aprobar, y la base prohíbe `APPROVED` sin `approved_by` (lo impone el
-         * `CHECK invoice_lines_approved_requires_approver`), así que la escritura
-         * habría fallado. El estado correcto de «falta ubicar el resto» es el que ya
-         * tenía: `CAPTURED` si se contó, `APPROVED` si un supervisor ya la autorizó.
+         * It used to move to `APPROVED`, which was an error for two reasons: a line
+         * counted that matches the invoice has no discrepancy to approve, and the database
+         * forbids `APPROVED` without `approved_by` (enforced by the
+         * `CHECK invoice_lines_approved_requires_approver`), so the write
+         * would have failed. The correct state for "still needs locating" is the one it
+         * already had: `CAPTURED` if it was counted, `APPROVED` if a supervisor already authorized it.
          */
         val complete = newLocated == target
         return copy(
@@ -345,7 +345,7 @@ data class InvoiceLine(
         ).asRight()
     }
 
-    /** Anula la línea. Nunca se borra: se marca y se conserva el rastro. */
+    /** Cancels the line. It is never deleted: it is marked and the trace is kept. */
     fun cancel(reason: String): DomainResult<InvoiceLine> {
         if (status == InvoiceLineStatus.LOCATED) {
             return DomainError.CannotDeleteWithInventoryEffect(
@@ -360,11 +360,11 @@ data class InvoiceLine(
     }
 
     /**
-     * Asigna la línea a un operador para que la cuente.
+     * Assigns the line to an operator so they can count it.
      *
-     * **Solo desde `PENDING`.** Una línea ya contada no se reasigna: el conteo tiene responsable
-     * ([capturedBy]) y cambiarlo después sería reescribir quién hizo el trabajo. Tampoco desde
-     * `DISCREPANCY`: esa línea espera una decisión, no un capturista.
+     * **Only from `PENDING`.** An already counted line is not reassigned: the count has a responsible person
+     * ([capturedBy]) and changing it later would be rewriting who did the work. Nor from
+     * `DISCREPANCY`: that line awaits a decision, not a counter.
      */
     fun assign(userId: Long): DomainResult<InvoiceLine> {
         if (status != InvoiceLineStatus.PENDING) {
@@ -376,18 +376,18 @@ data class InvoiceLine(
     companion object {
 
         /**
-         * Decisión R-80, aplicada en el sitio correcto: **al crear la línea**.
+         * Decision R-80, applied in the right place: **when creating the line**.
          *
-         * La especificación de empaque de una factura debe ser coherente: si
-         * dice 100 piezas y las cajas son de 30, quedan 10 sueltas y el dato es
-         * imposible (nadie empaca una fracción de caja). Se rechaza el alta.
+         * The packing specification of an invoice must be coherent: if
+         * it says 100 pieces and the boxes are of 30, 10 are left loose and the data is
+         * impossible (nobody packs a fraction of a box). The creation is rejected.
          *
-         * **NO se aplica a la cantidad contada.** Contar 80 de 100 con cajas de
-         * 50 es un faltante legítimo (1 caja + 30 sueltas) y es precisamente lo
-         * que el flujo de discrepancia debe capturar, no bloquear.
+         * **It is NOT applied to the counted quantity.** Counting 80 of 100 with boxes of
+         * 50 is a legitimate shortage (1 box + 30 loose), and it is precisely
+         * what the discrepancy flow must capture, not block.
          *
-         * Excepción: cantidades menores que una caja son mercancía suelta y son
-         * válidas (20 piezas con cajas de 30).
+         * Exception: quantities smaller than a box are loose goods and are
+         * valid (20 pieces with boxes of 30).
          */
         fun validatePackingSpecification(
             invoicedQuantity: Quantity,

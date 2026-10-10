@@ -9,96 +9,96 @@ import dev.axzy.stock.domain.value.Quantity
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * MÁQUINA DE ESTADOS DEL TRASLADO ENTRE BODEGAS (contrato §7)
+ * STATE MACHINE OF THE TRANSFER BETWEEN WAREHOUSES (contract §7)
  *
  * ```
  *   DRAFT ──dispatch──> DISPATCHED ──receive──> RECEIVED
  *     │                    │
- *     │                    └──(en tránsito hasta que se reciba)
+ *     │                    └──(in transit until it is received)
  *     └──cancel──> CANCELLED <──cancel──┘
  * ```
  *
- * ── LA INVARIANTE QUE DEFINE TODO EL DISEÑO ────────────────────────────────
+ * ── THE INVARIANT THAT DEFINES THE WHOLE DESIGN ────────────────────────────────
  *
- * > **`Σ stock_by_location + Σ stock_in_transit` se conserva en CADA
- * > transición.**
+ * > **`Σ stock_by_location + Σ stock_in_transit` is preserved on EVERY**
+ * > **transition.**
  *
- * La mercancía en el camión **sigue contando** en el inventario. Si el traslado
- * se modelara como dos movimientos instantáneos —sale de A, entra en B— el total
- * del producto bajaría durante el viaje y **los reportes mentirían**: un informe
- * de existencias a mitad de un traslado enseñaría menos mercancía de la que hay.
- * Y peor: el descuadre aparecería y desaparecería solo, sin que nadie pudiera
+ * The goods on the truck **still count** in the inventory. If the transfer
+ * were modeled as two instant movements —leaves A, enters B— the product total would drop during the
+ * trip and **the reports would lie**: an inventory report halfway through a transfer would show
+ * less goods than there are.
+ * And worse: the discrepancy would appear and disappear by itself, without anyone being able to
  * explicarlo.
  *
- * Es la razón de que `stock_in_transit` exista como tabla desde V3 y de que
- * `recalculate_product_total` (V6) la sume.
+ * It is the reason `stock_in_transit` exists as a table since V3 and why
+ * `recalculate_product_total` (V6) sums it.
  *
- * ── POR QUÉ EL ESTADO NO ES UN `String` ────────────────────────────────────
+ * ── WHY THE STATE IS NOT A `String` ────────────────────────────────────
  *
- * En el legacy los estados eran cadenas libres y **cualquier sitio podía escribir
- * cualquiera**: `invoice.status = 'done'` desde un controlador, desde un script
- * de mantenimiento o desde una consulta a mano. Aquí las transiciones son las
- * ÚNICAS funciones que cambian el estado, y cada una valida el estado de origen.
- * Un salto ilegal —recibir un traslado que nunca se despachó— **no compila**
- * porque no hay una función que lo haga.
+ * In the legacy the states were free strings and **anyone could write
+ * any of them**: `invoice.status = 'done'` from a controller, from a maintenance script
+ * or from a query by hand. Here the transitions are the
+ * ONLY functions that change the state, and each one validates the origin state.
+ * An illegal jump —receiving a transfer that was never dispatched— **does not compile**
+ * because there is no function that does it.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-/** Estado de un traslado. Los valores coinciden con el enum `transfer_status`. */
+/** State of a transfer. The values match the `transfer_status` enum. */
 enum class TransferStatus {
-    /** Creado y todavía editable. La mercancía NO se ha movido. */
+    /** Created and still editable. The goods have NOT moved. */
     DRAFT,
 
-    /** Despachado: salió de las ubicaciones de origen y entró en tránsito. */
+    /** Dispatched: left the origin locations and entered transit. */
     DISPATCHED,
 
     /**
-     * En tránsito.
+     * In transit.
      *
-     * **Estado distinto de `DISPATCHED` a propósito**, aunque el flujo normal
-     * pase de uno al otro sin intervención: son dos hechos distintos —«salió» y
-     * «va por el camino»— y el informe de tránsito los necesita separados para
-     * poder decir cuántos días lleva cada uno.
+     * **A state distinct from `DISPATCHED` on purpose**, even though the normal flow
+     * goes from one to the other without intervention: they are two different facts —"it left" and
+     * "it is on the way"— and the transit report needs them separated to
+     * say how many days each one has been running.
      */
     IN_TRANSIT,
 
-    /** Recibido en la bodega de destino: la mercancía está en sus ubicaciones. */
+    /** Received at the destination warehouse: the goods are in its locations. */
     RECEIVED,
 
-    /** Cancelado. Solo desde `DRAFT` o `DISPATCHED`: lo recibido se corrige con
-     *  un movimiento, no cancelando el pasado. */
+    /** Cancelled. Only from `DRAFT` or `DISPATCHED`: what was received is corrected with a
+     *  movement, not by cancelling the past. */
     CANCELLED,
     ;
 
-    /** ¿La mercancía de este traslado está fuera de las ubicaciones? */
+    /** Is the goods of this transfer outside the locations? */
     val isInTransit: Boolean
         get() = this == DISPATCHED || this == IN_TRANSIT
 
-    /** ¿Se puede todavía cambiar el contenido del traslado? */
+    /** Can the content of the transfer still be changed? */
     val isEditable: Boolean
         get() = this == DRAFT
 }
 
-/** Una línea del traslado: un producto y cuánto viaja. */
+/** A line of the transfer: a product and how much travels. */
 data class TransferLine(
     val id: Long,
     val productId: Long,
     val productCode: String,
     val productName: String,
     val quantity: Quantity,
-    /** Ubicación de origen de la que sale. `null` = la de recepción/sin ubicar. */
+    /** Origin location it leaves from. `null` = the receiving / unassigned one. */
     val fromLocationId: Long? = null,
     val fromLocationDisplayName: String? = null,
     val note: String? = null,
 )
 
 /**
- * Un traslado con su cabecera y sus líneas.
+ * A transfer with its header and its lines.
  *
- * Inmutable: cada transición devuelve un traslado NUEVO. Así el estado es siempre
- * consistente y las transiciones se prueban sin base de datos ni dobles de
- * prueba — que es lo que hace que estas reglas se puedan probar en milisegundos
- * y las mismas en el backend y en el móvil.
+ * Immutable: each transition returns a NEW transfer. That way the state is always
+ * consistent and the transitions are tested without a database or test doubles
+ * — which is what makes these rules testable in milliseconds and the same in the
+ * backend and in the mobile app.
  */
 data class Transfer(
     val id: Long,
@@ -112,23 +112,23 @@ data class Transfer(
     val receivedBy: Long? = null,
 ) {
 
-    /** Cuántos productos distintos viajan. */
+    /** How many distinct products travel. */
     val lineCount: Int get() = lines.size
 
-    /** La suma de las cantidades. */
+    /** The sum of the quantities. */
     val totalUnits: Quantity
         get() = lines.fold(Quantity.ZERO) { acc, linea -> acc + linea.quantity }
 
     /**
-     * Marca el traslado como despachado: la mercancía sale de las ubicaciones de
-     * origen y entra en tránsito.
+     * Marks the transfer as dispatched: the goods leave the
+     * origin locations and enter transit.
      *
-     * **Lo que NO hace esta función y es deliberado: mover el stock.** El dominio
-     * decide SI la transición es legal y QUIÉN la hace; el movimiento de las
-     * existencias lo ejecuta el motor SQL en la misma transacción que escribe el
-     * kardex y el tránsito (V6). Separarlo sería justo lo que descuadra un
-     * inventario: si el dominio moviera el stock y la escritura del kardex
-     * fallara, la mercancía habría cambiado de sitio sin registro.
+     * **What this function deliberately does NOT do is move the stock.** The domain
+     * decides WHETHER the transition is legal and WHO performs it; the stock movement is
+     * executed by the SQL engine in the same transaction that writes the ledger
+     * and the transit (V6). Separating it is exactly what unbalances an inventory:
+     * if the domain moved the stock and the ledger write
+     * failed, the goods would have changed place without a record.
      */
     fun dispatch(userId: Long): Either<DomainError, Transfer> {
         if (lines.isEmpty()) return DomainError.EmptyTransfer().asLeft()
@@ -149,11 +149,11 @@ data class Transfer(
     }
 
     /**
-     * Marca el traslado como recibido en la bodega de destino.
+     * Marks the transfer as received at the destination warehouse.
      *
-     * Solo desde `DISPATCHED` o `IN_TRANSIT`: **recibir algo que nunca se
-     * despachó** sería dar por llegada una mercancía que nunca salió, y el
-     * inventario de destino crecería sin que el de origen hubiera bajado.
+     * Only from `DISPATCHED` or `IN_TRANSIT`: **receiving something that was never
+     * dispatched** would be treating as arrived goods that never left, and the
+     * destination inventory would grow without the origin's having dropped.
      */
     fun receive(userId: Long): Either<DomainError, Transfer> {
         if (!status.isInTransit) {
@@ -171,12 +171,12 @@ data class Transfer(
     }
 
     /**
-     * Cancela el traslado.
+     * Cancels the transfer.
      *
-     * **Desde `RECEIVED` NO se puede.** Lo recibido está en las ubicaciones de
-     * destino y cancelarlo dejaría la mercancía contada en el sitio equivocado:
-     * si hay que deshacerlo, se hace con un traslado de vuelta, que deja rastro.
-     * Un `CANCELLED` sobre algo ya recibido sería un borrado del pasado.
+     * **From `RECEIVED` it is NOT possible.** What was received is in the destination locations and
+     * cancelling it would leave the goods counted in the wrong place:
+     * if it must be undone, it is done with a transfer back, which leaves a trace.
+     * A `CANCELLED` over something already received would be deleting the past.
      */
     fun cancel(): Either<DomainError, Transfer> {
         val cancelable = status == TransferStatus.DRAFT || status == TransferStatus.DISPATCHED
@@ -193,11 +193,11 @@ data class Transfer(
 
     companion object {
         /**
-         * Valida las dos reglas que no dependen del estado, antes de crear nada.
+         * Validates the two rules that do not depend on the state, before creating anything.
          *
-         * Se comprueban ANTES de tocar la base para poder dar un `422` con el
-         * campo señalado en lugar de traducir un error de restricción, que no
-         * dice qué campo está mal.
+         * They are checked BEFORE touching the database so as to return a `422` with the
+         * field indicated instead of translating a constraint error, which does not
+         * say which field is wrong.
          */
         fun validate(
             fromWarehouseId: Long,
@@ -211,5 +211,5 @@ data class Transfer(
     }
 }
 
-/** El identificador tipado de un traslado, para no confundirlo con otro `Long`. */
+/** The typed identifier of a transfer, so as not to confuse it with another `Long`. */
 typealias TransferId = Id<Transfer>

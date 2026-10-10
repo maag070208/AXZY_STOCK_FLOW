@@ -8,19 +8,19 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * LA MÁQUINA DE ESTADOS DEL TRASLADO
+ * THE TRANSFER STATE MACHINE
  *
- * **La invariante que estas pruebas protegen está en el contrato §7:**
+ * **The invariant these tests protect is in contract §7:**
  *
- * > `Σ stock_by_location + Σ stock_in_transit` se conserva en cada transición.
+ * > `Σ stock_by_location + Σ stock_in_transit` is preserved on every transition.
  *
- * La prueba de esa invariante de verdad —con la base y el stock— está en el test
- * de integración. Aquí se prueba **qué transiciones son legales**, que es lo que
- * la base no puede comprobar: un `UPDATE ... SET status='RECEIVED'` siempre
- * funcionaría, y es justo por eso por lo que el estado no se escribe a mano.
+ * The proof of that invariant for real —with the database and the stock— is in the test
+ * integration test. Here **which transitions are legal** is tested, which is what
+ * the database cannot check: an `UPDATE ... SET status='RECEIVED'` would always
+ * work, and that is precisely why the state is not written by hand.
  *
- * Son pruebas PURAS: no tocan base ni servidor, así que corren en milisegundos y
- * **no se saltan nunca**.
+ * They are PURE tests: they touch no database or server, so they run in milliseconds and
+ * **are never skipped**.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 class TransferStateMachineTest : DescribeSpec({
@@ -64,9 +64,9 @@ class TransferStateMachineTest : DescribeSpec({
         }
 
         it("IN_TRANSIT can also be received: it is the normal path") {
-            // `DISPATCHED` e `IN_TRANSIT` son dos hechos distintos y los dos
-            // permiten recibir. Olvidar el segundo dejaría traslados que viajan
-            // legítimamente sin poder cerrarse.
+            // `DISPATCHED` and `IN_TRANSIT` are two distinct facts, and both
+            // allow receiving. Forgetting the second would leave transfers that are travelling
+            // legitimately unable to be closed.
             transfer(TransferStatus.IN_TRANSIT).receive(1).getOrNull()!!.status shouldBe
                 TransferStatus.RECEIVED
         }
@@ -84,10 +84,10 @@ class TransferStateMachineTest : DescribeSpec({
         it("receiving a DRAFT is rejected: goods that never left would arrive") {
             val error = transfer(TransferStatus.DRAFT).receive(1).errorOrNull()
 
-            // **El daño concreto:** el inventario de destino crecería sin que el
-            // de origen hubiera bajado, así que el total SUBIRÍA. Es una creación
-            // de mercancía de la nada, y ningún reporte la señalaría como error
-            // porque un total que sube parece una entrada legítima.
+            // **The concrete damage:** the destination inventory would grow without the
+            // origin having gone down, so the total would RISE. It is a creation
+            // of goods out of nothing, and no report would flag it as an error
+            // because a rising total looks like a legitimate receipt.
             error.shouldBeInstanceOf<DomainError.InvalidTransition>()
             (error as DomainError.InvalidTransition).code shouldBe "INVALID_TRANSITION"
             error.from shouldBe "DRAFT"
@@ -100,9 +100,9 @@ class TransferStateMachineTest : DescribeSpec({
         }
 
         it("cancelling a RECEIVED transfer is rejected: what was received is not erased") {
-            // Si se pudiera, la mercancía quedaría en las ubicaciones de destino
-            // con un traslado cancelado: contada en el sitio equivocado y sin
-            // rastro. Para deshacerlo se hace un traslado de vuelta.
+            // If it were allowed, the goods would stay in the destination locations
+            // of a cancelled transfer: counted in the wrong place and without
+            // a trace. To undo it, a transfer back is made.
             val error = transfer(TransferStatus.RECEIVED).cancel().errorOrNull()
 
             error.shouldBeInstanceOf<DomainError.InvalidTransition>()
@@ -115,9 +115,9 @@ class TransferStateMachineTest : DescribeSpec({
         }
 
         it("dispatching an already dispatched transfer is rejected") {
-            // Es el que evita el doble descuento: si se despachara dos veces, la
-            // mercancía saldría dos veces de las ubicaciones de origen y el total
-            // BAJARÍA. Un total que baja de golpe parece una venta, no un error.
+            // It is the one that prevents the double deduction: if it were dispatched twice, the
+            // goods would leave the origin locations twice and the total
+            // would DROP. A total that drops suddenly looks like a sale, not an error.
             transfer(TransferStatus.DISPATCHED).dispatch(1).errorOrNull()
                 .shouldBeInstanceOf<DomainError.InvalidTransition>()
         }
@@ -139,11 +139,11 @@ class TransferStateMachineTest : DescribeSpec({
                 lines = listOf(linea()),
             ).errorOrNull()
 
-            // **Por qué esta regla existe.** La mercancía saldría de las
-            // ubicaciones y entraría en tránsito hacia la misma bodega: el total
-            // NO cambia, así que la reconciliación sale cuadrada y el informe de
-            // existencias solo enseña menos mercancía. Es un agujero que se
-            // descubre con un conteo físico meses después.
+            // **Why this rule exists.** The goods would leave the
+            // locations and enter transit towards the same warehouse: the total
+            // does NOT change, so the reconciliation comes out balanced and the stock
+            // report only shows fewer goods. It is a hole that is
+            // discovered by a physical count months later.
             error.shouldBeInstanceOf<DomainError.SameWarehouse>()
             (error as DomainError.SameWarehouse).code shouldBe "SAME_WAREHOUSE"
         }
@@ -167,9 +167,9 @@ class TransferStateMachineTest : DescribeSpec({
             )
 
             t.lineCount shouldBe 3
-            // `Quantity` guarda milésimas enteras, así que la suma es exacta: no
-            // hay coma flotante que redondear. Es la misma representación que usa
-            // el resto del sistema.
+            // `Quantity` stores whole thousandths, so the sum is exact: there is no
+            // floating point to round. It is the same representation the
+            // rest of the system uses.
             t.totalUnits shouldBe Quantity.ofScaled(1750)
         }
 
@@ -181,9 +181,9 @@ class TransferStateMachineTest : DescribeSpec({
         }
 
         it("`isInTransit` is true only when the goods are outside the locations") {
-            // Es la consulta que alimenta `GET /v1/transfers/in-transit`. Si
-            // incluyera `DRAFT`, el informe enseñaría como «en camino» mercancía
-            // que todavía está en su estante.
+            // It is the query that feeds `GET /v1/transfers/in-transit`. If
+            // it included `DRAFT`, the report would show as "on the way" goods
+            // that are still on their shelf.
             transfer(TransferStatus.DRAFT).status.isInTransit shouldBe false
             transfer(TransferStatus.DISPATCHED).status.isInTransit shouldBe true
             transfer(TransferStatus.IN_TRANSIT).status.isInTransit shouldBe true
@@ -192,8 +192,8 @@ class TransferStateMachineTest : DescribeSpec({
         }
 
         it("only DRAFT is editable") {
-            // Con la mercancía ya en el camión, cambiar las líneas haría que lo
-            // despachado y lo declarado dejaran de coincidir.
+            // With the goods already on the truck, changing the lines would make what was
+            // dispatched and what was declared stop matching.
             transfer(TransferStatus.DRAFT).status.isEditable shouldBe true
             transfer(TransferStatus.DISPATCHED).status.isEditable shouldBe false
             transfer(TransferStatus.IN_TRANSIT).status.isEditable shouldBe false

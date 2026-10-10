@@ -1,50 +1,44 @@
-# Contrato de API — Almacén Integral
-> **Referencia.** Índice del contrato HTTP por tema y por recurso, la matriz de
-> permisos por endpoint y lo que esta API no expone.
-> Última verificación: 2026-10-09.
+# API contract — Almacén Integral
+> **Reference.** Index of the HTTP contract by topic and by resource, the permission matrix per endpoint and what this API does not expose.
+> Last verified: 2026-10-09.
 
-Este contrato es la fuente de verdad del HTTP. Lo consumen el backend (que lo
-implementa), la web (que genera su cliente) y el móvil (que declara sus DTOs). Si
-algo cambia aquí, los tres lados se enteran.
+This contract is the source of truth of the HTTP. It is consumed by the backend (which implements it), the web (which generates its client) and the mobile app (which declares its DTOs). If
+something changes here, all three sides find out.
 
-> **Escribir el contrato antes de paralelizar el trabajo es lo que hace posible
-> paralelizarlo.** Sin él, el backend, la web y el móvil inventan formas distintas
-> de la misma respuesta, y el problema aparece en la integración, que es el peor
-> sitio para descubrirlo.
+> **Writing the contract before parallelizing the work is what makes parallelizing it possible.** Without it, the backend, the web and the mobile app invent different shapes for
+> the same response, and the problem appears at integration, which is the worst place to discover it.
 
-## Documentos
+## Documents
 
-| Tema | Documento | Tipo |
+| Topic | Document | Type |
 |---|---|---|
-| Convenciones transversales | [convenciones.md](convenciones.md) | Normativo |
-| Cuerpo de error y catálogo de códigos | [errores.md](errores.md) | Referencia |
-| Autenticación | [autenticacion.md](autenticacion.md) | Referencia |
-| Catálogo: productos, ubicaciones, bodegas, importación | [catalogo.md](catalogo.md) | Referencia |
-| Inventario: stock, kardex, ajustes, ubicación, movimiento | [inventario.md](inventario.md) | Referencia |
-| Recepción: facturas, captura, aprobación, cierre | [recepcion.md](recepcion.md) | Referencia |
-| Surtido: órdenes, empaque, confirmación, exportación | [surtido.md](surtido.md) | Referencia |
-| Traslados entre bodegas | [traslados.md](traslados.md) | Referencia |
-| Etiquetas: plantillas, impresión, cola | [etiquetas.md](etiquetas.md) | Referencia |
-| Reportes: existencias, exportación, resumen, reconciliación | [reportes.md](reportes.md) | Referencia |
-| Salud | [salud.md](salud.md) | Referencia |
+| Cross-cutting conventions | [convenciones.md](convenciones.md) | Normative |
+| Error body and code catalog | [errores.md](errores.md) | Reference |
+| Authentication | [autenticacion.md](autenticacion.md) | Reference |
+| Catalog: products, locations, warehouses, import | [catalogo.md](catalogo.md) | Reference |
+| Inventory: stock, ledger, adjustments, location, movement | [inventario.md](inventario.md) | Reference |
+| Receiving: invoices, capture, approval, closing | [recepcion.md](recepcion.md) | Reference |
+| Picking: orders, packing, confirmation, export | [surtido.md](surtido.md) | Reference |
+| Transfers between warehouses | [traslados.md](traslados.md) | Reference |
+| Labels: templates, printing, queue | [etiquetas.md](etiquetas.md) | Reference |
+| Reports: stock, export, summary, reconciliation | [reportes.md](reportes.md) | Reference |
+| Health | [salud.md](salud.md) | Reference |
 
-Las reglas de rutas, estados, paginación, idempotencia, cabeceras y formatos viven
-**solo** en [convenciones.md](convenciones.md); los documentos por recurso enlazan,
-no las repiten. Lo mismo con el catálogo de códigos de error, que vive en
+The rules for routes, states, pagination, idempotency, headers and formats live
+**only** in [convenciones.md](convenciones.md); the resource documents link to it and
+do not repeat them. The same goes for the error code catalog, which lives in
 [errores.md](errores.md).
 
-## Permisos por endpoint
+## Permissions per endpoint
 
-Tabla de referencia. La clave es `recurso.accion` en minúsculas; el alcance se
-resuelve por RBAC con su `PermissionScope` (`NONE`/`OWN`/`AREA`/`ALL`), y los
-alcances admitidos por cada permiso los declara
+Reference table. The key is `resource.action` in lowercase; the scope is resolved by RBAC with its `PermissionScope` (`NONE`/`OWN`/`AREA`/`ALL`), and the scopes allowed for each permission are declared by
 `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/access/PermissionCatalog.kt`.
 
-| Endpoint | Permiso | Alcance mínimo |
+| Endpoint | Permission | Minimum scope |
 |---|---|---|
-| `POST /v1/auth/login`, `/refresh`, `/logout` | — | público |
-| `GET /v1/auth/me` | — | autenticado |
-| `POST /v1/auth/change-password` | — | autenticado |
+| `POST /v1/auth/login`, `/refresh`, `/logout` | — | public |
+| `GET /v1/auth/me` | — | authenticated |
+| `POST /v1/auth/change-password` | — | authenticated |
 | `GET /v1/products` | `product.view` | `ALL` |
 | `POST /v1/products` | `product.create` | `ALL` |
 | `GET /v1/products/{id}` | `product.view` | `ALL` |
@@ -56,9 +50,9 @@ alcances admitidos por cada permiso los declara
 | `POST /v1/locations` | `location.create` | `ALL` |
 | `PUT /v1/locations/{id}` | `location.edit` | `ALL` |
 | `DELETE /v1/locations/{id}` | `location.delete` | `ALL` |
-| `GET /v1/warehouses` | `location.view` | `ALL` — [detalle](catalogo.md) |
-| `POST /v1/warehouses` | `location.create` | `ALL` — [detalle](catalogo.md) |
-| `PUT /v1/warehouses/{id}` | `location.edit` | `ALL` — [detalle](catalogo.md) |
+| `GET /v1/warehouses` | `location.view` | `ALL` — [detail](catalogo.md) |
+| `POST /v1/warehouses` | `location.create` | `ALL` — [detail](catalogo.md) |
+| `PUT /v1/warehouses/{id}` | `location.edit` | `ALL` — [detail](catalogo.md) |
 | `GET /v1/inventory/stock` | `inventory.view` | `AREA` |
 | `GET /v1/inventory/kardex` | `kardex.view` | `AREA` |
 | `POST /v1/inventory/adjustments` | `inventory.adjust_increase` · `inventory.adjust_theft` · `inventory.adjust_damage` · `inventory.adjust_shortage` · `inventory.adjust_count_error` | `AREA` |
@@ -79,8 +73,8 @@ alcances admitidos por cada permiso los declara
 | `POST /v1/orders/{id}/confirm` | `order.confirm` | `AREA` |
 | `POST /v1/orders/{id}/export` | `order.convert` | `AREA` |
 | `POST /v1/orders/{id}/shortage` | `order.package` | `AREA` |
-| `PUT /v1/orders/{id}/lines/{lineId}/assign` | `order.assign` | `ALL` — [detalle](surtido.md) |
-| `PUT /v1/invoices/{id}/lines/{lineId}/assign` | `invoice.assign` | `ALL` — [detalle](recepcion.md) |
+| `PUT /v1/orders/{id}/lines/{lineId}/assign` | `order.assign` | `ALL` — [detail](surtido.md) |
+| `PUT /v1/invoices/{id}/lines/{lineId}/assign` | `invoice.assign` | `ALL` — [detail](recepcion.md) |
 | `GET /v1/transfers` | `transfer.view` | `AREA` |
 | `POST /v1/transfers` | `transfer.create` | `AREA` |
 | `GET /v1/transfers/{id}` | `transfer.view` | `AREA` |
@@ -97,50 +91,50 @@ alcances admitidos por cada permiso los declara
 | `GET /v1/labels/jobs` | `label.queue_view` | `AREA` |
 | `GET /v1/labels/jobs/{id}` | `label.queue_view` | `AREA` |
 | `POST /v1/labels/jobs/{id}/reprint` | `label.reprint` | `AREA` |
-| `PATCH /v1/print-jobs/{id}` | — | credencial de servicio (`X-Service-Key`) |
+| `PATCH /v1/print-jobs/{id}` | — | service credential (`X-Service-Key`) |
 | `GET /v1/reports/inventory` | `report.view` | `AREA` |
 | `GET /v1/reports/movements-summary` | `report.view` | `AREA` |
 | `GET /v1/reports/kardex/export` | `report.export` | `ALL` |
 | `GET /v1/reports/kardex-vs-projection` | `report.view` | `AREA` |
-| `GET /v1/users` | `user.view` | `ALL` — [detalle](usuarios.md) |
-| `POST /v1/users` | `user.create` | `ALL` — [detalle](usuarios.md) |
-| `GET /v1/users/{id}` | `user.view` | `ALL` — [detalle](usuarios.md) |
-| `PUT /v1/users/{id}` | `user.edit` / `role.assign` | `ALL` — [detalle](usuarios.md) |
-| `POST /v1/users/{id}/reset-password` | `user.reset_password` | `ALL` — [detalle](usuarios.md) |
-| `POST /v1/users/{id}/revoke-sessions` | `session.revoke` | `ALL` — [detalle](usuarios.md) |
-| `GET /v1/roles` | `role.manage` | `ALL` — [detalle](usuarios.md) |
-| `POST /v1/roles` | `role.manage` | `ALL` — [detalle](usuarios.md) |
-| `GET /v1/roles/{key}` | `role.manage` | `ALL` — [detalle](usuarios.md) |
-| `PUT /v1/roles/{key}` | `role.manage` | `ALL` — [detalle](usuarios.md) |
-| `PUT /v1/roles/{key}/permissions` | `role.manage` | `ALL` — [detalle](usuarios.md) |
-| `GET /v1/permissions` | `role.manage` | `ALL` — [detalle](usuarios.md) |
-| `GET /v1/audit/log` | `audit.view` | `ALL` — [detalle](auditoria.md) |
-| `GET /v1/health` | — | público |
+| `GET /v1/users` | `user.view` | `ALL` — [detail](usuarios.md) |
+| `POST /v1/users` | `user.create` | `ALL` — [detail](usuarios.md) |
+| `GET /v1/users/{id}` | `user.view` | `ALL` — [detail](usuarios.md) |
+| `PUT /v1/users/{id}` | `user.edit` / `role.assign` | `ALL` — [detail](usuarios.md) |
+| `POST /v1/users/{id}/reset-password` | `user.reset_password` | `ALL` — [detail](usuarios.md) |
+| `POST /v1/users/{id}/revoke-sessions` | `session.revoke` | `ALL` — [detail](usuarios.md) |
+| `GET /v1/roles` | `role.manage` | `ALL` — [detail](usuarios.md) |
+| `POST /v1/roles` | `role.manage` | `ALL` — [detail](usuarios.md) |
+| `GET /v1/roles/{key}` | `role.manage` | `ALL` — [detail](usuarios.md) |
+| `PUT /v1/roles/{key}` | `role.manage` | `ALL` — [detail](usuarios.md) |
+| `PUT /v1/roles/{key}/permissions` | `role.manage` | `ALL` — [detail](usuarios.md) |
+| `GET /v1/permissions` | `role.manage` | `ALL` — [detail](usuarios.md) |
+| `GET /v1/audit/log` | `audit.view` | `ALL` — [detail](auditoria.md) |
+| `GET /v1/health` | — | public |
 
-**Ningún endpoint queda sin permiso o sin credencial.** El legacy tenía permisos
-sembrados que ninguna ruta exigía: parecía que había una restricción y no la había.
+**No endpoint is left without a permission or a credential.** The legacy had seeded permissions
+that no route required: it looked like there was a restriction and there was none.
 
-Notas de verificación:
+Verification notes:
 
-- `POST /v1/inventory/adjustments` no exige un permiso genérico de «ajustar»: el
-  permiso depende de la dirección y del motivo, y `inventory.adjust_decrease` **no
-  existe** en el catálogo (los ajustes a la baja se resuelven por motivo).
-- `GET /v1/reports/kardex-vs-projection` exige `report.view`, el mismo permiso que
-  el guard de la pantalla `/reports`. **El permiso de una ruta tiene que ser el
-  mismo que el del guard de su pantalla**; con uno distinto, el usuario entra a la
-  pantalla y recibe un `403` al cargar.
-- `GET /v1/roles` y `GET /v1/permissions` exigen `role.manage`, que cubre
-  «administrar roles y permisos»: `role.view` y `permission.view` no existen en el
-  catálogo, e inventarlos dejaría las rutas respondiendo `403` para todo el mundo.
+- `POST /v1/inventory/adjustments` does not require a generic "adjust" permission: the
+  permission depends on the direction and the reason, and `inventory.adjust_decrease` **does not
+  exist** in the catalog (decreases are resolved by reason).
+- `GET /v1/reports/kardex-vs-projection` requires `report.view`, the same permission as
+  the guard of the `/reports` screen. **The permission of a route has to be the
+  same as the guard of its screen**; with a different one, the user enters the
+  screen and receives a `403` when it loads.
+- `GET /v1/roles` and `GET /v1/permissions` require `role.manage`, which covers
+  "manage roles and permissions": `role.view` and `permission.view` do not exist in the
+  catalog, and inventing them would leave the routes answering `403` for everyone.
 
-## Lo que NO existe en esta API, y por qué
+## What does NOT exist in this API, and why
 
-| Ruta del legacy | Estado | Motivo |
+| Legacy route | Status | Reason |
 |---|---|---|
-| `PUT /kardex/:id`, `DELETE /kardex/:id` | **No existe** | El ledger es append-only. Las correcciones son movimientos nuevos. |
-| `GET /get-location-content` | **No existe** | Se reemplaza por `GET /v1/inventory/stock`, que lee el saldo real en lugar de recalcularlo desde movimientos mutados. |
-| Rutas sin `/v1` | **No existen** | El contrato debe poder evolucionar. |
-| `POST /prints` (abierto, sin credencial) | **`PATCH /v1/print-jobs/{id}` con credencial de servicio** | Mismo consumidor, sin endpoint abierto. El `jobId` va en la ruta, no en el cuerpo. |
-| Escritura directa en `store.stock` | **No existe** | `product_stock` es una proyección derivada; nunca se escribe por API. |
-| Aprobación de discrepancia por línea | **No existe** | La aprobación es por factura: aprobar de una en una deja el documento en un estado intermedio e invita a aprobar lo propio. |
-| `PUT`/`DELETE` sobre la auditoría | **No existen** | La tabla es inmutable por disparadores: `UPDATE` y `DELETE` fallan a propósito. Solo hay `GET /v1/audit/log`. |
+| `PUT /kardex/:id`, `DELETE /kardex/:id` | **Does not exist** | The ledger is append-only. Corrections are new movements. |
+| `GET /get-location-content` | **Does not exist** | Replaced by `GET /v1/inventory/stock`, which reads the real balance instead of recalculating it from mutated movements. |
+| Routes without `/v1` | **Do not exist** | The contract has to be able to evolve. |
+| `POST /prints` (open, without credential) | **`PATCH /v1/print-jobs/{id}` with a service credential** | Same consumer, without an open endpoint. The `jobId` goes in the route, not in the body. |
+| Direct write to `store.stock` | **Does not exist** | `product_stock` is a derived projection; it is never written through the API. |
+| Discrepancy approval per line | **Does not exist** | Approval is per invoice: approving one by one leaves the document in an intermediate state and invites approving one's own. |
+| `PUT`/`DELETE` on the audit log | **Do not exist** | The table is immutable through triggers: `UPDATE` and `DELETE` fail on purpose. There is only `GET /v1/audit/log`. |

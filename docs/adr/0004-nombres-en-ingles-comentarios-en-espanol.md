@@ -1,75 +1,72 @@
-# ADR-0004 — Nombres en inglés, comentarios en español
-> **Normativo.** Decisión aceptada. Última verificación: 2026-10-09.
+# ADR-0004 — Names in English, comments in Spanish
+> **Normative.** Accepted decision. Last verified: 2026-10-09.
 
 | | |
 |---|---|
-| **Estado** | Aceptada |
-| **Fecha** | 2026-10-09 |
-| **Reemplaza a** | — |
-| **Reemplazada por** | [ADR-0018](0018-todo-en-ingles.md) (comentarios y documentación); códigos por [ADR-0017](0017-identificadores-y-datos-en-ingles.md) |
+| **Status** | Accepted |
+| **Date** | 2026-10-09 |
+| **Replaces** | — |
+| **Replaced by** | [ADR-0018](0018-todo-en-ingles.md) (comments and documentation); codes by [ADR-0017](0017-identificadores-y-datos-en-ingles.md) |
 
-## Contexto
+## Context
 
-Los identificadores se escribían en dos idiomas, y los nombres en español llegaban hasta la
-API pública. `comprobar_proyecciones()` devolvía las columnas `total_en_bd`,
-`total_esperado` y `diferencia`; el mapper las leía por nombre, el DTO se serializaba con
-esas propiedades y el contrato publicaba esos campos (`V8__english_reconciliation_columns.sql`).
+Identifiers were written in two languages, and the names in Spanish reached the public
+API. `comprobar_proyecciones()` returned the columns `total_en_bd`,
+`total_esperado` and `diferencia`; the mapper read them by name, the DTO was serialized with
+those properties and the contract published those fields (`V8__english_reconciliation_columns.sql`).
 
-Corregirlo no fue un renombrado: en PostgreSQL los nombres de un `RETURNS TABLE` son parte
-de la firma de la función y un `CREATE OR REPLACE` con otros nombres de salida falla. Hubo
-que soltar y recrear la función, y con ella el `GRANT` y las llamadas
-(`V8__english_reconciliation_columns.sql`). El caso demuestra que un nombre en español en la
-base no es cosmética: se filtra al cliente.
+Fixing it was not a simple rename: in PostgreSQL the names of a `RETURNS TABLE` are part
+of the function's signature, and a `CREATE OR REPLACE` with other output names fails. It was necessary
+to drop and recreate the function, and with it the `GRANT` and the calls
+(`V8__english_reconciliation_columns.sql`). The case shows that a name in Spanish in the
+database is not cosmetic: it leaks to the client.
 
-## Decisión
+## Decision
 
-- Los identificadores van en inglés: variables, métodos, constantes, clases, tablas,
-  columnas, valores de enum y códigos de error ([convenciones.md](../guia/convenciones.md) §1).
-- Solo los comentarios van en español ([convenciones.md](../guia/convenciones.md) §1).
-- No se traducen los comentarios, los mensajes de error —los lee el operador—, los
-  `displayName` (texto de interfaz), los valores de enum que están en la base y en el
-  contrato, ni los códigos de error, que son API pública ([convenciones.md](../guia/convenciones.md) §1).
-- Los nombres de tabla y columna están en inglés y no se tocan ([convenciones.md](../guia/convenciones.md) §1). Una
-  migración que cambie el nombre de una columna de salida recrea la función
+- Identifiers go in English: variables, methods, constants, classes, tables,
+  columns, enum values and error codes ([convenciones.md](../guia/convenciones.md) §1).
+- Only comments go in Spanish ([convenciones.md](../guia/convenciones.md) §1).
+- The comments, the error messages —the operator reads them—, the `displayName`s (interface text),
+  the enum values that are in the database and in the contract, nor the error codes, which are public API, are not translated ([convenciones.md](../guia/convenciones.md) §1).
+- Table and column names are in English and are not touched ([convenciones.md](../guia/convenciones.md) §1). A
+  migration that renames an output column recreates the function
   (`V8__english_reconciliation_columns.sql`).
-- La documentación se escribe en español (`docs/README.md`), igual que los comentarios y los
-  mensajes de commit.
+- The documentation is written in Spanish (`docs/README.md`), like the comments and the commit
+  messages.
 
-## Consecuencias
+## Consequences
 
-El código se lee igual para cualquiera que llegue, y un campo de la API no se traduce a
-mitad de camino entre la base y el cliente.
+The code reads the same for anyone who arrives, and an API field is not translated halfway between the
+database and the client.
 
-Se paga disciplina en los bordes: cada campo nuevo de una respuesta se revisa antes de
-publicarlo, porque un nombre en español en la base llega al JSON y entonces ya no es un
-detalle interno.
+Discipline is paid at the edges: each new field of a response is reviewed before publishing it, because a
+name in Spanish in the database reaches the JSON and then it is no longer an internal detail.
 
-Deuda conocida y acotada: las funciones PL/pgSQL del motor de inventario conservan su nombre
-en español —`aplicar_movimiento_a_ubicacion`, `recalcular_total_producto` y
-`registrar_movimiento` en `V6`; `comprobar_proyecciones` en `V6` y `V8`—. Es una excepción
-consciente, documentada en `V8__english_reconciliation_columns.sql`: renombrarlas obliga a
-cambiar el `GRANT`, la llamada y el `COMMENT`, y no aporta nada al contrato HTTP. Sus
-columnas de salida sí están en inglés.
+Known and bounded debt: the PL/pgSQL functions of the inventory engine keep their Spanish names —
+`aplicar_movimiento_a_ubicacion`, `recalcular_total_producto` and
+`registrar_movimiento` in `V6`; `comprobar_proyecciones` in `V6` and `V8`—. It is a conscious exception,
+documented in `V8__english_reconciliation_columns.sql`: renaming them forces changing the `GRANT`, the call
+and the `COMMENT`, and adds nothing to the HTTP contract. Their output columns are in English.
 
-Reglas operativas que se derivan:
+Operational rules that follow:
 
-- El catálogo de errores usa identificadores en inglés y mensajes en español
+- The error catalog uses English identifiers and Spanish messages
   (`stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/error/DomainError.kt`).
-- Un valor de enum no se traduce porque viaja en la base y en el contrato
+- An enum value is not translated because it travels in the database and in the contract
   (`backend/src/main/resources/db/migration/V3__inventory_domain.sql`).
 
-## Alternativas consideradas
+## Alternatives considered
 
-- **Escribir todo en español.** Es lo que hacía en parte el modelo anterior, y los nombres en
-  español acabaron en campos de API pública (`V8__english_reconciliation_columns.sql`).
-- **Escribir todo en inglés, comentarios incluidos.** El equipo piensa en español y el motivo
-  de una decisión se pierde al traducirlo.
-- **Traducir solo la API y dejar la base en español.** Deja dos nombres para el mismo campo y
-  obliga a un mapper que traduzca en cada lectura.
+- **Write everything in Spanish.** It is what the previous model partly did, and the names in
+  Spanish ended up in public API fields (`V8__english_reconciliation_columns.sql`).
+- **Write everything in English, comments included.** The team thinks in Spanish and the reason
+  for a decision gets lost when translated.
+- **Translate only the API and leave the database in Spanish.** It leaves two names for the same
+  field and forces a mapper that translates on every read.
 
-## Referencias
+## References
 
-- [convenciones.md](../guia/convenciones.md) §1, §2 y [general.md](../arquitectura/general.md)
+- [convenciones.md](../guia/convenciones.md) §1, §2 and [general.md](../arquitectura/general.md)
 - `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/error/DomainError.kt`
 - `backend/src/main/resources/db/migration/V3__inventory_domain.sql`
 - `backend/src/main/resources/db/migration/V6__unassigned_location_and_inventory_engine.sql`
