@@ -1,244 +1,100 @@
 # Cómo arrancar el proyecto
 
-**Tres comandos, en tres terminales.** No hace falta configurar nada a mano: los
-scripts derivan la contraseña de `infra/.env` y generan el secreto de firma.
+**Un comando.** Levanta PostgreSQL, aplica las migraciones y arranca la API.
 
 ```bash
-# 1. La base de datos (una sola vez, se queda corriendo)
-cd infra && docker compose up -d
-
-# 2. El backend                              → http://127.0.0.1:8082
-./scripts/api.sh
-
-# 3. La web                                  → http://127.0.0.1:5173
-./scripts/web.sh
+cp .env.example .env      # una sola vez; completa los valores vacíos (ver abajo)
+docker compose up -d --build
 ```
 
-Y abres **http://127.0.0.1:5173**.
+```bash
+curl -s http://127.0.0.1:8081/v1/health
+# {"status":"UP","schemaVersion":"12","version":"dev","database":{"status":"UP",...}}
+```
+
+El detalle de cada servicio, puerto y variable está en
+[docs/arquitectura/infraestructura.md](docs/arquitectura/infraestructura.md).
 
 ---
 
-## Credenciales
+## Qué hay que completar en `.env`
 
-| | |
+| Variable | Cómo generarla |
 |---|---|
-| Usuario | `admin` |
-| Contraseña | `PruebaManual2026xyz` |
+| `DB_OWNER_PASSWORD` | `openssl rand -hex 24` |
+| `STOCK_API_PASSWORD` | `openssl rand -hex 24` |
+| `STOCK_JWT_SECRET` | `openssl rand -base64 48` |
+| `ADMIN_BOOTSTRAP_PASSWORD` | La que quieras para el primer administrador: mínimo 12 caracteres y que no sea común |
 
-**La primera vez que entres te obliga a cambiarla** (`mustChangePassword`). Es
-deliberado: una contraseña que se imprime por consola es un secreto compartido
-hasta que se cambia.
+**Ningún secreto tiene valor por defecto.** Si falta uno, `docker compose` o la API se detienen y
+dicen cuál. Un entorno que arranca con credenciales conocidas es un entorno vulnerable que nadie nota.
 
-### Crear otro administrador
+`.env` no se versiona.
 
-Si borras el usuario y siembras de nuevo, **la contraseña se genera y se imprime
-una sola vez**:
+## El primer administrador
 
-```bash
-docker exec stock-postgres psql -U stock_app -d stock -c \
-  "DELETE FROM refresh_tokens; DELETE FROM user_roles; DELETE FROM users;"
+La primera vez que la API arranca contra una base sin usuarios, crea al usuario `admin` con la
+contraseña de `ADMIN_BOOTSTRAP_PASSWORD` y **le exige cambiarla al entrar**. Mientras no la cambie,
+solo puede cambiarla, ver quién es y cerrar sesión.
 
-STOCK_SEED=true ./scripts/api.sh
-# La contraseña aparece en la salida, en un recuadro, y NO se vuelve a mostrar.
-```
+Después de crearlo, `ADMIN_BOOTSTRAP_PASSWORD` se puede dejar vacía: ya no se usa.
 
-O la fijas tú, que es más cómodo para desarrollo:
+## Lo que se levanta
 
-```bash
-STOCK_SEED=true STOCK_ADMIN_PASSWORD="MiClaveDePrueba2026" ./scripts/api.sh
-```
-
----
-
-## Los scripts
-
-| Script | Qué hace | Puerto |
+| Servicio | Dónde | Qué es |
 |---|---|---|
-| `./scripts/api.sh` | Compila y arranca el backend | 8082 |
-| `./scripts/web.sh` | Arranca Vite con el proxy al backend | 5173 |
-| `./scripts/movil-android.sh` | Compila el APK | — |
-| `./scripts/movil-android.sh instalar` | Compila e instala en el dispositivo | — |
-| `./scripts/ios.sh` | Compila el framework de iOS | — |
-
-### Opciones útiles
+| `postgres` | `127.0.0.1:5434` | PostgreSQL 16, base `stock` |
+| `migrate` | — | Aplica `db/migrations` y termina con código 0 |
+| `api` | `127.0.0.1:8081` | La API (Kotlin + Spring Boot) |
 
 ```bash
-PORT=9000 ./scripts/api.sh              # otro puerto de backend
-API_PORT=9000 ./scripts/web.sh          # la web apunta a ese puerto
-STOCK_SEED=true ./scripts/api.sh        # siembra roles, permisos y admin
-STOCK_DB_RUN_MIGRATIONS=true ./scripts/api.sh   # aplica las migraciones al arrancar
+docker compose ps -a      # migrate debe estar «exited (0)»; postgres y api, «healthy»
+docker compose logs api   # el arranque dice cuántos permisos y roles sincronizó
 ```
 
-**El backend falla si falta una variable de entorno, y es lo correcto**: un
-despliegue que arranca con credenciales por defecto es un despliegue vulnerable
-que nadie nota. El script deriva lo que puede del `infra/.env` que ya existe.
+**La API no migra: comprueba.** Si la base está por detrás de la migración que el código necesita, la
+API no arranca y lo dice. Las migraciones las aplica solo el servicio `migrate`.
 
-**El secreto de firma se genera nuevo en cada arranque**, así que **los tokens
-anteriores dejan de servir al reiniciar**. Para que sobrevivan:
+## Compilar y probar sin Compose
+
+Hace falta un JDK 17 o superior para arrancar Gradle; el JDK 25 de la API lo descarga Gradle. Las
+pruebas de integración usan Testcontainers, así que Docker tiene que estar en marcha.
 
 ```bash
-export STOCK_JWT_SECRET="$(openssl rand -base64 48)"
-./scripts/api.sh
+GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew test
 ```
 
----
+El recuento real está en los XML de `**/build/test-results/`, no en «BUILD SUCCESSFUL».
 
-## La app móvil
+**Las pruebas que necesitan PostgreSQL fallan si no hay Docker; no se saltan.** Una prueba saltada
+cuenta como aprobada y un «0 fallos» sin base querría decir «no se probó nada».
 
-El APK se compila y se instala con:
+Cuatro pruebas del dominio (`CatalogImporterTest`) leen el extracto real del catálogo,
+`stock-domain/src/jvmTest/resources/catalogo_real.csv`. Ese archivo **no se versiona** (son datos de
+la empresa, ver `.gitignore`): en un clon nuevo hay que colocarlo ahí o esas cuatro pruebas fallan
+diciendo que falta.
 
-```bash
-./scripts/movil-android.sh instalar
-```
+## Convivencia con el sistema anterior
 
-**`mobile-app` es un build de Gradle propio**, separado del monorepo, con `shared/`
-y `androidApp/` dentro. El script entra en `mobile-app/` y compila `:androidApp`.
-
-**Consecuencia que hay que tener presente:** el APK **no participa** en
-`./gradlew build` de la raíz. El CI tiene un job aparte para compilarlo, porque
-
-Consecuencia que hay que tener presente: **el APK no participa en
-`./gradlew build` de la raíz.** El CI tiene un job aparte para compilarlo, porque
-la omisión sería silenciosa: todo pasaría y el APK quedaría sin construir.
-
-### iOS
-
-```bash
-./scripts/ios.sh      # genera MobileApp.framework
-```
-
-El repo **no incluye un `.xcodeproj`**: `mobile-app/iosApp/` tiene las fuentes Swift y
-`Configuration/Config.xcconfig`, pero no el proyecto de Xcode. Para ejecutar en iOS hay
-que crearlo y enlazar el framework generado. Mientras no exista, el paso de iOS no se
-puede seguir tal cual.
-
-**Pendiente y sin verificar, y conviene saberlo:** **la cámara no se ha probado en un iPhone real**. El
-framework de Kotlin sí compila y enlaza, que es lo que valida el código compartido
-y el `actual` de AVFoundation, pero la conversión de coordenadas del escáner está
-razonada y comentada, **no ejecutada**. Es lo primero que hay que probar en
-dispositivo.
-
----
+Si en la máquina sigue corriendo el Compose anterior (`stock-postgres` en el puerto 5432,
+`stock-adminer` en el 8080), no hay conflicto: este proyecto se llama `stockflow` y usa otros puertos.
+No se le puso `stock` precisamente porque dos proyectos de Compose con el mismo nombre se pisan los
+contenedores.
 
 ## Qué está verificado y qué no
 
-### Verificado ejecutándolo
+### Verificado ejecutándolo (2026-10-10)
 
-```
-POST /v1/auth/login              → 200, admin, rol ADMIN, 76 permisos
-POST /v1/auth/refresh            → 200, token rotado
-POST /v1/auth/refresh (viejo)    → 401 TOKEN_REUSED, familia revocada
-GET  /v1/auth/me                 → 200
-GET  /v1/products  CON token     → 200
-GET  /v1/products  SIN token     → 401
-GET  /v1/warehouses              → la bodega sembrada
-Login por el proxy de la web     → 200
-APK de Android                   → 44 MB generado
-```
+- **474 pruebas, 0 fallos, 0 omitidas**: 392 del dominio, 36 de persistencia, 11 de criptografía y 35
+  de flujo completo por HTTP.
+- La imagen de la API se construye y arranca en Compose; `/v1/health` responde `UP` con el esquema en V12.
+- Login, sesión actual, renovación con detección de reuso, cierre de sesión y cambio de contraseña.
+- El usuario de la API no puede crear tablas ni modificar el kardex o la bitácora.
 
-**685 pruebas** en `:backend:test` y `:stock-domain:jvmTest`, con la caché de compilación
-desactivada: 0 fallos, 0 saltadas (ejecutadas de verdad, no servidas desde caché). Para
-volver a medirlo:
+### No construido todavía
 
-```bash
-GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew :backend:test :stock-domain:jvmTest \
-  --no-build-cache --rerun-tasks
-# El recuento real está en los XML, no en «BUILD SUCCESSFUL»:
-#   backend/build/test-results/test/*.xml y stock-domain/build/test-results/jvmTest/*.xml
-```
+- Los módulos de negocio (catálogo, existencias, recepción, surtido, traslados, etiquetas).
+- La app (Kotlin Multiplatform) y la web (React + AXZY UI System).
 
-**Ese número solo vale con PostgreSQL levantado, y la suite lo comprueba sola.** Los tests que
-necesitan la base devuelven sin ejecutarse cuando no la hay, y el motor los cuenta como
-**aprobados**: un «0 fallos, 0 saltadas» sin base querría decir «no se probó nada». Para que eso
-no pase, `PostgresGuardTest` **falla** con el motivo y la instrucción de arrancar la base. El
-recuento de arriba incluye ese canario.
-
-### NO verificado
-
-- **La cámara en un iPhone real** y **en un Android real**. El APK se genera, pero
-  el escáner con cámara no se ha probado en dispositivo.
-- **El proyecto Xcode** (`iosApp`): no existe en el repo (ver arriba).
-- **Los flujos de la web**: `web/e2e/flow.spec.ts` tiene 18 pruebas de navegador contra el
-  backend real. No se ejecutaron en esta revisión y no están en CI. No cubren catálogo ni
-  recepción de facturas. El catálogo se carga con el Excel, y esa carga no está verificada
-  en local.
-
----
-
-## Datos
-
-El **catálogo está vacío**: los 1.398 productos del Excel no se han cargado. Se
-pueden importar con `POST /v1/products/import` (acepta CSV y XLSX, con `dryRun`).
-
-**El stock del archivo no se escribe al inventario**, y es una decisión pendiente:
-el Excel trae las 10.914.130 unidades **sin ubicación**, así que cargarlas exigiría
-decidir dónde van. Las opciones son recepción, arrancar en cero, o una ubicación
-`SIN-UBICAR` propia. Está sin decidir a propósito en lugar de inventar una
-respuesta que después habría que deshacer.
-
----
-
-## IntelliJ
-
-**Dos ventanas, y son dos builds distintos de Gradle:**
-
-| Ventana | Abre | Contiene |
-|---|---|---|
-| 1 | `~/DEV/STOCK` | Backend, dominio, red, base de datos, datastore, web |
-| 2 | `~/DEV/STOCK/mobile-app` | La app móvil: `shared` y `androidApp` |
-
-**Un directorio no puede ser raíz de dos builds de Gradle**, y por eso `mobile-app`
-no está incluido en la raíz. Es la misma estructura que el proyecto de referencia.
-
-Configura **Gradle user home** = `.../STOCK/.gradle-home`, porque el sandbox
-bloquea `~/.gradle` y la sincronización fallaría.
-
-**Una excepción que se abre aparte:**
-
-| Carpeta | Por qué |
-|---|---|
-| `web/` | Es un proyecto de pnpm, no de Gradle |
-
-o que hay que hacer
-
-**`mobile-app` es un build de KMP autocontenido**, con la misma forma que el proyecto
-de referencia:
-
-```
-mobile-app/
-├── build.gradle.kts      los plugins con apply false
-├── settings.gradle.kts   include(":shared") + include(":androidApp")
-├── shared/               la biblioteca KMP (escáner, features, tema)
-├── androidApp/           el APK, submódulo NORMAL
-└── iosApp/               proyecto Xcode
-```
-
-**`mobile-app` ya NO es submódulo del monorepo.** El `include(":mobile-app")` se
-eliminó de la raíz, y era necesario: **un directorio no puede ser raíz de dos builds
-de Gradle**. Con el include, `mobile-app` dejaba de ser raíz del suyo y el IDE fallaba
-con:
-
-```
-Task 'prepareKotlinBuildScriptModel' not found in project ':mobile-app'
-```
-
-**Ese error está resuelto.** Comprobado: `cd mobile-app && ./gradlew
-:prepareKotlinBuildScriptModel` → `BUILD SUCCESSFUL`.
-
-**El grafo no cambia:** el móvil consume `stock-domain` por `includeBuild("..")`, que
-es **la misma instancia y no una copia**, así que las decisiones de negocio siguen
-siendo idénticas en backend y móvil por construcción.
-
-**Precio, dicho claro:** los comandos del móvil se lanzan desde `mobile-app/`, no desde
-la raíz. Es el mismo precio que en el proyecto de referencia.
-
-### Dos builds en IntelliJ
-
-| Ventana | Abre | Para qué |
-|---|---|---|
-| 1 | `~/DEV/STOCK` | Backend, dominio, web, módulos compartidos |
-| 2 | `~/DEV/STOCK/mobile-app` | La app móvil, con el botón ▶ y el depurador |
-
-Si el proyecto ya estaba abierto antes de la reestructuración, hay que darle a
-**Sync Project with Gradle Files**.
-
+El orden y el criterio de terminado de cada uno están en
+[docs/plan/PLAN-IMPLEMENTACION.md](docs/plan/PLAN-IMPLEMENTACION.md).

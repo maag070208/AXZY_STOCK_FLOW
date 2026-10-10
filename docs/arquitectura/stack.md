@@ -1,7 +1,7 @@
 # Stack de la reconstrucción
-> **Referencia.** Qué se usa en cada parte y con qué criterio se fija cada versión. Las versiones exactas
-> **no están fijadas todavía**: se fijan en la fase 0 con la versión vigente y se anotan aquí con su
-> fecha y su fuente. Hasta entonces, esta tabla no es normativa. Última revisión: 2026-10-09.
+> **Referencia.** Qué se usa en cada parte y con qué criterio se fija cada versión. Las de la API y el
+> dominio están fijadas y verificadas; las de la app y la web se fijan al empezar sus fases.
+> Manda el archivo de build, no esta tabla. Última revisión: 2026-10-10.
 > El stack anterior (Ktor, Exposed, Compose de la API) está en [historico/STACK-KTOR.md](../historico/STACK-KTOR.md).
 
 ## Criterio para fijar una versión
@@ -13,29 +13,50 @@
 
 ## API
 
-| Componente | Función | Versión | Fuente y fecha |
+Verificadas el 2026-10-10 en los `maven-metadata.xml` de Maven Central y en el BOM
+`spring-boot-dependencies-4.1.1.pom`. Se declaran en `gradle/libs.versions.toml`; las que gestiona el
+BOM de Spring Boot no se repiten ahí.
+
+| Componente | Función | Versión | Dónde se declara |
 |---|---|---|---|
-| JDK | Runtime y toolchain | `25` (Temurin LTS) | [Adoptium](https://adoptium.net/) y [endoflife.ai](https://endoflife.ai/eclipse-temurin/25), consultados el 2026-10-10. Patch `25.0.3` según endoflife.ai |
-| Kotlin | Lenguaje | `2.4.20` | [Anuncio de JetBrains, sep. 2026](https://blog.jetbrains.com/kotlin/2026/09/kotlin-2-4-20-released/), consultado el 2026-10-10 |
-| Spring Boot | Framework de la API | `4.1.x` (último 4.1.1 según fuente consultada) | [spring.io](https://spring.io/blog/2026/06/25/spring-boot-3-5-16-available-now/) y [herodevs](https://www.herodevs.com/blog-posts/spring-boot-versions-eol-dates-and-latest-releases-april-2026), consultados el 2026-10-10. Requiere Java 17+. La línea 3.5 está fuera de soporte |
-| Spring JDBC (`JdbcClient`) | Acceso a PostgreSQL | Incluido en Spring Boot | — |
-| Flyway | Migraciones | *Pendiente* | — |
-| PostgreSQL | Base de datos | `16` (la versión menor se fija aquí) | — |
-| Argon2 (Spring Security) | Hash de contraseñas | Incluido en Spring Security | — |
-| JWT | Tokens de acceso y refresh | *Pendiente* | — |
-| Gradle (Kotlin DSL) | Build | *Pendiente* | — |
-| JUnit 5 + Kotest | Pruebas | *Pendiente* | — |
-| Testcontainers | PostgreSQL real en pruebas | *Pendiente* | — |
-| ArchUnit | Reglas de capas (§1 de [api-spring.md](api-spring.md)) | *Pendiente* | — |
-| springdoc-openapi | OpenAPI generado desde el código | *Pendiente* | — |
+| JDK | Runtime y toolchain de la API | `25` (Temurin `25.0.4.1`, lo descarga Gradle) | `build.gradle.kts` (`jvmToolchain(25)`) |
+| Kotlin | Lenguaje | `2.4.20` | `libs.versions.toml` |
+| Spring Boot | Framework de la API | `4.1.1` | `libs.versions.toml` |
+| Spring Framework / Security | — | `7.0.9` / `7.1.1` | BOM de Spring Boot |
+| Spring JDBC (`JdbcClient`) | Acceso a PostgreSQL | — | BOM |
+| PostgreSQL (controlador) | — | `42.7.13` | BOM |
+| HikariCP | Pool de conexiones | `7.0.2` | BOM |
+| Jackson | JSON | `3.1.5` | BOM |
+| Flyway | Migraciones (servicio `migrate` y pruebas) | `12.4.0` | BOM, y `docker-compose.yml` |
+| BouncyCastle | Argon2id | `1.86` | `libs.versions.toml` |
+| Gradle | Build | `9.3.1` | `gradle/wrapper/gradle-wrapper.properties` |
+| JUnit Jupiter / AssertJ | Pruebas de la API | `6.0.3` / `3.27.7` | BOM |
+| Testcontainers | PostgreSQL real en pruebas | `2.0.5` | BOM |
+| ArchUnit | Reglas de capas | `1.5.1` | `libs.versions.toml` |
+| Kotest | Pruebas del dominio | `5.9.1` | `libs.versions.toml` |
 
-## Dominio compartido (si D6 se aprueba)
+**Notas de versión.**
 
-| Componente | Versión | Fuente y fecha |
+- Kotlin `2.4.21` ya existe; es un parche posterior al `2.4.20` elegido. Subir es cambiar una línea.
+- El BOM de Spring Boot 4.1.1 gestiona Kotlin `2.3.21`; el proyecto compila con `2.4.20` y alinea la
+  biblioteca estándar con `kotlin-bom` (`build.gradle.kts`).
+- Flyway se alinea con el BOM (`12.4.0`) y no con la última publicada (`13.10.0`): así el servicio
+  `migrate` y las pruebas usan exactamente la misma versión.
+- Kotest se queda en `5.9.1`: la 6 cambia el API de las pruebas por datos que usa el dominio.
+- `springdoc-openapi` (`3.1.1` disponible) no está añadido todavía; entra con el primer módulo de negocio.
+
+## Dominio compartido
+
+| Componente | Versión | Dónde se declara |
 |---|---|---|
-| Kotlin Multiplatform | Igual que la API | — |
-| kotlinx-datetime | *Pendiente* | — |
-| kotlinx-serialization | *Pendiente* | — |
+| Kotlin Multiplatform | `2.4.20` | `libs.versions.toml` |
+| kotlinx-coroutines | `1.10.2` | `libs.versions.toml` |
+| kotlinx-serialization | `1.11.0` | `libs.versions.toml` |
+| kotlinx-datetime | `0.6.2` | `libs.versions.toml` |
+
+Se compila a bytecode de Java 17 para que lo carguen la API y Android
+(`stock-domain/build.gradle.kts`). `kotlinx-datetime` se queda en `0.6.2`: desde la `0.7`, `Instant` y
+`Clock` pasan a `kotlin.time`, y el dominio usa los de kotlinx.
 
 ## App
 
@@ -69,7 +90,8 @@
 |---|---|---|
 | Docker Compose | Versión de la especificación actual | `docker-compose.yml` (raíz) |
 | Imagen de PostgreSQL | `postgres:16` | `docker-compose.yml` |
-| Imagen de la API | JRE LTS sobre imagen mínima | `app/Dockerfile` |
+| Imagen de migraciones | `flyway/flyway:12.4.0` | `docker-compose.yml` |
+| Imagen de la API | `eclipse-temurin:25-jre-alpine` (388 MB con el jar) | `api/Dockerfile` |
 | Imagen de la web | nginx estable | `web/Dockerfile` |
 
 ## Qué se decide en la fase 0

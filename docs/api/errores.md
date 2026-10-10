@@ -3,9 +3,11 @@
 > cerrado de códigos. Última verificación: 2026-10-09.
 
 Las reglas de estado y de cabeceras están en [convenciones.md](convenciones.md).
-El cuerpo de error lo implementa
-`backend/src/main/kotlin/dev/axzy/stock/backend/error/ErrorResponse.kt` y lo
-aplica el manejador de `Application.kt`.
+El cuerpo de error lo define `ErrorBody` en
+`api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/http/ErrorResponses.kt`; el mismo
+archivo traduce cada clase de fallo a su código de estado. Lo que no es un fallo de un caso de uso
+(JSON ilegible, ruta inexistente, error inesperado) lo responde `GlobalErrorHandler.kt`, en la misma
+carpeta, con el mismo cuerpo.
 
 ## 1.3 El contrato de error — es el mismo en todos los endpoints
 
@@ -82,7 +84,7 @@ Errores de recurso inexistente (§404):
 
 | `code` | Situación |
 |---|---|
-| `NOT_FOUND` | la ruta no existe. Lo emite Ktor, no un handler |
+| `NOT_FOUND` | la ruta no existe. Lo emite `GlobalErrorHandler`, no un caso de uso |
 | `PRODUCT_NOT_FOUND` | el `{id}` de producto no corresponde a ningún producto |
 | `LOCATION_NOT_FOUND` | el `{id}` de ubicación no corresponde a ninguna ubicación |
 
@@ -161,6 +163,36 @@ el cliente pueda contemplarlos. Proceden de las rutas y servicios de cada módul
 | `INVALID_SERVICE_KEY` | 401 | falta la cabecera `X-Service-Key` o la clave no vale |
 | `INTERNAL_ERROR` | 500 | error no controlado; el detalle **no** se filtra al cliente |
 | `RATE_LIMITED` | 429 | demasiados intentos. **Declarado en la lista cerrada; la implementación aún no tiene limitador de tasa** |
+
+### Sesión
+
+Los emiten los casos de uso de `api/application/src/main/kotlin/dev/axzy/stock/application/identity/`.
+El detalle de cada ruta está en [autenticacion.md](autenticacion.md).
+
+| `code` | Estado | Situación |
+|---|---|---|
+| `INVALID_CREDENTIALS` | 401 | usuario o contraseña incorrectos; refresh token desconocido, revocado o vencido; contraseña actual incorrecta |
+| `ACCOUNT_LOCKED` | 401 | cinco fallos de credenciales con ese nombre de usuario en 15 minutos. **Se aplica igual a nombres que no existen** |
+| `ACCOUNT_DISABLED` | 401 | la cuenta está desactivada. En el login solo se devuelve si la contraseña es correcta |
+| `TOKEN_REUSED` | 401 | se reutilizó un refresh token ya rotado: se revocó la familia entera |
+| `UNAUTHENTICATED` | 401 | falta el token, no es válido, caducó, o la contraseña cambió después de emitirlo |
+| `PASSWORD_CHANGE_REQUIRED` | 403 | la cuenta debe cambiar su contraseña antes de usar cualquier otra ruta |
+| `WEAK_PASSWORD` | 422 | la contraseña nueva no cumple la política |
+| `SAME_PASSWORD` | 422 | la contraseña nueva es igual a la actual |
+
+### Transporte
+
+Los emite `GlobalErrorHandler.kt`: la petición no llegó a un caso de uso.
+
+| `code` | Estado | Situación |
+|---|---|---|
+| `MALFORMED_REQUEST` | 400 | el cuerpo no es un JSON válido, o un campo tiene un tipo que no se puede leer |
+| `METHOD_NOT_ALLOWED` | 405 | el método HTTP no está permitido en esa ruta |
+| `UNSUPPORTED_MEDIA_TYPE` | 415 | el `Content-Type` no es `application/json` |
+| `NOT_FOUND` | 404 | la ruta no existe. **Sin identidad, una ruta inexistente responde `401`**, no `404` |
+
+`INTERNAL_ERROR` lleva en `details.incident` un identificador. Con él se busca en el log el error
+completo, que al cliente nunca se le envía.
 
 ## 1.3-ter El catálogo es cerrado
 

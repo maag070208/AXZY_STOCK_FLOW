@@ -1,0 +1,58 @@
+# Configuración de la API. Todo valor que cambia entre entornos sale de una variable de entorno.
+# Las que no tienen valor por defecto (`${NOMBRE}` a secas) son OBLIGATORIAS: si falta una, la API no
+# arranca y el error la nombra. Ningún secreto tiene un valor de respaldo.
+
+spring:
+  application:
+    name: stock-api
+  main:
+    banner-mode: off
+  datasource:
+    url: ${STOCK_DB_URL}
+    # El usuario de la API (miembro del rol `stock_api`), NO el dueño del esquema.
+    username: ${STOCK_DB_USER}
+    password: ${STOCK_DB_PASSWORD}
+    hikari:
+      maximum-pool-size: ${STOCK_DB_POOL_SIZE:10}
+      # Falla el arranque de inmediato si la base no responde, en vez de reintentar en silencio.
+      initialization-fail-timeout: 1
+  servlet:
+    multipart:
+      # El archivo del catálogo real son ~150 KB (1.398 filas). El tope es holgado a
+      # propósito: el límite que importa es el de la lista cerrada de errores
+      # (`FILE_TOO_LARGE`), no un número que dependa del contenedor.
+      max-file-size: 10MB
+      max-request-size: 12MB
+  threads:
+    virtual:
+      # Cada petición corre en un hilo virtual: una petición que espera a la base no retiene un hilo del sistema.
+      enabled: true
+
+server:
+  port: ${STOCK_PORT:8080}
+  # La dirección del cliente se toma de la cabecera que pone el proxy SOLO si la petición llega de
+  # una red interna (el nginx de Compose). Desde fuera, la cabecera se ignora.
+  forward-headers-strategy: native
+  error:
+    whitelabel:
+      enabled: false
+  shutdown: graceful
+
+logging:
+  pattern:
+    # Cada línea lleva el identificador de la petición (`X-Request-Id`).
+    level: "%5p [%X{requestId:-}]"
+
+stock:
+  version: ${STOCK_VERSION:dev}
+  # En esta zona se evalúan las políticas de horario («ajustes solo de 8 a 18»).
+  business-zone: ${STOCK_BUSINESS_ZONE:America/Mexico_City}
+  jwt:
+    # Al menos 32 bytes. Generar con: openssl rand -base64 48
+    secret: ${STOCK_JWT_SECRET}
+    issuer: ${STOCK_JWT_ISSUER:stock-api}
+    audience: ${STOCK_JWT_AUDIENCE:stock-clients}
+  admin:
+    username: ${STOCK_ADMIN_USERNAME:admin}
+    # Solo hace falta mientras la base no tenga usuarios; después se retira del entorno.
+    bootstrap-password: ${ADMIN_BOOTSTRAP_PASSWORD:}

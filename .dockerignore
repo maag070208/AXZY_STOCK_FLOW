@@ -1,0 +1,15 @@
+# El contexto de build solo necesita el código de la API y del dominio.
+**
+!gradlew
+!gradle/
+!gradle.properties
+!settings.gradle.kts
+!build.gradle.kts
+!stock-domain/
+!api/
+**/build/
+**/.gradle/
+**/src/test/
+**/src/testFixtures/
+**/src/jvmTest/
+**/src/commonTest/

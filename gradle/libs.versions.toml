@@ -1,0 +1,35 @@
+# Versiones verificadas en Maven Central el 2026-10-10. Ver docs/arquitectura/stack.md.
+[versions]
+kotlin = "2.4.20"
+springBoot = "4.1.1"
+# El dominio compartido: solo stdlib de Kotlin y estas tres librerías.
+coroutines = "1.10.2"
+serialization = "1.11.0"
+# 0.6.2 y no 0.7+: desde 0.7 `Instant` y `Clock` pasan a `kotlin.time`, y el dominio usa los de kotlinx.
+datetime = "0.6.2"
+# Pruebas del dominio. Kotest 6 cambia el API de datatest; el dominio se queda en 5.9.1.
+kotest = "5.9.1"
+archunit = "1.5.1"
+# Argon2id de Spring Security lo necesita y el BOM de Spring Boot no lo gestiona.
+bouncycastle = "1.86"
+
+[libraries]
+# Los nombres NO pueden empezar por "kotlin-": colisionarían con el namespace `libs.kotlin.*`.
+coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
+datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "datetime" }
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+kotest-property = { module = "io.kotest:kotest-property", version.ref = "kotest" }
+kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
+kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
+kotest-datatest = { module = "io.kotest:kotest-framework-datatest", version.ref = "kotest" }
+archunit = { module = "com.tngtech.archunit:archunit", version.ref = "archunit" }
+bouncycastle = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
+spring-boot-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springBoot" }
+
+[plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }
+spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }

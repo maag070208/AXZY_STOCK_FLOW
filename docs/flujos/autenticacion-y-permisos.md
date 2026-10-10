@@ -30,14 +30,18 @@ sequenceDiagram
     U->>API: POST /v1/auth/login (usuario, contraseña)
     API->>Auth: Login(usuario, contraseña)
     Auth->>DB: Buscar usuario
-    alt No existe, inactivo o bloqueado
-        Auth-->>API: INVALID_CREDENTIALS (mismo mensaje en los tres casos)
-    else Contraseña incorrecta
-        Auth->>DB: intentos fallidos + 1; bloquear si supera el límite
-        Auth-->>API: INVALID_CREDENTIALS
+    Auth->>DB: Fallos de credenciales de ese NOMBRE en los últimos 15 min
+    alt Cinco o más (exista o no la cuenta)
+        Auth-->>API: ACCOUNT_LOCKED (no se verifica la contraseña)
+    else No existe, o la contraseña no coincide
+        Note over Auth: Sin cuenta se verifica contra un hash señuelo:<br/>la respuesta tarda lo mismo
+        Auth->>DB: login_attempts (fallo de credenciales)
+        Auth-->>API: INVALID_CREDENTIALS (mismo cuerpo en ambos casos)
+    else Contraseña correcta, cuenta desactivada
+        Auth-->>API: ACCOUNT_DISABLED
     else Correcta
-        Auth->>DB: intentos = 0; crear sesión y refresh token (hash)
-        Auth-->>API: access token (corto) + refresh token (rotable)
+        Auth->>DB: BEGIN · último acceso · login_attempts (acierto) · refresh token (hash) · COMMIT
+        Auth-->>API: access token (15 min) + refresh token (rotable)
     end
     API-->>U: 200 / 401
 
@@ -54,8 +58,14 @@ sequenceDiagram
     end
 ```
 
-**Por qué el mismo mensaje.** Un login que dice «usuario no existe» deja enumerar usuarios. Los tres
-casos responden igual.
+**No se puede averiguar si un usuario existe.** Usuario inexistente y contraseña incorrecta responden
+lo mismo y tardan lo mismo; el bloqueo se aplica por nombre, exista o no la cuenta; y «cuenta
+desactivada» solo se dice a quien acertó la contraseña. Detalle en
+[api/autenticacion.md](../api/autenticacion.md).
+
+**El token de acceso solo identifica.** No lleva roles ni permisos: se leen de la base en cada
+petición. Lleva un sello de credenciales, y si la contraseña cambia el token deja de servir en la
+petición siguiente.
 
 ## 4. Estados de la sesión
 
@@ -66,9 +76,9 @@ casos responden igual.
 | `REVOKED` | Logout, cambio de contraseña, reutilización, o revocación por un administrador | Nada |
 | `EXPIRED` | Pasó el tiempo de vida | Nada |
 
-**Cambio de contraseña.** Revoca todas las sesiones abiertas del usuario, salvo la actual si así lo pide
-el flujo. Si el usuario tiene `must_change_password`, cualquier otra ruta responde `PASSWORD_CHANGE_REQUIRED`
-hasta que lo cambie.
+**Cambio de contraseña.** Revoca **todas** las sesiones del usuario, incluida la actual, en la misma
+transacción que el cambio. Si la cuenta tiene `must_change_password`, cualquier ruta que no sea cambiar
+la contraseña, ver quién soy o cerrar sesión responde `PASSWORD_CHANGE_REQUIRED`.
 
 ## 5. Decisión de acceso
 
@@ -108,6 +118,10 @@ Reglas, de las [ADR-0006](../adr/0006-rbac-mas-abac-denegar-por-defecto.md):
 
 ## 7. Pruebas de aceptación
 
+Implementadas en `api/app/src/test/kotlin/dev/axzy/stock/app/AuthFlowTest.kt`, por HTTP real contra
+PostgreSQL. I6 e I7 son reglas del motor de acceso y las cubre `AccessEngineTest` en `stock-domain`.
+**I5 e I8 están pendientes**: necesitan una ruta protegida por permiso, que llega con el catálogo (fase 4).
+
 **I1. Credenciales incorrectas no revelan nada**
 - Dado un usuario que no existe y otro existente con contraseña errónea.
 - Cuando se intenta entrar con ambos.
@@ -116,7 +130,8 @@ Reglas, de las [ADR-0006](../adr/0006-rbac-mas-abac-denegar-por-defecto.md):
 **I2. Bloqueo tras intentos fallidos**
 - Dado un usuario y el límite de intentos.
 - Cuando se supera el límite con contraseña errónea y luego se usa la correcta.
-- Entonces responde bloqueado hasta el tiempo configurado, y después de ese tiempo entra.
+- Entonces responde `ACCOUNT_LOCKED` durante 15 minutos, y después de ese tiempo entra. Un nombre que
+  no existe se bloquea igual, e insistir durante el bloqueo no lo prolonga.
 
 **I3. Reutilizar un refresh revoca la familia**
 - Dado un refresh ya rotado.
@@ -126,7 +141,8 @@ Reglas, de las [ADR-0006](../adr/0006-rbac-mas-abac-denegar-por-defecto.md):
 **I4. Cambiar la contraseña revoca las sesiones**
 - Dado dos sesiones abiertas del mismo usuario.
 - Cuando se cambia la contraseña desde una.
-- Entonces la otra sesión responde 401 en su siguiente petición.
+- Entonces las dos sesiones, incluida la que hizo el cambio, responden 401 en su siguiente petición,
+  sin que pase el tiempo.
 
 **I5. Denegar por defecto**
 - Dado un endpoint nuevo sin permiso asociado en el catálogo.
@@ -150,14 +166,25 @@ Reglas, de las [ADR-0006](../adr/0006-rbac-mas-abac-denegar-por-defecto.md):
 
 ## 8. Errores
 
+El catálogo completo, con su situación exacta, está en [api/errores.md](../api/errores.md).
+
 | Código | HTTP | Cuándo |
 |---|---|---|
-| `INVALID_CREDENTIALS` | 401 | Usuario o contraseña incorrectos, inactivo o bloqueado |
-| `UNAUTHENTICATED` | 401 | Sin token o token vencido |
+| `FIELD_REQUIRED` | 400 | Falta el usuario o la contraseña |
+| `INVALID_CREDENTIALS` | 401 | Usuario o contraseña incorrectos; refresh token desconocido, revocado o vencido |
+| `ACCOUNT_LOCKED` | 401 | Cinco fallos de credenciales con ese nombre en 15 minutos |
+| `ACCOUNT_DISABLED` | 401 | Cuenta desactivada (en el login, solo con la contraseña correcta) |
 | `TOKEN_REUSED` | 401 | Refresh reutilizado; familia revocada |
-| `PASSWORD_CHANGE_REQUIRED` | 403 | El usuario debe cambiar su contraseña |
-| `FORBIDDEN` | 403 | El permiso o el alcance no alcanzan |
-| `PASSWORD_POLICY_VIOLATION` | 422 | La contraseña nueva no cumple la política |
+| `UNAUTHENTICATED` | 401 | Sin token, token inválido o caducado, o la contraseña cambió |
+| `PASSWORD_CHANGE_REQUIRED` | 403 | La cuenta debe cambiar su contraseña |
+| `PERMISSION_DENIED` | 403 | No tiene el permiso |
+| `SCOPE_INSUFFICIENT` | 403 | Tiene el permiso, pero su alcance no cubre ese recurso |
+| `POLICY_DENIED`, `POLICY_REQUIRED` | 403 | Una política lo prohíbe, o hace falta una que lo permita |
+| `SEGREGATION_OF_DUTIES` | 403 | No puede aprobar lo que él mismo capturó |
+| `WEAK_PASSWORD` | 422 | La contraseña nueva no cumple la política |
+| `SAME_PASSWORD` | 422 | La contraseña nueva es igual a la actual |
+
+Los códigos de autorización son distintos a propósito: ante cada uno el usuario hace algo diferente.
 
 ## 9. Permisos del catálogo
 
@@ -167,5 +194,11 @@ alcances válidos. `NONE` no es un alcance que se pueda conceder.
 
 ## 10. Bitácora
 
-Login correcto e incorrecto, bloqueo, refresh con reutilización, logout, cambio de contraseña y cada
-denegación por política escriben en `audit_log`. Ver [auditoria.md](auditoria.md).
+| Hecho | Dónde queda | Por qué ahí |
+|---|---|---|
+| Cada intento de login, acertado o no | `login_attempts` | Se escribe mucho más que la bitácora, y un atacante no debe poder inundar un libro que se escribe en serie |
+| Reuso de un refresh token | `audit_log`, acción `TOKEN_REUSE_DETECTED` | Es una señal de compromiso de la sesión |
+| Cambio de contraseña | `audit_log`, acción `PASSWORD_CHANGED` | Con cuántas sesiones se cerraron |
+| Cada denegación de acceso | `audit_log`, acción `ACCESS_DENIED`, en una transacción propia | Tiene que quedar aunque el caso de uso revierta |
+
+Ver [auditoria.md](auditoria.md).

@@ -14,6 +14,7 @@ El código anterior (Ktor) está en el historial de git y en `historico/`. El le
 ## Por dónde empezar
 
 1. [plan/PLAN-REHACER.md](plan/PLAN-REHACER.md): qué se construye, en qué fases y qué decisiones siguen abiertas.
+   [plan/PLAN-IMPLEMENTACION.md](plan/PLAN-IMPLEMENTACION.md): los módulos, sus dependencias y el criterio de terminado de cada uno.
 2. [arquitectura/general.md](arquitectura/general.md): cómo se relacionan las partes.
 3. [flujos/README.md](flujos/README.md): los procesos que debe cumplir el sistema.
 

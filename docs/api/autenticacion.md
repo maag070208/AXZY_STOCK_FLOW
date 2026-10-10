@@ -2,10 +2,16 @@
 > **Referencia.** Las rutas de sesión: inicio, renovación con rotación, cierre,
 > usuario actual y cambio de contraseña. Última verificación: 2026-10-09.
 
-Implementadas en
-`backend/src/main/kotlin/dev/axzy/stock/backend/identity/AuthRoutes.kt`. El cuerpo
-de error y su catálogo están en [errores.md](errores.md); las convenciones de
-cabeceras y fechas, en [convenciones.md](convenciones.md).
+Las rutas están en
+`api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/identity/AuthController.kt`, y cada
+una llama a un caso de uso de `api/application/.../identity/`: `Login`, `RefreshSession`, `Logout`,
+`ChangePassword` y `ResolveActor`. El cuerpo de error y su catálogo están en
+[errores.md](errores.md); las convenciones de cabeceras y fechas, en [convenciones.md](convenciones.md).
+
+**El token de acceso solo identifica.** Es un JWT firmado con HMAC-SHA256 que lleva el id del
+usuario, la familia de la sesión y un sello de credenciales. **No lleva roles ni permisos**: se leen
+de la base en cada petición, así que quitar un rol o desactivar una cuenta surte efecto en la
+petición siguiente y no cuando el token caduca.
 
 ## `POST /v1/auth/login`
 
@@ -37,9 +43,24 @@ cabeceras y fechas, en [convenciones.md](convenciones.md).
 |---|---|---|
 | `FIELD_REQUIRED` | 400 | falta `username` o `password` |
 | `INVALID_CREDENTIALS` | 401 | usuario o contraseña incorrectos — **el mismo código para ambos**, para no permitir enumerar usuarios |
-| `ACCOUNT_DISABLED` | 401 | la cuenta está desactivada |
-| `ACCOUNT_LOCKED` | 401 | bloqueada por intentos fallidos; el instante del desbloqueo se conserva en `locked_until` |
-| `RATE_LIMITED` | 429 | demasiados intentos desde esta IP. **Declarado; la implementación aún no tiene limitador de tasa** |
+| `ACCOUNT_DISABLED` | 401 | la cuenta está desactivada. **Solo se devuelve si la contraseña es correcta** |
+| `ACCOUNT_LOCKED` | 401 | cinco fallos de credenciales con ese nombre en 15 minutos |
+| `RATE_LIMITED` | 429 | demasiados intentos desde esta IP. **Declarado; todavía no hay limitador de tasa** |
+
+**No se puede averiguar si un usuario existe.** Tres reglas lo garantizan (`Login.kt`):
+
+1. Usuario inexistente y contraseña incorrecta devuelven el mismo cuerpo. Cuando no hay cuenta se
+   verifica igualmente contra un hash señuelo, para que la respuesta tarde lo mismo.
+2. El bloqueo se decide por **nombre de usuario**, exista o no la cuenta: se cuentan los fallos en
+   `login_attempts`. Si solo se bloquearan las cuentas reales, cinco intentos bastarían para saber
+   cuáles lo son.
+3. «Cuenta desactivada» solo se dice a quien acertó la contraseña.
+
+El bloqueo es temporal y **los intentos hechos durante el bloqueo no lo prolongan**: si lo hicieran,
+bastaría una petición cada cierto tiempo para dejar una cuenta bloqueada para siempre.
+
+Los intentos de login van a `login_attempts`, no a la bitácora: se escriben mucho más, y un atacante
+no debe poder inundar un libro que se escribe en serie.
 
 `expiresIn` en **segundos**, que es lo que esperan las bibliotecas de cliente. El
 `refreshToken` se guarda **hasheado** (SHA-256): el valor en claro solo existe en
@@ -83,13 +104,15 @@ servidor justo cuando el usuario pide lo contrario.
 
 ## `GET /v1/auth/me`
 
-Devuelve el objeto `user` del login. Es lo que la web usa al recargar para
-reconstruir los permisos sin volver a autenticar. La ruta **relee de la base y no
-devuelve el contenido del token**: los permisos pueden haber cambiado desde que se
-emitió.
+Devuelve el objeto `user` del login. Es lo que la web usa al recargar para reconstruir los permisos
+sin volver a autenticar. La ruta **relee de la base**: los permisos pueden haber cambiado desde que se
+emitió el token.
 
 **401** con `code = UNAUTHENTICATED` si falta el token o el usuario ya no existe;
 `ACCOUNT_DISABLED` si la cuenta está desactivada.
+
+Se puede llamar con el cambio de contraseña pendiente, igual que `change-password` y `logout`.
+Cualquier otra ruta responde entonces `403 PASSWORD_CHANGE_REQUIRED`.
 
 ## `POST /v1/auth/change-password`
 
@@ -110,14 +133,19 @@ Errores:
 | `WEAK_PASSWORD` | 422 | la contraseña nueva no cumple la política |
 | `SAME_PASSWORD` | 422 | la contraseña nueva es igual a la actual |
 
-Cambiar la contraseña cierra **todas** las sesiones: quien la cambia suele
-sospechar que está comprometida, y dejar vivas las demás mantendría el acceso del
-atacante justo cuando el usuario intenta cerrarlo.
+Cambiar la contraseña cierra **todas** las sesiones: quien la cambia suele sospechar que está
+comprometida, y dejar vivas las demás mantendría el acceso del atacante justo cuando el usuario
+intenta cerrarlo.
+
+El cierre es **inmediato y exacto**. El cambio y la revocación de los refresh tokens van en la misma
+transacción, y los tokens de acceso ya emitidos dejan de servir en la petición siguiente porque su
+sello de credenciales ya no coincide con el de la cuenta. No depende de comparar fechas.
 
 ## Verificación
 
 | Archivo | Qué cubre |
 |---|---|
-| `backend/src/test/kotlin/dev/axzy/stock/backend/identity/TokenServiceTest.kt` | emisión y verificación de tokens |
-| `backend/src/test/kotlin/dev/axzy/stock/backend/identity/NativeArgon2PasswordHasherTest.kt` | hash y verificación de contraseñas |
-| `backend/src/test/kotlin/dev/axzy/stock/backend/ApiE2ETest.kt` | login y `me` contra la API montada |
+| `api/app/src/test/kotlin/dev/axzy/stock/app/AuthFlowTest.kt` | Todas las rutas por HTTP real: login, bloqueo, refresh con reuso, logout, cambio de contraseña |
+| `api/adapters-security/src/test/.../SecurityAdaptersTest.kt` | Argon2id, firma y verificación de tokens, refresh tokens |
+| `api/adapters-persistence/src/test/.../SessionPersistenceTest.kt` | Persistencia de sesiones y dos renovaciones simultáneas |
+| `stock-domain/src/commonTest/.../identity/SessionModelTest.kt` | La decisión de refresh, como función pura |

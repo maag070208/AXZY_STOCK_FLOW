@@ -1,47 +1,86 @@
 # Entorno local de STOCK. Decisión: docs/adr/0016-docker-compose-para-el-entorno.md
 # Detalle: docs/arquitectura/infraestructura.md
 #
-# Las variables sin valor por defecto (?) hacen que `docker compose` falle si faltan:
-# ningún secreto tiene un valor de respaldo.
+# Las variables con `:?` hacen que `docker compose` falle si faltan: ningún secreto tiene
+# un valor de respaldo.
 
-name: stock
+# No se llama `stock`: ese nombre lo usa el Compose del sistema anterior, y dos proyectos
+# con el mismo nombre se pisan los contenedores (un `up` de uno recrea los del otro).
+name: stockflow
 
 services:
   postgres:
     image: postgres:16
     environment:
+      # El dueño del esquema: el único que crea y altera tablas. Lo usa `migrate`.
       POSTGRES_DB: ${POSTGRES_DB:?Falta POSTGRES_DB en .env}
-      POSTGRES_USER: ${POSTGRES_USER:?Falta POSTGRES_USER en .env}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env}
+      POSTGRES_USER: ${DB_OWNER_USER:?Falta DB_OWNER_USER en .env}
+      POSTGRES_PASSWORD: ${DB_OWNER_PASSWORD:?Falta DB_OWNER_PASSWORD en .env}
+      # El usuario de la API: lo crea db/init al inicializar el volumen.
+      STOCK_API_USER: ${STOCK_API_USER:?Falta STOCK_API_USER en .env}
+      STOCK_API_PASSWORD: ${STOCK_API_PASSWORD:?Falta STOCK_API_PASSWORD en .env}
+      TZ: UTC
     ports:
       # Solo loopback: la base nunca se publica a la red.
       - "127.0.0.1:${POSTGRES_PORT:?Falta POSTGRES_PORT en .env}:5432"
     volumes:
-      - stock-pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -q"]
       interval: 5s
       timeout: 3s
       retries: 20
 
-  # Aplica las migraciones y termina. La API depende de que termine con éxito (fase 2).
+  # Aplica las migraciones con el rol dueño y termina. La API depende de que termine bien.
   migrate:
-    image: flyway/flyway:11.3.4
+    image: flyway/flyway:12.4.0
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       FLYWAY_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
-      FLYWAY_USER: ${POSTGRES_USER}
-      FLYWAY_PASSWORD: ${POSTGRES_PASSWORD}
-      FLYWAY_LOCATIONS: filesystem:/flyway/sql
+      FLYWAY_USER: ${DB_OWNER_USER}
+      FLYWAY_PASSWORD: ${DB_OWNER_PASSWORD}
+      FLYWAY_LOCATIONS: filesystem:/flyway/sql,filesystem:/flyway/callbacks
       FLYWAY_VALIDATE_ON_MIGRATE: "true"
       FLYWAY_BASELINE_ON_MIGRATE: "false"
       FLYWAY_CLEAN_DISABLED: "true"
     command: migrate
     volumes:
       - ./db/migrations:/flyway/sql:ro
+      - ./db/callbacks:/flyway/callbacks:ro
     restart: "no"
 
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    depends_on:
+      # La API no migra: arranca solo si las migraciones terminaron bien, y aun así comprueba la versión.
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      STOCK_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      # El usuario de la API, no el dueño del esquema.
+      STOCK_DB_USER: ${STOCK_API_USER}
+      STOCK_DB_PASSWORD: ${STOCK_API_PASSWORD}
+      STOCK_JWT_SECRET: ${STOCK_JWT_SECRET:?Falta STOCK_JWT_SECRET en .env}
+      # Solo hace falta mientras la base no tenga usuarios.
+      ADMIN_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD:-}
+      STOCK_VERSION: ${STOCK_VERSION:-dev}
+      STOCK_BUSINESS_ZONE: ${STOCK_BUSINESS_ZONE:-America/Mexico_City}
+    ports:
+      # Solo loopback, para probar la API directamente. La web le llega por la red interna.
+      - "127.0.0.1:${API_PORT:?Falta API_PORT en .env}:8080"
+    healthcheck:
+      # `wget` viene con la imagen (BusyBox). Sale con error si la respuesta no es 2xx.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/v1/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
 volumes:
-  stock-pgdata:
+  pgdata:

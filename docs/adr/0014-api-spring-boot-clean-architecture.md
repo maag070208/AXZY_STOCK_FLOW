@@ -20,23 +20,24 @@ inyección de dependencias madura, documentación amplia y soporte de Docker sin
 
 1. **Kotlin con Spring Boot** para la API, sobre JDK LTS (la versión exacta se fija en la fase 0,
    [stack.md](../arquitectura/stack.md)).
-2. **Cuatro capas en módulos de Gradle separados**, y la dependencia solo puede apuntar hacia dentro:
+2. **Capas en módulos de Gradle separados**, y la dependencia solo puede apuntar hacia dentro:
 
    ```
-   app (Spring Boot, cableado)  ──→  adapters/web, adapters/persistence
-                                         │
-                                         ↓
-                                    application  (casos de uso, puertos)
-                                         │
-                                         ↓
-                                      domain  (reglas puras, sin Spring)
+                    ┌──→ adapters-web ─────────┐
+   app ─────────────┼──→ adapters-persistence ─┼──→ application ──→ stock-domain
+                    └──→ adapters-security ────┘
    ```
 
-   - `domain`: entidades, estados, errores tipados y reglas. **No depende de Spring ni de JDBC.**
-   - `application`: casos de uso y **puertos** (interfaces). Depende solo de `domain`.
-   - `adapters/persistence`: implementa los puertos de salida con PostgreSQL. Depende de `application`.
-   - `adapters/web`: controladores HTTP que llaman a los casos de uso. Depende de `application`.
-   - `app`: el único módulo que conoce Spring y **cablea** todo. Es el único que depende de todos.
+   - `stock-domain`: entidades, estados, errores tipados y reglas. **No depende de Spring ni de JDBC.**
+     Es el dominio compartido con la app (plan D6); la API no tiene un módulo de dominio propio.
+   - `application`: casos de uso y **puertos** (interfaces). Depende solo de `stock-domain`.
+   - `adapters-persistence`: implementa los puertos de salida con PostgreSQL.
+   - `adapters-security`: implementa los puertos de criptografía (tokens, hash de contraseñas).
+   - `adapters-web`: controladores HTTP que llaman a los casos de uso.
+   - `app`: el único módulo que **cablea** todo. Es el único que depende de todos.
+
+   Los tres adaptadores no se conocen entre sí. `adapters-security` se separó de los otros dos al
+   implementar: la criptografía no es ni persistencia ni HTTP, y aislarla permite probarla sola.
 
 3. **Inyección de dependencias por constructor.** Los casos de uso son clases Kotlin simples con
    sus puertos en el constructor. Spring solo se usa para instanciarlos en `app`, en una

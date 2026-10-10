@@ -3,6 +3,8 @@
 > que manda sobre la secuencia; los normativos (arquitectura, flujos, ADR) describen el destino.
 > Última revisión: 2026-10-09.
 
+> **Desglose por módulo y orden de construcción:** [PLAN-IMPLEMENTACION.md](PLAN-IMPLEMENTACION.md).
+
 ## 1. Punto de partida
 
 El repositorio quedó solo con documentación y el legacy (`BASE/`). El código anterior (Ktor,
