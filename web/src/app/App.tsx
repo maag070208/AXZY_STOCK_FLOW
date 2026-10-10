@@ -7,6 +7,15 @@ import LoginPage from "@pages/auth/LoginPage";
 import LocationsPage from "@pages/catalog/LocationsPage";
 import ProductsPage from "@pages/catalog/ProductsPage";
 import WarehousesPage from "@pages/catalog/WarehousesPage";
+import AuditPage from "@pages/audit/AuditPage";
+import StockPage from "@pages/inventory/StockPage";
+import KardexPage from "@pages/inventory/KardexPage";
+import InvoiceDetailPage from "@pages/receiving/InvoiceDetailPage";
+import TransferDetailPage from "@pages/transfers/TransferDetailPage";
+import InvoicesPage from "@pages/receiving/InvoicesPage";
+import OrdersPage from "@pages/fulfillment/OrdersPage";
+import TransfersPage from "@pages/transfers/TransfersPage";
+import PrintJobsPage from "@pages/labels/PrintJobsPage";
 import NotFoundPage from "@pages/errors/NotFoundPage";
 import HomePage from "@pages/home/HomePage";
 
@@ -53,6 +62,78 @@ export default function App() {
           element={
             <RequirePermission permissions={["warehouse.view"]}>
               <WarehousesPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/stock"
+          element={
+            <RequirePermission permissions={["inventory.view"]}>
+              <StockPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/kardex"
+          element={
+            <RequirePermission permissions={["kardex.view"]}>
+              <KardexPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/invoices"
+          element={
+            <RequirePermission permissions={["invoice.view"]}>
+              <InvoicesPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/invoices/:id"
+          element={
+            <RequirePermission permissions={["invoice.view"]}>
+              <InvoiceDetailPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/transfers/:id"
+          element={
+            <RequirePermission permissions={["transfer.view"]}>
+              <TransferDetailPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/orders"
+          element={
+            <RequirePermission permissions={["order.view"]}>
+              <OrdersPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/transfers"
+          element={
+            <RequirePermission permissions={["transfer.view"]}>
+              <TransfersPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/labels"
+          element={
+            <RequirePermission permissions={["label.queue_view"]}>
+              <PrintJobsPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/audit"
+          element={
+            <RequirePermission permissions={["audit.view"]}>
+              <AuditPage />
             </RequirePermission>
           }
         />

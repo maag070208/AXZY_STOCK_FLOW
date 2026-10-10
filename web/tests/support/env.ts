@@ -34,5 +34,8 @@ export const E2E = {
   webUrl: pick("E2E_WEB_URL", "http://127.0.0.1:5173"),
   apiUrl: pick("E2E_API_URL", "http://127.0.0.1:8081"),
   adminUser: pick("STOCK_ADMIN_USERNAME", "admin"),
-  adminPassword: pick("ADMIN_BOOTSTRAP_PASSWORD", ""),
+  // Una contraseña de prueba propia. `ADMIN_BOOTSTRAP_PASSWORD` solo sirve para crear
+  // el primer administrador, y la API exige cambiarla al entrar: una prueba que la usara
+  // como contraseña vigente se rompería en cuanto alguien la cambiara.
+  adminPassword: pick("E2E_ADMIN_PASSWORD", pick("ADMIN_BOOTSTRAP_PASSWORD", "")),
 };

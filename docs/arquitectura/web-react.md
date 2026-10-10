@@ -181,3 +181,31 @@ README no la pasa, se cambia y se anota aquí.
 - No se usan `!` (importantes) de Tailwind para ganar a un estilo del kit: es el síntoma de una capa mal
   ordenada (§5).
 - No se importan componentes del kit desde las páginas (§4).
+
+## 8. Sesión y pruebas de navegador
+
+**La sesión vive en memoria, y recargar la página la cierra.** Los tokens están en el estado de Redux,
+nunca en `localStorage` ni en `sessionStorage`: una página que se pueda leer desde el mismo origen
+no debe guardar tokens que sirvan fuera de la pestaña. La consecuencia es que una recarga pide entrar
+otra vez. Por eso las pruebas entran a cada módulo **con un clic en el menú** y no con `goto`: un
+`goto` a `/stock` recarga y pierde la sesión.
+
+Las pruebas de navegador se dividen en dos clases:
+
+| Archivo | API | Qué afirma |
+|---|---|---|
+| `tests/login.spec.ts` | Real (`127.0.0.1:8081`) | Que la web y la API se entienden: la entrada, el error de credenciales y la pantalla que decide la API |
+| `tests/catalog.spec.ts`, `tests/modules.spec.ts` | Simulada con `page.route` | La interfaz y la **petición exacta** que hace la web |
+
+Cuatro cosas que se aprendieron al escribirlas:
+
+- **`page.route` da prioridad a la última ruta registrada.** Y el glob `?` de Playwright casa con
+  cualquier carácter, no solo con un signo de interrogación: `**/v1/transfers?*` también casa con
+  `/v1/transfers/in-transit`. Por eso las rutas específicas se registran **después** de la general.
+- **Una prueba que espera una ruta tiene que esperar la petición, no la pantalla.** `requestTo(page,
+  pathname)` falla si la web pide otra ruta, aunque la tabla quede vacía y «se vea bien».
+- **Etiquetas pide `/v1/labels/jobs`.** La cola de impresión no vive bajo `/v1/label-templates`:
+  `/label-templates/jobs` cae en el detalle de la plantilla (`{id}`) y responde 400. La prueba de
+  etiquetas comprueba la ruta real para que la regresión vuelva a fallar en la suite.
+- **Las credenciales de la prueba de entrada son propias** (`E2E_ADMIN_PASSWORD`): ver ARRANQUE.md.
+

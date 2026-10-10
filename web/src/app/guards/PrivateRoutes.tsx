@@ -1,6 +1,6 @@
 import { ITLayout, type ITNavigationItem, type ITSidebarProps } from "@axzydev/axzy_ui_system";
 import { useCallback, useEffect, type ReactNode } from "react";
-import { FaBoxes, FaHome, FaLayerGroup, FaWarehouse } from "react-icons/fa";
+import { FaBoxes, FaClipboardList, FaExchangeAlt, FaHistory, FaHome, FaLayerGroup, FaTags, FaTruck, FaWarehouse, FaBoxOpen } from "react-icons/fa";
 import glyph from "@shared/assets/brand/stockflow-glyph-light.svg";
 import { useDispatch, useSelector } from "react-redux";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -26,6 +26,13 @@ const MENU: { id: string; label: string; path: string; permission: string | null
     permission: "warehouse.view",
     icon: <FaWarehouse size={14} />,
   },
+  { id: "stock", label: "Existencias", path: "/stock", permission: "inventory.view", icon: <FaBoxOpen size={14} /> },
+  { id: "kardex", label: "Kardex", path: "/kardex", permission: "kardex.view", icon: <FaHistory size={14} /> },
+  { id: "invoices", label: "Recepción", path: "/invoices", permission: "invoice.view", icon: <FaClipboardList size={14} /> },
+  { id: "orders", label: "Surtido", path: "/orders", permission: "order.view", icon: <FaTruck size={14} /> },
+  { id: "transfers", label: "Traslados", path: "/transfers", permission: "transfer.view", icon: <FaExchangeAlt size={14} /> },
+  { id: "labels", label: "Etiquetas", path: "/labels", permission: "label.queue_view", icon: <FaTags size={14} /> },
+  { id: "audit", label: "Auditoría", path: "/audit", permission: "audit.view", icon: <FaHistory size={14} /> },
 ];
 
 /**

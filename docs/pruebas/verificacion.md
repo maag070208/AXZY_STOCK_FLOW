@@ -160,3 +160,15 @@ aparece. La regla que sale de ahí:
   no haya dos formas de decirlo.
 - Vale para cualquier filtro por fecha: reportes, kardex y auditoría. Si una prueba construye
   una fecha con `LocalDate.now()` a secas, está en hora de la máquina y algún día fallará.
+
+## Una prueba que lee una contraseña de arranque se rompe al primer cambio
+
+Comprobado el 2026-10-10: la prueba de entrada contra la API real falló con «Usuario o contraseña
+incorrectos», aunque la contraseña era la de `.env`. No era un fallo de la API: el administrador ya
+había cambiado su contraseña, que es lo que la API exige al primer ingreso. `ADMIN_BOOTSTRAP_PASSWORD`
+solo se usa al crear la cuenta, y la prueba la tomaba como contraseña vigente.
+
+La regla que sale de ahí: **una prueba necesita su propia credencial**, no la que solo sirve para
+arrancar. Ahora es `E2E_ADMIN_PASSWORD`, con `ADMIN_BOOTSTRAP_PASSWORD` solo como respaldo. Si una
+prueba falla con una credencial que «debería valer», mira primero si la cuenta cambió la suya.
+

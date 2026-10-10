@@ -89,11 +89,13 @@ no está en el puerto por defecto: `STOCK_API_URL=http://127.0.0.1:9090 pnpm dev
 | `pnpm typecheck` | `tsc --noEmit` |
 | `pnpm lint` | `eslint . --max-warnings=0`: impone las capas FSD y los envoltorios del UI system |
 | `pnpm build` | `tsc --noEmit && vite build` |
-| `pnpm test:e2e` | Playwright (9 pruebas). Necesita la API levantada |
+| `pnpm test:e2e` | Playwright (17 pruebas). La entrada necesita la API levantada; el catálogo y los módulos usan la API simulada |
 
 **La primera vez te obliga a cambiar la contraseña**, y es el comportamiento documentado (I8):
 mientras no la cambies, la API responde `PASSWORD_CHANGE_REQUIRED` a todo lo demás y la web solo
-enseña esa pantalla. Después aparece el menú con Productos, Ubicaciones y Bodegas.
+enseña esa pantalla. Después aparece el menú con Productos, Ubicaciones, Bodegas y los módulos de lectura (Existencias, Kardex, Recepción, Surtido, Traslados, Etiquetas y Auditoría), cada uno según sus permisos.
+
+**Las pruebas de navegador usan `E2E_ADMIN_PASSWORD`**, no `ADMIN_BOOTSTRAP_PASSWORD`. La de arranque solo crea el primer administrador y la API obliga a cambiarla: una prueba que la usara como contraseña vigente se rompería en cuanto alguien la cambiara. Va en `.env` (ignorado por git); la plantilla lo documenta.
 
 **La caché del binario nativo de SWC vive dentro del proyecto.** Los scripts la fijan con
 `SWC_NATIVE_BINDING_CACHE="$PWD/.cache/swc"`; sin eso, `@swc/core` intenta escribir un cerrojo en
@@ -167,8 +169,8 @@ contenedores.
   catálogo (productos con alta/edición/baja e importación con simulación, ubicaciones y bodegas),
   con la marca del paquete de iconos (favicon, manifiesto, glifo del armazón) y el loader de Lottie
   mientras la importación trabaja. `tsc`, `eslint` (con las guardias de capas y de envoltorios
-  **probadas fallando**) y `vite build` en verde, y 11 pruebas de navegador: 5 contra la API real y
-  6 con la API simulada.
+  **probadas fallando**) y `vite build` en verde, y 17 pruebas de navegador: 12 con la API simulada (6 del
+  catálogo y 6 de los módulos de lectura), y 5 contra la API real (entrada y sesión).
 
 ```bash
 # El catálogo, de punta a punta (necesita una sesión con permisos de catálogo)

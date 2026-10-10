@@ -12,7 +12,7 @@
 | 4. Catálogo | **Cerrada salvo el Excel** | `CatalogFlowTest` K1–K6, I5 e I8; `CatalogPersistenceTest`; `RoutePermissionTest` |
 | 5. Existencias | **Cerrada** | `InventoryFlowTest` A1–A10 y `ReportFlowTest`; `InventoryEngineConcurrencyTest`; `InventoryWriteGuardTest`; presupuesto de consultas medido |
 | 6. Recepción | **Cerrada** | `ReceivingFlowTest` R1–R8 |
-| 11. Web | **Empezada** con el catálogo y la identidad, que son los módulos con contrato estable | `web/`: `tsc`, `eslint` y `vite build` en verde; 11 pruebas de Playwright |
+| 11. Web | **Entrada, catálogo y los siete módulos de lectura** (Existencias, Kardex, Recepción, Surtido, Traslados, Etiquetas, Auditoría), con el servicio `web` en Compose | `web/`: `tsc`, `eslint` y `vite build` en verde; 17 pruebas de Playwright. Las acciones de escritura de los módulos (crear, capturar, aprobar, empacar, despachar, imprimir) siguen pendientes |
 | 7. Surtido y ERP | **Cerrada** | `FulfillmentFlowTest` S1–S8; confirmación simultánea en `FulfillmentPersistenceTest` |
 | 8. Traslados | **Cerrada** | `TransferEngineTest` (motor e invariante) y `TransferFlowTest` T1–T8 |
 | 9. Etiquetas y auditoría | **Cerrada**: M06 con L1–L5 y M08 con U1–U5 en verde | `LabelFlowTest`, `PrintJobConfirmationTest` y `AuditFlowTest` |
@@ -57,7 +57,7 @@ Lo que la fase 4 **no** entrega, y por qué:
 | **24 permisos del catálogo sin ninguna ruta que los exija** | Auditoría del 2026-10-10 | De ellos, unos son de módulos que no existen (costo, financiero, dispositivos, `system.config`, `integration.manage`), otros son decisiones ya tomadas —`user.delete` (se desactiva), `invoice.edit/delete` y `order.edit/delete` (no se borran documentos), `kardex.export` (lo cubre `report.export`)—, y tres son capacidades **documentadas y sin ruta**: `invoice.assign`, `order.assign` y `session.revoke`. **`order.assign` ya tiene ruta** (`PUT /v1/orders/{id}/lines/{lineId}/assign`, 2026-10-10). Quedan **dos**: `invoice.assign` —asignar una línea de factura a un capturista; el estado `ASSIGNED` y el método del dominio existen, falta la ruta— y ~~`session.revoke`~~ — **cerrada el 2026-10-10** con `POST /v1/users/{id}/revoke-sessions`, y con el matiz escrito: corta la **renovación**, no el token de acceso vivo, y la ventana de gracia de 30 s de un token ya rotado sigue aplicando—. **`invoice.assign` también** (`PUT /v1/invoices/{id}/lines/{lineId}/assign`, 2026-10-10). **Ninguna capacidad documentada del catálogo queda sin ruta**: las 24 sin uso son de módulos que no existen (costo, financiero, dispositivos, `system.config`, `integration.manage`) o decisiones ya tomadas (no se borran documentos, un usuario se desactiva) |
 | ~~Ninguna ruta emite `RECEIPT_IN`~~ | Fase 6, **cerrado el 2026-10-10** | La mercancía entra **al contar**, con un `RECEIPT_IN` por la **diferencia** contra lo ya ingresado por la línea (`invoice_lines.received_quantity`, V15). Un recuento no suma dos veces, y si lo contado es menos la diferencia sale con un ajuste por error de conteo. Tres pruebas: la entrada al contar, el recuento a la baja y el recuento al alza. Las pruebas de ubicar ya no siembran el saldo a mano |
 | Pantallas de los módulos sin endpoint | Fases 6–9 | Una pantalla sin endpoint no dibuja filas inventadas: el inicio dice qué falta y por qué |
-| Despliegue de la web (nginx + servicio en Compose) | Cierre de la fase 11 | Hoy corre con `pnpm dev` contra la API; el proxy de Vite hace el mismo trabajo que hará nginx |
+| ~~Despliegue de la web (nginx + servicio en Compose)~~ | Fase 11, **cerrado el 2026-10-10** | Servicio `web` en Compose (`127.0.0.1:8085`): nginx sin privilegios que sirve la SPA y reenvía `/v1/` a la API por la red interna. Las cabeceras de seguridad se repiten por bloque porque `add_header` de un `location` anula las del `server` |
 | `stock` inicial a `SIN-UBICAR` con el movimiento `INITIAL` | Fase 5 (M02) | El informe ya publica `stockPersisted: false`: cargar 10.914.130 unidades sin desglose inventaría mal desde el día uno (ADR-0012) |
 
 I5 (un endpoint sin permiso declarado no arranca) e I8 (una cuenta con el cambio de contraseña
@@ -216,5 +216,7 @@ exista el HTTP:
 2. **M10, migración:** falta el stock inicial del legacy a `SIN-UBICAR` con el movimiento `INITIAL`
    —que el motor ya soporta—, la lectura de XLSX (Apache POI ya está en el proyecto por la
    exportación del kardex) y la conciliación con conteo.
-3. **Fase 11, web:** cada módulo estrena pantalla cuando su contrato está estable. Ya están entrada,
-   productos, ubicaciones y bodegas; falta el despliegue (nginx y su servicio en Compose).
+3. **Fase 11, web:** las pantallas de lectura de los siete módulos están hechas y probadas con la API
+   simulada. Falta lo que escribe: crear factura, capturar, aprobar, empacar, confirmar, despachar,
+   recibir, imprimir y reimprimir. Cada acción va con su prueba de navegador, y solo cuando su
+   endpoint y sus errores estén en el contrato.
