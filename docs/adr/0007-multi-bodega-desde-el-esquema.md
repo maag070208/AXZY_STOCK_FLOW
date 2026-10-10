@@ -57,7 +57,7 @@ projection of the locations plus transit, not a number maintained by hand
 
 Operational rules that follow:
 
-- The default warehouse is not hardcoded: neither its `id` nor its code `PRINCIPAL`. `is_default` is
+- The default warehouse is not hardcoded: neither its `id` nor its code `MAIN`. `is_default` is
   a capture convenience, not an identity (`V3__inventory_domain.sql`).
 - Goods in transit **still count** in the total inventory. Modeling them as two instantaneous
   movements would make the total drop during the trip and the reports would lie

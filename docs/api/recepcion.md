@@ -132,7 +132,7 @@ the identifier is not a number.
 
 ## `POST /v1/invoices/{id}/lines/{lineId}/capture`
 
-**Counting puts the goods into `RECEPCION`.** The count is the moment when the warehouse takes
+**Counting puts the goods into `RECEIVING`.** The count is the moment when the warehouse takes
 possession of what actually arrived —what was counted, not what was invoiced—, and the movement is a
 `RECEIPT_IN` for the **difference** between what was counted and what has already been received for that line. If what was counted is **less** than what was already received, the difference leaves with an adjustment for a **count error**: the previous count was high, and saying so with the correct reason makes it possible to audit why inventory went down.
 

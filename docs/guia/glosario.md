@@ -4,7 +4,7 @@
 | Term | Meaning | Where it is defined |
 |---|---|---|
 | **Warehouse** (`warehouse`) | Physical warehouse. One is the default in the current operation. | `V3__inventory_domain.sql` |
-| **Location** (`location`) | Place inside a warehouse: shelf, receiving or `SIN-UBICAR`. | `V3__inventory_domain.sql`, `V5__unassigned_location_kind.sql` |
+| **Location** (`location`) | Place inside a warehouse: shelf, receiving or `UNASSIGNED`. | `V3__inventory_domain.sql`, `V5__unassigned_location_kind.sql` |
 | **Receiving location** (`kind = RECEIVING`) | The temporary location where what was received and not yet located stays. It replaces the old `ADMIN` pseudo-location. | [ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md) |
 | **Product** (`product`) | Item with a unique code (`product_code`). `XN` and `X` are different SKUs. | [ADR-0011](../adr/0011-catalogo-fuente-maestra.md) |
 | **Stock** (`stock`) | Quantity of a product in a location. It is a projection, not a number that is edited. | `V3__inventory_domain.sql` (`stock_by_location`) |

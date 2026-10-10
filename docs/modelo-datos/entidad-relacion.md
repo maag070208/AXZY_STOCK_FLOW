@@ -2,7 +2,7 @@
 > **Reference.** Which tables there are, in which migration they are born and how they relate. The column detail
 > is in the migrations themselves: `backend/src/main/resources/db/migration/`.
 > Last verified: 2026-10-09.
-> **Reconstruction note (2026-10-10).** The schema in force is the migrations in `db/migrations/` (V1 to V15). The rules remain in force; the code paths it cites belong to the previous system and are remapped to the new code (see [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
+> **Reconstruction note (2026-10-10).** The schema in force is the migrations in `db/migrations/` (V1 to V17). The rules remain in force; the code paths it cites belong to the previous system and are remapped to the new code (see [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
 
 ## Tables by domain
 

@@ -17,7 +17,7 @@ One command: **[ARRANQUE.md](ARRANQUE.md)**.
 |---|---|---|---|
 | Domain | `stock-domain/` | Pure business rules, Kotlin Multiplatform, no frameworks | Built |
 | API | `api/` | Kotlin + Spring Boot over PostgreSQL, layered | Phases 0 to 10 closed; the ERP without adapter |
-| Database | `db/` | Flyway migrations `V1`–`V15`, and the API role | Built |
+| Database | `db/` | Flyway migrations `V1`–`V17`, and the API role | Built |
 | Environment | `docker-compose.yml` | PostgreSQL, migrations and API | Built |
 | Web | `web/` | React 19 + Vite + Tailwind + AXZY UI System, in FSD layers | Entry and catalog; grows with each module |
 | Brand | `brand/` | App icons (Android and iOS) and the art package manifest | Versioned; the web already uses it ([visual identity](docs/guia/identidad-visual.md)) |

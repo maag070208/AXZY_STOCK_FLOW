@@ -23,7 +23,7 @@ there without a physical place. Moreover, locating was a mutation of the ledger,
   and of the append-only ledger.
 - The receiving location is protected: it cannot be deactivated
   (`RECEIVING_LOCATION_PROTECTED`, `catalog/location/LocationRoutes.kt`).
-- The initial stock from the import goes to its own location `SIN-UBICAR`, not to receiving
+- The initial stock from the import goes to its own location `UNASSIGNED`, not to receiving
   (see [migracion/catalogo-excel.md](../migracion/catalogo-excel.md)).
 
 ## Consequences

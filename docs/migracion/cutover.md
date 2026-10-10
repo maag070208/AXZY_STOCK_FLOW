@@ -16,7 +16,7 @@
 
 1. Freeze the legacy: no new records in `BASE/` from the start of the count.
 2. Import the catalog ([catalogo-excel.md](catalogo-excel.md)) in strict mode.
-3. Load the initial stock to `SIN-UBICAR` (the import itself does it, with the
+3. Load the initial stock to `UNASSIGNED` (the import itself does it, with the
    `INITIAL` movement of each product without stock).
 4. Run the count and the adjustments with a reason to bring the stock to its counted value.
 5. Verify with `comprobar_proyecciones()` that the projection balances with the ledger.

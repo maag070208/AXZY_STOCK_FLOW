@@ -27,7 +27,7 @@ next request and not when the token expires.
   "expiresIn": 900,
   "user": {
     "id": 7, "username": "jperez", "name": "Juan Pérez",
-    "roles": ["JEFE_BODEGA"],
+    "roles": ["WAREHOUSE_MANAGER"],
     "permissions": ["invoice.capture", "invoice.approve", "inventory.move"],
     "scopes": { "invoice.approve": "AREA", "inventory.move": "AREA" },
     "warehouses": [1],

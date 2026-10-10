@@ -132,7 +132,7 @@ The real report adds `created`, `updated` and `skipped` —importing the same fi
 nothing was done—, `persisted` (rows actually written, `0` in simulation) and the
 stock load: `stockPersisted`, `stockLoaded` and `stockSkipped`.
 
-**The stock in the file is loaded to `SIN-UBICAR` with an `INITIAL` movement**, with the
+**The stock in the file is loaded to `UNASSIGNED` with an `INITIAL` movement**, with the
 user who imported it and its date. The file carries the legacy total and **does not say in which shelf each piece
 is**: what the load does is leave that total in the unlocated balance
 so that the physical count distributes it ([ADR-0012](../adr/0012-conciliar-stock-heredado-con-conteo.md)).
@@ -177,7 +177,7 @@ it is an error of the file, and whoever uploaded it can fix it.
 
 ```json
 {
-  "id": 2, "warehouseId": 1, "warehouseCode": "PRINCIPAL",
+  "id": 2, "warehouseId": 1, "warehouseCode": "MAIN",
   "hall": "04", "code": "B", "position": "C", "levels": 3,
   "kind": "SHELF", "active": true, "displayName": "04-B-C"
 }
@@ -189,15 +189,15 @@ returned hardcoded and that could collide with location 1.
 
 **`displayName` is DERIVED, not a free field.** The server composes it with
 `hall-code-position` for `SHELF` locations (`"04-B-C"`). For the receiving one it
-returns **`"RECEPCION"`**, which is its `code`, not
-`"RECEPCION-RECEPCION-RECEPCION"`; and for goods not located, `"SIN-UBICAR"`.
+returns **`"RECEIVING"`**, which is its `code`, not
+`"RECEIVING-RECEIVING-RECEIVING"`; and for goods not located, `"UNASSIGNED"`.
 The rule lives in `catalog/location/LocationRecordMapper.kt` and in
 `inventory/InventoryMappers.kt`.
 
 The rule: **the client never composes the visible name, it receives it.** That way, if
 the format of the shelf labels changes, the backend, the web and the mobile app do not
 all have to change at once. In the ledger, `fromLocationDisplayName` and `toLocationDisplayName`
-use the same rule; that is what explains why the example shows `"RECEPCION"`.
+use the same rule; that is what explains why the example shows `"RECEIVING"`.
 
 Creation and edit errors: `422 INVALID_LEVELS`, `INVALID_LOCATION_KIND`,
 `INVALID_LOCATION_PART`, `UNKNOWN_WAREHOUSE`; `409 DUPLICATE_LOCATION`. Moving a
@@ -219,7 +219,7 @@ a closed and tiny catalog that the interface needs in full to populate a
 dropdown (see [convenciones.md §1.4](convenciones.md)). It accepts `q` and `active`.
 
 ```json
-{ "items": [{ "id": 1, "code": "PRINCIPAL", "name": "Bodega principal", "isDefault": true, "active": true }] }
+{ "items": [{ "id": 1, "code": "MAIN", "name": "Main warehouse", "isDefault": true, "active": true }] }
 ```
 
 `POST` answers **201** with the created warehouse. If it is born with `isDefault: true`, the

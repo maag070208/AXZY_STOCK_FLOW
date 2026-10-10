@@ -164,22 +164,22 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
             rows += LegacyKardexRow(product, container, MovementType.PENDING_OUT, Quantity.of(100))
             store.applyMovement(Quantity.of(100), MovementType.RECEIPT_IN)
 
-            withClue("Tras la captura el total es 1.100") {
+            withClue("After the capture the total is 1,100") {
                 store.stock shouldBe 1100
             }
 
             addKardexLocationLegacy(rows, Quantity.of(100), container)
 
             withClue(
-                "DEFECTO D-1: el registro de recepción decía 100 y ahora dice 0. " +
-                    "La historia se perdió: ya no se puede reconstruir qué se recibió."
+                "DEFECT D-1: the receiving record said 100 and now says 0. " +
+                    "The history was lost: what was received can no longer be reconstructed."
             ) {
                 rows.first().units shouldBe Quantity.ZERO
             }
             withClue(
-                "Y el total queda en 1.100, que es CORRECTO. Ésta es la corrección " +
-                    "que hice tras dos análisis míos equivocados: ubicar no descuadra " +
-                    "el total, porque addKardexLocation no llama al read model."
+                "And the total stays at 1,100, which is CORRECT. This is the correction " +
+                    "that I made after two of my own mistaken analyses: locating does not unbalance " +
+                    "the total, because addKardexLocation does not call the read model."
             ) {
                 store.stock shouldBe 1100
             }
@@ -197,12 +197,12 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
             }
 
             withClue(
-                "El registro de recepción de 100 terminó en 0 tras tres operaciones " +
-                    "que lo editaron. El libro solo conserva su estado final, no los pasos."
+                "The receiving record of 100 ended at 0 after three operations " +
+                    "that edited it. The ledger only keeps its final state, not the steps."
             ) {
                 rows.first().units shouldBe Quantity.ZERO
             }
-            withClue("Se crearon tres registros LOCATE, uno por operación") {
+            withClue("Three LOCATE records were created, one per operation") {
                 rows.count { it.moveType == MovementType.LOCATE } shouldBe 3
             }
         }
@@ -213,9 +213,9 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
             val unitsReceived = Quantity.of(100)
 
             withClue(
-                "En el legacy ese registro acababa en 0. En el modelo nuevo sigue " +
-                    "diciendo 100, porque el ledger es append-only y su inmutabilidad " +
-                    "está impuesta por trigger en la base de datos."
+                "In the legacy that record ended at 0. In the new model it still " +
+                    "says 100, because the ledger is append-only and its immutability " +
+                    "is enforced by a trigger in the database."
             ) {
                 unitsReceived shouldBe Quantity.of(100)
             }
@@ -232,7 +232,7 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
             val store = LegacyStore(0)
             store.applyMovement(Quantity.of(100), MovementType.RECEIPT_IN)
 
-            withClue("El total es correcto") {
+            withClue("The total is correct") {
                 store.stock shouldBe 100
             }
 
@@ -242,9 +242,9 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
             )
 
             withClue(
-                "El kardex SÍ sabe la ubicación (location = ${rowWithLocation.location}), " +
-                    "y el inventario NO puede consultarse por ella. El dato existe y es " +
-                    "inaccesible: ése es D-2."
+                "The ledger DOES know the location (location = ${rowWithLocation.location}), " +
+                    "and the inventory CANNOT be queried by it. The datum exists and is " +
+                    "inaccessible: that is D-2."
             ) {
                 (rowWithLocation.location != null) shouldBe true
                 // `store` does not expose stock per location: the field does not exist.
@@ -267,9 +267,9 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
             store.applyLocationAsLegacyWouldHave(Quantity.of(50))
 
             withClue(
-                "Invocada, ubicar restaría 50. La rama existe y es incorrecta; solo " +
-                    "que ninguna función de ubicar la llama. Es el defecto que un " +
-                    "rewrite debe evitar POR DISEÑO, no por recordar no llamarla."
+                "Invoked, locating would subtract 50. The branch exists and is wrong; only " +
+                    "that no locating function calls it. It is the defect that a " +
+                    "rewrite must avoid it BY DESIGN, not by remembering not to call it."
             ) {
                 store.stock shouldBe 450
             }
@@ -287,9 +287,9 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
             )
 
             withClue(
-                "Los cuatro efectos internos no cambian el total. Ninguno puede restar " +
-                    "porque el total es una SUMA DERIVADA de las ubicaciones: no existe " +
-                    "ninguna operación que lo modifique directamente."
+                "The four internal effects do not change the total. None can subtract " +
+                    "because the total is a DERIVED SUM of the locations: there is no " +
+                    "operation that modifies it directly."
             ) {
                 effectsThatDoNotChangeTotal.size shouldBe 4
             }

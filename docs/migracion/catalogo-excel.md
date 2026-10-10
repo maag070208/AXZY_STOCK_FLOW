@@ -25,7 +25,7 @@ The total is reliable. The breakdown by location is not in the file: see
 
 - **Strict.** An invalid row rejects the entire file (`catalog/CatalogImportService.kt`).
   Nothing is corrected by guessing.
-- **Initial stock to `SIN-UBICAR`** ([ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md)),
+- **Initial stock to `UNASSIGNED`** ([ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md)),
   already implemented: each product **without stock** receives its inherited total with an
   `INITIAL` movement in the ledger, with the user who imported it and its date. A product that
   already has a balance is skipped —re-importing cannot duplicate the inventory— and the report says
@@ -39,4 +39,4 @@ The total is reliable. The breakdown by location is not in the file: see
 ## What the file does not resolve
 
 - The breakdown by location: it is resolved with a physical count before the cutover.
-- Products with no known physical location: they stay in `SIN-UBICAR` until counted.
+- Products with no known physical location: they stay in `UNASSIGNED` until counted.

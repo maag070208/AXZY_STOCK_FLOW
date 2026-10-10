@@ -18,7 +18,7 @@ source. Loading it into a single location would misstate the inventory from day 
 
 - **Before cutting over**, a physical count of the 1,398 products is done and reconciled against
   the inherited total. It is a separate project, with its own count screen.
-- The initial stock enters `SIN-UBICAR` ([ADR-0009](0009-ubicacion-de-recepcion-real.md)) and
+- The initial stock enters `UNASSIGNED` ([ADR-0009](0009-ubicacion-de-recepcion-real.md)) and
   leaves that location when it is located with a count, not with an unsigned adjustment.
 - The cutover is not done until the reconciliation balances or the differences have an
   adjustment with a reason ([ADR-0008](0008-discrepancias-y-merma.md)).

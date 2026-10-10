@@ -51,7 +51,7 @@ sequenceDiagram
 
     C->>API: POST /v1/invoices/{id}/lines/{lineId}/capture (physical quantity)
     API->>UC: CaptureLine(actor, id, lineId, quantity)
-    UC->>DB: RECEIPT_IN movement: what was counted, to RECEPCION
+    UC->>DB: RECEIPT_IN movement: what was counted, to RECEIVING
     Note over UC,DB: The goods enter WHEN COUNTED, and only the difference<br/>against what the line has already received: a recount does not add twice.
     UC->>UC: Equal to invoiced?
     alt Equal
@@ -72,9 +72,9 @@ sequenceDiagram
     end
 
     C->>API: POST /v1/inventory/locate (shelf, invoiceLineId)
-    API->>UC: ApplyStockMovement(actor, product, RECEPCION, shelf, quantity, line)
+    API->>UC: ApplyStockMovement(actor, product, RECEIVING, shelf, quantity, line)
     UC->>UC: Line CAPTURED or APPROVED? Same product?
-    UC->>DB: LOCATE movement: RECEPCION → shelf (see stock)
+    UC->>DB: LOCATE movement: RECEIVING → shelf (see stock)
     UC->>DB: line → LOCATED
     UC->>DB: audit log
 ```
@@ -133,9 +133,9 @@ hard ones unresolved.
 
 ### 6-bis. Status of these tests (2026-10-10)
 
-**Who puts the goods into `RECEPCION` is the count** (2026-10-10). Before, nobody did:
+**Who puts the goods into `RECEIVING` is the count** (2026-10-10). Before, nobody did:
 the balance appeared through a manual adjustment or the M10 initial load, so locating
-from `RECEPCION` found zero. Now the count writes a `RECEIPT_IN` for the **difference** between what was counted and what the line has already received, and if what was counted is less, the
+from `RECEIVING` found zero. Now the count writes a `RECEIPT_IN` for the **difference** between what was counted and what the line has already received, and if what was counted is less, the
 difference leaves with an adjustment for a count error: the previous count was high. It is what makes
 a recount —a line discarded by the supervisor returns to `PENDING`— not add the goods twice.
 

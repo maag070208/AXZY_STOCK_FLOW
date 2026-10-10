@@ -187,7 +187,7 @@ class AccessEngineTest : DescribeSpec({
                 Triple(PermissionScope.OWN, PermissionScope.ALL, false),
                 Triple(PermissionScope.NONE, PermissionScope.OWN, false),
             ).forEach { (granted, required, expected) ->
-                withClue("$granted cubre $required debería ser $expected") {
+                withClue("$granted covers $required should be $expected") {
                     granted.covers(required) shouldBe expected
                 }
             }
@@ -244,7 +244,7 @@ class AccessEngineTest : DescribeSpec({
                     Policy(
                         id = 99,
                         name = "Solo gerencia en fin de semana",
-                        description = "Prueba de que ABAC sube el listón",
+                        description = "Test that ABAC raises the bar",
                         action = "inventory.adjust_shortage",
                         effect = PolicyEffect.DENY,
                         roles = setOf(BaseRole.WAREHOUSE_MANAGER.key),
@@ -259,7 +259,7 @@ class AccessEngineTest : DescribeSpec({
                 userWith(BaseRole.WAREHOUSE_MANAGER, warehouseIds = setOf(1L)),
                 "inventory.adjust_shortage",
                 ResourceContext(warehouseId = 1L),
-                RequestContext(hour = 10, weekday = 3),  // miércoles: el DENY no coincide
+                RequestContext(hour = 10, weekday = 3),  // Wednesday: the DENY does not match
             )
 
             // There is an applicable policy on the action and no ALLOW authorizes it,
@@ -327,7 +327,7 @@ class AccessEngineTest : DescribeSpec({
                 contextNormal,
             )
 
-            withClue("En observación, la decisión NO se aplica") {
+            withClue("In observation, the decision is NOT applied") {
                 decision.allowed shouldBe true
             }
             // But the policy is evaluated and traced, which is the point:
@@ -368,7 +368,7 @@ class AccessEngineTest : DescribeSpec({
 
         it("A25 — every policy in the catalog has a description (it cannot be built without one)") {
             StockPolicies.all.forEach { policy ->
-                withClue("La política '${policy.name}' debe tener descripción") {
+                withClue("The policy '${policy.name}' must have a description") {
                     policy.description.isNotBlank() shouldBe true
                 }
             }
@@ -376,7 +376,7 @@ class AccessEngineTest : DescribeSpec({
             // And building one without a description fails:
             val withoutDescription = runCatching {
                 Policy(
-                    id = 1, name = "Sin descripción", description = "",
+                    id = 1, name = "No description", description = "",
                     action = "invoice.view", effect = PolicyEffect.ALLOW,
                 )
             }
@@ -393,12 +393,12 @@ class AccessEngineTest : DescribeSpec({
             val decision = withPolicies().decide(
                 supervisor,
                 "invoice.approve",
-                ResourceContext(warehouseId = 1L, capturedBy = 7L),  // él mismo
+                ResourceContext(warehouseId = 1L, capturedBy = 7L),  // the same person
                 contextNormal,
             )
 
             val denied = decision.shouldBeInstanceOf<AccessDecision.SegregationOfDuties>()
-            withClue("El código debe ser específico: es accionable, dice que necesita OTRA persona") {
+            withClue("The code must be specific: it is actionable, it says that ANOTHER person is needed") {
                 denied.code shouldBe "SEGREGATION_OF_DUTIES"
             }
         }
@@ -435,7 +435,7 @@ class AccessEngineTest : DescribeSpec({
         it("A29 — the warehouse manager does NOT adjust outside working hours") {
             val manager = userWith(BaseRole.WAREHOUSE_MANAGER, warehouseIds = setOf(1L))
 
-            withClue("A las 10:00 sí") {
+            withClue("At 10:00 it does") {
                 withPolicies().decide(
                     manager, "inventory.adjust_shortage",
                     ResourceContext(warehouseId = 1L), RequestContext(hour = 10, weekday = 3),
@@ -479,10 +479,10 @@ class AccessEngineTest : DescribeSpec({
                 ResourceContext(warehouseId = 1L), RequestContext(hour = 10, weekday = 0),
             )
 
-            withClue("En observación, la decisión NO se aplica") {
+            withClue("In observation, the decision is NOT applied") {
                 decision.allowed shouldBe true
             }
-            withClue("Pero la política se evalúa y queda trazada") {
+            withClue("But the policy is evaluated and traced") {
                 val traces = engine.evaluateForObservation(
                     manager, "inventory.adjust_shortage",
                     ResourceContext(warehouseId = 1L), RequestContext(hour = 10, weekday = 0),
@@ -501,8 +501,8 @@ class AccessEngineTest : DescribeSpec({
             // authorization.
             val allowBase = Policy(
                 id = 200,
-                name = "El operador mueve mercancía de su ubicación",
-                description = "Operación normal del piso para producto de valor corriente.",
+                name = "The operator moves goods from their location",
+                description = "Normal floor operation for an ordinary-value product.",
                 action = "inventory.move",
                 effect = PolicyEffect.ALLOW,
                 priority = 10,
@@ -532,7 +532,7 @@ class AccessEngineTest : DescribeSpec({
                     ResourceContext(locationKind = "RECEIVING"), contextNormal,
                 ).allowed shouldBe true
             }
-            withClue("Desde SHELF: la política no coincide y se exige autorización") {
+            withClue("From SHELF: the policy does not match and authorization is required") {
                 withPolicies().decide(
                     operator, "invoice.locate",
                     ResourceContext(locationKind = "SHELF"), contextNormal,
@@ -560,7 +560,7 @@ class AccessEngineTest : DescribeSpec({
                     RequestContext(deviceType = DeviceType.SERVICE),
                 ).allowed shouldBe true
             }
-            withClue("Desde la web: denegado, ni el admin importa por ahí") {
+            withClue("From the web: denied, not even the admin imports that way") {
                 withPolicies().decide(
                     admin, "invoice.import_external",
                     ResourceContext(),
@@ -582,7 +582,7 @@ class AccessEngineTest : DescribeSpec({
                 Policy(
                     id = 1000L + index,
                     name = "Allow universal para $key",
-                    description = "Prueba de escalada de privilegios: no debe conceder nada por sí sola",
+                    description = "Privilege escalation test: it must not grant anything on its own",
                     action = key,
                     effect = PolicyEffect.ALLOW,
                     roles = emptySet(),   // aplica a todos
@@ -616,7 +616,7 @@ class AccessEngineTest : DescribeSpec({
             }
 
             withClue(
-                "ABAC NUNCA puede conceder lo que RBAC negó. Escaladas encontradas: $escalations"
+                "ABAC must NEVER grant what RBAC denied. Escalations found: $escalations"
             ) {
                 escalations shouldBe emptyList()
             }
@@ -651,7 +651,7 @@ class AccessEngineTest : DescribeSpec({
 
         it("every base role is explained in one sentence (otherwise it is badly cut)") {
             BaseRole.entries.forEach { role ->
-                withClue("El rol ${role.key.value} debe tener una descripción de una frase") {
+                withClue("The role ${role.key.value} must have a one-sentence description") {
                     role.oneLiner.isNotBlank() shouldBe true
                     role.displayName.isNotBlank() shouldBe true
                 }
@@ -678,20 +678,20 @@ class AccessEngineTest : DescribeSpec({
             )
 
             val hourTrace = traces.firstOrNull { it.policyId == 5L }
-            withClue("La traza debe incluir la política de horario laboral") {
+            withClue("The trace must include the working-hours policy") {
                 (hourTrace != null) shouldBe true
             }
 
             val hourCondition = hourTrace!!.conditions
                 .first { it.condition.field == "context.hour" }
 
-            withClue("La condición debe registrar el valor REAL observado (3), no solo el esperado") {
+            withClue("The condition must record the REAL observed value (3), not only the expected one") {
                 hourCondition.current shouldBe 3
             }
-            withClue("Y debe marcar que no coincidió") {
+            withClue("And it must mark that it did not match") {
                 hourCondition.matches shouldBe false
             }
-            withClue("A las 03:00 la política de horario no autoriza, así que no coincidence") {
+            withClue("At 03:00 the working-hours policy does not authorize, so it does not match") {
                 hourTrace.matched shouldBe false
             }
         }
@@ -716,7 +716,7 @@ class AccessEngineTest : DescribeSpec({
 
         it("all keys have the format 'resource.action' in lowercase") {
             PermissionCatalog.all.forEach { permission ->
-                withClue("Clave inválida: '${permission.key}'") {
+                withClue("Invalid key: '${permission.key}'") {
                     permission.key shouldBe permission.key.lowercase()
                     (permission.key.contains('.')) shouldBe true
                 }

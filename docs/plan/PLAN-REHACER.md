@@ -14,7 +14,7 @@ What was kept:
 | What is kept | Where it is | Why |
 |---|---|---|
 | Business rules (invariants, states, permissions) | `docs/adr/0005`–`0013`, `docs/modulos/` | They are business decisions, not framework ones |
-| Data schema and SQL engine (inventory functions) | `db/migrations/V1`–`V15` | The engine lives in the database; V1–V9 come from the history and V10–V15 were written afterwards |
+| Data schema and SQL engine (inventory functions) | `db/migrations/V1`–`V17` | The engine lives in the database; V1–V9 come from the history and V10–V17 were written afterwards |
 | HTTP contract | `docs/api/` | Consumed by the app and the web |
 | Visual design | `docs/guia/identidad-visual.md` | It is still the reference for the web |
 
@@ -22,7 +22,7 @@ What was **not** kept is the Ktor architecture (`docs/historico/`): the hand-wir
 and the decisions taken by the previous framework.
 
 **Status as of 2026-10-10.** The API exists and runs in Compose, with 752 tests in green and the schema at
-V15. The module-by-module progress is in [PLAN-IMPLEMENTACION.md](PLAN-IMPLEMENTACION.md). The app and the web
+V17. The module-by-module progress is in [PLAN-IMPLEMENTACION.md](PLAN-IMPLEMENTACION.md). The app and the web
 are still in progress.
 
 ## 2. Destination

@@ -34,7 +34,7 @@ rows at `0.000` is not read by anyone). Pagination by `page` and `size`.
 ```json
 {
   "items": [ { "productCode": "ABRAA1B", "name": "...", "locationDisplayName": "04-B-C",
-               "quantity": "100.000", "warehouseCode": "PRINCIPAL" } ],
+               "quantity": "100.000", "warehouseCode": "MAIN" } ],
   "totals": { "distinctProducts": 1398, "totalUnits": "10914130.000" },
   "page": 0, "size": 50, "totalItems": 1398, "totalPages": 28
 }
@@ -45,7 +45,7 @@ ignores the filter is worse than not having it, because the user decides with it
 `distinctProducts` counts **distinct** products: one product on three shelves is one, not
 three.
 
-`locationDisplayName` is composed by the server (`04-B-C`, `RECEPCION`, `SIN-UBICAR`).
+`locationDisplayName` is composed by the server (`04-B-C`, `RECEIVING`, `UNASSIGNED`).
 
 ## `GET /v1/reports/kardex/export?format=xlsx|csv`
 

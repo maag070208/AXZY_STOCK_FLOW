@@ -6,7 +6,7 @@
 | Phase | Status | Evidence |
 |---|---|---|
 | 0. Decisions | **Closed.** D1–D8 taken; versions verified in Maven Central | [stack.md](../arquitectura/stack.md) |
-| 1. Infrastructure | **Closed** | Compose `stockflow`; `V1`–`V15` applied; API role without DDL (`ApiRolePrivilegesTest`) |
+| 1. Infrastructure | **Closed** | Compose `stockflow`; `V1`–`V17` applied; API role without DDL (`ApiRolePrivilegesTest`) |
 | 2. Base API | **Closed** | Six modules; `GET /v1/health`; error contract; audit log in the transaction (U1, U3); `ArchitectureTest` |
 | 3. Identity | **Closed** | `AuthFlowTest`: sign-in, lock, refresh with reuse, sign-out and password change, over real HTTP. I5 and I8 were closed with phase 4 |
 | 4. Catalog | **Closed except the Excel** | `CatalogFlowTest` K1–K6, I5 and I8; `CatalogPersistenceTest`; `RoutePermissionTest` |
@@ -16,11 +16,11 @@
 | 7. Picking and ERP | **Closed** | `FulfillmentFlowTest` S1–S8; simultaneous confirmation in `FulfillmentPersistenceTest` |
 | 8. Transfers | **Closed** | `TransferEngineTest` (engine and invariant) and `TransferFlowTest` T1–T8 |
 | 9. Labels and audit | **Closed**: M06 with L1–L5 and M08 with U1–U5 green | `LabelFlowTest`, `PrintJobConfirmationTest` and `AuditFlowTest` |
-| 10. Migration | **Closed in what is code**: strict and idempotent import, which accepts **CSV, TSV and XLSX** and loads the initial stock to `SIN-UBICAR`. What remains belongs to the business (the physical count and the cutover) | `CatalogFlowTest` M10 and `CatalogUploadTest` |
+| 10. Migration | **Closed in what is code**: strict and idempotent import, which accepts **CSV, TSV and XLSX** and loads the initial stock to `UNASSIGNED`. What remains belongs to the business (the physical count and the cutover) | `CatalogFlowTest` M10 and `CatalogUploadTest` |
 
 **752 tests, 0 failures, 0 skipped** (412 domain, 11 application, 91 persistence, 17 web,
 11 cryptography, 210 flow), measured with `./gradlew verify` on 2026-10-10. Schema at
-**V15**.
+**V17**.
 
 **Audit of the §4 bar, closed on 2026-10-10.** Module by module, with mechanical checking
 where possible:
@@ -58,7 +58,7 @@ What phase 4 **does not** deliver, and why:
 | ~~No route emits `RECEIPT_IN`~~ | Phase 6, **closed on 2026-10-10** | The goods enter **when counted**, with a `RECEIPT_IN` for the **difference** against what the line has already received (`invoice_lines.received_quantity`, V15). A recount does not add twice, and if what was counted is less, the difference leaves with an adjustment for a count error. Three tests: the entry when counted, the downward recount and the upward recount. The locate tests no longer seed the balance by hand |
 | Screens of the modules without an endpoint | Phases 6–9 | A screen without an endpoint does not draw invented rows: the home page says what is missing and why |
 | ~~Deployment of the web (nginx + service in Compose)~~ | Phase 11, **closed on 2026-10-10** | `web` service in Compose (`127.0.0.1:8085`): unprivileged nginx that serves the SPA and forwards `/v1/` to the API over the internal network. The security headers are repeated per block because `add_header` of a `location` overrides those of the `server` |
-| Initial `stock` to `SIN-UBICAR` with the `INITIAL` movement | Phase 5 (M02) | The report already publishes `stockPersisted: false`: loading 10,914,130 units without a breakdown would misstate the inventory from day one (ADR-0012) |
+| Initial `stock` to `UNASSIGNED` with the `INITIAL` movement | Phase 5 (M02) | The report already publishes `stockPersisted: false`: loading 10,914,130 units without a breakdown would misstate the inventory from day one (ADR-0012) |
 
 I5 (an endpoint with no declared permission does not start) and I8 (an account with a pending
 password change does not use other routes) were closed in phase 4: `RoutePermissionAudit` checks the
@@ -212,7 +212,7 @@ the HTTP exists:
 2. **What remains of the migration is not code**: the physical count of the 1,398 products, the
    reconciliation against the inherited total and the cutover ([cutover.md](../migracion/cutover.md)). The
    verified database backup still **does not exist in the repo** and is a prerequisite of the cutover.
-2. **M10, migration:** the initial legacy stock to `SIN-UBICAR` with the `INITIAL` movement is missing
+2. **M10, migration:** the initial legacy stock to `UNASSIGNED` with the `INITIAL` movement is missing
    —which the engine already supports—, the XLSX reading (Apache POI is already in the project for the
    ledger export) and the reconciliation with a count.
 3. **Phase 11, web:** the read screens and the receiving writes (creation, capture,

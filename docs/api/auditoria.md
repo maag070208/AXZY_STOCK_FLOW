@@ -35,7 +35,7 @@ Permission: `audit.view`. Pagination by `page` and `size`.
     {
       "id": 5012, "occurredAt": "2026-10-10T04:12:33.512Z", "businessDate": "2026-10-10",
       "actorUserId": 7, "actorUsername": "jperez", "actorName": "Juan Pérez",
-      "actorRoles": ["JEFE_BODEGA"],
+      "actorRoles": ["WAREHOUSE_MANAGER"],
       "channel": "WEB", "entityType": "product", "entityId": "1032",
       "entityLabel": "ABRAA1B",
       "action": "PRODUCT_CREATED", "level": "RELEVANT",

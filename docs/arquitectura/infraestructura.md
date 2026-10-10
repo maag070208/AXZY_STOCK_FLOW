@@ -65,7 +65,7 @@ error names the variable.
 
 ```
 db/
-  migrations/   V1__… to V15__…   The versioned migrations
+  migrations/   V1__… to V17__…   The versioned migrations
   callbacks/    afterMigrate.sql  Runs after each `migrate`
   init/         01-rol-de-la-api.sh  Creates the API user when the volume is initialized
 ```
@@ -80,7 +80,7 @@ db/
 - `SqlMigrationGuardTest` (`stock-domain/src/jvmTest`) requires the versions to be sequential and
   that the audit log constraints are not lost.
 
-### What V10, V11 and V12 add
+### What V10 to V17 add
 
 | Migration | What it fixes |
 |---|---|
@@ -90,6 +90,8 @@ db/
 | `V13` | The transfer engine: dispatch, receive and cancel move the balance and leave both halves in the ledger |
 | `V14` | The link of a reprint with the original job |
 | `V15` | What is already received on the receiving line of an invoice. Without it, locating from receiving found zero |
+| `V16` | English identifiers: the role keys (`WAREHOUSE_MANAGER`, `WAREHOUSE_OPERATOR`, `OPERATIONS_MANAGER`), the default warehouse code `MAIN` and the special locations `RECEIVING` and `UNASSIGNED`. Existing rows are renamed, so the grants and users keep their role |
+| `V17` | Engine function names and `RAISE` messages in English (`receiving_location`, `dispatch_transfer`, `receive_transfer`, `cancel_transfer`…), with the same bodies and arguments |
 
 **The index of V11, measured.** Each audit log write looks up the previous link of the chain
 (`ORDER BY sequence_no DESC LIMIT 1`). Without an index, that read every row of every partition
@@ -112,7 +114,7 @@ failing.
 SELECT version, description, success
 FROM flyway_schema_history
 ORDER BY installed_rank;
--- Fifteen rows, all with success = true.
+-- Seventeen rows, all with success = true.
 ```
 
 ## 5. The API image

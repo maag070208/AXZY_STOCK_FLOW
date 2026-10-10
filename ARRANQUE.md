@@ -9,7 +9,7 @@ docker compose up -d --build
 
 ```bash
 curl -s http://127.0.0.1:8081/v1/health
-# {"status":"UP","schemaVersion":"15","version":"dev","database":{"status":"UP",...}}
+# {"status":"UP","schemaVersion":"17","version":"dev","database":{"status":"UP",...}}
 ```
 
 The detail of each service, port and variable is in
@@ -118,10 +118,10 @@ It was not named `stock` precisely because two Compose projects with the same na
 
 - **752 tests, 0 failures, 0 skipped**: 412 of the domain, 11 of the application layer, 91 of
   persistence, 17 of the web layer, 11 of cryptography and 210 of full flow over HTTP, measured with
-  `./gradlew verify` on 2026-10-10. Schema at **V15**.
+  `./gradlew verify` on 2026-10-10. Schema at **V17**.
   **`./gradlew test` is not enough**: it does not run the domain tests (its task is called `jvmTest`),
   so the report can look green while reading XML from a previous run. That is why the verification command is `verify`.
-- The API image is built and started in Compose; `/v1/health` answers `UP` with the schema at V15.
+- The API image is built and started in Compose; `/v1/health` answers `UP` with the schema at V17.
 - Sign-in, current session, renewal with reuse detection, sign-out and password change.
 - The API user cannot create tables or modify the ledger or the audit log.
 - **Catalog (phase 4)**: products with create, edit and logical delete; locations with the receiving one
@@ -154,7 +154,7 @@ It was not named `stock` precisely because two Compose projects with the same na
   edit, activate/deactivate and grant. A new role grants exactly what its matrix says, and
   removing or deactivating it takes effect immediately.
 - **Migration (M10)**, in what is code: the catalog import is strict and idempotent,
-  accepts **CSV, TSV and XLSX** through the same reader, and loads the legacy stock to `SIN-UBICAR` with an
+  accepts **CSV, TSV and XLSX** through the same reader, and loads the legacy stock to `UNASSIGNED` with an
   `INITIAL` movement per product —only for those who had no stock, so that re-importing does not
   duplicate anything—.
 - **Web (phase 11, started)**: sign-in and mandatory password change against the real API;

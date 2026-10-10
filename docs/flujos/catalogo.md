@@ -49,7 +49,7 @@ sequenceDiagram
         else dryRun = false
             UC->>DB: BEGIN
             UC->>DB: UPSERT products by product_code (idempotent)
-            UC->>DB: Initial stock → SIN-UBICAR (INITIAL movement, with client_uuid per row)
+            UC->>DB: Initial stock → UNASSIGNED (INITIAL movement, with client_uuid per row)
             UC->>DB: audit log (one record per import)
             UC->>DB: COMMIT
             UC-->>API: 200 with created, updated and skipped
@@ -57,7 +57,7 @@ sequenceDiagram
     end
 ```
 
-**Why the initial stock goes to `SIN-UBICAR`.** The file carries 10,914,130 units without a breakdown by
+**Why the initial stock goes to `UNASSIGNED`.** The file carries 10,914,130 units without a breakdown by
 shelf. Loading them into a location would misstate the inventory from day one. They are reconciled with a count before
 the cutover ([ADR-0012](../adr/0012-conciliar-stock-heredado-con-conteo.md)).
 

@@ -227,5 +227,5 @@ new state (total before and after), reason, permission used and idempotency key.
 
 - Every difference is an adjustment with a reason and user, never a deletion: [ADR-0008](../adr/0008-discrepancias-y-merma.md).
 - Locating is a new movement; receiving is a real location: [ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md).
-- The initial stock from the Excel enters `SIN-UBICAR` and is reconciled with a count before the cutover: [ADR-0012](../adr/0012-conciliar-stock-heredado-con-conteo.md).
+- The initial stock from the Excel enters `UNASSIGNED` and is reconciled with a count before the cutover: [ADR-0012](../adr/0012-conciliar-stock-heredado-con-conteo.md).
 - Multi-warehouse from the schema: [ADR-0007](../adr/0007-multi-bodega-desde-el-esquema.md).

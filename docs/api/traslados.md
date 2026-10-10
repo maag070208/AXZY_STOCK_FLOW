@@ -40,8 +40,8 @@ States: `DRAFT` → `DISPATCHED` → `IN_TRANSIT` → `RECEIVED`, with `CANCELLE
 ```json
 {
   "id": 9, "code": "TR-2026-0001",
-  "fromWarehouseId": 1, "fromWarehouseCode": "PRINCIPAL",
-  "toWarehouseId": 2, "toWarehouseCode": "SUCURSAL",
+  "fromWarehouseId": 1, "fromWarehouseCode": "MAIN",
+  "toWarehouseId": 2, "toWarehouseCode": "BRANCH",
   "status": "IN_TRANSIT",
   "lineCount": 3, "totalUnits": "150.000",
   "note": null,
@@ -148,7 +148,7 @@ and the elapsed days**. It returns an array, without a pagination envelope.
 [
   {
     "id": 9, "code": "TR-2026-0001",
-    "fromWarehouseCode": "PRINCIPAL", "toWarehouseCode": "SUCURSAL",
+    "fromWarehouseCode": "MAIN", "toWarehouseCode": "BRANCH",
     "status": "IN_TRANSIT",
     "lineCount": 3, "totalUnits": "150.000",
     "dispatchedAt": "2026-10-05T10:00:00Z",

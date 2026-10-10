@@ -39,13 +39,13 @@ GET /v1/inventory/stock?productCode=ABRAA1B&locationCode=04-B-C&onlyWithStock=tr
   "items": [
     { "productId": 1, "productCode": "ABRAA1B", "productName": "ABRAZADERA DE ARRANQUE 1-5/8\"",
       "locationId": 2, "locationDisplayName": "04-B-C",
-      "warehouseId": 1, "warehouseCode": "PRINCIPAL", "quantity": "100.000" }
+      "warehouseId": 1, "warehouseCode": "MAIN", "quantity": "100.000" }
   ],
   "page": 0, "size": 50, "totalItems": 1, "totalPages": 1
 }
 ```
 
-`locationDisplayName` is composed by the server (`04-B-C`, `RECEPCION`, `SIN-UBICAR`),
+`locationDisplayName` is composed by the server (`04-B-C`, `RECEIVING`, `UNASSIGNED`),
 never by the client. `totalItems` **is counted in the database** with the same filters as
 the listing; it is not deduced from `items` (see
 [convenciones.md §1.4](convenciones.md)).
@@ -68,7 +68,7 @@ GET /v1/inventory/kardex?productCode=ABRAA1B&from=2026-10-01&to=2026-10-31&moveT
       "moveType": "RECEIPT_IN",
       "units": "100.000", "quantityAfter": "1100.000",
       "fromLocationDisplayName": null,
-      "toLocationDisplayName": "RECEPCION",
+      "toLocationDisplayName": "RECEIVING",
       "container": "CONT-01", "orderNumber": null,
       "adjustmentReason": null, "adjustmentOrigin": null,
       "userId": 7, "userName": "Juan Pérez",
@@ -158,7 +158,7 @@ Locate goods: transfer from the receiving location to the shelf. Permission:
 `invoice.locate`.
 
 ```json
-{ "productCode": "ABRAA1B", "fromLocationCode": "RECEPCION", "toLocationCode": "04-B-C", "quantity": 100.000 }
+{ "productCode": "ABRAA1B", "fromLocationCode": "RECEIVING", "toLocationCode": "04-B-C", "quantity": 100.000 }
 ```
 
 **The total does NOT change**: it is a transfer. The legacy mutated the receiving record

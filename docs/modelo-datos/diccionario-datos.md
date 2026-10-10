@@ -15,7 +15,7 @@
 | `config_versions` | `V2` | Versions of the access configuration. |
 | `service_api_keys` | `V2` | Keys of external systems ([ADR-0010](../adr/0010-rutas-de-servicio-con-api-key.md)). |
 | `warehouses` | `V3` | Warehouses. One marked as default. |
-| `locations` | `V3` (+ `V5`, `V6`) | Locations. `kind` distinguishes shelf, receiving and `SIN-UBICAR`. |
+| `locations` | `V3` (+ `V5`, `V6`) | Locations. `kind` distinguishes shelf, receiving and `UNASSIGNED`. |
 | `units_of_measure` | `V3` | Unit catalog. |
 | `products` | `V3` | Product catalog. Master source ([ADR-0011](../adr/0011-catalogo-fuente-maestra.md)). |
 | `stock_by_location` | `V3` | Stock per product and location. Projection. |

@@ -44,7 +44,7 @@ class SqlMigrationGuardTest : DescribeSpec({
         )
         return candidates.firstOrNull { it.isDirectory }
             ?: error(
-                "No se encontró el directorio de migraciones. Buscado en: " +
+                "Migrations directory not found. Searched in: " +
                     candidates.joinToString { it.absolutePath }
             )
     }
@@ -68,9 +68,9 @@ class SqlMigrationGuardTest : DescribeSpec({
             val pattern = Regex("^V\\d+__[a-z0-9_]+\\.sql$")
             files.forEach { file ->
                 withClue(
-                    "La migración '${file.name}' no sigue la convención " +
-                        "V<n>__<nombre>.sql que exige Flyway. Un nombre mal formado " +
-                        "hace que la migración NO se aplique y falle en silencio."
+                    "Migration '${file.name}' does not follow the convention " +
+                        "V<n>__<name>.sql that Flyway requires. A badly formed name " +
+                        "makes the migration NOT apply and fail silently."
                 ) {
                     pattern.matches(file.name) shouldBe true
                 }
@@ -98,9 +98,9 @@ class SqlMigrationGuardTest : DescribeSpec({
 
             val checksExpected = mapOf(
                 "audit_critical_has_permission" to
-                    "Un evento crítico sin permiso no puede responder 'con qué permiso se hizo'",
+                    "A critical event without a permission cannot answer 'with which permission it was done'",
                 "audit_critical_has_trace" to
-                    "Un evento crítico debe guardar la traza, no solo el resultado",
+                    "A critical event must store the trace, not only the result",
                 "audit_adjustment_has_reason" to
                     "Todo ajuste de inventario exige motivo (invariante I6)",
                 "audit_human_has_actor" to
@@ -121,13 +121,13 @@ class SqlMigrationGuardTest : DescribeSpec({
             // protection, and an UPDATE on a partition PASSED.
             val sql = contentComplete()
 
-            withClue("Debe existir la función que aplica la inmutabilidad por partición") {
+            withClue("The function that enforces immutability per partition must exist") {
                 sql shouldContain "audit_log_attach_immutability"
             }
-            withClue("La función de particiones debe invocarla al crear cada partición") {
+            withClue("The partition function must call it when creating each partition") {
                 sql shouldContain "PERFORM audit_log_attach_immutability(nombre)"
             }
-            withClue("La partición por defecto también debe recibirla") {
+            withClue("The default partition must also receive it") {
                 sql shouldContain "audit_log_attach_immutability('audit_log_default')"
             }
         }
@@ -135,10 +135,10 @@ class SqlMigrationGuardTest : DescribeSpec({
         it("the audit log blocks UPDATE and DELETE with a message that explains why") {
             val sql = contentComplete()
 
-            withClue("Debe existir la función que bloquea las mutaciones") {
+            withClue("The function that blocks mutations must exist") {
                 sql shouldContain "audit_log_block_mutations"
             }
-            withClue("El mensaje debe explicar la razón, no solo fallar") {
+            withClue("The message must explain the reason, not just fail") {
                 sql shouldContain "append-only"
                 sql shouldContain "La auditoría que se puede editar no es auditoría"
             }
@@ -159,7 +159,7 @@ class SqlMigrationGuardTest : DescribeSpec({
             }
             withClue(
                 "No debe usarse IDENTITY: no se aplica a las particiones y las " +
-                    "inserciones fallarían"
+                    "inserts would fail"
             ) {
                 (sql.contains("ADD GENERATED ALWAYS AS IDENTITY")) shouldBe false
             }
@@ -185,7 +185,7 @@ class SqlMigrationGuardTest : DescribeSpec({
             // record was modified and the traceability was destroyed.
             val sql = contentComplete()
 
-            withClue("Debe existir la función que bloquea las mutaciones del kardex") {
+            withClue("The function that blocks mutations of the ledger must exist") {
                 sql shouldContain "kardex_block_mutations"
             }
             withClue("Y los triggers de UPDATE y DELETE") {
@@ -198,7 +198,7 @@ class SqlMigrationGuardTest : DescribeSpec({
             withClue("Ubicar exige origen y destino distintos: si no, no es un traslado") {
                 sql shouldContain "kardex_locate_requires_locations"
             }
-            withClue("La idempotencia del móvil se protege con un índice único") {
+            withClue("The phone's idempotency is protected by a unique index") {
                 sql shouldContain "kardex_client_uuid_idx"
             }
         }
@@ -216,10 +216,10 @@ class SqlMigrationGuardTest : DescribeSpec({
         it("stock per location and the total cannot be negative (invariant I2)") {
             val sql = contentComplete()
 
-            withClue("La proyección por ubicación tiene CHECK") {
+            withClue("The per-location projection has a CHECK") {
                 sql shouldContain "stock_non_negative"
             }
-            withClue("Y el total por producto también") {
+            withClue("And so does the total per product") {
                 sql shouldContain "product_stock_non_negative"
             }
         }
@@ -243,10 +243,10 @@ class SqlMigrationGuardTest : DescribeSpec({
             // never writing the flag (finding B-1 / R-57).
             val sql = contentComplete()
 
-            withClue("La factura exige motivo y fecha si está borrada") {
+            withClue("The invoice requires a reason and a date if it is deleted") {
                 sql shouldContain "invoices_deleted_coherent"
             }
-            withClue("La orden también") {
+            withClue("The order too") {
                 sql shouldContain "orders_deleted_coherent"
             }
         }
@@ -257,10 +257,10 @@ class SqlMigrationGuardTest : DescribeSpec({
             // siempre (hallazgo R-83).
             val sql = contentComplete()
 
-            withClue("Debe existir la máquina de estados de impresión") {
+            withClue("The print state machine must exist") {
                 sql shouldContain "CREATE TYPE print_status"
             }
-            withClue("Una etiqueta PRINTED debe tener la hora de confirmación") {
+            withClue("A PRINTED label must have the confirmation time") {
                 sql shouldContain "print_jobs_printed_has_timestamp"
             }
             withClue("El payload debe tener esquema validable") {
@@ -273,10 +273,10 @@ class SqlMigrationGuardTest : DescribeSpec({
             // `sent` existed but were neither written nor read (finding R-82).
             val sql = contentComplete()
 
-            withClue("Debe registrarse cuándo se convirtió") {
+            withClue("When it was converted must be recorded") {
                 sql shouldContain "orders_converted_coherent"
             }
-            withClue("Y debe haber estado de exportación con reintentos") {
+            withClue("And there must be an export state with retries") {
                 sql shouldContain "export_attempts"
                 sql shouldContain "export_last_error"
             }
@@ -288,7 +288,7 @@ class SqlMigrationGuardTest : DescribeSpec({
             // during transit and the reports would lie.
             val sql = contentComplete()
 
-            withClue("Debe existir la tabla de tránsito") {
+            withClue("The transit table must exist") {
                 sql shouldContain "CREATE TABLE stock_in_transit"
             }
             withClue("Un traslado no puede ser a la misma bodega") {
@@ -301,10 +301,10 @@ class SqlMigrationGuardTest : DescribeSpec({
             // collide with the real location 1 (finding R-69).
             val sql = contentComplete()
 
-            withClue("Debe existir el tipo de ubicación") {
+            withClue("The location type must exist") {
                 sql shouldContain "CREATE TYPE location_kind"
             }
-            withClue("Y sembrarse una ubicación de recepción por bodega") {
+            withClue("And a receiving location must be seeded per warehouse") {
                 sql shouldContain "'RECEIVING'"
             }
         }
@@ -324,10 +324,10 @@ class SqlMigrationGuardTest : DescribeSpec({
             // hybrid roles when someone covered two functions.
             val sql = contentComplete()
 
-            withClue("La relación usuario-rol debe ser N:M") {
+            withClue("The user-role relation must be N:M") {
                 sql shouldContain "CREATE TABLE user_roles"
             }
-            withClue("Y debe haber como máximo un rol principal por persona") {
+            withClue("And there must be at most one primary role per person") {
                 sql shouldContain "user_roles_one_primary_idx"
             }
         }
@@ -338,7 +338,7 @@ class SqlMigrationGuardTest : DescribeSpec({
             withClue("La clave debe tener un CHECK de formato") {
                 sql shouldContain "roles_key_format"
             }
-            withClue("Un rol de sistema debe tener descripción") {
+            withClue("A system role must have a description") {
                 sql shouldContain "roles_description_present"
             }
         }
@@ -348,7 +348,7 @@ class SqlMigrationGuardTest : DescribeSpec({
 
             withClue(
                 "El CHECK del formato es lo que impide que se cuele un permiso con " +
-                    "la convención invertida o en mayúsculas"
+                    "the inverted or uppercase convention"
             ) {
                 sql shouldContain "permissions_key_format"
             }
@@ -386,8 +386,8 @@ class SqlMigrationGuardTest : DescribeSpec({
 
             withClue(
                 "Estas migraciones contienen operaciones destructivas: " +
-                    "${destructive.map { it.name }}. Una migración no debe borrar datos " +
-                    "sin una revisión explícita."
+                    "${destructive.map { it.name }}. A migration must not delete data " +
+                    "without an explicit review."
             ) {
                 destructive shouldBe emptyList()
             }
@@ -396,7 +396,7 @@ class SqlMigrationGuardTest : DescribeSpec({
         it("no migration deletes audit rows") {
             val sql = contentComplete().uppercase()
 
-            withClue("Una migración no puede vaciar la auditoría: sería alterar la historia") {
+            withClue("A migration cannot empty the audit log: that would alter history") {
                 (sql.contains("DELETE FROM AUDIT_LOG")) shouldBe false
             }
         }
@@ -413,13 +413,13 @@ class SqlMigrationGuardTest : DescribeSpec({
             withClue("El ledger debe estar documentado") {
                 sql shouldContain "COMMENT ON TABLE audit_log"
             }
-            withClue("La traza de decisión debe explicar para qué sirve") {
+            withClue("The decision trace must explain what it is for") {
                 sql shouldContain "COMMENT ON COLUMN audit_log.access_trace"
             }
             withClue("El versionado debe explicar que permite reproducir decisiones") {
                 sql shouldContain "COMMENT ON COLUMN audit_log.matrix_version"
             }
-            withClue("Las dos horas del móvil offline deben estar explicadas") {
+            withClue("The two offline phone times must be explained") {
                 sql shouldContain "COMMENT ON COLUMN audit_log.offline_created_at"
             }
         }

@@ -36,7 +36,8 @@ and the letter `Ñ` of the product code alphabet.
 - Verified: complete backend (`./gradlew verify`) and browser suite (30/30).
 - Done: comments in the code (Kotlin and web), verified with the domain tests and the catalog flow test.
 - In progress: documentation (`docs/`, `ARRANQUE.md`, `README.md`).
-- Pending: Kotlin test names, SQL functions (migration `V17`).
+- Done: SQL function names and `RAISE` messages (migration `V17`); role keys, default warehouse and special locations (migration `V16`).
+- Pending: Spanish text in the failure messages and fixture descriptions of the Kotlin tests, and the archives under `docs/historico/` and `docs/referencias/`.
 
 ## Consequences
 
