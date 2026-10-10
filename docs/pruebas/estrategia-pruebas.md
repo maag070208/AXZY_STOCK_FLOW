@@ -44,15 +44,21 @@ no lo mostraba.
 ### Cómo se ejecutan
 
 ```bash
-# Unitarios y de integración (necesitan PostgreSQL: si no hay, se SALTAN y lo dicen)
-./gradlew :backend:test :stock-domain:jvmTest
+# Unitarios y de integración. Necesitan PostgreSQL levantado.
+GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew :backend:test :stock-domain:jvmTest
 
 # E2E de API (incluido en lo anterior)
-./gradlew :backend:test --tests "*ApiE2ETest*"
+GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew :backend:test --tests "*ApiE2ETest*"
 
 # E2E de navegador: levanta base dedicada, backend y web, y ejecuta Playwright
 ./scripts/e2e-web.sh
 ```
+
+> ⚠️ **Sin PostgreSQL, el resultado engaña.** Los tests que lo necesitan **devuelven sin
+> ejecutarse** (`if (!thereIsBase) return`) y el motor los cuenta como **aprobados**, no como
+> saltados: un «0 fallos, 0 saltadas» con la base caída significa «no se probó nada». Antes de
+> dar por bueno un verde, comprueba que la base responde (`docker ps`) y mira el recuento de
+> los XML, no la palabra `BUILD SUCCESSFUL`. Verificado el 2026-10-09 con la base caída.
 
 ### Reglas de la casa para un test nuevo
 

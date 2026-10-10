@@ -24,12 +24,12 @@ base no es cosmética: se filtra al cliente.
 ## Decisión
 
 - Los identificadores van en inglés: variables, métodos, constantes, clases, tablas,
-  columnas, valores de enum y códigos de error ([convenciones.md](../guia/convenciones.md) §5.1).
-- Solo los comentarios van en español ([convenciones.md](../guia/convenciones.md) §5.1).
+  columnas, valores de enum y códigos de error ([convenciones.md](../guia/convenciones.md) §1).
+- Solo los comentarios van en español ([convenciones.md](../guia/convenciones.md) §1).
 - No se traducen los comentarios, los mensajes de error —los lee el operador—, los
   `displayName` (texto de interfaz), los valores de enum que están en la base y en el
-  contrato, ni los códigos de error, que son API pública ([convenciones.md](../guia/convenciones.md) §5.1).
-- Los nombres de tabla y columna están en inglés y no se tocan ([convenciones.md](../guia/convenciones.md) §5.1). Una
+  contrato, ni los códigos de error, que son API pública ([convenciones.md](../guia/convenciones.md) §1).
+- Los nombres de tabla y columna están en inglés y no se tocan ([convenciones.md](../guia/convenciones.md) §1). Una
   migración que cambie el nombre de una columna de salida recrea la función
   (`V8__english_reconciliation_columns.sql`).
 - La documentación se escribe en español (`docs/README.md`), igual que los comentarios y los
@@ -69,7 +69,7 @@ Reglas operativas que se derivan:
 
 ## Referencias
 
-- [convenciones.md](../guia/convenciones.md) §5.1, §5.2 y [general.md](../arquitectura/general.md)
+- [convenciones.md](../guia/convenciones.md) §1, §2 y [general.md](../arquitectura/general.md)
 - `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/error/DomainError.kt`
 - `backend/src/main/resources/db/migration/V3__inventory_domain.sql`
 - `backend/src/main/resources/db/migration/V6__unassigned_location_and_inventory_engine.sql`

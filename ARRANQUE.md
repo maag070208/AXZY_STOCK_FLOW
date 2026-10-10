@@ -147,6 +147,10 @@ GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew :backend:test :stock-domain:jvmTe
 #   backend/build/test-results/test/*.xml y stock-domain/build/test-results/jvmTest/*.xml
 ```
 
+**Ese número solo vale con PostgreSQL levantado.** Sin base, los tests que la necesitan
+devuelven sin ejecutarse y se cuentan como **aprobados**: un «0 fallos, 0 saltadas» con la base
+caída quiere decir «no se probó nada». Compruébalo con `docker ps` antes de fiarte del verde.
+
 ### NO verificado
 
 - **La cámara en un iPhone real** y **en un Android real**. El APK se genera, pero

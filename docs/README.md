@@ -26,6 +26,12 @@ Reglas que se verifican en cada documento nuevo:
 2. **Cada regla vive en un solo lugar.** Los demás documentos enlazan; no copian.
 3. **Cada afirmación técnica cita su archivo de código**, o no entra en un normativo.
 
+**Numeración heredada.** Al partir un documento, sus secciones conservan los números del
+original —`api-ktor.md` §1.x, `web-fsd.md` §2.x, `api/convenciones.md` §1.x, `api/errores.md`
+§1.3— para que las citas que ya existían sigan siendo trazables. Cada documento numera lo
+suyo, así que **dos documentos pueden tener un §1.3 distinto**: el número solo es válido
+dentro del documento al que acompaña el enlace.
+
 ## Estado por área
 
 | Área | Carpeta | Qué contiene | Estado |

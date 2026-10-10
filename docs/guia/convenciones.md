@@ -4,7 +4,7 @@
 La decisión sobre el idioma está en
 [ADR 0004](../adr/0004-nombres-en-ingles-comentarios-en-espanol.md).
 
-## 5.1 Idioma
+## 1. Idioma
 
 > **Variables, métodos, constantes, clases, tablas y propiedades: en inglés.
 > Solo los comentarios en español.**
@@ -33,7 +33,7 @@ son los nombres de las funciones PL/pgSQL del motor de inventario
 `comprobar_proyecciones`), que son un detalle interno de la base y no se filtran al contrato
 HTTP (`backend/src/main/resources/db/migration/`).
 
-## 5.2 Comentarios: el estilo de la casa
+## 2. Comentarios: el estilo de la casa
 
 **Explican el por qué, no el qué.** El qué ya lo dice el código.
 
@@ -52,7 +52,7 @@ quantity = stock_by_location.quantity + delta
 **Se documentan los tropiezos.** Un comentario que dice «esto se intentó y rompía X» vale más
 que diez que describen lo obvio: evita que el siguiente lo repita.
 
-## 5.3 Estándares de código — la checklist obligatoria
+## 3. Estándares de código — la checklist obligatoria
 
 **Cada punto se revisa antes de dar una tarea por terminada.** No es una guía de estilo: es lo
 que se comprueba.

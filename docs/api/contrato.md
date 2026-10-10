@@ -33,7 +33,7 @@ Las reglas de rutas, estados, paginación, idempotencia, cabeceras y formatos vi
 no las repiten. Lo mismo con el catálogo de códigos de error, que vive en
 [errores.md](errores.md).
 
-## 11. Permisos por endpoint
+## Permisos por endpoint
 
 Tabla de referencia. La clave es `recurso.accion` en minúsculas; el alcance se
 resuelve por RBAC con su `PermissionScope` (`NONE`/`OWN`/`AREA`/`ALL`), y los
@@ -120,7 +120,7 @@ Notas de verificación:
   «administrar roles y permisos»: `role.view` y `permission.view` no existen en el
   catálogo, e inventarlos dejaría las rutas respondiendo `403` para todo el mundo.
 
-## 12. Lo que NO existe en esta API, y por qué
+## Lo que NO existe en esta API, y por qué
 
 | Ruta del legacy | Estado | Motivo |
 |---|---|---|

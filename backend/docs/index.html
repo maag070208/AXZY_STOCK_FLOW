@@ -3510,9 +3510,12 @@ No va en el cuerpo: va en la cabecera.</p>
 <h2>Fechas y números</h2>
 <p>Instantes en ISO-8601 UTC con <code>Z</code>; fechas operativas como <code>AAAA-MM-DD</code>.</p>
 <p><strong>Las cantidades viajan como cadena decimal de 3 decimales</strong> (<code>&quot;100.000&quot;</code>), no
-como número, y <code>docs/historico/CONTRATO_API.md</code> §1.7 ya lo documenta igual. <strong>No es un descuido:</strong>
+como número. <strong>La excepción es el catálogo</strong> (<code>ProductResponse.stock</code>,
+<code>ImportReportResponse.totalStock</code>), que se emite como <strong>número JSON sin comillas</strong>
+(<code>5193.000</code>) porque el cliente suma esos valores directamente. <strong>No es un descuido:</strong>
 JSON no tiene decimales de precisión arbitraria, y un <code>number</code> de JavaScript
-invitaría al cliente a sumar en coma flotante y producir centésimas fantasma.</p>
+invitaría al cliente a sumar en coma flotante y producir centésimas fantasma, que es
+por lo que el resto viaja como texto. El contrato vigente es <code>docs/api/convenciones.md</code> §1.7.</p>
 </div>
           </div>
         </div>
@@ -26057,7 +26060,7 @@ except ApiException as e:
                         <div class="pull-right"></div>
                         <div class="clearfix"></div>
                         <p></p>
-                        <p class="marked">**No hay &#x60;GET&#x60; de listado en esta versión**: &#x60;docs/historico/CONTRATO_API.md&#x60; §5 promete &#x60;GET|POST /v1/invoices&#x60;, pero el listado no está implementado (ver &#x60;x-contract-divergences&#x60;).
+                        <p class="marked">El listado de facturas existe y es &#x60;GET /v1/invoices&#x60; (paginado, y solo la cabecera).
 
 La respuesta de la creación es la REFERENCIA (&#x60;id&#x60; + &#x60;invoiceNumber&#x60;), no la factura completa: para el detalle hay que pedir &#x60;GET /v1/invoices/{id}&#x60;. Una factura necesita al menos una línea: &#x60;400 FIELD_REQUIRED&#x60; si viene vacía, porque una factura sin líneas no se puede capturar ni ubicar y bloquea el flujo.</p>
                         <p></p>

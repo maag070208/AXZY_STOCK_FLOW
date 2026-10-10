@@ -724,15 +724,18 @@ class CatalogRoutesTest : DescribeSpec({
                 client.delete("/v1/products/$id?reason=prueba")
                 client.get("/v1/locations")
                 client.get("/v1/warehouses")
-            }
 
-            permissionsRequests shouldBe listOf(
-                "product.create",
-                "product.edit",
-                "product.delete",
-                "location.view",
-                "location.view",
-            )
+                // La aserción va DENTRO del bloque: `withApi` devuelve sin ejecutarlo
+                // cuando no hay PostgreSQL, y fuera daría un fallo falso (lista vacía)
+                // en vez de no ejecutarse.
+                permissionsRequests shouldBe listOf(
+                    "product.create",
+                    "product.edit",
+                    "product.delete",
+                    "location.view",
+                    "location.view",
+                )
+            }
         }
     }
 })

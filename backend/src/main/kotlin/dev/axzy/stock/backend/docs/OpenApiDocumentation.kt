@@ -204,8 +204,8 @@ internal fun openApiDocument(): JsonObject = buildJsonObject {
                     "Credencial de servicio para integraciones sin persona detrás " +
                         "(la impresora Zebra). Va en su propia cabecera y no en " +
                         "`Authorization` para que la auditoría distinga `SERVICE_PRINTER` de " +
-                        "un usuario. Ninguna ruta de esta versión la usa todavía: se declara " +
-                        "porque el contrato la reserva para `PATCH /v1/print-jobs/{id}`.",
+                        "un usuario. **La usa `PATCH /v1/print-jobs/{id}`**, que la lee de la " +
+                        "petición y no acepta token de usuario.",
                 )
             }
         }
@@ -314,17 +314,24 @@ private val API_DESCRIPTION = """
     Instantes en ISO-8601 UTC con `Z`; fechas operativas como `AAAA-MM-DD`.
 
     **Las cantidades viajan como cadena decimal de 3 decimales** (`"100.000"`), no
-    como número, y `docs/historico/CONTRATO_API.md` §1.7 ya lo documenta igual. **No es un descuido:**
+    como número. **La excepción es el catálogo** (`ProductResponse.stock`,
+    `ImportReportResponse.totalStock`), que se emite como **número JSON sin comillas**
+    (`5193.000`) porque el cliente suma esos valores directamente. **No es un descuido:**
     JSON no tiene decimales de precisión arbitraria, y un `number` de JavaScript
-    invitaría al cliente a sumar en coma flotante y producir centésimas fantasma.
+    invitaría al cliente a sumar en coma flotante y producir centésimas fantasma, que es
+    por lo que el resto viaja como texto. El contrato vigente es `docs/api/convenciones.md` §1.7.
 """.trimIndent()
 
 /**
- * Divergencias reales entre `docs/historico/CONTRATO_API.md` y la implementación, encontradas
- * leyendo las rutas y los DTO. Se publican en el documento para que un cliente
- * que se genere a partir de aquí no herede la promesa equivocada.
+ * Desajustes entre la implementación y el contrato que regía cuando se escribió este
+ * documento (`docs/historico/CONTRATO_API.md`). **El contrato vigente es `docs/api/`**, que
+ * ya documenta el comportamiento real, así que esta lista es el registro histórico de lo
+ * que hubo que corregir y no una lista de tareas abiertas. Se publica para que un cliente
+ * generado a partir de aquí no herede ninguna de las promesas antiguas. Queda **una
+ * divergencia viva**, en la entrada que menciona `web/src/shared/api/types.ts`.
  */
 internal val CONTRACT_DIVERGENCES: List<String> = listOf(
+    "CONTEXTO: el contrato vigente es `docs/api/` (en el repositorio). Esta lista registra los desajustes que hubo entre la implementación y `docs/historico/CONTRATO_API.md`, el contrato anterior, ya corregidos en la documentación nueva. Se conserva para que ningún cliente generado a partir de aquí herede las promesas antiguas. La única entrada que sigue abierta es la que menciona `web/src/shared/api/types.ts`.",
     "§9: CORREGIDO en los DOS lados. El contrato prometía {checkedAt, productsChecked, divergences, items[{productCode, ledgerNet, projected, difference}]} y la ruta devolvía {checkedAt, cuadra, divergences, items[{productId, productCode, totalEnBd, totalEsperado, diferencia}]}, con los identificadores en español. Hoy el contrato describe y la ruta devuelve {checkedAt, balanced, divergences, items[{productId, productCode, projectedTotal, ledgerTotal, difference}]}. La migración V8 renombró las columnas del RETURNS TABLE de comprobar_proyecciones().",
     "§9: `items` contiene SOLO las divergencias, no todos los productos comprobados. Un `items` vacío con `balanced: true` es el estado sano.",
     "§1.7: CORREGIDO. El contrato ya documenta que las cantidades viajan como CADENA de 3 decimales (\"5193.000\"), que es lo que el servidor devuelve. Queda pendiente alinear `web/src/shared/api/types.ts`, que aún declara algunas como `number`.",
@@ -2035,9 +2042,8 @@ private val ENDPOINTS: List<Operation> = listOf(
         route = "/v1/invoices",
         label = TAG_INVOICES,
         resumen = "Crear factura de recepción",
-        description = "**No hay `GET` de listado en esta versión**: `docs/historico/CONTRATO_API.md` §5 promete " +
-            "`GET|POST /v1/invoices`, pero el listado no está implementado (ver " +
-            "`x-contract-divergences`).\n\nLa respuesta de la creación es la REFERENCIA " +
+        description = "El listado de facturas existe y es `GET /v1/invoices` (paginado, y solo " +
+            "la cabecera).\n\nLa respuesta de la creación es la REFERENCIA " +
             "(`id` + `invoiceNumber`), no la factura completa: para el detalle hay que pedir " +
             "`GET /v1/invoices/{id}`. Una factura necesita al menos una línea: `400 " +
             "FIELD_REQUIRED` si viene vacía, porque una factura sin líneas no se puede capturar " +
