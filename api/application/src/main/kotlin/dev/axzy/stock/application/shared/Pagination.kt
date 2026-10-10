@@ -3,13 +3,13 @@ package dev.axzy.stock.application.shared
 import dev.axzy.stock.domain.common.asRight
 
 /**
- * Paginación, orden y filtros: las reglas de docs/api/convenciones.md §1.4.
+ * Pagination, sorting and filters: the rules of docs/api/convenciones.md §1.4.
  *
- * **`size` mayor de 200 se RECHAZA, no se recorta.** Recortar en silencio hace que
- * el cliente crea que tiene todos los datos, que es peor que un error.
+ * **`size` greater than 200 is REJECTED, not truncated.** Silently truncating makes
+ * the client believe it has all the data, which is worse than an error.
  *
- * Vive en `application/shared` porque la usan todos los listados de todos los
- * módulos: una segunda copia acabaría validando distinto.
+ * It lives in `application/shared` because all the listings of all the modules use it: a second copy
+ * would end up validating differently.
  */
 
 enum class SortDirection {
@@ -30,8 +30,8 @@ enum class SortDirection {
 /**
  * `campo,direccion`.
  *
- * El campo es el nombre **de la API** (`productCode`), no el de la columna: la
- * traducción a SQL vive en el adaptador, que es el único que conoce el esquema.
+ * The field is the **API's** name (`productCode`), not the column's: the translation to SQL lives in the
+ * adapter, which is the only one that knows the schema.
  */
 data class SortSpec(val field: String, val direction: SortDirection = SortDirection.ASC) {
     override fun toString(): String = "$field,${direction.name.lowercase()}"
@@ -43,18 +43,18 @@ data class PageRequest(val page: Int, val size: Int, val sort: SortSpec) {
     companion object {
         const val DEFAULT_SIZE = 50
 
-        /** El tope es una decisión, no un detalle: ver docs/api/convenciones.md §1.4. */
+        /** The cap is a decision, not a detail: see docs/api/convenciones.md §1.4. */
         const val MAX_SIZE = 200
 
         fun of(page: Int = 0, size: Int = DEFAULT_SIZE, sort: SortSpec = SortSpec("id")): PageRequest =
             PageRequest(page, size, sort)
 
         /**
-         * Valida los parámetros de la query.
+         * Validates the query parameters.
          *
-         * @param allowedSorts nombres de campo que ese listado admite. Un campo
-         *   fuera de la lista es `INVALID_SORT`, no una consulta a ciegas contra
-         *   una columna que puede no existir.
+         * @param allowedSorts the field names that listing admits. A field
+         *   outside the list is `INVALID_SORT`, not a blind query against
+         *   a column that may not exist.
          */
         fun analyze(
             page: Int?,
@@ -100,10 +100,10 @@ data class PageRequest(val page: Int, val size: Int, val sort: SortSpec) {
 }
 
 /**
- * Una página de resultados.
+ * A page of results.
  *
- * `totalItems` viene de un `count(*)` con **los mismos filtros** que el listado.
- * Nunca de `items.size`: el conteo que ignora los filtros es peor que no tenerlo
+ * `totalItems` comes from a `count(*)` with **the same filters** as the listing.
+ * Never from `items.size`: a count that ignores the filters is worse than not having one
  * (docs/api/convenciones.md §1.4).
  */
 data class Page<T>(

@@ -23,18 +23,18 @@ import java.sql.ResultSet
 import java.time.ZoneId
 
 /**
- * Las consultas de los reportes (docs/api/reportes.md).
+ * The report queries (docs/api/reportes.md).
  *
- * Escriben su propio SQL en lugar de reutilizar el de inventario porque el reporte
- * de existencias filtra por **bodega** y devuelve totales sobre el filtro entero,
- * que son cosas que el listado de inventario no hace. Lo que sí se reutiliza es el
- * troceo de la exportación, que es exactamente la misma consulta paginada.
+ * They write their own SQL instead of reusing the inventory one, because the stock report
+ * filters by **warehouse** and returns totals over the whole filter, which are things
+ * the inventory listing does not do. What is reused is the
+ * chunking of the export, which is exactly the same paginated query.
  */
 class JdbcReportQueries(
     private val jdbc: JdbcClient,
-    /** El kardex paginado del inventario: la exportación lo lee por trozos. */
+    /** The paginated inventory ledger: the export reads it in chunks. */
     private val kardexPages: JdbcInventoryQueries,
-    /** La zona del negocio: el día de un resumen es el día del almacén. */
+    /** The business time zone: a summary's day is the warehouse's day. */
     private val businessZone: ZoneId,
 ) : ReportQueries {
 
@@ -72,20 +72,20 @@ class JdbcReportQueries(
         }
 
     /**
-     * Agrupa por una expresión de la propia fila: el día, la semana, el mes o el
+     * Groups by an expression of the row itself: the day, the week, the month or the
      * producto.
      *
-     * `LOCATE` y `MOVE_WITHIN_WAREHOUSE` **no suman en ninguna columna** y `PENDING_OUT`
-     * tampoco: los dos primeros mueven mercancía entre ubicaciones —el total no
-     * cambia— y el tercero es una intención de salida. Contarlos como salida inflaría
-     * la cifra y no cuadraría con el kardex.
+     * `LOCATE` and `MOVE_WITHIN_WAREHOUSE` **do not add up in any column**, and `PENDING_OUT`
+     * does not either: the first two move goods between locations —the total does not
+     * change— and the third is an exit intention. Counting them as outflows would inflate
+     * the figure and would not reconcile with the ledger.
      */
     private fun summaryByGroupExpression(filter: MovementSummaryFilter): List<SummaryLine> {
         val expression = when (filter.groupBy) {
             SummaryGroup.PRODUCT -> "p.product_code"
-            // `AT TIME ZONE` convierte el instante a la hora del almacén ANTES de
-            // truncar: sin eso, un movimiento de las 21:00 del día 9 se agruparía en
-            // el día 10 y el resumen no cuadraría con lo que pasó en el piso.
+            // `AT TIME ZONE` converts the instant to the warehouse's time BEFORE
+            // truncating: without that, a movement at 21:00 on the 9th would be grouped under
+            // the 10th, and the summary would not match what happened on the floor.
             else -> "to_char(${filter.groupBy.sql}, 'YYYY-MM-DD')"
         }
         return query(
@@ -112,12 +112,12 @@ class JdbcReportQueries(
     }
 
     /**
-     * Agrupa por ubicación.
+     * Groups by location.
      *
-     * Un movimiento tiene origen y destino, así que se cuenta **dos veces**: lo que
-     * entra en el destino y lo que sale del origen. Agrupar por una sola de las dos
-     * columnas dejaría a la otra ubicación con ceros y el resumen no cuadraría con lo
-     * que pasó en el estante.
+     * A movement has an origin and a destination, so it is counted **twice**: what
+     * enters the destination and what leaves the origin. Grouping by just one of the two
+     * columns would leave the other location at zeros and the summary would not match what
+     * happened on the shelf.
      */
     private fun summaryByLocation(filter: MovementSummaryFilter): List<SummaryLine> {
         val params = rangeParams(filter)
@@ -163,11 +163,11 @@ class JdbcReportQueries(
     }
 
     /**
-     * La reconciliación: **solo los productos descuadrados**.
+     * The reconciliation: **only the out-of-balance products**.
      *
-     * La comparación la hace la función de la base (`check_projections`), que es
-     * la que conoce el ledger y la proyección; el servidor no recalcula el veredicto
-     * en Kotlin, porque entonces habría dos verdades y el descuadre sería el de la
+     * The comparison is made by the database function (`check_projections`), which
+     * knows the ledger and the projection; the server does not recompute the verdict
+     * in Kotlin, because there would then be two truths and the discrepancy would be the
      * pantalla.
      */
     override fun divergences(): List<Divergence> =
@@ -188,13 +188,13 @@ class JdbcReportQueries(
         }
 
     override fun kardexChunk(filter: KardexFilter, offset: Int, chunkSize: Int): List<KardexLine> =
-        // La misma consulta paginada del inventario: el trozo N es la página N con el
-        // tamaño del trozo, así que no hay una segunda forma de leer el kardex.
+        // The same paginated query as the inventory: chunk N is page N with the
+        // chunk size, so there is no second way to read the ledger.
         kardexPages.page(filter, PageRequest.of(page = offset / chunkSize, size = chunkSize)).items
 
     // ── Interno ─────────────────────────────────────────────────────────────
 
-    /** El `WHERE` y sus parámetros, compartidos por la página y los totales. */
+    /** The `WHERE` and its parameters, shared by the page and the totals. */
     private fun inventoryWhere(filter: InventoryReportFilter): Pair<List<String>, Map<String, Any?>> {
         val where = mutableListOf<String>()
         val params = mutableMapOf<String, Any?>()
@@ -213,7 +213,7 @@ class JdbcReportQueries(
     private fun clauseOf(where: List<String>): String =
         if (where.isEmpty()) "" else "WHERE " + where.joinToString(" AND ")
 
-    /** El rango de fechas del resumen: `to` incluye el día operativo entero. */
+    /** The summary's date range: `to` includes the whole operating day. */
     private fun rangeParams(filter: MovementSummaryFilter): Map<String, Any?> = mapOf(
         "from" to filter.from.atStartOfDayIn(businessZone),
         "to" to filter.to.plusDays(1).atStartOfDayIn(businessZone),
@@ -259,13 +259,13 @@ class JdbcReportQueries(
                 "JOIN locations l ON l.id = s.location_id " +
                 "JOIN warehouses w ON w.id = s.warehouse_id"
 
-        /** Los movimientos que **suman** al total del producto. */
+        /** The movements that **add** to the product total. */
         const val IN_TYPES = "'INITIAL', 'RECEIPT_IN', 'ADJUSTMENT_IN', 'TRANSFER_IN'"
 
         /**
-         * Los que **restan**. Ni `LOCATE` ni `MOVE_WITHIN_WAREHOUSE` están aquí: son
-         * traslados internos y el total no cambia. `PENDING_OUT` tampoco: es una
-         * intención, no una salida.
+         * The ones that **subtract**. Neither `LOCATE` nor `MOVE_WITHIN_WAREHOUSE` are here: they are
+         * internal transfers and the total does not change. `PENDING_OUT` is not either:
+         * an intention, not an exit.
          */
         const val OUT_TYPES = "'FULFILLMENT_OUT', 'ADJUSTMENT_OUT', 'TRANSFER_OUT'"
     }

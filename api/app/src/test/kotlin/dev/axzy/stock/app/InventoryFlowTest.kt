@@ -8,12 +8,12 @@ import org.junit.jupiter.api.Test
 import java.util.UUID
 
 /**
- * Existencias (M02) de punta a punta por HTTP real.
+ * Stock (M02) end to end over real HTTP.
  *
- * Los nombres A1…A10 son los de docs/flujos/existencias-y-ajustes.md §7. La
- * concurrencia (A3, A4) y la inmutabilidad del kardex (A9) están en
- * `InventoryEngineConcurrencyTest`, contra la base y con dos transacciones de
- * verdad; repetirlas aquí por HTTP no añadiría nada.
+ * The names A1…A10 are those of docs/flujos/existencias-y-ajustes.md §7. The
+ * concurrency (A3, A4) and the immutability of the ledger (A9) are in
+ * `InventoryEngineConcurrencyTest`, against the database and with two real
+ * transactions; repeating them over HTTP would add nothing.
  */
 class InventoryFlowTest : ApiTest() {
 
@@ -24,7 +24,7 @@ class InventoryFlowTest : ApiTest() {
         return accessTokenOf("jefa", USER_PASSWORD)
     }
 
-    /** Un segundo usuario: todo aumento necesita que **otra persona** lo apruebe. */
+    /** A second user: every increase needs **another person** to approve it. */
     private fun approver(): Long = createUser("supervisor", USER_PASSWORD, jefa)
 
     private fun adjust(token: String, body: Map<String, Any?>, key: UUID? = null) =
@@ -35,7 +35,7 @@ class InventoryFlowTest : ApiTest() {
             if (key == null) emptyMap() else mapOf("Idempotency-Key" to key.toString()),
         )
 
-    /** Deja existencias en una ubicación: es el único camino, y pasa por el motor. */
+    /** Leaves stock in a location: it is the only path, and it goes through the engine. */
     private fun stockIn(token: String, location: String, quantity: Int, who: Long): ApiResponse =
         adjust(
             token,
@@ -66,7 +66,7 @@ class InventoryFlowTest : ApiTest() {
         return items.firstOrNull()?.get("quantity") as String?
     }
 
-    // ── A1: ubicar no cambia el total ───────────────────────────────────────
+    // ── A1: locating does not change the total ─────────────────────────────
 
     @Test
     fun `A1 - locating moves stock without changing the total and records a LOCATE movement`() {
@@ -89,8 +89,8 @@ class InventoryFlowTest : ApiTest() {
 
         assertThat(located.status).isEqualTo(201)
         assertThat(located.at<String>("status")).isEqualTo("APPLIED")
-        // El total no viaja en la respuesta de un traslado: devolverlo sería invitar
-        // a creer que cambió.
+        // The total does not travel in a transfer response: returning it would invite
+        // believing that it changed.
         assertThat(located.at<String?>("total")).isNull()
 
         assertThat(quantityAt(token, "04-B-C")).isEqualTo("300.000")
@@ -101,7 +101,7 @@ class InventoryFlowTest : ApiTest() {
         assertThat(kardex.at<List<Map<String, Any?>>>("items").single()["toLocationDisplayName"]).isEqualTo("04-B-C")
     }
 
-    // ── A2: no se saca más de lo que hay ────────────────────────────────────
+    // ── A2: you cannot take out more than there is ────────────────────────────
 
     @Test
     fun `A2 - a shrinkage larger than the balance answers INSUFFICIENT_STOCK with what is available`() {
@@ -125,13 +125,13 @@ class InventoryFlowTest : ApiTest() {
 
         assertThat(response.status).isEqualTo(422)
         assertThat(response.code).isEqualTo("INSUFFICIENT_STOCK")
-        // El detalle dice CUÁNTO hay: un «stock insuficiente» sin números obliga a
-        // mirar la base para saber qué pasó.
+        // The detail says HOW MUCH there is: an "insufficient stock" without numbers forces
+        // looking at the database to know what happened.
         assertThat(response.at<Map<String, String>>("details")["available"]).isEqualTo("100")
         assertThat(quantityAt(token, "04-B-C")).isEqualTo("100.000")
     }
 
-    // ── A5: una merma exige su motivo ───────────────────────────────────────
+    // ── A5: a shrinkage requires its reason ─────────────────────────────────
 
     @Test
     fun `A5 - an adjustment without a reason answers REASON_REQUIRED and writes nothing`() {
@@ -180,7 +180,7 @@ class InventoryFlowTest : ApiTest() {
         assertThat(response.at<Map<String, String>>("details")["allowed"]).contains("THEFT")
     }
 
-    // ── A6: el permiso depende del motivo ───────────────────────────────────
+    // ── A6: the permission depends on the reason ────────────────────────────
 
     @Test
     fun `A6 - the permission for an adjustment depends on its reason`() {
@@ -189,7 +189,7 @@ class InventoryFlowTest : ApiTest() {
         createProduct(token)
         stockIn(token, "RECEIVING", 100, who)
 
-        // Un operador que puede corregir un conteo pero no declarar un robo.
+        // An operator who can correct a count but not declare a theft.
         createUser("operador", USER_PASSWORD, BaseRole.WAREHOUSE_OPERATOR.key.value)
         db.sql(
             """
@@ -230,7 +230,7 @@ class InventoryFlowTest : ApiTest() {
         assertThat(countError.status).isEqualTo(201)
     }
 
-    // ── A7: origen y destino distintos ──────────────────────────────────────
+    // ── A7: origin and destination are different ───────────────────────────
 
     @Test
     fun `A7 - locating to the same shelf answers SAME_SOURCE_AND_DESTINATION`() {
@@ -299,7 +299,7 @@ class InventoryFlowTest : ApiTest() {
 
         assertThat(first.status).isEqualTo(201)
         assertThat(second.status).isEqualTo(201)
-        // La misma respuesta: el mismo movimiento.
+        // The same response: the same movement.
         assertThat(second.at<List<Int>>("kardexIds")).isEqualTo(first.at<List<Int>>("kardexIds"))
         assertThat(quantityAt(token, "RECEIVING")).isEqualTo("90.000")
         assertThat(db.sql("SELECT count(*) FROM kardex").query(Int::class.java).single()).isEqualTo(2)
@@ -328,7 +328,7 @@ class InventoryFlowTest : ApiTest() {
         assertThat(response.code).isEqualTo("INVALID_IDEMPOTENCY_KEY")
     }
 
-    // ── A10: el conteo usa el mismo filtro que el listado ───────────────────
+    // ── A10: the count uses the same filter as the listing ────────────────
 
     @Test
     fun `A10 - a range with no movements returns empty items and zero totalItems`() {
@@ -353,7 +353,7 @@ class InventoryFlowTest : ApiTest() {
         assertThat(response.code).isEqualTo("INVALID_FILTER_RANGE")
     }
 
-    // ── Aprobación y bitácora ───────────────────────────────────────────────
+    // ── Approval and audit log ──────────────────────────────────────────────
 
     @Test
     fun `an increase without an approver stays pending and does not touch the inventory`() {
@@ -372,7 +372,7 @@ class InventoryFlowTest : ApiTest() {
             ),
         )
 
-        // 202: aceptado, pendiente. No es un error y no es un movimiento.
+        // 202: accepted, pending. It is not an error and it is not a movement.
         assertThat(response.status).isEqualTo(202)
         assertThat(response.at<String>("status")).isEqualTo("PENDING_APPROVAL")
         assertThat(quantityAt(token, "RECEIVING")).isNull()
@@ -398,9 +398,9 @@ class InventoryFlowTest : ApiTest() {
             ),
         )
 
-        // 403 y no 422: `SEGREGATION_OF_DUTIES` pertenece a la familia de
-        // autorización (docs/api/errores.md), y el cliente hace lo mismo que ante
-        // cualquier denegación: que lo apruebe otra persona.
+        // 403 and not 422: `SEGREGATION_OF_DUTIES` belongs to the authorization family
+        // (docs/api/errores.md), and the client does the same as with any denial:
+        // have another person approve it.
         assertThat(response.status).isEqualTo(403)
         assertThat(response.code).isEqualTo("SEGREGATION_OF_DUTIES")
     }
@@ -417,12 +417,12 @@ class InventoryFlowTest : ApiTest() {
             .query(Int::class.java).single()
         assertThat(registros).isEqualTo(1)
 
-        // Y el movimiento del que la bitácora habla existe: si la transacción hubiera
-        // revertido, habría bitácora de algo que no pasó.
+        // And the movement the audit log talks about exists: if the transaction had
+        // been rolled back, there would be an audit trail of something that did not happen.
         assertThat(db.sql("SELECT count(*) FROM kardex").query(Int::class.java).single()).isEqualTo(1)
     }
 
-    // ── El listado de existencias ───────────────────────────────────────────
+    // ── The stock listing ────────────────────────────────────────────────────
 
     @Test
     fun `the stock list filters by product and by location`() {
@@ -439,7 +439,7 @@ class InventoryFlowTest : ApiTest() {
         assertThat(all.at<Int>("totalItems")).isEqualTo(2)
         assertThat(byLocation.at<Int>("totalItems")).isEqualTo(1)
         assertThat(byLocation.at<List<Map<String, Any?>>>("items").single()["locationDisplayName"]).isEqualTo("04-B-C")
-        // La cantidad viaja como cadena con tres decimales, que es la regla general.
+        // The quantity travels as a string with three decimals, which is the general rule.
         assertThat(byLocation.at<List<Map<String, Any?>>>("items").single()["quantity"]).isEqualTo("40.000")
     }
 
@@ -456,12 +456,12 @@ class InventoryFlowTest : ApiTest() {
         assertThat(response.at<List<Map<String, Any?>>>("items").single()["quantity"]).isEqualTo("250.000")
     }
 
-    // ── Aprobación: el permiso se comprueba, no se supone ───────────────────
+    // ── Approval: the permission is checked, not assumed ───────────────────
 
     /**
-     * Un rol a medida: puede ajustar, **no puede aprobar**.
+     * A custom role: it can adjust, **but cannot approve**.
      *
-     * Es la forma de comprobar el hueco sin depender de qué permisos tenga hoy cada rol base.
+     * It is the way to check the gap without depending on which permissions each base role has today.
      */
     private fun ajustador(token: String, key: String, quien: String): Long {
         val rol = post(
@@ -488,9 +488,9 @@ class InventoryFlowTest : ApiTest() {
         val compinche = ajustador(token, "AJUSTADOR2", "compinche")
         val suToken = accessTokenOf("operador", USER_PASSWORD)
 
-        // El operador firma su propio robo con el identificador de otro ajustador: ninguno de
-        // los dos tiene `inventory.approve_adjustment`, que es lo que el catálogo exige para
-        // aprobar. Antes esto se aplicaba.
+        // The operator signs off their own theft with another adjuster's identifier: neither of
+        // the two has `inventory.approve_adjustment`, which is what the catalog requires to
+        // approve. Before, this used to be applied.
         val response = post(
             "/v1/inventory/adjustments",
             mapOf(
@@ -509,7 +509,7 @@ class InventoryFlowTest : ApiTest() {
         assertThat(response.status).describedAs(response.raw).isEqualTo(403)
         assertThat(response.code).isEqualTo("APPROVER_NOT_AUTHORIZED")
         assertThat(response.at<Map<String, String>>("details")["permission"]).isEqualTo("inventory.approve_adjustment")
-        // Y no se movió nada: la aprobación que falta no deja rastro en el kardex.
+        // And nothing moved: the approval that is missing leaves no trace in the ledger.
         val kardex = get("/v1/inventory/kardex?moveType=ADJUSTMENT_OUT", token)
         assertThat(kardex.status).describedAs(kardex.raw).isEqualTo(200)
         assertThat(kardex.at<Int>("totalItems")).isZero()
@@ -522,7 +522,7 @@ class InventoryFlowTest : ApiTest() {
         createProduct(token)
         ajustador(token, "AJUSTADOR", "operador")
         val suToken = accessTokenOf("operador", USER_PASSWORD)
-        // Deja existencias quien pide, y las aprueba otra persona: la jefa pide, la
+        // Whoever requests leaves stock, and another person approves it: the boss requests, the
         // supervisora aprueba.
         assertThat(stockIn(token, "RECEIVING", 50, supervisora).status).isEqualTo(201)
 
@@ -541,7 +541,7 @@ class InventoryFlowTest : ApiTest() {
             suToken,
         )
 
-        // La operadora pide y la supervisora —que sí tiene el permiso— aprueba.
+        // operator requests and the supervisor —who does have the permission— approves.
         assertThat(response.status).describedAs(response.raw).isEqualTo(201)
         assertThat(response.at<String>("status")).isEqualTo("APPLIED")
         assertThat(quantityAt(token, "RECEIVING")).isEqualTo("45.000")

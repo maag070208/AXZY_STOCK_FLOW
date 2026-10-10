@@ -26,7 +26,7 @@ import dev.axzy.stock.domain.common.flatMap
 import dev.axzy.stock.domain.error.DomainError
 import dev.axzy.stock.application.shared.toFailure
 
-/** La ubicación tal como llega del cliente. `warehouseId` solo se admite al crear. */
+/** The location as it arrives from the client. `warehouseId` is only accepted when creating. */
 data class LocationInput(
     val warehouseId: Long? = null,
     val hall: String? = null,
@@ -40,10 +40,10 @@ data class LocationInput(
 class ListLocations(private val locations: Locations, private val access: AccessDecider) {
 
     /**
-     * Cuando el cliente filtra por bodega, la bodega viaja al motor de acceso: un
-     * jefe de bodega con alcance `AREA` no puede listar la bodega de otro, y el
-     * `403 SCOPE_INSUFFICIENT` lo dice. Sin filtro, el listado cubre las bodegas
-     * del alcance.
+     * When the client filters by warehouse, the warehouse travels to the access engine: a
+     * warehouse manager with `AREA` scope cannot list another warehouse's, and the
+     * `403 SCOPE_INSUFFICIENT` says so. Without a filter, the listing covers the warehouses
+     * within the scope.
      */
     fun execute(actor: Actor, filter: LocationFilter, request: PageRequest, origin: RequestOrigin): Outcome<Page<LocationView>> =
         access.authorizeOr(
@@ -136,8 +136,8 @@ class UpdateLocation(
             entityType = "location",
             entityId = "$id",
         ) { grant ->
-            // Mover una ubicación de bodega cambiaría de bodega su stock sin ningún
-            // movimiento de inventario: se rechaza aunque el cuerpo lo traiga igual.
+            // Moving a location to another warehouse would change its stock's warehouse without any
+            // inventory movement: it is rejected even if the body brings it anyway.
             if (body.warehouseId != null && body.warehouseId != location.warehouseId) {
                 return@authorizeOr DomainError.WarehouseImmutable(location.id).toFailure().asLeft()
             }
@@ -233,7 +233,7 @@ class DeactivateLocation(
     }
 }
 
-// ── Validación compartida ───────────────────────────────────────────────────
+// ── Shared validation ──────────────────────────────────────────────────
 
 private data class PreparedLocation(
     val hall: LocationPart,

@@ -9,15 +9,15 @@ import dev.axzy.stock.domain.value.Quantity
 import java.math.BigDecimal
 
 /**
- * El contrato HTTP del catálogo (docs/api/catalogo.md).
+ * The HTTP contract of the catalog (docs/api/catalogo.md).
  *
- * Las cantidades viajan como **número JSON con 3 decimales** (`5193.000`) y no
- * como cadena, que es la excepción deliberada del catálogo: el resto de la API
- * manda las cantidades como texto para que el cliente no las sume en coma
- * flotante. Aquí el cliente las muestra, y el `BigDecimal` conserva la escala.
+ * Quantities travel as a **JSON number with 3 decimals** (`5193.000`) and not
+ * as a string, which is the deliberate exception in the catalog: the rest of the API
+ * sends quantities as text so that the client does not add them in floating point.
+ * floating point. Here the client displays them, and the `BigDecimal` keeps the scale.
  */
 
-/** `5193.000`: número JSON, con la escala fija de la base. */
+/** `5193.000`: JSON number, with the database's fixed scale. */
 internal fun Quantity.toJson(): BigDecimal = BigDecimal.valueOf(value, Quantity.SCALE)
 
 data class ProductDto(
@@ -52,7 +52,7 @@ data class LocationDto(
     val levels: Int,
     val kind: String,
     val active: Boolean,
-    /** **Derivado**: lo compone el servidor. El cliente nunca lo arma. */
+    /** **Derived**: the server composes it. The client never builds it. */
     val displayName: String,
 )
 
@@ -91,15 +91,15 @@ data class ImportReportDto(
     val zeroStockCount: Int,
     val unitMeasures: List<String>,
     val rejections: List<RejectionDto>,
-    /** Productos nuevos. La segunda importación del mismo archivo dice `0`. */
+    /** New products. The second import of the same file says `0`. */
     val created: Int,
-    /** Productos que ya existían **con cambios**. */
+    /** Products that already existed **with changes**. */
     val updated: Int,
-    /** Productos que ya existían igual: es lo que hace visible que no se hizo nada. */
+    /** Products that already existed unchanged: it is what makes visible that nothing was done. */
     val skipped: Int,
-    /** Filas escritas de verdad: `0` en una simulación. */
+    /** Rows actually written: `0` in a simulation. */
     val persisted: Int,
-    /** Siempre `false` en esta fase: el archivo no dice en qué estantería está cada pieza. */
+    /** Always `false` in this phase: the file does not say which shelf each piece is on. */
     val stockPersisted: Boolean,
     val stockLoaded: Int,
     val stockSkipped: Int,
@@ -124,17 +124,17 @@ fun CatalogImportResult.toDto(): ImportReportDto = ImportReportDto(
 )
 
 /**
- * Las filas rechazadas también viajan en el cuerpo del error, indexadas por número
- * de fila: sin ellas, un archivo de 1.398 filas con un error es irresoluble.
+ * The rejected rows also travel in the error body, indexed by row number:
+ * without them, a file of 1,398 rows with one error is unresolvable.
  */
 fun DomainError.ImportInvalidRows.toDetails(): Map<String, String> =
-    rows.take(MAX_DETAILS).associate { "fila_${it.rowNumber}" to it.reason }
+    rows.take(MAX_DETAILS).associate { "row_${it.rowNumber}" to it.reason }
 
 private const val MAX_DETAILS = 50
 
-// ── Cuerpos de las peticiones ───────────────────────────────────────────────
+// ── Request bodies ───────────────────────────────────────────────
 
-/** Los campos son opcionales para que el caso de uso diga CUÁL falta (`FIELD_REQUIRED`). */
+/** The fields are optional so that the use case says WHICH one is missing (`FIELD_REQUIRED`). */
 data class ProductRequest(
     val productCode: String? = null,
     val name: String? = null,
@@ -159,5 +159,5 @@ data class WarehouseRequest(
     val isDefault: Boolean? = null,
 )
 
-/** El motivo de una baja lógica: en el cuerpo o en la query (ver el contrato). */
+/** The reason for a soft delete: in the body or in the query (see the contract). */
 data class ReasonRequest(val reason: String? = null)

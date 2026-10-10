@@ -22,11 +22,11 @@ import org.springframework.web.bind.annotation.RestController
 import java.time.LocalDate
 
 /**
- * La bitácora, en modo consulta (docs/api/auditoria.md).
+ * The audit log, in query mode (docs/api/auditoria.md).
  *
- * **Solo lectura**: no hay `PUT` ni `DELETE` porque la tabla es inmutable por
- * disparadores. Es la única ruta de auditoría, y su propia consulta queda registrada con
- * nivel `ACCESS`: quien mira la bitácora está viendo quién hizo qué.
+ * **Read-only**: there is no `PUT` or `DELETE` because the table is immutable through
+ * triggers. It is the only audit route, and its own query is recorded with
+ * level `ACCESS`: whoever looks at the audit log is seen looking at who did what.
  */
 @RestController
 @RequestMapping("/v1/audit")

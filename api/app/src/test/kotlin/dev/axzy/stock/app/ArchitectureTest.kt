@@ -10,11 +10,11 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 /**
- * Las reglas de capas de docs/arquitectura/api-spring.md §1, comprobadas sobre las clases compiladas.
+ * The layer rules of docs/arquitectura/api-spring.md §1, checked over the compiled classes.
  *
- * El compilador ya impide la mayoría (cada módulo solo ve lo que declara). Esta prueba las repite
- * porque una dependencia transitiva o un `implementation` añadido con prisa las rompería sin que
- * nada dejara de compilar.
+ * The compiler already prevents most of it (each module only sees what it declares). This test repeats them
+ * because a transitive dependency or an `implementation` added in a hurry would break them without
+ * anything failing to compile.
  */
 class ArchitectureTest {
 

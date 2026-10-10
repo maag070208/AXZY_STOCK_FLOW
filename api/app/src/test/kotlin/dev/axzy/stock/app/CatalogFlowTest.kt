@@ -6,18 +6,18 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 /**
- * El catálogo (M01) de punta a punta por HTTP real: Tomcat, la cadena de
- * seguridad, el cableado y PostgreSQL.
+ * The catalog (M01) end to end over real HTTP: Tomcat, the security chain,
+ * the wiring and PostgreSQL.
  *
- * Los nombres K1…K6 son los de la sección «Pruebas de aceptación» de
- * docs/flujos/catalogo.md. Aquí también se cierran I5 e I8, que necesitaban una
- * ruta protegida por permiso y llegan con este módulo.
+ * The names K1…K6 are those of the "Acceptance tests" section of
+ * docs/flujos/catalogo.md. Here I5 and I8 are also closed, which needed a
+ * permission-protected route and arrive with this module.
  */
 class CatalogFlowTest : ApiTest() {
 
     private val jefa = BaseRole.ADMIN.key.value
 
-    /** Un usuario con todos los permisos y sin el cambio de contraseña pendiente. */
+    /** A user with all the permissions and without the password change pending. */
     private fun manager(): String {
         createUser("jefa", USER_PASSWORD, jefa)
         return accessTokenOf("jefa", USER_PASSWORD)
@@ -34,7 +34,7 @@ class CatalogFlowTest : ApiTest() {
         "2,ABRAA1C,ABRAZADERA DE ARRANQUE 1-5/8,PZA,5",
     )
 
-    // ── K1: una fila inválida rechaza el archivo entero ─────────────────────
+    // ── K1: one invalid row rejects the whole file ───────────────────────────
 
     @Test
     fun `K1 - an invalid row rejects the whole file and writes nothing`() {
@@ -49,7 +49,7 @@ class CatalogFlowTest : ApiTest() {
 
         assertThat(response.status).isEqualTo(422)
         assertThat(response.code).isEqualTo("IMPORT_INVALID_ROWS")
-        assertThat(response.at<Map<String, String>>("details")).containsKey("fila_4")
+        assertThat(response.at<Map<String, String>>("details")).containsKey("row_4")
         assertThat(productCount()).isZero()
     }
 
@@ -61,8 +61,8 @@ class CatalogFlowTest : ApiTest() {
             "2,abraa1c,EN MINUSCULAS,PZA,5",
         )
 
-        // El código en minúsculas se rechaza, no se normaliza: indica que algo cambió
-        // en el origen del dato.
+        // Lowercase code is rejected, not normalized: it indicates that something changed
+        // at the origin of the data.
         val response = postFile("/v1/products/import", file, token = token)
 
         assertThat(response.status).isEqualTo(422)
@@ -70,7 +70,7 @@ class CatalogFlowTest : ApiTest() {
         assertThat(productCount()).isZero()
     }
 
-    // ── K2: la importación es idempotente ───────────────────────────────────
+    // ── K2: the import is idempotent ───────────────────────────────────────
 
     @Test
     fun `K2 - importing twice does not duplicate or recreate products`() {
@@ -92,8 +92,8 @@ class CatalogFlowTest : ApiTest() {
     fun `the simulation writes nothing and says what would be created`() {
         val token = manager()
 
-        // `dryRun` omitido: el valor por defecto es simular, porque el olvido inverso
-        // (escribir 1.398 productos) no tiene vuelta atrás.
+        // `dryRun` omitted: the default is to simulate, because the reverse mistake
+        // (writing 1,398 products) cannot be undone.
         val response = postFile("/v1/products/import", validFile, token = token)
 
         assertThat(response.status).isEqualTo(200)
@@ -123,7 +123,7 @@ class CatalogFlowTest : ApiTest() {
         assertThat(response.code).isEqualTo("EMPTY_FILE")
     }
 
-    // ── K3: el código de producto no se cambia ──────────────────────────────
+    // ── K3: the product code does not change ─────────────────────────────────
 
     @Test
     fun `K3 - changing a product's code answers PRODUCT_CODE_IMMUTABLE`() {
@@ -182,7 +182,7 @@ class CatalogFlowTest : ApiTest() {
         assertThat(response.code).isEqualTo("UNKNOWN_UNIT_MEASURE")
     }
 
-    // ── K4: la recepción no se desactiva ────────────────────────────────────
+    // ── K4: receiving cannot be deactivated ──────────────────────────────────
 
     @Test
     fun `K4 - deactivating the receiving location answers RECEIVING_LOCATION_PROTECTED`() {
@@ -207,7 +207,7 @@ class CatalogFlowTest : ApiTest() {
         )
 
         assertThat(created.status).isEqualTo(201)
-        // El cliente manda minúsculas y el servidor las escribe como están en el estante.
+        // The client sends lowercase and the server writes it as it is on the shelf.
         assertThat(created.at<String>("displayName")).isEqualTo("04-B-C")
         assertThat(created.at<String>("warehouseCode")).isEqualTo("MAIN")
         assertThat(created.at<String>("kind")).isEqualTo("SHELF")
@@ -233,7 +233,7 @@ class CatalogFlowTest : ApiTest() {
         assertThat(response.code).isEqualTo("WAREHOUSE_IMMUTABLE")
     }
 
-    // ── K5: un producto inactivo no recibe movimientos ──────────────────────
+    // ── K5: an inactive product does not receive movements ──────────────────
 
     @Test
     fun `K5 - an inactive product stops being found`() {
@@ -249,10 +249,10 @@ class CatalogFlowTest : ApiTest() {
         assertThat(baja.status).isEqualTo(200)
         assertThat(baja.at<Boolean>("active")).isFalse()
 
-        // El producto activo es el que se busca: el inactivo ya no está.
+        // The active product is the one that is searched: the inactive one is no longer there.
         assertThat(get("/v1/products/$id", token).code).isEqualTo("PRODUCT_NOT_FOUND")
         assertThat(get("/v1/products?active=true", token).at<List<Map<String, Any?>>>("items")).isEmpty()
-        // Y desaparecer no es borrar: la fila sigue, y sin filtro se puede seguir viendo.
+        // And disappearing is not deleting: the row stays, and without the filter it can still be seen.
         assertThat(get("/v1/products?active=false", token).at<List<Map<String, Any?>>>("items")).hasSize(1)
         assertThat(productCount()).isEqualTo(1)
     }
@@ -272,7 +272,7 @@ class CatalogFlowTest : ApiTest() {
         assertThat(response.code).isEqualTo("REASON_REQUIRED")
     }
 
-    // ── K6: solo una bodega predeterminada ──────────────────────────────────
+    // ── K6: only one default warehouse ─────────────────────────────────────
 
     @Test
     fun `K6 - marking another warehouse as default leaves the previous one without the mark`() {
@@ -294,7 +294,7 @@ class CatalogFlowTest : ApiTest() {
             .isEqualTo(1)
     }
 
-    // ── Permisos y autorización ─────────────────────────────────────────────
+    // ── Permissions and authorization ───────────────────────────────────────
 
     @Test
     fun `I5 - a protected route denies by default someone without the permission`() {
@@ -339,7 +339,7 @@ class CatalogFlowTest : ApiTest() {
         assertThat(get("/v1/auth/me", token).status).isEqualTo(200)
     }
 
-    // ── Paginación y listados ───────────────────────────────────────────────
+    // ── Pagination and listings ───────────────────────────────────────────
 
     @Test
     fun `a size greater than 200 is rejected instead of being truncated`() {
@@ -389,7 +389,7 @@ class CatalogFlowTest : ApiTest() {
         assertThat(items.single()["isDefault"]).isEqualTo(true)
     }
 
-    // ── M10: la carga inicial de existencias ────────────────────────────────
+    // ── M10: the initial stock load ────────────────────────────────────────
 
     private fun totalStock(productCode: String): String =
         db.sql(
@@ -418,11 +418,11 @@ class CatalogFlowTest : ApiTest() {
         assertThat(response.at<Boolean>("stockPersisted")).isTrue()
         assertThat(response.at<Int>("stockLoaded")).isEqualTo(2)
         assertThat(response.at<Int>("stockSkipped")).isZero()
-        // El total heredado queda en el saldo sin ubicar: el archivo no dice en qué
-        // estantería está cada pieza (ADR-0012).
+        // The inherited total stays in the unassigned balance: the file does not say which
+        // shelf each piece is on (ADR-0012).
         assertThat(totalStock("ABRAA1B")).isEqualTo("10.000")
         assertThat(totalStock("ABRAA1C")).isEqualTo("5.000")
-        // La columna de la ubicación sin ubicar se llama UNASSIGNED; su nombre visible es UNASSIGNED.
+        // The unassigned location column is called UNASSIGNED; its visible name is UNASSIGNED.
         assertThat(kardexInitialRows()).containsOnly("UNASSIGNED")
     }
 
@@ -435,8 +435,8 @@ class CatalogFlowTest : ApiTest() {
 
         assertThat(segunda.at<Int>("created")).isZero()
         assertThat(segunda.at<Int>("skipped")).isEqualTo(2)
-        // Lo que ya tiene existencias no se vuelve a cargar: importar dos veces el mismo
-        // archivo no puede duplicar el inventario.
+        // What already has stock is not loaded again: importing the same file twice
+        // cannot duplicate the inventory.
         assertThat(segunda.at<Int>("stockLoaded")).isZero()
         assertThat(segunda.at<Int>("stockSkipped")).isEqualTo(2)
         assertThat(totalStock("ABRAA1B")).isEqualTo("10.000")
@@ -451,7 +451,7 @@ class CatalogFlowTest : ApiTest() {
 
         assertThat(response.at<Int>("stockLoaded")).isZero()
         assertThat(response.at<Boolean>("stockPersisted")).isFalse()
-        // En simulación no se crea ni el producto, así que no hay existencias que mirar.
+        // In a simulation neither the product is created, so there is no stock to check.
         assertThat(response.at<Int>("created")).isZero()
         assertThat(db.sql("SELECT count(*) FROM product_stock").query(Int::class.java).single()).isZero()
         assertThat(kardexInitialRows()).isEmpty()

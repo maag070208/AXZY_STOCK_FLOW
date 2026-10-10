@@ -8,17 +8,17 @@ import dev.axzy.stock.domain.access.PermissionCatalog
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping
 
 /**
- * Comprueba al arrancar que **toda ruta declara qué exige** (I5).
+ * Checks at startup that **every route declares what it requires** (I5).
  *
- * El permiso se decide dentro del caso de uso, que es donde se sabe qué recurso se
- * está tocando. El hueco que eso deja es una ruta nueva que llame a un caso de uso
- * sin autorización: funciona, y nadie se entera hasta que alguien la usa. Esta
- * comprobación cierra el hueco por el otro lado: si la ruta no declara permiso,
- * identidad o que es pública, **la API no arranca**.
+ * The permission is decided inside the use case, which is where one knows which resource
+ * is being touched. The gap that leaves is a new route that calls a use case
+ * without authorization: it works, and nobody notices until someone uses it. This
+ * check closes the gap from the other side: if the route declares no permission,
+ * identity or that it is public, **the API does not start**.
  *
- * Además, un permiso escrito con un error de tecleo dejaría una ruta que responde
- * `403` a todo el mundo, incluido el administrador, y parecería un problema de
- * roles. Se comprueba que el permiso exista en el catálogo.
+ * Also, a permission with a typo would leave a route that answers
+ * `403` to everyone, including the administrator, and would look like a roles problem.
+ * roles. It is checked that the permission exists in the catalog.
  */
 class RoutePermissionAudit(private val mapping: RequestMappingHandlerMapping) {
 
@@ -28,15 +28,15 @@ class RoutePermissionAudit(private val mapping: RequestMappingHandlerMapping) {
 
         mapping.handlerMethods.forEach { (_, handler) ->
             val method = handler.method
-            // Solo las rutas propias: Spring Boot registra además su controlador de
-            // error por defecto, que no es una ruta de negocio y no depende de nosotros.
+            // Only our own routes: Spring Boot also registers its default error controller, which is
+            // not a business route and does not depend on us.
             if (!method.declaringClass.name.startsWith("dev.axzy.stock")) return@forEach
 
             val requires = method.getAnnotation(RequiresPermission::class.java)
             val authenticated = method.getAnnotation(AuthenticatedOnly::class.java) != null
             val public = method.getAnnotation(PublicRoute::class.java) != null
-            // Una ruta de servicio no es pública ni autenticada: la llama la impresora con
-            // su credencial, y decir «autenticada» haría creer que vale un token de usuario.
+            // A service route is neither public nor authenticated: the printer calls it with
+            // its credential, and saying "authenticated" would make it seem a user token is valid.
             val service = method.getAnnotation(ServiceKeyOnly::class.java) != null
 
             if (requires == null && !authenticated && !public && !service) {

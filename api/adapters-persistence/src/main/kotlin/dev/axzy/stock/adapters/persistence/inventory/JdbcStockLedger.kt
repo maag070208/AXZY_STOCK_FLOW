@@ -10,21 +10,21 @@ import java.math.BigDecimal
 import java.util.UUID
 
 /**
- * El libro de inventario sobre PostgreSQL: **la API no escribe existencias**.
+ * The inventory ledger on PostgreSQL: **the API does not write stock**.
  *
- * Todas las escrituras pasan por `record_movement`, la función del motor
- * ([ADR-0015]). Esa función aplica el movimiento a las ubicaciones, recalcula el
- * total del producto y escribe el kardex, en ese orden y dentro de la transacción
- * del caso de uso. Escribir `stock_by_location` desde aquí sería la segunda ruta de
- * escritura que el plan prohíbe, y `ArchitectureTest` no la detectaría: lo que la
- * impide es que este archivo no tiene ningún `UPDATE`.
+ * Every write goes through `record_movement`, the engine's function
+ * ([ADR-0015]). That function applies the movement to the locations, recalculates the
+ * product total and writes the ledger, in that order and within the transaction
+ * of the use case. Writing `stock_by_location` from here would be the second
+ * write path that the plan forbids, and `ArchitectureTest` would not detect it: what
+ * prevents it is that this file has no `UPDATE` at all.
  */
 class JdbcStockLedger(private val jdbc: JdbcClient) : StockLedger {
 
     override fun balanceAt(productId: Long, locationId: Long, forUpdate: Boolean): Quantity {
-        // `FOR UPDATE` bloquea la fila hasta el fin de la transacción. Es lo que hace
-        // que el saldo que se comprueba siga siendo verdad al restar (Q9): sin él,
-        // dos salidas simultáneas leen 100 y las dos creen que caben.
+        // `FOR UPDATE` locks the row until the end of the transaction. That is what
+        // makes the balance being checked still true when subtracting (Q9): without it,
+        // two simultaneous outflows read 100 and both think they fit.
         val lock = if (forUpdate) " FOR UPDATE" else ""
         return jdbc.sql(
             "SELECT quantity FROM stock_by_location WHERE product_id = :product AND location_id = :location$lock",
@@ -65,15 +65,15 @@ class JdbcStockLedger(private val jdbc: JdbcClient) : StockLedger {
             .single()
     } catch (error: DataIntegrityViolationException) {
         /*
-         * Dos peticiones con la MISMA clave de idempotencia a la vez (A8).
+         * Two requests with the SAME idempotency key at the same time (A8).
          *
-         * Las dos pasaron la comprobación previa —ninguna veía el movimiento de la
-         * otra— y el índice único de `client_uuid` decide: una inserta y la otra
-         * choca. En vez de devolver un error, se devuelve **el movimiento que ganó**,
-         * que es lo que el cliente pidió: el mismo resultado para la misma clave.
+         * Both passed the previous check —neither saw the movement of the
+         * other— and the unique index on `client_uuid` decides: one inserts and the other
+         * collides. Instead of returning an error, **the movement that won** is returned,
+         * which is what the client asked for: the same result for the same key.
          *
-         * Se comprueba el nombre del índice para no tragarse otra violación (una
-         * clave foránea, por ejemplo) y contestar «ya estaba» a un error real.
+         * The index name is checked so as not to swallow another violation (a
+         * foreign key, for example) and answer "it already existed" to a real error.
          */
         val key = command.clientUuid
         if (key != null && error.message?.contains(CLIENT_UUID_INDEX) == true) {
@@ -98,7 +98,7 @@ class JdbcStockLedger(private val jdbc: JdbcClient) : StockLedger {
             .toQuantity()
 
     private companion object {
-        /** El índice que hace idempotente un movimiento del móvil (V3). */
+        /** The index that makes a mobile movement idempotent (V3). */
         const val CLIENT_UUID_INDEX = "kardex_client_uuid_idx"
     }
 }

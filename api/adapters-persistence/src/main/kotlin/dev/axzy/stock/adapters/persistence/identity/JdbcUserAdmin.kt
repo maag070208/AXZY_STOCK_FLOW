@@ -20,14 +20,14 @@ import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
 /**
- * La administración de usuarios sobre PostgreSQL (M07, docs/api/usuarios.md).
+ * User administration on PostgreSQL (M07, docs/api/usuarios.md).
  *
- * Los roles se leen con `array_agg` en la misma consulta que el usuario: pedirlos por
- * fila sería una consulta por usuario en un listado de doscientas cuentas.
+ * The roles are read with `array_agg` in the same query as the user: requesting them per
+ * row would be one query per user in a listing of two hundred accounts.
  *
- * **Cambiar la contraseña no necesita invalidar nada a mano**: el sello de credenciales
- * del token es `password_changed_at`, así que al actualizarlo los tokens vivos dejan de
- * coincidir y la sesión muere sola (R3). Hacerlo «a mano» además sería duplicar la regla.
+ * **Changing the password does not need to invalidate anything by hand**: the credentials stamp
+ * of the token is `password_changed_at`, so when it is updated the live tokens stop
+ * matching and the session dies on its own (R3). Doing it "by hand" would also duplicate the rule.
  */
 class JdbcUserAdmin(private val jdbc: JdbcClient) : UserAdminStore, RoleAdminStore {
 
@@ -100,7 +100,7 @@ class JdbcUserAdmin(private val jdbc: JdbcClient) : UserAdminStore, RoleAdminSto
                 ),
             ) { rs, _ -> rs.getLong(1) }.single()
         } catch (error: DataIntegrityViolationException) {
-            // El índice único decide en una carrera; el caso normal lo atrapa el prechequeo.
+            // The unique index decides in a race; the normal case is caught by the pre-check.
             if (error.message?.contains(USERNAME_INDEX) == true) {
                 error("The user '$username' already exists (the use case checked it and the index confirmed it).")
             }
@@ -121,9 +121,9 @@ class JdbcUserAdmin(private val jdbc: JdbcClient) : UserAdminStore, RoleAdminSto
     }
 
     /**
-     * Reemplaza los roles en **una sentencia**: quitar los que sobran y poner los que
-     * faltan en dos viajes dejaría, si algo fallara en medio, a una persona con más
-     * permisos de los que se le querían dar.
+     * Replaces the roles in **one statement**: removing the surplus ones and adding the
+     * missing ones in two trips would leave, if something failed in the middle, a person with more
+     * permissions than were meant to be given.
      */
     override fun replaceRoles(id: Long, roleKeys: List<String>) {
         update("DELETE FROM user_roles WHERE user_id = :id", mapOf("id" to id))
@@ -225,10 +225,10 @@ class JdbcUserAdmin(private val jdbc: JdbcClient) : UserAdminStore, RoleAdminSto
     }
 
     /**
-     * Reemplaza la matriz en **dos sentencias**: borrar las celdas viejas y poner las nuevas.
+     * Replaces the matrix in **two statements**: deleting the old cells and inserting the new ones.
      *
-     * Las parejas permiso/alcance viajan como dos arreglos paralelos y se cruzan con
-     * `unnest`, para que una matriz de veinte permisos no sean veinte viajes a la base.
+     * The permission/scope pairs travel as two parallel arrays and are crossed with
+     * `unnest`, so that a matrix of twenty permissions is not twenty round trips to the database.
      */
     override fun replaceGrants(key: String, grants: List<RoleGrantView>) {
         update("DELETE FROM role_permissions WHERE role_id = (SELECT id FROM roles WHERE key = :key)", mapOf("key" to key))
@@ -281,8 +281,8 @@ class JdbcUserAdmin(private val jdbc: JdbcClient) : UserAdminStore, RoleAdminSto
         const val USERNAME_INDEX = "users_username_key"
 
         /**
-         * Los roles en un arreglo, en la misma consulta que el usuario: es lo que hace
-         * que un listado de doscientas cuentas siga siendo **dos sentencias**.
+         * The roles in an array, in the same query as the user: it is what keeps
+         * a listing of two hundred accounts still **two statements**.
          */
         val COLUMNS =
             """

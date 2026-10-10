@@ -25,21 +25,21 @@ import dev.axzy.stock.domain.identity.PasswordValidation
 import java.time.Clock
 
 /**
- * La administración de usuarios y roles (M07, docs/api/usuarios.md).
+ * User and role administration (M07, docs/api/usuarios.md).
  *
- * Es la puerta de todo lo demás: quien puede crear usuarios y asignarles roles puede
- * darse cualquier permiso, así que **todas** estas operaciones son `CRITICAL` en la
- * bitácora y pasan por el motor de acceso —crear un usuario concede acceso, y conceder
- * acceso es lo que el nivel crítico protege—.
+ * It is the gate to everything else: whoever can create users and assign them roles can
+ * grant themselves any permission, so **all** these operations are `CRITICAL` in the
+ * audit log and go through the access engine —creating a user grants access, and granting
+ * access is what the critical level protects—.
  *
- * La contraseña **nunca viaja ni se guarda en claro**: entra, se valida contra la política
- * y se guarda su hash. Y cambiarla **invalida las sesiones abiertas**, porque el sello de
- * credenciales del token deja de coincidir: si a alguien se le restablece la contraseña
- * porque sospecha que se la robaron, dejar vivo el token del ladrón sería no haber hecho
+ * The password **never travels or is stored in clear**: it comes in, is validated against the policy
+ * and its hash is stored. And changing it **invalidates the open sessions**, because the credentials stamp
+ * of the token stops matching: if someone's password is reset
+ * because they suspect it was stolen, leaving the thief's token alive would be doing nothing.
  * nada.
  */
 
-// ── Modelos de lectura ──────────────────────────────────────────────────────
+// ── Read models ───────────────────────────────────────────────────────
 
 data class UserSummary(
     val id: Long,
@@ -74,13 +74,13 @@ data class PermissionView(
 
 data class UserFilter(val query: String?, val role: String?, val active: Boolean?)
 
-// ── Modelos de escritura ────────────────────────────────────────────────────
+// ── Write models ──────────────────────────────────────────────────────
 
 data class NewUser(
     val username: String?,
     val name: String?,
     val password: String?,
-    /** Si se omite, la cuenta nace **obligada a cambiar la contraseña**: es lo prudente. */
+    /** If omitted, the account is born **required to change the password**: that is the prudent choice. */
     val mustChangePassword: Boolean?,
     val roles: List<String>?,
 )
@@ -98,7 +98,7 @@ interface UserAdminStore {
 
     fun updateProfile(id: Long, name: String?, disabled: Boolean?): Unit
 
-    /** Reemplaza los roles: asignar roles es decidir qué puede hacer alguien. */
+    /** Replaces the roles: assigning roles is deciding what someone can do. */
     fun replaceRoles(id: Long, roleKeys: List<String>): Unit
 
     fun updatePassword(id: Long, passwordHash: String, mustChangePassword: Boolean, at: java.time.Instant): Unit
@@ -133,10 +133,10 @@ class GetUser(private val store: UserAdminStore, private val access: AccessDecid
 }
 
 /**
- * Los roles que existen, con cuántos permisos tiene cada uno.
+ * The roles that exist, with how many permissions each one has.
  *
- * Exige `role.manage` y no un `role.view` que no existe: el catálogo dice que ver la
- * matriz de permisos es parte de administrarla.
+ * Requires `role.manage` and not a `role.view` that does not exist: the catalog says that viewing the
+ * permission matrix is part of managing it.
  */
 class ListRoles(private val store: UserAdminStore, private val access: AccessDecider) {
 
@@ -144,7 +144,7 @@ class ListRoles(private val store: UserAdminStore, private val access: AccessDec
         access.authorizeOr(actor, "role.manage", origin) { store.roles().asRight() }
 }
 
-/** El catálogo de permisos, que es **código** (`PermissionCatalog`), no una tabla editable. */
+/** The permission catalog, which is **code** (`PermissionCatalog`), not an editable table. */
 class ListPermissions(private val store: UserAdminStore, private val access: AccessDecider) {
 
     fun execute(actor: Actor, origin: RequestOrigin): Outcome<List<PermissionView>> =
@@ -214,8 +214,8 @@ class CreateUser(
                 )
             }
 
-            // Nace obligado a cambiar la contraseña salvo que se diga lo contrario: quien
-            // crea la cuenta conoce la contraseña, y eso no puede quedarse así.
+            // It is born required to change the password unless stated otherwise: whoever
+            // creates the account knows the password, and that cannot stay that way.
             val mustChange = input.mustChangePassword ?: true
             tx.inTransaction {
                 val id = store.insert(username, name, hasher.hash(password), mustChange, roles)
@@ -244,8 +244,8 @@ class UpdateUser(
 ) {
 
     fun execute(actor: Actor, id: Long, patch: UserPatch, origin: RequestOrigin): Outcome<UserDetail> {
-        // Editar el perfil y asignar roles son permisos distintos: uno cambia cómo se llama
-        // alguien, el otro qué puede hacer.
+        // Editing the profile and assigning roles are different permissions: one changes how
+        // someone is called, the other what they can do.
         val permission = if (patch.roles != null) "role.assign" else "user.edit"
         return access.authorizeOr(actor, permission, origin) { grant ->
             val current = store.find(id) ?: return@authorizeOr userNotFound(id)
@@ -334,8 +334,8 @@ class ResetUserPassword(
                     level = AuditLevel.CRITICAL,
                     entity = AuditEntity("user", id.toString(), current.summary.username),
                     grant = grant,
-                    // **La contraseña no se registra**, ni la nueva ni la vieja: la bitácora
-                    // dice que se cambió, no cuál es.
+                    // **The password is not recorded**, neither the new one nor the old one: the audit log
+                    // says it was changed, not what it is.
                     newState = mapOf("mustChangePassword" to (mustChangePassword ?: true)),
                 ),
             )
@@ -344,9 +344,9 @@ class ResetUserPassword(
     }
 }
 
-// ── Común ───────────────────────────────────────────────────────────────────
+// ── Common ──────────────────────────────────────────────────────────────
 
-/** Los roles tienen que existir: inventar uno dejaría al usuario sin permisos y sin saberlo. */
+/** The roles have to exist: inventing one would leave the user without permissions and without knowing it. */
 private fun validateRoles(store: UserAdminStore, roles: List<String>): Outcome<Unit> {
     val known = store.roleKeys()
     val unknown = roles.filterNot { it in known }
@@ -372,5 +372,5 @@ private fun userNotFound(id: Long): Outcome<Nothing> = failure(
     mapOf("userId" to id.toString()),
 )
 
-/** Sin rol explícito, un usuario nace con el más bajo: nunca con más de lo que se pidió. */
+/** Without an explicit role, a user is born with the lowest one: never with more than was asked. */
 private val DEFAULT_ROLE = RoleDefinitions.baseRoles.first().key.value

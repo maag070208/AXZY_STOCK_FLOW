@@ -12,14 +12,14 @@ import dev.axzy.stock.application.reports.SummaryTotals
 import java.time.Instant
 
 /**
- * El contrato HTTP de los reportes (docs/api/reportes.md).
+ * The HTTP contract of the reports (docs/api/reportes.md).
  *
- * Las cantidades viajan como cadena con tres decimales, como en el resto de la API
- * salvo el catálogo; en el XLSX de la exportación van como **número**, porque una
- * columna de texto no se suma y Excel la contaría como cero.
+ * Quantities travel as a string with three decimals, as in the rest of the API
+ * except the catalog; in the XLSX export they go as a **number**, because a
+ * text column is not summed and Excel would count it as zero.
  */
 
-// ── Reporte de existencias ──────────────────────────────────────────────────
+// ── Stock report ──────────────────────────────────────────────────────
 
 data class InventoryReportLineDto(
     val productCode: String,
@@ -60,7 +60,7 @@ fun InventoryReportResult.toDto(): InventoryReportDto = InventoryReportDto(
     totalPages = page.totalPages,
 )
 
-// ── Resumen de movimientos ──────────────────────────────────────────────────
+// ── Movement summary ──────────────────────────────────────────────────
 
 data class SummaryLineDto(
     val key: String,
@@ -101,7 +101,7 @@ data class MovementSummaryDto(
 fun MovementSummaryResult.toDto(from: String, to: String, groupBy: String): MovementSummaryDto =
     MovementSummaryDto(from, to, groupBy, totals.toDto(), items.map { it.toDto() })
 
-// ── Reconciliación ──────────────────────────────────────────────────────────
+// ── Reconciliation ──────────────────────────────────────────────────────────
 
 data class DivergenceDto(
     val productId: Long,
@@ -127,10 +127,10 @@ data class ReconciliationDto(
 )
 
 fun Reconciliation.toDto(): ReconciliationDto = ReconciliationDto(
-    // ISO 8601 en UTC, el formato que el contrato fija para los instantes.
+    // ISO 8601 in UTC, the format the contract fixes for instants.
     checkedAt = Instant.ofEpochMilli(checkedAt.toEpochMilli()).toString(),
-    // El veredicto lo da el servidor: contar el arreglo en la pantalla sería un
-    // segundo cálculo que puede discrepar del primero.
+    // The verdict is given by the server: counting the array on the screen would be a
+    // second calculation that can disagree with the first.
     balanced = balanced,
     divergences = divergences,
     items = items.map { it.toDto() },

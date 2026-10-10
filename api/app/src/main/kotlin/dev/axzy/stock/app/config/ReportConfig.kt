@@ -15,11 +15,11 @@ import org.springframework.jdbc.core.simple.JdbcClient
 import java.time.Clock
 
 /**
- * Los reportes (docs/api/reportes.md), que pertenecen a M02.
+ * The reports (docs/api/reportes.md), which belong to M02.
  *
- * El reporte de reconciliación se cablea con el **reloj de la aplicación**: el
- * `checkedAt` que devuelve tiene que ser el mismo instante que usan la bitácora y las
- * políticas, no el del sistema operativo en cada consulta.
+ * The reconciliation report is wired with the **application clock**: the
+ * `checkedAt` it returns has to be the same instant the audit log and the policies use, not the
+ * operating system's on every query.
  */
 @Configuration(proxyBeanMethods = false)
 class ReportConfig {

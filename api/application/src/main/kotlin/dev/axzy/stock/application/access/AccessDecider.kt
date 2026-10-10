@@ -32,8 +32,8 @@ import java.time.Clock
 import java.time.ZoneId
 
 /**
- * Una autorización concedida. Lleva la traza de la decisión para que el caso de uso la adjunte a
- * su registro de bitácora: un registro crítico tiene que poder explicar con qué permiso se hizo.
+ * A granted authorization. It carries the decision trace so that the use case attaches it to
+ * its audit log record: a critical record must be able to explain with which permission it was done.
  */
 data class AccessGrant(
     val permission: String,
@@ -42,16 +42,16 @@ data class AccessGrant(
 )
 
 /**
- * Decide si un [Actor] puede hacer algo. **Es la única puerta de autorización de la API**: los
- * casos de uso la llaman; los controladores no deciden permisos (docs/arquitectura/api-spring.md §6).
+ * Decides whether an [Actor] can do something. **It is the only authorization gate of the API**: the
+ * use cases call it; the controllers do not decide permissions (docs/arquitectura/api-spring.md §6).
  *
- * La regla la tiene el dominio ([AccessEngine]): identidad → RBAC → ABAC, denegando por defecto.
- * Esta clase le da el contexto de la petición, traduce la decisión y deja constancia de cada
- * denegación.
+ * The rule lives in the domain ([AccessEngine]): identity → RBAC → ABAC, denying by default.
+ * This class gives it the request context, translates the decision and records each
+ * denial.
  *
- * @param businessZone la zona horaria de la operación. Las políticas de horario («ajustes solo de
- *   8 a 18») se evalúan en ella y no en la del cliente: una cabecera del cliente se puede cambiar
- *   para saltarse la política.
+ * @param businessZone the operation's time zone. The schedule policies ("adjustments only from
+ *   8 to 18") are evaluated in it and not in the client's: a client header can be changed
+ *   to skip the policy.
  */
 class AccessDecider(
     private val engine: AccessEngine,
@@ -62,10 +62,10 @@ class AccessDecider(
 ) {
 
     /**
-     * @param resource los atributos del recurso que evalúan el alcance y las políticas. Si la
-     *   operación recae sobre una bodega concreta, hay que pasarla: sin ella un alcance `AREA`
-     *   no se puede comprobar.
-     * @param entity sobre qué se intentó actuar; solo se usa para describir la denegación.
+     * @param resource the resource attributes that the scope and the policies evaluate. If the
+     *   operation applies to a specific warehouse, it has to be passed: without it a scope `AREA`
+     *   cannot be checked.
+     * @param entity what was attempted on; it is only used to describe the denial.
      */
     fun authorize(
         actor: Actor,
@@ -102,7 +102,7 @@ class AccessDecider(
         val now = clock.instant().atZone(businessZone)
         return RequestContext(
             hour = now.hour,
-            // El dominio numera la semana desde el domingo (0) hasta el sábado (6).
+            // The domain numbers the week from Sunday (0) to Saturday (6).
             weekday = now.dayOfWeek.value % 7,
             deviceType = when {
                 origin.channel == AuditChannel.WEB -> DeviceType.WEB
@@ -186,8 +186,8 @@ class AccessDecider(
     )
 
     /**
-     * Los cinco códigos de autorización son distintos a propósito (docs/api/errores.md): el usuario
-     * hace algo distinto ante cada uno. Colapsarlos en un «no autorizado» era el defecto del legacy.
+     * The five authorization codes are different on purpose (docs/api/errores.md): the user
+     * does something different for each one. Collapsing them into one "unauthorized" was the legacy's defect.
      */
     private fun AccessDecision.toFailure(trace: AccessDecisionTrace): Failure = Failure(
         kind = if (this is AccessDecision.NotAuthenticated) FailureKind.UNAUTHENTICATED else FailureKind.FORBIDDEN,

@@ -18,12 +18,12 @@ import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RestController
 
 /**
- * I5 sobre las clases compiladas: **toda ruta declara qué exige**.
+ * I5 over the compiled classes: **every route declares what it requires**.
  *
- * `RoutePermissionAudit` hace esta misma comprobación al arrancar y tumba la API si
- * falla. Esta prueba repite el control sobre el bytecode para que el fallo se vea
- * al compilar y no al desplegar, y añade la mitad que el arranque no puede
- * comprobar sola: que **cada permiso declarado exista en el catálogo**.
+ * `RoutePermissionAudit` does this same check at startup and brings the API down if it
+ * fails. This test repeats the check over the bytecode so that the failure shows
+ * at compile time and not at deploy, and adds the half that startup cannot
+ * check on its own: that **each declared permission exists in the catalog**.
  */
 class RoutePermissionTest {
 
@@ -56,8 +56,8 @@ class RoutePermissionTest {
                     RequiresPermission::class.java,
                     AuthenticatedOnly::class.java,
                     PublicRoute::class.java,
-                    // Una ruta de servicio (la impresora) declara que no la llama una
-                    // persona: es la cuarta forma de decir qué exige una ruta.
+                    // A service route (the printer) declares that it is not called by a
+                    // person: it is the fourth way of saying what a route requires.
                     ServiceKeyOnly::class.java,
                 ).count { method.isAnnotatedWith(it) }
                 if (declarations != 1) {

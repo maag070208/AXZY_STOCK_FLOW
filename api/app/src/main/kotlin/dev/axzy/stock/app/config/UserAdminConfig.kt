@@ -31,11 +31,11 @@ import org.springframework.jdbc.core.simple.JdbcClient
 import java.time.Clock
 
 /**
- * La administración de usuarios y roles (el resto de M07).
+ * User and role administration (the rest of M07).
  *
- * El hasher y la política de contraseñas son los mismos que usa el inicio de sesión: una
- * contraseña se valida igual se cree desde el arranque o desde esta ruta, y tener dos
- * políticas sería tener una sola de verdad.
+ * The hasher and the password policy are the same ones the sign-in uses: a
+ * password is validated the same whether it is created at startup or through this route, and having two
+ * policies would mean having only one that is real.
  */
 @Configuration(proxyBeanMethods = false)
 class UserAdminConfig {

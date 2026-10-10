@@ -17,12 +17,12 @@ import java.time.Clock
 import java.time.Instant
 
 /**
- * Quién llama cuando no es una persona (docs/api/etiquetas.md).
+ * Who calls when it is not a person (docs/api/etiquetas.md).
  *
- * La credencial de servicio identifica a un sistema —la impresora, y mañana el ERP—, y
- * su canal **no se elige con una cabecera**: lo fija la credencial. Por eso el canal se
- * sobrescribe en el caso de uso y no se lee de la petición: si se leyera, cualquiera con
- * un token de persona podría declararse impresora.
+ * The service credential identifies a system —the printer, and tomorrow the ERP—, and
+ * its channel **is not chosen with a header**: the credential sets it. That is why the channel
+ * is overwritten in the use case and is not read from the request: if it were read, anyone with
+ * a person's token could declare themselves a printer.
  */
 data class ServiceIdentity(
     val keyId: Long,
@@ -31,29 +31,29 @@ data class ServiceIdentity(
 )
 
 /**
- * Las credenciales de servicio.
+ * The service credentials.
  *
- * El **hash se calcula en el adaptador**: la capa de aplicación no hace criptografía, y
- * el secreto en claro no se guarda en ninguna parte (el contrato dice que solo se
- * devuelve al crearlo).
+ * The **hash is computed in the adapter**: the application layer does no cryptography, and
+ * the secret in clear is not stored anywhere (the contract says it is only
+ * returned when created).
  */
 interface ServiceKeys {
-    /** Busca una credencial activa por su secreto. `null` si no existe, está vencida o revocada. */
+    /** Looks up an active credential by its secret. `null` if it does not exist, is expired or revoked. */
     fun findActive(secret: String, at: Instant): ServiceIdentity?
 
-    /** Deja constancia de que se usó: una credencial que no se usa nunca es una que se puede revocar. */
+    /** Records that it was used: a credential that is never used is one that can be revoked. */
     fun touch(keyId: Long, at: Instant): Unit
 }
 
 /**
- * La confirmación de la impresora: **aquí y solo aquí una etiqueta pasa a impresa**.
+ * The printer's confirmation: **here and only here does a label become printed**.
  *
- * Es la única ruta sin usuario: exige `X-Service-Key` en lugar de un token de acceso, y
- * **la credencial se comprueba antes que nada**, incluso antes de mirar si el trabajo
- * existe: un `404` a quien no tiene credencial le diría qué identificadores son válidos.
+ * It is the only route without a user: it requires `X-Service-Key` instead of an access token, and
+ * **the credential is checked before anything else**, even before looking at whether the job
+ * exists: a `404` to whoever has no credential would tell them which identifiers are valid.
  *
- * Marcar una etiqueta que ya está impresa responde `LABEL_ALREADY_PRINTED` y **no la
- * toca**: una etiqueta no se imprime dos veces por un reintento de la impresora.
+ * Marking a label that is already printed answers `LABEL_ALREADY_PRINTED` and **does not
+ * touch it**: a label is not printed twice because of a printer retry.
  */
 class ConfirmPrintJob(
     private val jobs: PrintJobs,
@@ -92,7 +92,7 @@ class ConfirmPrintJob(
                 jobs.markFailed(jobId, error?.take(500) ?: "The printer reported a failure without details", at)
             }
             if (affected == 0) {
-                // Ya estaba impresa: el reintento de la impresora no imprime dos veces.
+                // It was already printed: the printer's retry does not print twice.
                 return@inTransaction failure(
                     FailureKind.CONFLICT, "LABEL_ALREADY_PRINTED",
                     "Job $jobId was already marked as printed.",
@@ -102,11 +102,11 @@ class ConfirmPrintJob(
             keys.touch(identity.keyId, at)
 
             /*
-             * El canal lo fija la credencial, no la cabecera. Y el nivel es RELEVANT y no
-             * CRITICAL a propósito: la base exige que un registro CRITICAL lleve permiso y
-             * traza de decisión de acceso, y aquí no hay ni persona ni permiso que
-             * decidir. Inventar un permiso para satisfacer la restricción sería mentir en
-             * la bitácora.
+             * The credential sets the channel, not the header. And the level is RELEVANT and not
+             * CRITICAL on purpose: the database requires that a CRITICAL record carry a permission and an
+             * access decision trace, and here there is neither a person nor a permission to
+             * decide. Inventing a permission to satisfy the constraint would be lying in
+             * the audit log.
              */
             audit.record(
                 auditEvents.byActor(
@@ -125,7 +125,7 @@ class ConfirmPrintJob(
     }
 }
 
-/** La credencial no vale: `401` y ni una pista de qué identificadores existen. */
+/** The credential is not valid: `401` and not a hint of which identifiers exist. */
 private fun invalidServiceKey(): Outcome<Nothing> = failure(
     FailureKind.UNAUTHENTICATED, "INVALID_SERVICE_KEY",
     "The service credential is missing, not valid or revoked.",

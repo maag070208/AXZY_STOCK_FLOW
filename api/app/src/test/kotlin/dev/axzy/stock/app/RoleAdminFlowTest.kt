@@ -6,11 +6,11 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 /**
- * Crear y editar roles con su matriz (M07) por HTTP real.
+ * Creating and editing roles with their matrix (M07) over real HTTP.
  *
- * La prueba que de verdad importa es la primera: un rol nuevo **concede lo que su matriz
- * dice** y nada más. Una matriz que se guarda bien y no surte efecto sería una pantalla de
- * administración que miente, y el usuario lo descubriría intentando trabajar.
+ * The test that really matters is the first one: a new role **grants what its matrix
+ * says** and nothing more. A matrix that is saved correctly and has no effect would be an administration screen
+ * that lies, and the user would find out by trying to work.
  */
 class RoleAdminFlowTest : ApiTest() {
 
@@ -41,7 +41,7 @@ class RoleAdminFlowTest : ApiTest() {
 
     private fun tokenOf(username: String): String = accessTokenOf(username, USER_PASSWORD)
 
-    // ── La matriz surte efecto ──────────────────────────────────────────────
+    // ── The matrix takes effect ──────────────────────────────────────────
 
     @Test
     fun `a new role grants what its matrix says and nothing else`() {
@@ -63,7 +63,7 @@ class RoleAdminFlowTest : ApiTest() {
 
         assertThat(stock.status).describedAs(stock.raw).isEqualTo(200)
         assertThat(kardex.status).isEqualTo(200)
-        // No se concedió ajustar: la matriz manda, no el «ya está dentro».
+        // Adjusting was not granted: the matrix decides, not "it is already inside".
         assertThat(ajuste.status).isEqualTo(403)
         assertThat(ajuste.code).isEqualTo("PERMISSION_DENIED")
     }
@@ -109,7 +109,7 @@ class RoleAdminFlowTest : ApiTest() {
         assertThat(permisos.map { it["scope"] }).containsOnly("ALL")
     }
 
-    // ── Validación de la matriz ─────────────────────────────────────────────
+    // ── Validation of the matrix ─────────────────────────────────────────
 
     @Test
     fun `a matrix cannot invent permissions or scopes`() {
@@ -122,7 +122,7 @@ class RoleAdminFlowTest : ApiTest() {
 
         assertThat(inventado.status).isEqualTo(422)
         assertThat(inventado.code).isEqualTo("UNKNOWN_PERMISSION")
-        // `user.create` solo admite ALL: conceder OWN sería una celda que el motor no sabe evaluar.
+        // `user.create` only accepts ALL: granting OWN would be a cell the engine does not know how to evaluate.
         assertThat(malAlcance.code).isEqualTo("SCOPE_NOT_ALLOWED")
         assertThat(malAlcance.at<Map<String, String>>("details")["allowed"]).isEqualTo("ALL")
         assertThat(repetido.status).isEqualTo(400)
@@ -139,7 +139,7 @@ class RoleAdminFlowTest : ApiTest() {
         val conEspacios = role(token, "CON SULT A")
         val repetida = role(token, "CONSULTA")
 
-        // La clave viaja en el token y en la bitácora: se normaliza a mayúsculas y no admite espacios.
+        // The key travels in the token and in the audit log: it is normalized to uppercase and does not accept spaces.
         assertThat(minusculas.status).isEqualTo(201)
         assertThat(minusculas.at<String>("key")).isEqualTo("CONSULTA2")
         assertThat(conEspacios.status).isEqualTo(400)

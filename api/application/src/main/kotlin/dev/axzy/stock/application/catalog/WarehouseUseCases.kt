@@ -19,7 +19,7 @@ import dev.axzy.stock.domain.common.asRight
 import dev.axzy.stock.domain.error.DomainError
 import dev.axzy.stock.application.shared.toFailure
 
-/** La bodega tal como llega del cliente. */
+/** The warehouse as it arrives from the client. */
 data class WarehouseInput(
     val code: String? = null,
     val name: String? = null,
@@ -28,8 +28,8 @@ data class WarehouseInput(
 )
 
 /**
- * El listado de bodegas **no se pagina** y es deliberado: es un catálogo cerrado y
- * diminuto que la interfaz necesita completo para poblar un desplegable
+ * The warehouse listing **is not paginated**, and deliberately so: it is a closed and tiny
+ * catalog that the interface needs whole to fill a dropdown.
  * (docs/api/convenciones.md §1.4).
  */
 class ListWarehouses(private val warehouses: Warehouses, private val access: AccessDecider) {
@@ -80,9 +80,9 @@ class CreateWarehouse(
             }
 
             tx.inTransaction {
-                // El índice parcial `warehouses_one_default_idx` admite una sola
-                // predeterminada: si esta lo es, la anterior deja de serlo en la
-                // MISMA transacción. Nunca hay dos, ni un instante.
+                // The partial index `warehouses_one_default_idx` admits only one
+                // default: if this one is, the previous one stops being it in the
+                // SAME transaction. There are never two, not even for an instant.
                 if (body.isDefault == true) warehouses.clearDefault()
                 val created = warehouses.insert(
                     NewWarehouse(
@@ -128,10 +128,10 @@ class UpdateWarehouse(
             }
 
             /*
-             * La marca de predeterminada **no se puede quitar sin poner otra**: el
-             * sistema necesita una bodega por defecto para saber dónde aterriza lo
-             * que llega sin destino declarado. Un `isDefault = false` sobre la
-             * predeterminada la conserva en lugar de dejar el sistema sin ninguna.
+             * The default flag **cannot be removed without setting another one**: the
+             * system needs a default warehouse to know where what arrives
+             * without a declared destination lands. An `isDefault = false` on the
+             * default one keeps it, instead of leaving the system without one.
              */
             val wantsDefault = when {
                 body.isDefault == true -> true

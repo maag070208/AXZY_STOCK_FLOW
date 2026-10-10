@@ -7,31 +7,31 @@ import dev.axzy.stock.domain.common.asRight
 import dev.axzy.stock.domain.error.DomainError
 
 /**
- * Por qué falló un caso de uso, sin decir nada de HTTP. `adapters-web` traduce el tipo a un
- * código de estado; un cliente que no sea HTTP (un job, la app) lo traduce a lo suyo.
+ * Why a use case failed, without saying anything about HTTP. `adapters-web` translates the type to a
+ * status code; a client that is not HTTP (a job, the app) translates it to its own.
  */
 enum class FailureKind {
-    /** La petición está mal formada: no se puede ni empezar a evaluarla. */
+    /** The request is malformed: it cannot even start to be evaluated. */
     INVALID_REQUEST,
 
-    /** No hay identidad válida: el remedio es iniciar sesión. */
+    /** There is no valid identity: the remedy is to sign in. */
     UNAUTHENTICATED,
 
-    /** Hay identidad, pero no puede hacer esto: el remedio es otro permiso, otra persona u otro momento. */
+    /** There is an identity, but it cannot do this: the remedy is another permission, another person or another moment. */
     FORBIDDEN,
 
     NOT_FOUND,
 
-    /** El estado actual del recurso impide la operación. */
+    /** The resource's current state prevents the operation. */
     CONFLICT,
 
-    /** La petición está bien formada pero viola una regla de negocio. */
+    /** The request is well formed but violates a business rule. */
     RULE_VIOLATION,
 }
 
 /**
- * Un fallo esperado. `code` es estable y es con lo que decide el cliente (docs/api/errores.md);
- * `message` es para una persona y puede cambiar.
+ * An expected failure. `code` is stable and is what the client decides with (docs/api/errores.md);
+ * `message` is for a person and may change.
  */
 data class Failure(
     val kind: FailureKind,
@@ -40,17 +40,17 @@ data class Failure(
     val details: Map<String, String> = emptyMap(),
 )
 
-/** El resultado de todo caso de uso: un fallo esperado se DEVUELVE, no se lanza (ADR-0005). */
+/** The result of every use case: an expected failure is RETURNED, not thrown (ADR-0005). */
 typealias Outcome<A> = Either<Failure, A>
 
 fun failure(kind: FailureKind, code: String, message: String, details: Map<String, String> = emptyMap()): Outcome<Nothing> =
     Failure(kind, code, message, details).asLeft()
 
 /**
- * Traduce un resultado del dominio a un resultado de caso de uso.
+ * Translates a domain result into a use-case result.
  *
- * Existe para que componer reglas del dominio (`withUpdated`, `deactivate`) con el
- * cuerpo de un caso de uso no obligue a un `when` de dos ramas por cada paso.
+ * It exists so that composing domain rules (`withUpdated`, `deactivate`) with the
+ * body of a use case does not require a two-branch `when` for each step.
  */
 fun <A> DomainResult<A>.toOutcome(): Outcome<A> = when (this) {
     is Either.Left -> error.toFailure().asLeft()
@@ -58,8 +58,8 @@ fun <A> DomainResult<A>.toOutcome(): Outcome<A> = when (this) {
 }
 
 /**
- * Traduce un error del dominio. El `when` es exhaustivo a propósito: un error nuevo en el
- * dominio deja de compilar aquí hasta que alguien decida qué significa para el cliente.
+ * Translates a domain error. The `when` is exhaustive on purpose: a new error in the
+ * domain stops compiling here until someone decides what it means for the client.
  */
 fun DomainError.toFailure(): Failure = when (this) {
     is DomainError.InvalidTransition ->
@@ -104,7 +104,7 @@ fun DomainError.toFailure(): Failure = when (this) {
         Failure(FailureKind.RULE_VIOLATION, code, message, mapOf("fields" to fields.joinToString(",")))
     is DomainError.LabelAlreadyPrinted -> Failure(FailureKind.CONFLICT, code, message, mapOf("jobId" to "$jobId"))
 
-    // ── Catálogo (M01) ──────────────────────────────────────────────────────
+    // ── Catalog (M01) ──────────────────────────────────────────────────────
     is DomainError.InvalidProductCode ->
         Failure(FailureKind.RULE_VIOLATION, code, message, mapOf("productCode" to raw))
     is DomainError.UnknownUnitMeasure -> Failure(FailureKind.RULE_VIOLATION, code, message, mapOf("unitMeasure" to unit))
@@ -115,8 +115,8 @@ fun DomainError.toFailure(): Failure = when (this) {
     is DomainError.UnknownWarehouse -> Failure(FailureKind.RULE_VIOLATION, code, message, mapOf("warehouseId" to "$id"))
     is DomainError.InvalidExternalId ->
         Failure(FailureKind.RULE_VIOLATION, code, message, mapOf("externalId" to raw))
-    // El contrato documenta estos dos como 422 aunque su tabla los agrupe en 409: la
-    // implementación manda, y el código (`code`) es lo que decide el cliente.
+    // The contract documents these two as 422 although its table groups them under 409: the
+    // implementation prevails, and the code (`code`) is what the client decides on.
     is DomainError.ProductCodeImmutable -> Failure(FailureKind.RULE_VIOLATION, code, message, mapOf("productCode" to productCode))
     is DomainError.WarehouseImmutable -> Failure(FailureKind.RULE_VIOLATION, code, message, mapOf("locationId" to "$locationId"))
     is DomainError.DuplicateProductCode -> Failure(FailureKind.CONFLICT, code, message, mapOf("productCode" to productCode))
@@ -134,15 +134,15 @@ fun DomainError.toFailure(): Failure = when (this) {
     is DomainError.ImportInvalidRows ->
         Failure(
             FailureKind.RULE_VIOLATION, code, message,
-            // Un detalle por fila, para que el usuario sepa QUÉ corregir: sin el
-            // número de fila, un archivo de 1.398 filas con un error es irresoluble.
-            rows.take(MAX_REJECTION_DETAILS).associate { "fila_${it.rowNumber}" to it.reason },
+            // One detail per row, so the user knows WHAT to correct: without the
+            // row number, a file of 1,398 rows with one error is unresolvable.
+            rows.take(MAX_REJECTION_DETAILS).associate { "row_${it.rowNumber}" to it.reason },
         )
 }
 
 /**
- * Cuántas filas rechazadas viajan en el cuerpo del error. Un archivo con miles de
- * filas malas no debe producir una respuesta de megabytes; el resumen dice cuántas
- * hubo y las primeras N son las que se corrigen de una vez.
+ * How many rejected rows travel in the error body. A file with thousands of
+ * bad rows must not produce a response of megabytes; the summary says how many
+ * there were, and the first N are the ones corrected at once.
  */
 private const val MAX_REJECTION_DETAILS = 50

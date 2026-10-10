@@ -76,7 +76,7 @@ class JdbcAuditRecorderTest {
             .containsEntry("actor_username", "system")
             .containsEntry("reason", "corrección")
             .containsEntry("request_id", "req-1")
-            // Solo `name` cambió: `active` vale lo mismo antes y después.
+            // Only `name` changed: `active` is the same before and after.
             .containsEntry("changed", "name")
             .containsEntry("new_name", "Después")
             .containsEntry("prev_hash", "GENESIS")

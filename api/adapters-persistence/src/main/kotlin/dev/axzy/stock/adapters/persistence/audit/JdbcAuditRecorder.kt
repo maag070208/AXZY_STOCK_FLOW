@@ -10,12 +10,12 @@ import tools.jackson.databind.json.JsonMapper
 import java.time.LocalDate
 
 /**
- * Escribe en la bitácora llamando a `audit_log_record` (migración V12), que encadena el hash del
- * registro con el anterior. La API no inserta en `audit_log` directamente: quien calcula la cadena
- * es la base, y una inserción por fuera la rompería.
+ * Writes to the audit log by calling `audit_log_record` (migration V12), which chains the hash of the
+ * record with the previous one. The API does not insert into `audit_log` directly: whoever computes the chain
+ * is the database, and an insert from outside would break it.
  *
- * Usa la conexión de la transacción en curso: el registro se confirma o se revierte con el cambio
- * que describe.
+ * Uses the connection of the transaction in progress: the record is committed or rolled back with the change
+ * that it describes.
  */
 class JdbcAuditRecorder(
     private val jdbc: JdbcClient,
@@ -28,7 +28,7 @@ class JdbcAuditRecorder(
             .param("actorUserId", event.actor.userId)
             .param("actorUsername", event.actor.username)
             .param("actorName", event.actor.displayName)
-            // Las claves de rol no llevan comas (`^[A-Z][A-Z0-9_]*$`), así que la lista viaja como texto.
+            // Role keys have no commas (`^[A-Z][A-Z0-9_]*$`), so the list travels as text.
             .param("actorRoles", event.actor.roles.takeIf { it.isNotEmpty() }?.joinToString(","))
             .param("channel", event.source.channel.name)
             .param("ip", inetOrNull(event.source.ip))
@@ -107,10 +107,10 @@ class JdbcAuditRecorder(
 }
 
 /**
- * Registra una denegación en una transacción PROPIA (`REQUIRES_NEW`). El caso de uso que la
- * provocó va a terminar en fallo y a revertir; la denegación tiene que quedar escrita igual.
+ * Records a denial in its OWN transaction (`REQUIRES_NEW`). The use case that
+ * caused it is going to fail and roll back; the denial has to be written anyway.
  *
- * @param independent una plantilla configurada con `PROPAGATION_REQUIRES_NEW`.
+ * @param independent a template configured with `PROPAGATION_REQUIRES_NEW`.
  */
 class IndependentAccessDenialLog(
     private val recorder: AuditRecorder,

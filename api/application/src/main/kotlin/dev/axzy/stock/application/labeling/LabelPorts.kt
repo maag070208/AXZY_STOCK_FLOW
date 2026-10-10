@@ -8,14 +8,14 @@ import dev.axzy.stock.domain.labeling.LabelTemplate
 import java.time.Instant
 
 /**
- * Los puertos de etiquetas (M06, docs/api/etiquetas.md).
+ * The label ports (M06, docs/api/etiquetas.md).
  *
- * **La plantilla se resuelve con la función del dominio** ([LabelTemplate.resolve]),
- * la misma que usa la previsualización y el encolado. Si se resolviera aparte, la vista
- * previa podría enseñar algo distinto de lo que se imprime, y se aprobaría lo que se ve.
+ * **The template is resolved with the domain function** ([LabelTemplate.resolve]),
+ * the same one used by the preview and the enqueueing. If it were resolved separately, the preview
+ * could show something different from what is printed, and what is seen would be approved.
  */
 
-/** La plantilla para el listado: **sin el ZPL**, que es grande y no se necesita. */
+/** The template for the listing: **without the ZPL**, which is large and not needed. */
 data class LabelTemplateSummary(
     val id: Long,
     val code: String,
@@ -26,7 +26,7 @@ data class LabelTemplateSummary(
     val fieldSchema: Map<String, LabelFieldSpec>,
 )
 
-/** La especificación de un campo de la plantilla, tal como viaja en el `fieldSchema`. */
+/** The specification of a template field, as it travels in the `fieldSchema`. */
 data class LabelFieldSpec(
     val type: String = "string",
     val label: String = "",
@@ -49,7 +49,7 @@ data class NewLabelTemplate(
     val isActive: Boolean?,
 )
 
-/** La edición parcial: lo que no viene, queda como estaba. */
+/** Partial editing: what is not sent stays as it was. */
 data class LabelTemplatePatch(
     val code: String?,
     val name: String?,
@@ -60,7 +60,7 @@ data class LabelTemplatePatch(
     val isActive: Boolean?,
 )
 
-/** Un trabajo de impresión, con el código de su plantilla y no su identificador. */
+/** A print job, with its template's code and not its identifier. */
 data class PrintJobView(
     val id: Long,
     val templateId: Long,
@@ -83,7 +83,7 @@ data class NewPrintJob(
 )
 
 interface LabelTemplates {
-    /** El listado es un **arreglo sin sobre**: es un catálogo cerrado que la interfaz necesita completo. */
+    /** The listing is a **plain array**: it is a closed catalog that the interface needs whole. */
     fun list(onlyActive: Boolean): List<LabelTemplateSummary>
 
     fun findTemplate(id: Long): LabelTemplateDetail?
@@ -102,19 +102,19 @@ interface PrintJobs {
 
     fun findJob(id: Long): PrintJobView?
 
-    /** Los datos de un trabajo, para que una reimpresión imprima lo mismo. */
+    /** The data of a job, so that a reprint prints the same thing. */
     fun payloadOf(jobId: Long): Map<String, String>?
 
     fun page(status: String?, request: PageRequest): Page<PrintJobView>
 
-    /** El trabajo original, para enlazar una reimpresión. */
+    /** The original job, to link a reprint. */
     fun exists(id: Long): Boolean
 
-    /** Solo lo hace la confirmación de la impresora: el sistema no se autocertifica. */
+    /** Only the printer's confirmation does it: the system does not self-certify. */
     fun markPrinted(id: Long, at: Instant): Int
 
     fun markFailed(id: Long, error: String, at: Instant): Int
 }
 
-/** El tamaño en milímetros de una plantilla, calculado por el servidor. */
+/** The size in millimeters of a template, computed by the server. */
 internal fun sizeOf(size: String?): LabelSize = LabelSize.parse(size)

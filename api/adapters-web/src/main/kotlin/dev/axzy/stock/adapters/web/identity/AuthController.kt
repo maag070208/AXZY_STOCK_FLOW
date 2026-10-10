@@ -21,8 +21,8 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
-// Los campos son opcionales para que su ausencia la explique el caso de uso (`FIELD_REQUIRED`) y no
-// un error genérico de lectura del JSON.
+// The fields are optional so that their absence is explained by the use case (`FIELD_REQUIRED`) and not by
+// a generic JSON read error.
 data class LoginRequest(val username: String? = null, val password: String? = null)
 
 data class RefreshRequest(val refreshToken: String? = null)
@@ -43,7 +43,7 @@ data class SessionUserDto(
 data class AuthSessionDto(
     val accessToken: String,
     val refreshToken: String,
-    /** En segundos, que es lo que esperan las bibliotecas de cliente. */
+    /** In seconds, as client libraries expect. */
     val expiresIn: Long,
     val user: SessionUserDto,
 )
@@ -52,7 +52,7 @@ private fun SessionUser.toDto() = SessionUserDto(id, username, name, roles, perm
 
 private fun AuthSession.toDto() = AuthSessionDto(accessToken, refreshToken, expiresInSeconds, user.toDto())
 
-/** Las rutas de sesión (docs/api/autenticacion.md). */
+/** The session routes (docs/api/autenticacion.md). */
 @RestController
 @RequestMapping("/v1/auth")
 class AuthController(
@@ -72,7 +72,7 @@ class AuthController(
     fun refresh(@RequestBody body: RefreshRequest, origin: RequestOrigin): ResponseEntity<Any> =
         refreshSession.execute(body.refreshToken.orEmpty(), origin).toResponse { it.toDto() }
 
-    /** El cuerpo es opcional y no se exige un token válido: cerrar sesión nunca responde con error. */
+    /** The body is optional and no valid token is required: signing out never responds with an error. */
     @PostMapping("/logout")
     @PublicRoute
     fun logout(@RequestBody(required = false) body: RefreshRequest?): ResponseEntity<Any> {
@@ -80,7 +80,7 @@ class AuthController(
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build()
     }
 
-    /** Relee de la base: los permisos pueden haber cambiado desde que se emitió el token. */
+    /** Rereads from the database: the permissions may have changed since the token was issued. */
     @GetMapping("/me")
     @AuthenticatedOnly
     @AllowedWithPendingPasswordChange

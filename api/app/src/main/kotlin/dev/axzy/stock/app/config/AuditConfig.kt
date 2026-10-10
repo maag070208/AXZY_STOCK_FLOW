@@ -12,10 +12,10 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.jdbc.core.simple.JdbcClient
 
 /**
- * La consulta de la bitácora (M08).
+ * The audit log query (M08).
  *
- * El registro de escritura ya estaba cableado en `PersistenceConfig` desde la fase 3;
- * aquí solo entra la lectura, que además escribe su propio registro de acceso.
+ * The write log was already wired in `PersistenceConfig` since phase 3;
+ * only the reading comes in here, which also writes its own access record.
  */
 @Configuration(proxyBeanMethods = false)
 class AuditConfig {

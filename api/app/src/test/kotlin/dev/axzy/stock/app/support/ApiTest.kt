@@ -27,7 +27,7 @@ import java.net.http.HttpResponse
 import java.time.Instant
 import java.time.LocalDate
 
-/** Una respuesta de la API, con el cuerpo ya leído como mapa. */
+/** An API response, with the body already read as a map. */
 data class ApiResponse(val status: Int, val body: Map<String, Any?>, val headers: java.net.http.HttpHeaders, val raw: String) {
     val code: String? get() = body["code"] as String?
     fun header(name: String): String? = headers.firstValue(name).orElse(null)
@@ -41,11 +41,11 @@ data class ApiResponse(val status: Int, val body: Map<String, Any?>, val headers
 }
 
 /**
- * Base de las pruebas de flujo: **la API entera, por HTTP de verdad**. Arranca Spring Boot con
- * Tomcat en un puerto libre, la cadena de seguridad, el cableado real y PostgreSQL real.
+ * Base of the flow tests: **the whole API, over real HTTP**. It starts Spring Boot with
+ * Tomcat on a free port, the security chain, the real wiring and real PostgreSQL.
  *
- * Lo único sustituido es el reloj, para poder adelantar el tiempo (caducidad, ventana de gracia,
- * bloqueo). Cada prueba empieza con la base recién sembrada.
+ * The only thing replaced is the clock, so that time can be advanced (expiry, grace window,
+ * lockout). Each test starts with the freshly seeded database.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(ApiTest.TestClock::class)
@@ -64,12 +64,12 @@ abstract class ApiTest {
     @Autowired protected lateinit var clock: MutableClock
 
     /**
-     * El día operativo, **en la zona de negocio y no en la de la máquina**.
+     * The operating day, **in the business zone and not in the machine's**.
      *
-     * La API fecha los movimientos con `stock.business-zone`, así que un test que pregunte por
-     * «hoy» con `LocalDate.now()` falla la hora al día en que la máquina y la zona de negocio
-     * están en días distintos (en la costa oeste de EE. UU., de 23:00 a 00:00). La regla es la
-     * misma para los dos, así que el test la pide de la misma configuración.
+     * The API dates movements with `stock.business-zone`, so a test that asks for "today"
+     * with `LocalDate.now()` gets the wrong date on the day when the machine and the business zone are
+     * on different days (on the US west coast, from 23:00 to midnight). The rule is the
+     * same for both, so the test takes it from the same configuration.
      */
     protected fun businessToday(): LocalDate = LocalDate.now(properties.businessZone)
     @Autowired protected lateinit var json: JsonMapper
@@ -79,7 +79,7 @@ abstract class ApiTest {
     @Autowired private lateinit var catalog: AccessCatalogStore
     @Autowired private lateinit var hasher: PasswordHasher
 
-    /** Para comprobar el estado de la base sin pasar por la API. */
+    /** To check the state of the database without going through the API. */
     protected val db: JdbcClient = JdbcClient.create(TestDatabase.owner)
     private val http: HttpClient = HttpClient.newHttpClient()
 
@@ -92,13 +92,13 @@ abstract class ApiTest {
 
     // ── Datos ────────────────────────────────────────────────────────────────
 
-    /** Crea una cuenta que no tiene pendiente el cambio de contraseña. */
+    /** Creates an account with no password change pending. */
     protected fun createUser(username: String, password: String = USER_PASSWORD, vararg roles: String): Long =
         tx.inTransaction {
             catalog.createUser(username, "Usuario $username", hasher.hash(password), mustChangePassword = false, roleKeys = roles.toList()).asRight()
         }.getOrNull()!!
 
-    /** Crea una cuenta **con el cambio de contraseña pendiente**: es el punto de partida de I8. */
+    /** Creates an account **with the password change pending**: it is the starting point of I8. */
     protected fun createPendingUser(username: String, password: String = USER_PASSWORD, vararg roles: String): Long =
         tx.inTransaction {
             catalog.createUser(username, "Usuario $username", hasher.hash(password), mustChangePassword = true, roleKeys = roles.toList()).asRight()
@@ -118,11 +118,11 @@ abstract class ApiTest {
     protected fun post(path: String, body: Any? = null, token: String? = null, headers: Map<String, String> = emptyMap()): ApiResponse =
         send("POST", path, body, token, headers)
 
-    /** `PUT`: la edición completa de un recurso. Las etiquetas son las primeras en usarlo. */
+    /** `PUT`: the full edit of a resource. Labels are the first to use it. */
     protected fun put(path: String, body: Any? = null, token: String? = null, headers: Map<String, String> = emptyMap()): ApiResponse =
         send("PUT", path, body, token, headers)
 
-    /** `PATCH`: la actualización parcial de un recurso. La confirmación de la impresora la usa. */
+    /** `PATCH`: the partial update of a resource. The printer's confirmation uses it. */
     protected fun patch(
         path: String,
         body: Any? = null,
@@ -144,9 +144,9 @@ abstract class ApiTest {
     }
 
     /**
-     * Sube un archivo por `multipart/form-data`, que es lo que un formulario de
-     * navegador envía de verdad. Un cuerpo `application/json` con el texto dentro
-     * no probaría la misma ruta.
+     * Uploads a file as `multipart/form-data`, which is what a browser form
+     * really sends. A `application/json` body with the text inside
+     * would not test the same route.
      */
     protected fun postFile(
         path: String,

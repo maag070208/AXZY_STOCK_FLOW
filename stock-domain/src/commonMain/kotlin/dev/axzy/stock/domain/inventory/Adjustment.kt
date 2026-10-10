@@ -302,7 +302,7 @@ object AdjustmentPolicy {
                 return Decision.Reject(
                     // El error lleva los NÚMEROS y la ubicación, no solo un
                     // mensaje: un «stock insuficiente» sin cantidades obliga a
-                    // mirar la base para saber qué pasó.
+                    // looking at the database to know what happened.
                     DomainError.InsufficientStock(
                         available = available.units,
                         requested = request.quantity.units,

@@ -13,12 +13,12 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 
 /**
- * Surtido contra PostgreSQL real: el presupuesto de consultas y la **confirmación
- * simultánea** (S3).
+ * Fulfillment against real PostgreSQL: the query budget and the **simultaneous
+ * confirmation** (S3).
  *
- * La prueba de S3 que importa es esta y no la de HTTP: el reclamo de la confirmación
- * es una sentencia condicional, y lo que hay que demostrar es que dos transacciones de
- * verdad no se la llevan las dos. La de HTTP comprueba lo mismo en secuencia.
+ * The S3 test that matters is this one and not the HTTP one: the claim of the confirmation
+ * is a conditional statement, and what has to be shown is that two real transactions do not
+ * both take it. The HTTP test checks the same thing in sequence.
  */
 class FulfillmentPersistenceTest {
 
@@ -54,8 +54,8 @@ class FulfillmentPersistenceTest {
             val first = executor.submit<Int> {
                 db.tx.inTransaction {
                     val claimed = orders.claimConfirmation(orderId, Instant.now())
-                    // Se mantiene la transacción abierta: la segunda tiene que esperar
-                    // al bloqueo de la fila y, al continuar, reevaluar la condición.
+                    // The transaction stays open: the second one has to wait
+                    // for the row lock and, when it continues, re-evaluate the condition.
                     firstClaimed.countDown()
                     Thread.sleep(400)
                     claimed.asClaimed()
@@ -74,7 +74,7 @@ class FulfillmentPersistenceTest {
             executor.shutdownNow()
         }
 
-        // Y la orden quedó confirmada una sola vez.
+        // And the order was confirmed only once.
         assertThat(orders.detail(orderId)!!.header.status).isEqualTo("PENDING_TO_OUT")
     }
 }

@@ -10,12 +10,12 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 /**
- * La administración de usuarios y roles contra PostgreSQL real (M07).
+ * User and role administration against real PostgreSQL (M07).
  *
- * Lo que se comprueba aquí y no por HTTP: que el listado de usuarios **no crezca con el
- * número de filas**. Los roles de cada persona vienen en la misma consulta con `array_agg`,
- * y eso es una decisión de diseño que sin una medición se pierde en el primer cambio que
- * alguien haga con buena intención.
+ * What is checked here and not over HTTP: that the user list **does not grow with the
+ * number of rows**. Each person's roles come in the same query with `array_agg`,
+ * and that is a design decision that, without a measurement, is lost at the first change
+ * someone makes with good intentions.
  */
 class UserAdminPersistenceTest {
 
@@ -51,14 +51,14 @@ class UserAdminPersistenceTest {
 
         val statements = db.statements.during { store.find(id) }
 
-        // El usuario con sus roles, y la consulta del sello de credenciales.
+        // The user with their roles, and the credentials-stamp query.
         assertThat(statements).isEqualTo(3)
     }
 
     @Test
     fun `filtering by role is still two statements`() {
-        // El filtro es un `EXISTS` dentro de la misma consulta: si se hubiera escrito
-        // resolviendo los usuarios del rol primero, serían tres y crecería con la página.
+        // The filter is an `EXISTS` inside the same query: if the users of the role had been
+        // resolved first, there would be three queries and it would grow with the page.
         val statements = db.statements.during {
             store.page(UserFilter(null, "ADMIN", null), PageRequest.of(size = 25))
         }

@@ -26,11 +26,11 @@ import org.springframework.jdbc.core.simple.JdbcClient
 import java.time.Clock
 
 /**
- * Recepción (M03): facturas, captura física y decisiones sobre las discrepancias.
+ * Receiving (M03): invoices, physical count and decisions on the discrepancies.
  *
- * El mismo adaptador implementa los dos puertos —el de facturas y el catálogo que
- * necesita el alta— porque las dos cosas son la misma tabla vista de dos maneras, y
- * separarlas daría dos conexiones y dos consultas para resolver un producto.
+ * The same adapter implements the two ports —the invoices one and the catalog needed
+ * by creation— because both are the same table seen in two ways, and separating them
+ * would mean two connections and two queries to resolve a product.
  */
 @Configuration(proxyBeanMethods = false)
 class ReceivingConfig {

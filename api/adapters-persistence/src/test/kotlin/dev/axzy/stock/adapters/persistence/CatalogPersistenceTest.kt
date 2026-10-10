@@ -23,8 +23,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 /**
- * El catálogo contra PostgreSQL de verdad, con el usuario de la API (miembro de
- * `stock_api`): si un permiso del rol faltara, estas pruebas fallarían.
+ * The catalog against real PostgreSQL, with the API user (a member of
+ * `stock_api`): if a permission of the role were missing, these tests would fail.
  */
 class CatalogPersistenceTest {
 
@@ -118,7 +118,7 @@ class CatalogPersistenceTest {
         assertThat(page.items.single().stock).isEqualTo(Quantity.ofScaled(12_500))
     }
 
-    // ── Importación ─────────────────────────────────────────────────────────
+    // ── Import ─────────────────────────────────────────────────────────
 
     @Test
     fun `K2 - importing twice does not duplicate, and the second import changes nothing`() {
@@ -190,8 +190,8 @@ class CatalogPersistenceTest {
         val page = locations.page(filter, PageRequest.of(page = 0, size = 10))
 
         assertThat(statements).isEqualTo(2)
-        // 20 estantes, la recepción y la ubicación del saldo heredado (UNASSIGNED),
-        // que siembra la migración V6.
+        // 20 shelves, the receiving location and the balance location inherited (UNASSIGNED),
+        // which migration V6 seeds.
         assertThat(page.totalItems).isEqualTo(22)
         assertThat(page.items).hasSize(10)
     }
@@ -247,9 +247,9 @@ class CatalogPersistenceTest {
 
     @Test
     fun `K6 - only one warehouse remains the default`() {
-        // El caso de uso hace las dos cosas en la MISMA transacción; aquí se prueba
-        // el efecto en la base, que es donde el índice parcial lo impone: si el
-        // `clearDefault` no fuera antes del `insert`, esto fallaría.
+        // The use case does both things in the SAME transaction; here the
+        // effect is tested in the database, which is where the partial index enforces it: if the
+        // `clearDefault` ran after the `insert`, this would fail.
         warehouses.clearDefault()
         val second = warehouses.insert(NewWarehouse("NORTE", "Bodega norte", null, isDefault = true))
 

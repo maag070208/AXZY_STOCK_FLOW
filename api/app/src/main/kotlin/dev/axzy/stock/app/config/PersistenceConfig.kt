@@ -32,7 +32,7 @@ import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.support.TransactionTemplate
 import tools.jackson.databind.json.JsonMapper
 
-/** Los puertos de salida, implementados sobre PostgreSQL. */
+/** The output ports, implemented over PostgreSQL. */
 @Configuration(proxyBeanMethods = false)
 class PersistenceConfig {
 
@@ -43,7 +43,7 @@ class PersistenceConfig {
     @Bean
     fun auditRecorder(jdbc: JdbcClient, json: JsonMapper): AuditRecorder = JdbcAuditRecorder(jdbc, json)
 
-    /** Las denegaciones se escriben en una transacción propia: sobreviven al rollback de quien las provocó. */
+    /** Denials are written in their own transaction: they survive the rollback of whoever caused them. */
     @Bean
     fun accessDenialLog(recorder: AuditRecorder, transactionManager: PlatformTransactionManager): AccessDenialLog =
         IndependentAccessDenialLog(
@@ -68,7 +68,7 @@ class PersistenceConfig {
     @Bean
     fun accessCatalogStore(jdbc: JdbcClient, json: JsonMapper): AccessCatalogStore = JdbcAccessCatalogStore(jdbc, json)
 
-    // ── Catálogo (M01) ──────────────────────────────────────────────────────
+    // ── Catalog (M01) ──────────────────────────────────────────────────────
 
     @Bean
     fun products(jdbc: JdbcClient, json: JsonMapper): Products = JdbcProducts(jdbc, json)

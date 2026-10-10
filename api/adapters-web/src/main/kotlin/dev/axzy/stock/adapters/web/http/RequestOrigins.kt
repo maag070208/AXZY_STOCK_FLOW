@@ -22,14 +22,14 @@ const val HEADER_DEVICE_ID = "X-Device-Id"
 private const val ATTRIBUTE_REQUEST_ID = "stock.requestId"
 
 /**
- * Da a cada petición un identificador (`X-Request-Id`): el que traiga el cliente si es un UUID, o
- * uno nuevo. Vuelve en la respuesta, entra en cada línea de log y se guarda en la bitácora, así
- * que un error que ve el usuario se puede seguir hasta su registro.
+ * Gives each request an identifier (`X-Request-Id`): the one the client sends if it is a UUID, or
+ * a new one. It comes back in the response, goes into every log line and is stored in the audit log, so
+ * that an error the user sees can be followed to its record.
  */
 class RequestIdFilter : OncePerRequestFilter() {
 
     override fun doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, chain: FilterChain) {
-        // Solo se acepta un UUID: el valor termina en el log y en la base, y no se confía en texto libre.
+        // Only a UUID is accepted: the value ends up in the log and the database, and free text is not trusted.
         val requestId = request.getHeader(HEADER_REQUEST_ID)
             ?.takeIf { runCatching { UUID.fromString(it) }.isSuccess }
             ?: UUID.randomUUID().toString()
@@ -45,13 +45,13 @@ class RequestIdFilter : OncePerRequestFilter() {
     }
 }
 
-/** De dónde viene la petición, tal como lo necesita un caso de uso. */
+/** Where the request comes from, as a use case needs it. */
 fun HttpServletRequest.origin(): RequestOrigin {
     val declared = getHeader(HEADER_CLIENT_CHANNEL)?.trim()?.uppercase()
     val channel = when (declared) {
         null, "" -> AuditChannel.WEB
-        // Un cliente solo puede declararse como persona. Los canales de servicio no se eligen con
-        // una cabecera: los fija la credencial con la que se entra.
+        // A client can only declare itself as a person. Service channels are not chosen with
+        // a header: the credential used to enter fixes them.
         "WEB", "MOBILE", "MOBILE_OFFLINE" -> AuditChannel.valueOf(declared)
         else -> throw FailureException(
             Failure(
@@ -63,8 +63,8 @@ fun HttpServletRequest.origin(): RequestOrigin {
     }
     return RequestOrigin(
         channel = channel,
-        // Detrás de un proxy de confianza, el contenedor ya resolvió la dirección real del cliente
-        // (`server.forward-headers-strategy`). Aquí NO se lee `X-Forwarded-For`: cualquiera puede enviarlo.
+        // Behind a trusted proxy, the container has already resolved the client's real address
+        // (`server.forward-headers-strategy`). `X-Forwarded-For` is NOT read here: anyone can send it.
         ip = remoteAddr,
         userAgent = getHeader("User-Agent"),
         deviceId = getHeader(HEADER_DEVICE_ID)?.take(120),
@@ -72,7 +72,7 @@ fun HttpServletRequest.origin(): RequestOrigin {
     )
 }
 
-/** Permite que un controlador reciba el [RequestOrigin] como un parámetro más. */
+/** Lets a controller receive the [RequestOrigin] as one more parameter. */
 class RequestOriginArgumentResolver : HandlerMethodArgumentResolver {
 
     override fun supportsParameter(parameter: MethodParameter): Boolean =

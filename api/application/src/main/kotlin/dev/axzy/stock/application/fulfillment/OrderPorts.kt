@@ -9,11 +9,11 @@ import java.time.Instant
 import java.time.LocalDate
 
 /**
- * Los puertos de surtido (M04) y de la exportación al ERP (M09).
+ * The fulfillment (M04) and ERP-export (M09) ports.
  *
- * La orden **no toca el inventario al crearse**: el stock sale al empacar y al
- * confirmar, que son actos con responsable. Toda escritura de existencias pasa por el
- * mismo motor que usa recepción (`record_movement`).
+ * The order **does not touch the inventory when created**: stock leaves when packing and
+ * confirming, which are acts with a responsible person. Every stock write goes through the
+ * same engine that receiving uses (`record_movement`).
  */
 
 data class OrderHeader(
@@ -43,10 +43,10 @@ data class OrderDetail(val header: OrderHeader, val lines: List<OrderLineView>)
 
 data class OrderFilter(val status: String?, val query: String?)
 
-/** Una línea tal como llega en el alta. */
+/** A line as it arrives on creation. */
 data class NewOrderLine(val productCode: String?, val quantity: Quantity?)
 
-/** La orden tal como llega en el alta: el número y la fecha son opcionales. */
+/** The order as it arrives on creation: the number and the date are optional. */
 data class NewOrder(
     val orderNumber: String?,
     val packagingDate: String?,
@@ -55,7 +55,7 @@ data class NewOrder(
     val lines: List<NewOrderLine>,
 )
 
-/** Una línea del alta con su producto ya resuelto. */
+/** A creation line with its product already resolved. */
 data class ResolvedOrderLine(
     val productId: Long,
     val productCode: ProductCode,
@@ -63,7 +63,7 @@ data class ResolvedOrderLine(
     val quantity: Quantity,
 )
 
-/** La cabecera ya validada, lista para escribir. */
+/** The header, already validated, ready to write. */
 data class OrderDraft(
     val orderNumber: String,
     val packagingDate: LocalDate?,
@@ -71,12 +71,12 @@ data class OrderDraft(
     val concept: String?,
 )
 
-/** Lo que la orden necesita saber de un producto y de una ubicación. */
+/** What the order needs to know about a product and a location. */
 data class OrderProduct(val id: Long, val unitMeasureId: Long)
 
 data class OrderLocation(val id: Long, val warehouseId: Long, val displayName: String)
 
-/** El resultado del alta: un identificador, o que el número ya existía. */
+/** The result of the creation: an identifier, or that the number already existed. */
 sealed interface InsertOrderResult {
     data class Inserted(val id: Long) : InsertOrderResult
 
@@ -92,7 +92,7 @@ interface Orders {
 
     fun numberExists(orderNumber: String): Boolean
 
-    /** El número correlativo del año: `ORD-AAAA-NNNN`, como el legacy. */
+    /** The yearly sequence number: `ORD-YYYY-NNNN`, as in the legacy. */
     fun nextOrderNumber(year: Int): String
 
     fun insert(draft: OrderDraft, lines: List<ResolvedOrderLine>): InsertOrderResult
@@ -102,58 +102,58 @@ interface Orders {
     fun replaceLine(line: OrderLine, locationId: Long?, at: Instant): Unit
 
     /**
-     * Asigna la línea en **una sola sentencia condicional**.
+     * Assigns the line in **a single conditional statement**.
      *
-     * El `WHERE` exige que la línea siga en un estado asignable, así que si el empaque la
-     * surtió entre la lectura y la escritura, no se le asigna trabajo a nadie sobre mercancía
-     * que ya salió: devuelve cuántas filas cambió, y cero significa que cambió por debajo.
+     * The `WHERE` requires the line to still be in an assignable state, so if packing
+     * fulfilled it between the read and the write, no work is assigned to anyone on goods
+     * that already left: it returns how many rows changed, and zero means it changed underneath.
      */
     fun assignLine(lineId: Long, userId: Long, locationId: Long?, at: Instant): Int
 
     fun setStatus(orderId: Long, status: String, at: Instant): Unit
 
     /**
-     * **Reclama la confirmación** en una sola sentencia condicional.
+     * **Claims the confirmation** in a single conditional statement.
      *
-     * Es lo que hace que confirmar dos veces a la vez no descuente dos veces (S3): el
-     * `WHERE` exige que la orden siga en un estado previo a la confirmación, así que
-     * solo una de las dos transacciones se lleva la fila. Devuelve cuántas cambió: si
-     * es cero, otra ya la confirmó.
+     * It is what stops confirming twice at once from deducting twice (S3): the
+     * `WHERE` requires the order to still be in a state before confirmation, so
+     * only one of the two transactions gets the row. It returns how many changed: if
+     * it is zero, another one already confirmed it.
      */
     fun claimConfirmation(orderId: Long, at: Instant): Int
 
     fun recordExport(orderId: Long, converted: Boolean, status: String, error: String?, at: Instant): Unit
 }
 
-/** De dónde salen el producto y la ubicación de una línea de orden. */
+/** Where an order line's product and location come from. */
 interface OrderCatalog {
     fun product(code: ProductCode): OrderProduct?
 
     fun location(id: Long): OrderLocation?
 }
 
-/** El resultado de un intento de envío al ERP. */
+/** The result of an attempt to send to the ERP. */
 sealed interface ErpResult {
-    /** El ERP lo recibió. */
+    /** The ERP received it. */
     data object Sent : ErpResult
 
     /**
-     * El intento falló, con un motivo **legible y guardable**.
+     * The attempt failed, with a **readable and storable** reason.
      *
-     * El motivo se guarda en `export_last_error` y el reintento manual lo vuelve a
-     * mostrar: un «falló» sin causa obliga a mirar los registros del servidor.
+     * The reason is stored in `export_last_error` and the manual retry shows it
+     * again: a "failed" without a cause forces looking at the server logs.
      */
     data class Failed(val reason: String) : ErpResult
 }
 
 /**
- * La conexión con el ERP.
+ * The connection to the ERP.
  *
- * **Hoy no existe** ([ADR-0013], `docs/guia/lo-no-verificado.md`): la implementación
- * cableada devuelve `ERP_NOT_CONNECTED` y el contador de intentos lo refleja. El
- * puerto está aquí para que el día que haya ERP solo haya que escribir un adaptador, y
- * para que el caso de uso ya aplique las reglas que no dependen de él: la confirmación
- * no se revierte si el envío falla.
+ * **It does not exist today** ([ADR-0013], `docs/guia/lo-no-verificado.md`): the wired
+ * implementation returns `ERP_NOT_CONNECTED` and the attempt counter reflects it. The
+ * port is here so that the day there is an ERP only one adapter has to be written, and
+ * so that the use case already applies the rules that do not depend on it: the confirmation
+ * is not rolled back if the sending fails.
  */
 interface ErpClient {
     fun send(order: OrderDetail): ErpResult

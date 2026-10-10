@@ -7,12 +7,12 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 /**
- * Traslados (M05) por HTTP real.
+ * Transfers (M05) over real HTTP.
  *
- * Los nombres T1…T8 son los de docs/flujos/traslados.md §7. T1, T2, T5 y T6 también
- * están probadas **contra el motor** (`TransferEngineTest`), que es donde se demuestra
- * que la mercancía en tránsito sigue contando; aquí se comprueba lo mismo por las
- * rutas, con sus permisos y su contrato.
+ * The names T1…T8 are those of docs/flujos/traslados.md §7. T1, T2, T5 and T6 are also
+ * tested **against the engine** (`TransferEngineTest`), which is where it is shown that the
+ * that goods in transit still count; here the same is checked through the
+ * routes, with their permissions and their contract.
  */
 class TransferFlowTest : ApiTest() {
 
@@ -35,8 +35,8 @@ class TransferFlowTest : ApiTest() {
 
     @BeforeEach
     fun prepareSucursal() {
-        // La bodega de destino necesita su ubicación de recepción, que siembra el
-        // esquema para la principal pero no para una bodega nueva.
+        // The destination warehouse needs its receiving location, which the schema seeds
+        // for the main warehouse but not for a new one.
         destinationWarehouse = db.sql(
             "INSERT INTO warehouses (code, name, is_default, active) VALUES ('BRANCH', 'Sucursal', FALSE, TRUE) RETURNING id",
         ).query(Long::class.java).single()
@@ -79,7 +79,7 @@ class TransferFlowTest : ApiTest() {
         return (header["id"] as Number).toLong()
     }
 
-    /** Con los tres decimales del contrato: `COALESCE(x, 0)` devuelve la escala del literal. */
+    /** With the contract's three decimals: `COALESCE(x, 0)` returns the scale of the literal. */
     private fun three(value: java.math.BigDecimal): String = value.setScale(3).toPlainString()
 
     private fun quantityAt(locationId: Long): String =
@@ -101,7 +101,7 @@ class TransferFlowTest : ApiTest() {
                 .optional().orElse(java.math.BigDecimal.ZERO),
         )
 
-    // ── T1 y T2: despachar y recibir ────────────────────────────────────────
+    // ── T1 and T2: dispatching and receiving ───────────────────────────────
 
     @Test
     fun `T1 - dispatching takes from the origin and leaves it in transit without changing the total`() {
@@ -116,7 +116,7 @@ class TransferFlowTest : ApiTest() {
         assertThat(response.at<Map<String, Any?>>("transfer")["status"]).isEqualTo("DISPATCHED")
         assertThat(quantityAt(origin)).isEqualTo("60.000")
         assertThat(inTransit()).isEqualTo("40.000")
-        // La mercancía en el camión SIGUE contando.
+        // The goods on the truck STILL count.
         assertThat(totalStock()).isEqualTo("100.000")
     }
 
@@ -149,8 +149,8 @@ class TransferFlowTest : ApiTest() {
 
         val segunda = post("/v1/transfers/$id/receive", emptyMap<String, Any>(), token)
 
-        // 409 y no 422: `INVALID_TRANSITION` es un conflicto de estado, y el catálogo
-        // de errores lo fija ahí (docs/api/errores.md).
+        // 409 and not 422: `INVALID_TRANSITION` is a state conflict, and the error catalog
+        // sets it there (docs/api/errores.md).
         assertThat(segunda.status).isEqualTo(409)
         assertThat(segunda.code).isEqualTo("INVALID_TRANSITION")
         assertThat(quantityAt(destination)).isEqualTo("40.000")
@@ -188,13 +188,13 @@ class TransferFlowTest : ApiTest() {
         assertThat(response.status).isEqualTo(422)
         assertThat(response.code).isEqualTo("INSUFFICIENT_STOCK")
         assertThat(response.at<Map<String, String>>("details")["available"]).isEqualTo("10")
-        // Nada a medias: ni salida, ni tránsito, ni cambio de estado.
+        // Nothing half-done: no outflow, no transit, no status change.
         assertThat(quantityAt(origin)).isEqualTo("10.000")
         assertThat(inTransit()).isEqualTo("0.000")
         assertThat(get("/v1/transfers/$id", token).at<Map<String, Any?>>("transfer")["status"]).isEqualTo("DRAFT")
     }
 
-    // ── T6 y T7: cancelar ───────────────────────────────────────────────────
+    // ── T6 and T7: cancelling ─────────────────────────────────────────────
 
     @Test
     fun `T6 - cancelling a dispatched transfer returns the goods to their origin`() {
@@ -226,12 +226,12 @@ class TransferFlowTest : ApiTest() {
 
         assertThat(response.status).isEqualTo(409)
         assertThat(response.code).isEqualTo("INVALID_TRANSITION")
-        // Lo recibido está en el destino y ahí se queda.
+        // What was received is at the destination and stays there.
         assertThat(quantityAt(destination)).isEqualTo("40.000")
         assertThat(get("/v1/transfers/$id", token).at<Map<String, Any?>>("transfer")["status"]).isEqualTo("RECEIVED")
     }
 
-    // ── T8: el tránsito tiene su propio permiso ─────────────────────────────
+    // ── T8: transit has its own permission ───────────────────────────────
 
     @Test
     fun `T8 - the transit is seen with its own permission and not with the transfers one`() {
@@ -241,7 +241,7 @@ class TransferFlowTest : ApiTest() {
         val id = transfer(token, quantity = 40)
         post("/v1/transfers/$id/dispatch", emptyMap<String, Any>(), token)
 
-        // Un usuario que solo vigila la deuda: `transit.view` y nada de traslados.
+        // A user who only watches the debt: `transit.view` and nothing about transfers.
         createUser("vigilante", USER_PASSWORD, BaseRole.AUDITOR.key.value)
         db.sql("DELETE FROM role_permissions WHERE role_id = (SELECT id FROM roles WHERE key = :role)")
             .param("role", BaseRole.AUDITOR.key.value).update()
@@ -258,19 +258,19 @@ class TransferFlowTest : ApiTest() {
         val listado = get("/v1/transfers", vigilante)
 
         assertThat(reporte.status).isEqualTo(200)
-        // El informe devuelve un ARREGLO, sin sobre de paginación: se comprueba su
-        // contenido tal cual, porque el contrato fija esa forma.
+        // The report returns an ARRAY, without a pagination envelope: its content is checked
+        // as it is, because the contract fixes that shape.
         assertThat(reporte.raw).startsWith("[")
         assertThat(reporte.raw).contains("\"code\":\"TR-2026-0001\"")
         assertThat(reporte.raw).contains("\"fromWarehouseCode\":\"MAIN\"")
         assertThat(reporte.raw).contains("\"toWarehouseCode\":\"BRANCH\"")
-        // Los días los cuenta el servidor, no la pantalla.
+        // The days are counted by the server, not by the screen.
         assertThat(reporte.raw).contains("\"daysInTransit\":0")
         assertThat(reporte.raw).contains("\"dispatchedByName\":\"Usuario jefa\"")
         assertThat(listado.status).isEqualTo(403)
     }
 
-    // ── El contrato de las rutas ────────────────────────────────────────────
+    // ── The route contract ────────────────────────────────────────────────
 
     @Test
     fun `creating without lines and a transfer that does not exist are rejected`() {
@@ -299,7 +299,7 @@ class TransferFlowTest : ApiTest() {
         assertThat(listado.at<List<Map<String, Any?>>>("items").single()["lineCount"]).isEqualTo(1)
         assertThat(detalle.at<Map<String, Any?>>("transfer")["code"]).isEqualTo("TR-2026-0001")
         assertThat(detalle.at<List<Map<String, Any?>>>("lines").single()["quantity"]).isEqualTo("40.000")
-        // La línea no dice de qué ubicación sale: el motor usa la recepción del origen.
+        // The line does not say which location it leaves from: the engine uses the origin's receiving.
         assertThat(detalle.at<List<Map<String, Any?>>>("lines").single()["fromLocationDisplayName"]).isNull()
     }
 
@@ -308,7 +308,7 @@ class TransferFlowTest : ApiTest() {
         createUser("operador", USER_PASSWORD, BaseRole.WAREHOUSE_OPERATOR.key.value)
         val token = accessTokenOf("operador", USER_PASSWORD)
 
-        // Cancelar es sensible: aunque el traslado no exista, el permiso decide primero.
+        // Cancelling is sensitive: even if the transfer does not exist, the permission decides first.
         val cancelar = post("/v1/transfers/999999/cancel", emptyMap<String, Any>(), token)
 
         assertThat(cancelar.status).isEqualTo(403)

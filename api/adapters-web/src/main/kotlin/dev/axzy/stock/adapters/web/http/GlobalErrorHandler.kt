@@ -17,8 +17,8 @@ import org.springframework.web.servlet.resource.NoResourceFoundException
 import java.util.UUID
 
 /**
- * Lo que no es un fallo de un caso de uso también responde con el contrato de error: una petición
- * que Spring no pudo leer, una ruta que no existe y, sobre todo, un error inesperado.
+ * What is not a use-case failure also answers with the error contract: a request
+ * Spring could not read, a route that does not exist and, above all, an unexpected error.
  */
 @RestControllerAdvice
 class GlobalErrorHandler {
@@ -59,20 +59,20 @@ class GlobalErrorHandler {
     fun notFound(): ResponseEntity<Any> = error(HttpStatus.NOT_FOUND, "NOT_FOUND", "The route does not exist.")
 
     /**
-     * El archivo supera el límite del contenedor.
+     * The file exceeds the container's limit.
      *
-     * Se responde por el contrato (`FILE_TOO_LARGE`) y **no** con el `500` genérico:
-     * el cliente tiene que poder decir «el archivo es demasiado grande» en lugar de
-     * «error interno», que además invitaría a reintentar el mismo archivo.
+     * It is answered through the contract (`FILE_TOO_LARGE`) and **not** with the generic `500`:
+     * the client has to be able to say "the file is too large" instead of
+     * "internal error", which would also invite retrying the same file.
      */
     @ExceptionHandler(MaxUploadSizeExceededException::class)
     fun fileTooLarge(): ResponseEntity<Any> =
         error(HttpStatus.BAD_REQUEST, "FILE_TOO_LARGE", "The file exceeds the maximum allowed size.")
 
     /**
-     * Un error que nadie esperaba. Al cliente NO se le da el detalle: el mensaje de una excepción
-     * puede llevar SQL, rutas o datos. Se le da un identificador con el que buscar el incidente en
-     * el log, donde sí queda completo.
+     * An error nobody expected. The client is NOT given the detail: an exception message
+     * can carry SQL, paths or data. It is given an identifier to look up the incident in the
+     * log, where it is recorded in full.
      */
     @ExceptionHandler(Exception::class)
     fun unexpected(e: Exception, request: HttpServletRequest): ResponseEntity<Any> {

@@ -21,12 +21,12 @@ import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
 /**
- * Las etiquetas y su cola sobre PostgreSQL (docs/api/etiquetas.md).
+ * Labels and their queue on PostgreSQL (docs/api/etiquetas.md).
  *
- * El `field_schema` y el `payload` son JSONB y se guardan **tal como llegan**, con el
- * serializador del proyecto (Jackson 3). El esquema de campos se convierte a
- * [LabelField] al leer para que el dominio pueda resolver la plantilla con la misma
- * función que usa la impresión.
+ * The `field_schema` and the `payload` are JSONB and are stored **as they arrive**, with
+ * the project's serializer (Jackson 3). The field schema is converted to
+ * [LabelField] when read, so that the domain can resolve the template with the same
+ * function printing uses.
  */
 class JdbcLabels(private val jdbc: JdbcClient, private val json: JsonMapper) : LabelTemplates, PrintJobs {
 
@@ -88,12 +88,12 @@ class JdbcLabels(private val jdbc: JdbcClient, private val json: JsonMapper) : L
         ) { rs, _ -> rs.getLong(1) }.single()
 
     /**
-     * La edición es **parcial**: solo se escribe lo que vino.
+     * The edit is **partial**: only what came in is written.
      *
-     * El `SET` se compone con los campos presentes en lugar de escribir `null` en los
-     * ausentes: el contrato dice que lo que no se envía queda como estaba, y un
-     * `UPDATE` que escribe todos los campos obliga al cliente a mandar la plantilla
-     * entera para cambiar una descripción.
+     * The `SET` is built from the fields that are present, instead of writing `null` into the
+     * absent ones: the contract says that what is not sent stays as it was, and an
+     * `UPDATE` that writes every field forces the client to send the whole template
+     * just to change a description.
      */
     override fun update(id: Long, patch: LabelTemplatePatch) {
         val sets = mutableListOf<String>()
@@ -115,7 +115,7 @@ class JdbcLabels(private val jdbc: JdbcClient, private val json: JsonMapper) : L
         update("UPDATE label_templates SET ${sets.joinToString(", ")} WHERE id = :id", params)
     }
 
-    // ── La cola ─────────────────────────────────────────────────────────────
+    // ── The queue ─────────────────────────────────────────────────────────────
 
     override fun insert(job: NewPrintJob): Long =
         query(
@@ -162,12 +162,12 @@ class JdbcLabels(private val jdbc: JdbcClient, private val json: JsonMapper) : L
     }
 
     /**
-     * El paso a `PRINTED`, **solo desde la confirmación de la impresora**.
+     * The move to `PRINTED`, **only from the printer's confirmation**.
      *
-     * La condición viaja en el `WHERE` (`status <> 'PRINTED'`): si el trabajo ya estaba
-     * impreso no se toca, y el número de filas afectadas es lo que el caso de uso usa
-     * para responder `LABEL_ALREADY_PRINTED` —una etiqueta no se imprime dos veces por
-     * un reintento de la impresora—.
+     * The condition travels in the `WHERE` (`status <> 'PRINTED'`): if the job was already
+     * printed it is not touched, and the number of affected rows is what the use case uses
+     * to answer `LABEL_ALREADY_PRINTED` —a label is not printed twice because of a
+     * printer retry—.
      */
     override fun markPrinted(id: Long, at: Instant): Int =
         update(
@@ -218,7 +218,7 @@ class JdbcLabels(private val jdbc: JdbcClient, private val json: JsonMapper) : L
         reprintedFromId = getLong("reprinted_from_id").takeUnless { wasNull() },
     )
 
-    /** El esquema llega como `{ "campo": { "type": …, "label": …, "required": … } }`. */
+    /** The schema arrives as `{ "field": { "type": …, "label": …, "required": … } }`. */
     @Suppress("UNCHECKED_CAST")
     private fun parseSchema(raw: String?): Map<String, LabelFieldSpec> {
         if (raw.isNullOrBlank()) return emptyMap()

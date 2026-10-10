@@ -20,8 +20,8 @@ class JdbcLoginAttempts(private val jdbc: JdbcClient) : LoginAttempts {
             VALUES (:at, :username, :userId, :succeeded, :failureCode, CAST(:ip AS inet), :userAgent)
             """.trimIndent(),
         )
-            // La columna admite 80 caracteres: un nombre más largo no corresponde a ninguna cuenta,
-            // pero el intento se registra igual, recortado.
+            // The column holds 80 characters: a longer name does not match any account,
+            // but the attempt is recorded anyway, truncated.
             .param("at", at.toSql())
             .param("username", username.take(USERNAME_MAX))
             .param("userId", userId)
@@ -33,8 +33,8 @@ class JdbcLoginAttempts(private val jdbc: JdbcClient) : LoginAttempts {
     }
 
     /**
-     * Solo cuentan los fallos de CREDENCIALES. Los intentos hechos durante el bloqueo se guardan
-     * con otro código y no lo prolongan. La consulta recorre el índice parcial
+     * Only CREDENTIAL failures count. Attempts made during the lock are stored
+     * with another code and do not extend it. The query walks the partial index
      * `login_attempts_failures_idx (username, attempted_at DESC) WHERE NOT succeeded`.
      */
     override fun failedSince(username: String, since: Instant): Int =
@@ -145,7 +145,7 @@ class JdbcRefreshTokens(private val jdbc: JdbcClient) : RefreshTokens {
             .query(Int::class.java)
             .single()
 
-    /** Solo los tokens vivos: un token ya rotado conserva su registro (`rotated` y `revoked` son excluyentes). */
+    /** Only live tokens: an already rotated token keeps its record (`rotated` and `revoked` are mutually exclusive). */
     override fun revokeAllForUser(userId: Long, reason: RevocationReason): Int =
         jdbc.sql(
             """

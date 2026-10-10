@@ -7,10 +7,10 @@ import java.util.Base64
 import java.util.UUID
 
 /**
- * Refresh tokens opacos: 256 bits aleatorios, sin significado. Se guardan con SHA-256.
+ * Opaque refresh tokens: 256 random bits, with no meaning. They are stored with SHA-256.
  *
- * Aquí SHA-256 basta y Argon2 sobraría: Argon2 protege secretos adivinables (contraseñas), y un
- * token de 256 bits aleatorios no se adivina. Lo que importa es que un volcado de la tabla no
+ * Here SHA-256 is enough and Argon2 would be overkill: Argon2 protects guessable secrets (passwords), and a
+ * 256-bit random token is not guessable. What matters is that a dump of the table does not
  * entregue tokens utilizables.
  */
 class OpaqueRefreshTokenCodec : RefreshTokenCodec {

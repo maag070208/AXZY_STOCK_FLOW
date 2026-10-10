@@ -22,19 +22,19 @@ import java.time.ZoneId
 import java.sql.ResultSet
 
 /**
- * Las consultas de existencias y del kardex.
+ * The stock and stock-ledger queries.
  *
- * Dos sentencias por listado —la página y el conteo— **con los mismos filtros**: si
- * el conteo los ignorara, el sobre diría una cosa y los `items` otra
- * (docs/api/convenciones.md §1.4). El presupuesto está medido en
+ * Two statements per listing —the page and the count— **with the same filters**: if
+ * the count ignored them, the envelope would say one thing and the `items` another
+ * (docs/api/convenciones.md §1.4). The budget is measured in
  * `InventoryPersistenceTest`.
  *
- * El nombre visible de cada ubicación lo compone el dominio a partir de las
- * columnas ([Location.displayName]); aquí no se concatena ningún `hall-code-position`.
+ * The visible name of each location is composed by the domain from the
+ * columns ([Location.displayName]); no `hall-code-position` is concatenated here.
  */
 class JdbcInventoryQueries(
     private val jdbc: JdbcClient,
-    /** La zona del negocio: los filtros por fecha son días operativos, no días UTC. */
+    /** The business time zone: date filters are operating days, not UTC days. */
     private val businessZone: ZoneId,
 ) : StockQueries, KardexQueries {
 
@@ -47,7 +47,7 @@ class JdbcInventoryQueries(
             params["productCode"] = it.value
         }
         locationPredicate(filter.location, "l", where, params)
-        // Un listado con miles de filas a cero no lo lee nadie: viene activado.
+        // A listing with thousands of rows at zero is not read by anyone: it is on by default.
         if (filter.onlyWithStock) where += "s.quantity > 0"
 
         val clause = if (where.isEmpty()) "" else "WHERE " + where.joinToString(" AND ")
@@ -87,7 +87,7 @@ class JdbcInventoryQueries(
             params["from"] = it.atStartOfDayIn(businessZone)
         }
         filter.to?.let {
-            // `to` incluye el día entero: el instante es el comienzo del día siguiente.
+            // `to` includes the whole day: the instant is the start of the next day.
             where += "k.moved_at < :to"
             params["to"] = it.plusDays(1).atStartOfDayIn(businessZone)
         }
@@ -107,10 +107,10 @@ class JdbcInventoryQueries(
     // ── Interno ─────────────────────────────────────────────────────────────
 
     /**
-     * El predicado de un filtro por ubicación, a partir del nombre visible.
+     * The predicate of a location filter, from the visible name.
      *
-     * `RECEIVING` y `UNASSIGNED` son **tipos** de ubicación, no columnas: filtrarlos
-     * por `kind` los encuentra aunque alguien renombre la ubicación de recepción.
+     * `RECEIVING` and `UNASSIGNED` are location **types**, not columns: filtering them
+     * by `kind` finds them even if someone renames the receiving location.
      */
     private fun locationPredicate(
         ref: LocationRef?,
@@ -136,7 +136,7 @@ class JdbcInventoryQueries(
         return when (request.sort.field) {
             "productCode" -> "p.product_code $direction, k.moved_at DESC, k.id DESC"
             "moveType" -> "k.move_type $direction, k.moved_at DESC, k.id DESC"
-            // Por defecto el más reciente primero: es lo que se quiere mirar.
+            // By default, the most recent first: it is what people want to look at.
             else -> "k.moved_at $direction, k.id $direction"
         }
     }
@@ -177,7 +177,7 @@ class JdbcInventoryQueries(
         note = getString("note"),
     )
 
-    /** La ubicación del `JOIN`, con el prefijo de sus columnas (`location_`, `from_`, `to_`). */
+    /** The location of the `JOIN`, with the prefix of its columns (`location_`, `from_`, `to_`). */
     private fun ResultSet.locationOf(prefix: String): Location = Location(
         id = getLong("${prefix}id"),
         warehouseId = 0,

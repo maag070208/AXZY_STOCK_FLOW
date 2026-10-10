@@ -12,10 +12,10 @@ import dev.axzy.stock.application.labeling.PrintJobView
 import java.time.Instant
 
 /**
- * El contrato HTTP de etiquetas (docs/api/etiquetas.md).
+ * The HTTP contract of labels (docs/api/etiquetas.md).
  *
- * El listado de plantillas **no lleva el ZPL** (es grande y no se necesita) y devuelve
- * un arreglo **sin sobre de paginación**: es un catálogo cerrado que la interfaz
+ * The template listing **does not carry the ZPL** (it is large and not needed) and returns
+ * a **plain array without a pagination envelope**: it is a closed catalog that the interface
  * necesita completo.
  */
 
@@ -59,7 +59,7 @@ data class LabelTemplateDetailDto(
     val size: String?,
     val isActive: Boolean,
     val fieldSchema: Map<String, LabelFieldSpecDto>,
-    /** El ZPL **solo va en el detalle**. */
+    /** The ZPL **goes only in the detail**. */
     val zpl: String,
 )
 
@@ -94,7 +94,7 @@ data class LabelTemplateCreateDto(
     )
 }
 
-/** La edición es parcial: lo que no viene, queda como estaba. */
+/** Editing is partial: what is not sent stays as it was. */
 data class LabelTemplateUpdateDto(
     val code: String? = null,
     val name: String? = null,
@@ -115,7 +115,7 @@ data class LabelTemplateUpdateDto(
     )
 }
 
-// ── Previsualización e impresión ────────────────────────────────────────────
+// ── Preview and printing ─────────────────────────────────────────────────
 
 data class LabelPreviewRequestDto(
     val templateId: Long? = null,
@@ -132,11 +132,11 @@ fun LabelPreview.toDto(): LabelPreviewDto = LabelPreviewDto(
 )
 
 /**
- * Los milímetros, con **un decimal**.
+ * Millimeters, with **one decimal**.
  *
- * El tamaño se calcula desde las pulgadas de la plantilla, y `6 × 25.4` no es
- * representable en coma flotante: salía `152.39999999999998`. La API publica una
- * décima de milímetro, que es más precisión de la que tiene cualquier etiqueta.
+ * The size is computed from the template's inches, and `6 × 25.4` is not
+ * representable in floating point: it came out as `152.39999999999998`. The API publishes a
+ * tenth of a millimeter, which is more precision than any label has.
  */
 private fun Double.roundMm(): Double = kotlin.math.round(this * 10.0) / 10.0
 
@@ -150,7 +150,7 @@ data class PrintResultDto(val jobIds: List<Long>, val status: String)
 
 data class ReprintRequestDto(val reason: String? = null)
 
-// ── La cola ─────────────────────────────────────────────────────────────────
+// ── The queue ─────────────────────────────────────────────────────────────────
 
 data class PrintJobDto(
     val id: Long,
@@ -176,5 +176,5 @@ fun PrintJobView.toDto(): PrintJobDto = PrintJobDto(
     reprintedFromId = reprintedFromId,
 )
 
-/** Un instante en ISO 8601 UTC, que es el formato de la API. */
+/** An instant in ISO 8601 UTC, which is the API's format. */
 private fun Instant.toIso(): String = toString()

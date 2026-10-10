@@ -37,10 +37,10 @@ import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.multipart.MultipartFile
 
 /**
- * Las rutas del catálogo de productos (docs/api/catalogo.md).
+ * The product catalog routes (docs/api/catalogo.md).
  *
- * El controlador **no decide permisos**: toma al actor, arma la petición y llama
- * al caso de uso, que es quien autoriza y audita.
+ * The controller **does not decide permissions**: it takes the actor, builds the request and calls
+ * the use case, which is the one that authorizes and audits.
  */
 @RestController
 @RequestMapping("/v1/products")
@@ -95,8 +95,8 @@ class ProductController(
     ): ResponseEntity<Any> = updateProduct.execute(actor, id, body.toInput(), origin).toResponse { it.toDto() }
 
     /**
-     * Baja **lógica**. El motivo se admite en el cuerpo o en la query porque hay
-     * clientes y proxies que descartan el cuerpo de un `DELETE`.
+     * Soft delete. The reason is accepted in the body or in the query because there are
+     * clients and proxies that discard the body of a `DELETE`.
      */
     @DeleteMapping("/{id}")
     @RequiresPermission("product.delete")
@@ -110,8 +110,8 @@ class ProductController(
         deactivateProduct.execute(actor, id, body?.reason ?: reason, origin).toResponse { it.toDto() }
 
     /**
-     * Importa el archivo inicial. **Siempre `200`**, incluso con `dryRun=false`: no
-     * crea un recurso, opera sobre una colección y devuelve un informe.
+     * Imports the initial file. **Always `200`**, even with `dryRun=false`: it does not
+     * create a resource, it operates on a collection and returns a report.
      */
     @PostMapping("/import", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     @RequiresPermission("product.import")
@@ -138,9 +138,9 @@ class ProductController(
 private fun ProductRequest.toInput() = ProductInput(productCode, name, description, unitMeasure)
 
 /**
- * `dryRun` por defecto es **`true`**: si el cliente olvida el campo, se simula. El
- * olvido inverso —escribir el catálogo entero cuando se quería simular— no tiene
- * vuelta atrás.
+ * `dryRun` defaults to **`true`**: if the client forgets the field, it is simulated. The
+ * reverse mistake —writing the whole catalog when a simulation was wanted— cannot be
+ * undone.
  */
 private fun parseDryRun(raw: String?): Outcome<Boolean> = when (raw?.trim()?.lowercase()) {
     null, "" -> true.asRight()

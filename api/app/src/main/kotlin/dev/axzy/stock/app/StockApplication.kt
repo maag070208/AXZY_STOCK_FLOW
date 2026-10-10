@@ -5,9 +5,9 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan
 import org.springframework.boot.runApplication
 
 /**
- * El arranque. Este módulo es el ÚNICO que conoce todas las capas: aquí se crean los adaptadores,
- * se les pasan a los casos de uso y se configura HTTP. Spring solo explora `dev.axzy.stock.app`;
- * nada de las demás capas se registra solo por llevar una anotación.
+ * Startup. This module is the ONLY one that knows all the layers: the adapters are created here,
+ * they are passed to the use cases and HTTP is configured. Spring only scans `dev.axzy.stock.app`;
+ * nothing from the other layers is registered just by carrying an annotation.
  */
 @SpringBootApplication
 @ConfigurationPropertiesScan

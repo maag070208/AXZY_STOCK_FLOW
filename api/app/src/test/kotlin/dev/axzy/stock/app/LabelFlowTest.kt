@@ -6,12 +6,12 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 /**
- * Etiquetas (M06) por HTTP real.
+ * Labels (M06) over real HTTP.
  *
- * L1, L3 y L5 de docs/flujos/etiquetas.md §5. **L2 y L4 necesitan la confirmación de la
- * impresora** (`PATCH /v1/print-jobs/{id}` con `X-Service-Key`), que es lo que falta del
- * módulo: aquí se comprueba justo lo contrario —que ninguna ruta de usuario marca una
- * etiqueta como impresa—, que es la mitad que sí está.
+ * L1, L3 and L5 of docs/flujos/etiquetas.md §5. **L2 and L4 need the printer's**
+ * confirmation** (`PATCH /v1/print-jobs/{id}` with `X-Service-Key`), which is what is missing from the
+ * module: here the exact opposite is checked —that no user route marks a
+ * label as printed—, which is the half that is in place.
  */
 class LabelFlowTest : ApiTest() {
 
@@ -66,7 +66,7 @@ class LabelFlowTest : ApiTest() {
         val token = manager()
         val id = template(token)
 
-        // El listado es un ARREGLO sin sobre de paginación: catálogo cerrado.
+        // The listing is a plain ARRAY without a pagination envelope: a closed catalog.
         assertThat(get("/v1/label-templates", token).raw).startsWith("[")
         assertThat(get("/v1/label-templates", token).raw).doesNotContain("zpl")
 
@@ -99,12 +99,12 @@ class LabelFlowTest : ApiTest() {
 
         assertThat(response.status).isEqualTo(200)
         assertThat(response.at<String>("name")).isEqualTo("Otro nombre")
-        // El ZPL y el código siguen como estaban.
+        // The ZPL and the code stay as they were.
         assertThat(response.at<String>("code")).isEqualTo("receipt")
         assertThat(response.at<String>("zpl")).contains("^XA")
     }
 
-    // ── Previsualización ────────────────────────────────────────────────────
+    // ── Preview ──────────────────────────────────────────────────────────────
 
     @Test
     fun `the preview resolves the ZPL and the server sets the size`() {
@@ -116,7 +116,7 @@ class LabelFlowTest : ApiTest() {
         assertThat(response.status).isEqualTo(200)
         assertThat(response.at<String>("zpl")).isEqualTo("^XA^FDABRAA1B^FS^XZ")
         val preview = response.at<Map<String, Any?>>("preview")
-        // 4x6 pulgadas en milímetros, calculado en el servidor.
+        // 4x6 inches in millimeters, computed on the server.
         assertThat((preview["widthMm"] as Number).toDouble()).isEqualTo(101.6)
         assertThat((preview["heightMm"] as Number).toDouble()).isEqualTo(152.4)
         assertThat(preview["copies"]).isEqualTo(1)
@@ -136,8 +136,8 @@ class LabelFlowTest : ApiTest() {
     @Test
     fun `a control character in the data does not break the label`() {
         val token = manager()
-        // El ZPL usa `^` para sus comandos: un nombre con `^` cerraría el campo antes
-        // de tiempo y el resto se interpretaría como un comando de impresora.
+        // ZPL uses `^` for its commands: a name with `^` would close the field too early
+        // and the rest would be read as a printer command.
         val id = template(token, zpl = "^XA^FD{{nombre}}^FS^XZ", schema = mapOf("nombre" to mapOf("type" to "string")))
 
         val response = preview(token, id, data = mapOf("nombre" to "TORNILLO ^M6"))
@@ -145,7 +145,7 @@ class LabelFlowTest : ApiTest() {
         assertThat(response.at<String>("zpl")).isEqualTo("^XA^FDTORNILLO \\^M6^FS^XZ")
     }
 
-    // ── L1 y L3: la cola ────────────────────────────────────────────────────
+    // ── L1 and L3: the queue ───────────────────────────────────────────────────
 
     @Test
     fun `L1 - requesting a label does not mark it as printed`() {
@@ -154,7 +154,7 @@ class LabelFlowTest : ApiTest() {
 
         val response = print(token, id)
 
-        // 202: aceptado y pendiente. Ninguna ruta de usuario la marca impresa.
+        // 202: accepted and pending. No user route marks it printed.
         assertThat(response.status).isEqualTo(202)
         assertThat(response.at<String>("status")).isEqualTo("PENDING")
         val jobId = response.at<List<Int>>("jobIds").single().toLong()
@@ -171,13 +171,13 @@ class LabelFlowTest : ApiTest() {
 
         val jobId = print(token, id, copies = 2).at<List<Int>>("jobIds").single().toLong()
 
-        // La cola lo encuentra por estado: es lo que hace útil la consulta.
+        // The queue finds it by status: that is what makes the query useful.
         val pendientes = get("/v1/labels/jobs?status=PENDING", token)
         assertThat(pendientes.at<Int>("totalItems")).isEqualTo(1)
         assertThat((pendientes.at<List<Map<String, Any?>>>("items").single()["id"] as Number).toLong())
             .isEqualTo(jobId)
         assertThat(pendientes.at<List<Map<String, Any?>>>("items").single()["copies"]).isEqualTo(2)
-        // Y no hay ninguno impreso: nadie se autocertifica.
+        // And there is none printed: nobody self-certifies.
         assertThat(get("/v1/labels/jobs?status=PRINTED", token).at<Int>("totalItems")).isZero()
     }
 
@@ -193,9 +193,9 @@ class LabelFlowTest : ApiTest() {
         val nuevo = (response.at<Any>("id") as Number).toLong()
         assertThat(nuevo).isNotEqualTo(original)
         assertThat(response.at<String>("status")).isEqualTo("PENDING")
-        // Enlazado al original: la trazabilidad de una reimpresión lo exige.
+        // Linked to the original: the traceability of a reprint requires it.
         assertThat((response.at<Any>("reprintedFromId") as Number).toLong()).isEqualTo(original)
-        // Y el original no se tocó.
+        // And the original was not touched.
         assertThat(get("/v1/labels/jobs/$original", token).at<String>("status")).isEqualTo("PENDING")
     }
 
@@ -211,7 +211,7 @@ class LabelFlowTest : ApiTest() {
         assertThat(response.code).isEqualTo("REASON_REQUIRED")
     }
 
-    // ── El encolado, antes de encolar ───────────────────────────────────────
+    // ── Enqueueing, before enqueueing ─────────────────────────────────────────
 
     @Test
     fun `a label with incomplete data is not queued`() {
@@ -222,7 +222,7 @@ class LabelFlowTest : ApiTest() {
 
         assertThat(response.status).isEqualTo(422)
         assertThat(response.code).isEqualTo("MISSING_LABEL_FIELD")
-        // El trabajo NO se creó: se resuelve antes de encolar.
+        // The job was NOT created: it is resolved before enqueueing.
         assertThat(db.sql("SELECT count(*) FROM print_jobs").query(Int::class.java).single()).isZero()
     }
 
@@ -252,7 +252,7 @@ class LabelFlowTest : ApiTest() {
         createUser("operador", USER_PASSWORD, BaseRole.WAREHOUSE_OPERATOR.key.value)
         val token = accessTokenOf("operador", USER_PASSWORD)
 
-        // Ver la cola es `label.queue_view`, que el operador de piso no tiene.
+        // Viewing the queue is `label.queue_view`, which the floor operator does not have.
         assertThat(get("/v1/labels/jobs", token).code).isEqualTo("PERMISSION_DENIED")
         assertThat(get("/v1/label-templates", token).code).isEqualTo("PERMISSION_DENIED")
     }

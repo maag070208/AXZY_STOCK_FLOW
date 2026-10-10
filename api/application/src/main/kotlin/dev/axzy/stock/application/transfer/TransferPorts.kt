@@ -8,12 +8,12 @@ import dev.axzy.stock.domain.value.Quantity
 import java.time.Instant
 
 /**
- * Los puertos de traslados (M05, docs/api/traslados.md).
+ * The transfer ports (M05, docs/api/traslados.md).
  *
- * **El movimiento lo hace el motor SQL** (`dispatch_transfer`, `receive_transfer`,
- * `cancel_transfer`, migración V13). Este puerto solo lo llama y lee: si el
- * adaptador moviera el saldo a mano sería la segunda ruta de escritura al inventario
- * que el plan prohíbe.
+ * **The movement is done by the SQL engine** (`dispatch_transfer`, `receive_transfer`,
+ * `cancel_transfer`, migration V13). This port only calls and reads it: if the
+ * adapter moved the balance by hand it would be the second write path to the inventory
+ * that the plan forbids.
  */
 
 data class TransferHeader(
@@ -41,7 +41,7 @@ data class TransferDetail(val header: TransferHeader, val lines: List<TransferLi
 
 data class TransferFilter(val status: String?, val warehouseId: Long?)
 
-/** Una línea tal como llega en el alta. */
+/** A line as it arrives on creation. */
 data class NewTransferLine(
     val productCode: String?,
     val quantity: Quantity?,
@@ -56,7 +56,7 @@ data class NewTransfer(
     val lines: List<NewTransferLine>,
 )
 
-/** Una línea con su producto ya resuelto. */
+/** A line with its product already resolved. */
 data class ResolvedTransferLine(
     val productId: Long,
     val productCode: ProductCode,
@@ -78,7 +78,7 @@ sealed interface InsertTransferResult {
     data object DuplicateCode : InsertTransferResult
 }
 
-/** Un traslado despachado y no recibido, para el informe de tránsito. */
+/** A dispatched and not received transfer, for the transit report. */
 data class InTransitRow(
     val id: Long,
     val code: String,
@@ -89,15 +89,15 @@ data class InTransitRow(
     val totalUnits: Quantity,
     val dispatchedAt: Instant?,
     /**
-     * Los días que lleva en tránsito, **contados por el servidor**: con el reloj del
-     * equipo, el mismo dato daría un número distinto en cada máquina.
+     * The days it has been in transit, **counted by the server**: with the machine's clock, the
+     * same data would give a different number on each machine.
      */
     val daysInTransit: Long,
     val dispatchedBy: Long?,
     val dispatchedByName: String?,
 )
 
-/** Lo que el traslado necesita saber de un producto y de una bodega. */
+/** What the transfer needs to know about a product and a warehouse. */
 data class TransferProduct(val id: Long, val productCode: String, val productName: String)
 
 data class TransferWarehouse(val id: Long, val code: String)
@@ -109,23 +109,23 @@ interface Transfers {
 
     fun numberExists(code: String): Boolean
 
-    /** El correlativo del año: `TR-AAAA-NNNN`. */
+    /** The yearly sequence number: `TR-YYYY-NNNN`. */
     fun nextCode(year: Int): String
 
     fun insert(draft: TransferDraft, lines: List<ResolvedTransferLine>): InsertTransferResult
 
-    /** Llama al motor: resta del origen y abre el tránsito. Devuelve las líneas movidas. */
+    /** Calls the engine: subtracts from the origin and opens the transit. Returns the lines moved. */
     fun dispatch(transferId: Long, userId: Long): Int
 
-    /** Llama al motor: suma en el destino y cierra el tránsito. */
+    /** Calls the engine: adds to the destination and closes the transit. */
     fun receive(transferId: Long, userId: Long): Int
 
-    /** Llama al motor: devuelve la mercancía a su origen si estaba despachada. */
+    /** Calls the engine: returns the goods to their origin if they were dispatched. */
     fun cancel(transferId: Long, userId: Long): Int
 
     fun inTransit(): List<InTransitRow>
 
-    /** Las líneas de tránsito abiertas de un traslado: lo que queda por recibir. */
+    /** The open transit lines of a transfer: what is still to be received. */
     fun openTransitLines(transferId: Long): Int
 }
 
@@ -134,7 +134,7 @@ interface TransferCatalog {
 
     fun warehouse(id: Long): TransferWarehouse?
 
-    /** La ubicación de recepción de una bodega, que es de donde sale y donde llega. */
+    /** A warehouse's receiving location, which is where it leaves from and where it arrives. */
     fun receivingLocationId(warehouseId: Long): Long?
 }
 

@@ -150,7 +150,7 @@ es la 1), que es el que se ve en Excel. El importador del dominio ya lo produce
 (`CatalogImporter`).
 
 Si el archivo tiene filas inválidas, **no se escribe ninguna** y responde
-`422 IMPORT_INVALID_ROWS`, con un `details` por fila (`fila_4`) hasta un máximo de
+`422 IMPORT_INVALID_ROWS`, con un `details` por fila (`row_4`) hasta un máximo de
 50. La validación ocurre **antes** de mirar `dryRun`: una simulación con filas
 malas tampoco es un informe válido. `IMPORT_HAS_REJECTIONS` queda declarado en el
 catálogo de errores pero **no se emite**: era la respuesta del legacy para el mismo

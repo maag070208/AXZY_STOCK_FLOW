@@ -23,16 +23,16 @@ import dev.axzy.stock.domain.labeling.LabelTemplate
 import java.time.Clock
 
 /**
- * Los casos de uso de etiquetas (M06, docs/flujos/etiquetas.md).
+ * The label use cases (M06, docs/flujos/etiquetas.md).
  *
- * Dos reglas mandan sobre el resto:
+ * Two rules govern the rest:
  *
- * · **El ZPL se valida al guardar** (`^XA` y `^XZ`): sin el cierre, la impresora no da
- *   error —deja la etiqueta en blanco o el trabajo en la cola— y eso se descubre
+ * · **The ZPL is validated on save** (`^XA` and `^XZ`): without the closing, the printer does not
+ *   give an error —it leaves the label blank or the job in the queue— and that is discovered
  *   gastando papel.
- * · **Una etiqueta no se marca impresa hasta que la impresora confirma.** Ningún caso
- *   de uso de esta capa escribe `PRINTED`: solo lo hace la confirmación de la impresora,
- *   porque el sistema no se autocertifica.
+ * · **A label is not marked printed until the printer confirms it.** No use case
+ *   of this layer writes `PRINTED`: only the printer's confirmation does it,
+ *   because the system does not self-certify.
  */
 
 // ── Plantillas ──────────────────────────────────────────────────────────────
@@ -160,20 +160,20 @@ class UpdateLabelTemplate(
         }
 }
 
-// ── Previsualización y encolado ─────────────────────────────────────────────
+// ── Preview and enqueueing ─────────────────────────────────────────────
 
 data class LabelPreview(val zpl: String, val templateCode: String, val widthMm: Double, val heightMm: Double)
 
 data class PreviewInput(val templateId: Long?, val data: Map<String, String>?)
 
 /**
- * Resuelve el ZPL **sin imprimir**.
+ * Resolves the ZPL **without printing**.
  *
- * La resolución la hace el dominio, la misma función que usa el encolado: si se
- * resolviera aparte, la vista previa podría enseñar algo distinto de lo que se imprime.
- * Un campo obligatorio que falta devuelve `MISSING_LABEL_FIELD` y **no una etiqueta a
- * medias**: dejar el marcador imprime `{{productCode}}` en el estante, y sustituirlo
- * por vacío imprime una etiqueta que parece correcta y no lo está.
+ * The resolution is done by the domain, the same function the enqueueing uses: if it were
+ * resolved separately, the preview could show something different from what is printed.
+ * A missing mandatory field returns `MISSING_LABEL_FIELD` and **not a half-finished label**:
+ * leaving the placeholder would print `{{productCode}}` on the shelf, and substituting it with
+ * blank would print a label that looks correct and is not.
  */
 class PreviewLabel(private val templates: LabelTemplates, private val access: AccessDecider) {
 
@@ -200,11 +200,11 @@ data class PrintInput(val templateId: Long?, val copies: Int?, val data: List<Ma
 data class PrintResult(val jobIds: List<Long>, val status: String)
 
 /**
- * Encola la impresión.
+ * Enqueues the print.
  *
- * **El trabajo queda `PENDING` hasta que la impresora confirma**, y el ZPL se resuelve
- * **antes** de encolar: un trabajo con datos incompletos se crearía igual y habría que
- * descubrirlo al imprimir, con la etiqueta ya en la cola.
+ * **The job stays `PENDING` until the printer confirms**, and the ZPL is resolved
+ * **before** enqueueing: a job with incomplete data would be created anyway and would have to be
+ * discovered when printing, with the label already in the queue.
  */
 class PrintLabels(
     private val templates: LabelTemplates,
@@ -246,8 +246,8 @@ class PrintLabels(
                 )
             }
 
-            // Se resuelve TODO antes de encolar: si una etiqueta no se puede resolver, no
-            // se encola ninguna.
+            // Everything is resolved BEFORE enqueueing: if one label cannot be resolved,
+            // none is enqueued.
             val payloads = mutableListOf<Map<String, String>>()
             input.data.forEach { data ->
                 when (val resolved = detail.template().resolve(data)) {
@@ -284,7 +284,7 @@ class PrintLabels(
         }
 }
 
-// ── La cola ─────────────────────────────────────────────────────────────────
+// ── The queue ─────────────────────────────────────────────────────────────────
 
 class ListPrintJobs(private val jobs: PrintJobs, private val access: AccessDecider) {
 
@@ -307,11 +307,11 @@ class GetPrintJob(private val jobs: PrintJobs, private val access: AccessDecider
 }
 
 /**
- * Reimprime: **un trabajo nuevo enlazado al original**, con su motivo.
+ * Reprints: **a new job linked to the original**, with its reason.
  *
- * No reutiliza el registro: la trazabilidad de una reimpresión exige saber quién la
- * pidió y por qué, y reutilizarlo borraría el hecho anterior. El permiso es
- * `label.reprint` y no `label.print` porque gasta una segunda etiqueta.
+ * It does not reuse the record: the traceability of a reprint requires knowing who
+ * asked and why, and reusing it would erase the earlier fact. The permission is
+ * `label.reprint` and not `label.print` because it uses up a second label.
  */
 class ReprintLabel(
     private val jobs: PrintJobs,
@@ -337,8 +337,8 @@ class ReprintLabel(
                 val newId = jobs.insert(
                     NewPrintJob(
                         templateId = original.templateId,
-                        // La reimpresión imprime **lo mismo**: se copia el payload del
-                        // original en lugar de dejar el trabajo sin datos.
+                        // The reprint prints **the same thing**: the payload of the
+                        // original is copied instead of leaving the job without data.
                         payload = jobs.payloadOf(jobId) ?: emptyMap(),
                         copies = original.copies,
                         createdBy = actor.id,
@@ -363,13 +363,13 @@ class ReprintLabel(
         }
 }
 
-// ── Común ───────────────────────────────────────────────────────────────────
+// ── Common ──────────────────────────────────────────────────────────────
 
 /**
- * El ZPL tiene que abrir y cerrar.
+ * The ZPL has to open and close.
  *
- * Sin el cierre, la impresora **no da error**: deja la etiqueta en blanco o el trabajo
- * en la cola, y eso se descubre gastando papel. Por eso se valida al guardar y no al
+ * Without the closing, the printer **does not give an error**: it leaves the label blank or the job
+ * in the queue, and that is discovered by wasting paper. That is why it is validated on save and not on
  * imprimir.
  */
 private fun validateZpl(zpl: String?): Outcome<String> {
@@ -391,7 +391,7 @@ private fun validateZpl(zpl: String?): Outcome<String> {
     return zpl.asRight()
 }
 
-/** La plantilla del dominio, para resolver con la misma función que imprime. */
+/** The domain template, to resolve with the same function that prints. */
 internal fun LabelTemplateDetail.template(): LabelTemplate = LabelTemplate(
     id = summary.id,
     code = summary.code,

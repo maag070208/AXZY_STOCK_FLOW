@@ -12,10 +12,10 @@ import dev.axzy.stock.domain.identity.PasswordPolicy
 import dev.axzy.stock.domain.identity.PasswordValidation
 import java.security.MessageDigest
 
-/** Una celda de la matriz: qué alcance tiene un rol sobre un permiso. */
+/** A cell of the matrix: what scope a role has over a permission. */
 data class RoleGrant(val roleKey: String, val permissionKey: String, val scope: PermissionScope)
 
-/** La versión vigente de una pieza de configuración de acceso, con la huella de su contenido. */
+/** The version in force of an access configuration piece, with the fingerprint of its content. */
 data class ConfigVersion(val version: Int, val fingerprint: String)
 
 enum class ConfigKind(val dbValue: String) {
@@ -23,18 +23,18 @@ enum class ConfigKind(val dbValue: String) {
     POLICIES("policies"),
 }
 
-/** Donde vive el catálogo de acceso: permisos, roles, matriz y sus versiones. */
+/** Where the access catalog lives: permissions, roles, matrix and their versions. */
 interface AccessCatalogStore {
-    /** Deja el catálogo de permisos igual que el del código. Devuelve cuántos cambió o creó. */
+    /** Leaves the permission catalog the same as the code's. Returns how many it changed or created. */
     fun syncPermissions(permissions: List<Permission>): Int
 
-    /** Crea los roles que falten. No toca los existentes: un administrador puede haberlos editado. */
+    /** Creates the missing roles. It does not touch existing ones: an administrator may have edited them. */
     fun insertMissingRoles(roles: List<Role>): Int
 
-    /** Concede las celdas que falten. No toca las existentes, por la misma razón. */
+    /** Grants the missing cells. It does not touch existing ones, for the same reason. */
     fun insertMissingGrants(grants: List<RoleGrant>): Int
 
-    /** La matriz tal como está en la base, que es la que decide. */
+    /** The matrix as it is in the database, which is the one that decides. */
     fun currentGrants(): List<RoleGrant>
 
     fun latestVersion(kind: ConfigKind): ConfigVersion?
@@ -56,25 +56,25 @@ data class BootstrapResult(
     val adminCreated: Boolean,
 )
 
-/** No hay ningún usuario y no se indicó con qué contraseña crear el primero. */
+/** There is no user and it was not said with which password to create the first one. */
 class MissingBootstrapPassword(message: String) : IllegalStateException(message)
 
 /**
- * Prepara la identidad al arrancar: sincroniza el catálogo de permisos con el del código, crea los
- * roles base, versiona la matriz y, si la base no tiene ningún usuario, crea el primer
- * administrador obligándolo a cambiar la contraseña.
+ * Prepares identity on startup: it syncs the permission catalog with the code's, creates the base
+ * roles, versions the matrix and, if the database has no user, creates the first
+ * administrator, forcing them to change the password.
  *
- * **El catálogo de permisos es código, no una migración**: añadir un permiso es añadir una línea a
- * [PermissionCatalog], y esta clase lo lleva a la base. La MATRIZ, en cambio, es de la base: lo que
- * aquí se siembra es el punto de partida, y un cambio hecho por un administrador no se pisa.
+ * **The permission catalog is code, not a migration**: adding a permission means adding a line to
+ * [PermissionCatalog], and this class carries it to the database. The MATRIX, in contrast, belongs to the database: what
+ * is seeded here is the starting point, and a change made by an administrator is not overwritten.
  *
- * Es idempotente: ejecutarla dos veces no cambia nada la segunda.
+ * It is idempotent: running it twice does not change anything the second time.
  */
 class BootstrapIdentity(
     private val store: AccessCatalogStore,
     private val hasher: PasswordHasher,
     private val adminUsername: String,
-    /** Solo se usa si la base no tiene usuarios. Después se puede (y se debe) retirar del entorno. */
+    /** Only used if the database has no users. Afterwards it can (and should) be removed from the environment. */
     private val adminPassword: String?,
 ) {
     fun execute(): BootstrapResult {
@@ -114,7 +114,7 @@ class BootstrapIdentity(
         )
     }
 
-    /** Registra una versión nueva solo si el contenido cambió respecto de la última. */
+    /** Records a new version only if the content changed from the last one. */
     private fun versionOf(kind: ConfigKind, lines: List<String>, reason: String): Int {
         val sorted = lines.sorted()
         val fingerprint = MessageDigest.getInstance("SHA-256")

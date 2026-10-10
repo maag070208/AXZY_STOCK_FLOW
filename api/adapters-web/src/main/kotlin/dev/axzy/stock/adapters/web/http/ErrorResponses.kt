@@ -9,8 +9,8 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 
 /**
- * El cuerpo de error, el mismo en todos los endpoints (docs/api/errores.md). El cliente decide con
- * `code`, nunca con `message`.
+ * The error body, the same on all endpoints (docs/api/errores.md). The client decides with
+ * `code`, never with `message`.
  */
 data class ErrorBody(
     val code: String,
@@ -19,12 +19,12 @@ data class ErrorBody(
     val details: Map<String, String> = emptyMap(),
 )
 
-/** Un fallo que interrumpe la petición antes de llegar al caso de uso (p. ej. al resolver al actor). */
+/** A failure that interrupts the request before it reaches the use case (e.g. when resolving the actor). */
 class FailureException(val failure: Failure) : RuntimeException(failure.message)
 
 /**
- * El código de estado dice qué hacer de inmediato: `401` manda a iniciar sesión y `403` a pedir un
- * permiso. Por eso no son intercambiables.
+ * The status code says what to do immediately: `401` sends the user to sign in and `403` to request a
+ * permission. That is why they are not interchangeable.
  */
 fun FailureKind.toStatus(): HttpStatus = when (this) {
     FailureKind.INVALID_REQUEST -> HttpStatus.BAD_REQUEST
@@ -38,7 +38,7 @@ fun FailureKind.toStatus(): HttpStatus = when (this) {
 fun Failure.toResponse(): ResponseEntity<Any> =
     ResponseEntity.status(kind.toStatus()).body(ErrorBody(code, message, details))
 
-/** Traduce el resultado de un caso de uso: el éxito con [status] y [body], el fallo con su contrato. */
+/** Translates a use case's result: success with [status] and [body], failure with its contract. */
 fun <A> Outcome<A>.toResponse(status: HttpStatus = HttpStatus.OK, body: (A) -> Any? = { it }): ResponseEntity<Any> =
     when (this) {
         is Either.Left -> error.toResponse()
@@ -49,5 +49,5 @@ fun <A> Outcome<A>.toResponse(status: HttpStatus = HttpStatus.OK, body: (A) -> A
         }
     }
 
-/** Éxito sin cuerpo (`204`). */
+/** Success with no body (`204`). */
 fun Outcome<Unit>.toNoContent(): ResponseEntity<Any> = toResponse(HttpStatus.NO_CONTENT) { null }

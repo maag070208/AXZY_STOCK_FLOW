@@ -20,15 +20,15 @@ import dev.axzy.stock.domain.common.asRight
 import java.time.Clock
 
 /**
- * Asigna una línea de factura a un capturista (M03, `invoice.assign`).
+ * Assigns an invoice line to a counter (M03, `invoice.assign`).
  *
- * Es la ruta que faltaba: la columna `assigned_user_id` está en la base desde la primera
- * migración, la consulta la leía y **nadie la escribía**, así que el estado `ASSIGNED` decía
- * «alguien la tiene» sin decir quién. Repartir el conteo entre varias personas —que es como se
- * descarga un camión— no tenía forma de hacerse por la API.
+ * It is the route that was missing: the column `assigned_user_id` has been in the database since the
+ * first migration, the query read it and **nobody wrote it**, so the `ASSIGNED` status said
+ * "someone has it" without saying who. Splitting the count among several people —which is how a
+ * truck is unloaded— had no way of being done through the API.
  *
- * `userId` es opcional a propósito: sin él, quien llama **se asigna a sí mismo**, que es el caso
- * diario del capturista. Con él, un supervisor reparte el trabajo.
+ * `userId` is optional on purpose: without it, the caller **assigns to themselves**, which is the case
+ * of the counter's daily work. With it, a supervisor distributes the work.
  */
 class AssignInvoiceLine(
     private val invoices: Invoices,
@@ -72,7 +72,7 @@ class AssignInvoiceLine(
             when (val assigned = view.line.assign(userId)) {
                 is Either.Left -> assigned.error.toFailure().asLeft()
                 is Either.Right -> {
-                    // Condicional: si alguien la contó entre la lectura y la escritura, no se le
+                    // Conditional: if someone counted it between the read and the write, it is not
                     // asigna trabajo ya hecho.
                     if (invoices.assignLine(lineId, userId, clock.instant()) == 0) {
                         return@inTransaction failure(

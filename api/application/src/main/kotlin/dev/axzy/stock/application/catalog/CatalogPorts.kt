@@ -12,29 +12,29 @@ import dev.axzy.stock.domain.value.ProductCode
 import dev.axzy.stock.domain.value.Quantity
 
 /**
- * Los puertos de salida del catálogo (M01).
+ * The catalog's output ports (M01).
  *
- * Un puerto **no expone tipos de la base**: ni `ResultSet` ni filas. Devuelve
- * entidades del dominio, y traducir la unicidad de un índice a un error de
- * negocio es trabajo del adaptador.
+ * A port **does not expose database types**: neither `ResultSet` nor rows. It returns
+ * domain entities, and translating an index's uniqueness into a
+ * business error is the adapter's job.
  */
 
 /**
- * Un producto con su existencia total.
+ * A product with its total stock.
  *
- * El saldo es una **proyección de lectura** (`product_stock`), no un atributo del
- * catálogo: el producto no «tiene» stock, y por eso no vive en la entidad del
- * dominio ni se puede escribir desde aquí.
+ * The balance is a **read projection** (`product_stock`), not an attribute of the
+ * catalog: the product does not "have" stock, and that is why it does not live in the entity of the
+ * domain nor can it be written from here.
  */
 data class ProductView(val product: Product, val stock: Quantity)
 
-/** Una ubicación con el código de su bodega, que viene del `join` y no de la ubicación. */
+/** A location with its warehouse code, which comes from the `join` and not from the location. */
 data class LocationView(val location: Location, val warehouseCode: String)
 
-/** Filtros del listado de productos. `null` es «sin filtrar», nunca «falso». */
+/** Product listing filters. `null` means "unfiltered", never "false". */
 data class ProductFilter(val query: String?, val active: Boolean?)
 
-/** Filtros del listado de ubicaciones. */
+/** Location listing filters. */
 data class LocationFilter(
     val query: String?,
     val warehouseId: Long?,
@@ -42,7 +42,7 @@ data class LocationFilter(
     val active: Boolean?,
 )
 
-/** Un producto a crear. Todavía sin `id`. */
+/** A product to create. Still without an `id`. */
 data class NewProduct(
     val code: ProductCode,
     val name: String,
@@ -52,7 +52,7 @@ data class NewProduct(
     val externalId: Long? = null,
 )
 
-/** Una ubicación a crear. Todavía sin `id`. */
+/** A location to create. Still without an `id`. */
 data class NewLocation(
     val warehouseId: Long,
     val hall: String,
@@ -62,7 +62,7 @@ data class NewLocation(
     val kind: LocationKind,
 )
 
-/** Una bodega a crear. Todavía sin `id`. */
+/** A warehouse to create. Still without an `id`. */
 data class NewWarehouse(
     val code: String,
     val name: String,
@@ -71,11 +71,11 @@ data class NewWarehouse(
 )
 
 /**
- * Resumen de un `upsert` masivo.
+ * Summary of a bulk `upsert`.
  *
- * `skipped` son las filas que ya existían **sin cambios**: es lo que hace visible
- * que la segunda importación no hizo nada (K2) en lugar de decir «1.398
- * actualizados» cuando no cambió ninguno.
+ * `skipped` are the rows that already existed **unchanged**: it is what makes visible
+ * that the second import did nothing (K2), instead of saying "1,398
+ * updated" when none changed.
  */
 data class UpsertSummary(val created: Int, val updated: Int, val skipped: Int) {
     val persisted: Int get() = created + updated
@@ -84,10 +84,10 @@ data class UpsertSummary(val created: Int, val updated: Int, val skipped: Int) {
 interface Products {
     fun findById(id: Long): ProductView?
 
-    /** Busca por clave de negocio, **incluidos los inactivos**: la unicidad no distingue de estado. */
+    /** Looks up by business key, **including the inactive ones**: uniqueness does not distinguish by status. */
     fun findByCode(code: ProductCode): Product?
 
-    /** El saldo de un producto, leído de la proyección y no del historial (R-P3). */
+    /** A product's balance, read from the projection and not from the history (R-P3). */
     fun stockOf(productId: Long): Quantity
 
     fun page(filter: ProductFilter, request: PageRequest): Page<ProductView>
@@ -96,7 +96,7 @@ interface Products {
 
     fun update(product: Product): ProductView
 
-    /** Alta o actualización por `product_code`. Idempotente por diseño (K2). */
+    /** Create or update by `product_code`. Idempotent by design (K2). */
     fun upsertAll(products: List<ValidatedProduct>): UpsertSummary
 }
 
@@ -105,17 +105,17 @@ interface Locations {
 
     fun page(filter: LocationFilter, request: PageRequest): Page<LocationView>
 
-    /** Busca por su identidad natural: bodega + pasillo + localidad + posición. */
+    /** Looks up by its natural identity: warehouse + hall + code + position. */
     fun find(warehouseId: Long, hall: String, code: String, position: String): LocationView?
 
-    /** Existencias de la ubicación, para no desactivar una que todavía guarda mercancía. */
+    /** The location's stock, so that a location still holding goods is not deactivated. */
     fun stockOf(locationId: Long): Quantity
 
     fun insert(newLocation: NewLocation): LocationView
 
     fun update(location: Location): LocationView
 
-    /** La ubicación de recepción de una bodega. `null` si no existe: es un dato roto. */
+    /** A warehouse's receiving location. `null` if it does not exist: it is broken data. */
     fun receivingOf(warehouseId: Long): LocationView?
 }
 
@@ -127,12 +127,12 @@ interface Warehouses {
     fun findByCode(code: String): Warehouse?
 
     /**
-     * La bodega predeterminada.
+     * The default warehouse.
      *
-     * El índice parcial `warehouses_one_default_idx` garantiza que haya **como
-     * mucho** una; que exista al menos una lo garantiza el arranque del sistema, que
-     * siembra la primera. La usan los movimientos de inventario, que no llevan
-     * bodega en el cuerpo: mover entre bodegas es un traslado (M05).
+     * The partial index `warehouses_one_default_idx` guarantees there is **at
+     * most** one; that there is at least one is guaranteed by the system startup, which
+     * seeds the first one. Inventory movements use it, which do not carry a
+     * warehouse in the body: moving between warehouses is a transfer (M05).
      */
     fun defaultWarehouse(): Warehouse?
 
@@ -141,11 +141,11 @@ interface Warehouses {
     fun update(warehouse: Warehouse): Warehouse
 
     /**
-     * Quita la marca de predeterminada a la que la tenga.
+     * Removes the default flag from the one that has it.
      *
-     * Va **en la misma transacción** que la que la pone: entre las dos no puede
-     * haber dos predeterminadas ni ninguna, porque el índice parcial de la base
-     * lo prohibiría y la operación fallaría a mitad.
+     * It goes **in the same transaction** as the one that sets it: between the two there cannot be
+     * two defaults nor none, because the database's partial index
+     * would forbid it and the operation would fail halfway.
      */
     fun clearDefault()
 }

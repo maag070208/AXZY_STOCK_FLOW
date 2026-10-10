@@ -31,11 +31,11 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 /**
- * Las rutas del catálogo de ubicaciones (docs/api/catalogo.md).
+ * The location catalog routes (docs/api/catalogo.md).
  *
- * `kind` se valida aquí y no se deja al `CAST` de PostgreSQL: un valor inválido
- * llegando a la base saldría como `500` por un dato del cliente, que es
- * exactamente lo que la lista cerrada de errores prohíbe.
+ * `kind` is validated here and not left to PostgreSQL's `CAST`: an invalid value
+ * reaching the database would come out as a `500` because of client data, which is
+ * exactly what the closed list of errors forbids.
  */
 @RestController
 @RequestMapping("/v1/locations")

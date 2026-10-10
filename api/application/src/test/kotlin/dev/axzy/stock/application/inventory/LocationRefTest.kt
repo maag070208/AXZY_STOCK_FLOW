@@ -6,14 +6,14 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 /**
- * El nombre visible de una ubicación es **la clave con la que el cliente la
- * identifica** en todo el flujo de inventario (`04-B-C`, `RECEIVING`, `UNASSIGNED`),
- * y la regla que lo compone vive en el dominio ([Location.displayName]).
+ * The visible name of a location is **the key the client uses to identify it**
+ * throughout the inventory flow (`04-B-C`, `RECEIVING`, `UNASSIGNED`),
+ * and the rule that composes it lives in the domain ([Location.displayName]).
  *
- * Esta prueba es la que impide que las dos se separen: para cada tipo de ubicación,
- * `LocationRef.parse(location.displayName)` tiene que devolver exactamente la
- * referencia que la describe. Si alguien cambia el formato del nombre visible y no
- * el intérprete —o al revés—, falla aquí y no en el almacén.
+ * This test is what prevents the two from separating: for each location type,
+ * `LocationRef.parse(location.displayName)` has to return exactly the
+ * reference that describes it. If someone changes the visible name's format and not the
+ * parser —or the reverse—, it fails here and not in the warehouse.
  */
 class LocationRefTest {
 
@@ -38,8 +38,8 @@ class LocationRefTest {
 
         assertThat(LocationRef.parse("RECEIVING")).isEqualTo(LocationRef.Receiving)
         assertThat(LocationRef.parse("UNASSIGNED")).isEqualTo(LocationRef.Unassigned)
-        // El nombre de la columna y el visible son el mismo texto (V16): no hay un segundo
-        // nombre que rechazar, y la referencia se reconoce por cualquiera de los dos.
+        // The column name and the visible one are the same text (V16): there is no second
+        // name to reject, and the reference is recognized by either of the two.
     }
 
     @Test
@@ -50,8 +50,8 @@ class LocationRefTest {
 
     @Test
     fun `a string that cannot be a location is rejected instead of guessed`() {
-        // El alfabeto de cada parte excluye el guion: con dos o cuatro partes no hay
-        // fila que pueda corresponder, y devolver una cualquiera movería stock en el
+        // Each part's alphabet excludes the hyphen: with two or four parts there is no
+        // row that can match, and returning any one would move stock in the
         // estante equivocado.
         assertThat(LocationRef.parse("")).isNull()
         assertThat(LocationRef.parse("04-B")).isNull()

@@ -5,8 +5,8 @@ import dev.axzy.stock.application.health.DatabaseProbe
 import org.springframework.jdbc.core.simple.JdbcClient
 
 /**
- * Comprueba la base con una consulta real. Distingue dos preguntas: «¿responde?», que decide el
- * estado, y «¿qué versión de esquema tiene?», que es solo diagnóstico.
+ * Checks the database with a real query. It distinguishes two questions: "does it respond?", which decides the
+ * status, and "what schema version does it have?", which is only diagnostic.
  */
 class JdbcDatabaseProbe(private val jdbc: JdbcClient) : DatabaseProbe {
 
@@ -38,7 +38,7 @@ class JdbcDatabaseProbe(private val jdbc: JdbcClient) : DatabaseProbe {
 
     private fun elapsedMs(startedAt: Long) = (System.nanoTime() - startedAt) / 1_000_000
 
-    /** Solo el tipo del fallo: el mensaje del controlador puede llevar el host o el usuario de la base. */
+    /** Only the failure type: the controller message may carry the database host or user. */
     private fun Exception.rootMessage(): String {
         var cause: Throwable = this
         while (cause.cause != null && cause.cause !== cause) cause = cause.cause!!

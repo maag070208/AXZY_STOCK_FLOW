@@ -12,8 +12,8 @@ import org.junit.jupiter.api.Test
 import org.springframework.mock.web.MockMultipartFile
 
 /**
- * El lector del archivo de importación y la traducción del archivo demasiado
- * grande, sin arrancar la aplicación: son reglas de la capa web.
+ * The reader of the import file and the translation of the file that is too
+ * large, without starting the application: they are rules of the web layer.
  */
 class CatalogUploadTest {
 
@@ -35,7 +35,7 @@ class CatalogUploadTest {
         assertThat(parsed).hasSize(1)
         assertThat(parsed.single().productCode).isEqualTo("ABRAA1B")
         assertThat(parsed.single().stock).isEqualTo("10")
-        // El número de fila es el FÍSICO del archivo: la cabecera es la 1.
+        // The row number is the file's PHYSICAL row: the header is row 1.
         assertThat(parsed.single().rowNumber).isEqualTo(2)
     }
 
@@ -67,9 +67,9 @@ class CatalogUploadTest {
 
     @Test
     fun `an Excel that cannot be read answers IMPORT_FILE_FORMAT and not a 500`() {
-        // Antes esta prueba comprobaba que el XLSX se **rechazaba** diciendo que llegaría
-        // con la migración. Ya llega: ahora se lee, y lo que se comprueba es que un libro
-        // corrupto es un error del archivo y no del servidor.
+        // This test used to check that the XLSX was **rejected**, saying it would arrive
+        // with the migration. It arrives now: it is read, and what is checked is that a
+        // corrupt workbook is a file error and not a server error.
         assertThat(errorCode("contenido binario", name = "catalogo.xlsx")).isEqualTo("IMPORT_FILE_FORMAT")
     }
 
@@ -88,7 +88,7 @@ class CatalogUploadTest {
     }
 
 
-    /** Un CSV bien formado: un campo con coma va entre comillas. */
+    /** A well-formed CSV: a field with a comma goes in quotes. */
     private fun csv(rows: List<List<String>>): String =
         rows.joinToString("\n") { row ->
             row.joinToString(",") { field ->
@@ -102,7 +102,7 @@ class CatalogUploadTest {
         rows.forEachIndexed { index, values ->
             val row = sheet.createRow(index)
             values.forEachIndexed { column, value ->
-                // Los números van como número, que es como los escribe Excel.
+                // Numbers go as numbers, the way Excel writes them.
                 if (column == 4 && value.toDoubleOrNull() != null) {
                     row.createCell(column).setCellValue(value.toDouble())
                 } else {
@@ -116,7 +116,7 @@ class CatalogUploadTest {
         return out.toByteArray()
     }
 
-    /** El Excel viaja con su tipo real, como lo manda un navegador. */
+    /** The Excel travels with its real type, as a browser sends it. */
     private fun readXlsx(bytes: ByteArray, name: String = "catalogo.xlsx") =
         upload.read(
             MockMultipartFile(
@@ -127,7 +127,7 @@ class CatalogUploadTest {
             ),
         )
 
-    /** Las filas del Excel, para poder compararlas con las del CSV. */
+    /** The Excel rows, so they can be compared with the CSV ones. */
     private fun rows(bytes: ByteArray): List<CatalogRow> = (upload.read(MockMultipartFile(
         "file", "catalogo.xlsx",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", bytes,
@@ -147,15 +147,15 @@ class CatalogUploadTest {
         val delExcel = rows(xlsx(listOf(headers) + datos))
 
         assertThat(delExcel).isEqualTo(delCsv)
-        // El nombre lleva una coma: si la conversión no la entrecomillara, el campo se
-        // partiría en dos y el archivo entero se rechazaría por una fila de más.
+        // The name has a comma: if the conversion did not quote it, the field would
+        // split in two and the whole file would be rejected for one extra row.
         assertThat(delExcel[1].name).isEqualTo("TORNILLO CON TUERCA, GRANDE")
         assertThat(delExcel[0].stock).isEqualTo("1500")
     }
 
     @Test
     fun `a number in the Excel does not come out in scientific notation`() {
-        // Un `double` imprimiría `1.091413E7` y el parseo del stock fallaría.
+        // A `double` would print `1.091413E7` and the stock parsing would fail.
         val bytes = xlsx(listOf(headers, listOf("1", "ABRAA1B", "ABRAZADERA", "PZA", "10914130")))
 
         val parsed = rows(bytes)
@@ -168,7 +168,7 @@ class CatalogUploadTest {
         val tsv = (listOf(headers) + listOf(listOf("1", "ABRAA1B", "ABRAZADERA", "PZA", "10")))
             .joinToString("\n") { it.joinToString("\t") }
 
-        // El nombre dice `.csv` y el contenido es TSV: manda el contenido.
+        // The name says `.csv` and the content is TSV: the content wins.
         val parsed = rows(tsv, name = "catalogo.csv")
 
         assertThat(parsed.single().productCode).isEqualTo("ABRAA1B")

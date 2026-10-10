@@ -6,11 +6,11 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 /**
- * Surtido (M04) y exportación al ERP (M09) por HTTP real.
+ * Fulfillment (M04) and export to the ERP (M09) over real HTTP.
  *
- * Los nombres S1…S9 son los de docs/flujos/surtido-y-erp.md §7. **S9** (una orden
- * exportada no se cancela) se comprueba en el dominio: el contrato de M04 no define
- * ninguna ruta de anulación.
+ * The names S1…S9 are those of docs/flujos/surtido-y-erp.md §7. **S9** (an exported order
+ * is not cancelled) is checked in the domain: the M04 contract does not define
+ * any cancellation route.
  */
 class FulfillmentFlowTest : ApiTest() {
 
@@ -39,7 +39,7 @@ class FulfillmentFlowTest : ApiTest() {
         return response.at<Int>("id").toLong()
     }
 
-    /** Deja existencias en un estante: es de donde sale el surtido. */
+    /** Leaves stock on a shelf: it is where fulfillment draws from. */
     private fun stockIn(token: String, hall: String, quantity: Int, who: Long) =
         post(
             "/v1/inventory/adjustments",
@@ -78,7 +78,7 @@ class FulfillmentFlowTest : ApiTest() {
         return items.firstOrNull()?.get("quantity") as String?
     }
 
-    // ── Alta y consulta ─────────────────────────────────────────────────────
+    // ── Creation and query ─────────────────────────────────────────────────
 
     @Test
     fun `creating an order generates the number and returns the order with its lines`() {
@@ -92,7 +92,7 @@ class FulfillmentFlowTest : ApiTest() {
         assertThat(detail.at<String>("status")).isEqualTo("PENDING")
         assertThat(detail.at<Int>("totalLines")).isEqualTo(1)
         assertThat(detail.at<Int>("packagedLines")).isZero()
-        // La creación NO toca el inventario.
+        // Creation does NOT touch the inventory.
         assertThat(quantityAt(token, "04")).isNull()
         val line = detail.at<List<Map<String, Any?>>>("lines").single()
         assertThat(line["quantity"]).isEqualTo("10.000")
@@ -111,7 +111,7 @@ class FulfillmentFlowTest : ApiTest() {
         assertThat(get("/v1/orders/999999", token).code).isEqualTo("ORDER_NOT_FOUND")
     }
 
-    // ── S1: empacar descuenta exactamente lo empacado ───────────────────────
+    // ── S1: packing deducts exactly what was packed ──────────────────────────
 
     @Test
     fun `S1 - packing deducts exactly what was packed`() {
@@ -143,7 +143,7 @@ class FulfillmentFlowTest : ApiTest() {
         val line = lineId(token, id)
         packageLine(token, id, line, quantity = 7, locationId = location)
 
-        // Empacar 7 de 10 dos veces sumaría 14: se comprueba contra lo pendiente.
+        // Packing 7 of 10 twice would add up to 14: it is checked against what is pending.
         val response = packageLine(token, id, line, quantity = 7, locationId = location)
 
         assertThat(response.status).isEqualTo(422)
@@ -183,7 +183,7 @@ class FulfillmentFlowTest : ApiTest() {
         assertThat(response.code).isEqualTo("LOCATION_REQUIRED")
     }
 
-    // ── S2, S3 y S4: confirmar ──────────────────────────────────────────────
+    // ── S2, S3 and S4: confirming ─────────────────────────────────────────────
 
     @Test
     fun `S2 - confirming deducts only what is missing`() {
@@ -199,7 +199,7 @@ class FulfillmentFlowTest : ApiTest() {
         val response = post("/v1/orders/$id/confirm", emptyMap<String, Any>(), token)
 
         assertThat(response.status).isEqualTo(200)
-        // Baja 3 más, no 10: lo empacado ya había salido.
+        // It deducts 3 more, not 10: what was packed had already left.
         assertThat(quantityAt(token, "04")).isEqualTo("90.000")
         val confirmed = response.at<List<Map<String, Any?>>>("lines").single()
         assertThat(confirmed["suppliedQuantity"]).isEqualTo("10.000")
@@ -224,7 +224,7 @@ class FulfillmentFlowTest : ApiTest() {
         assertThat(primera.status).isEqualTo(200)
         assertThat(segunda.status).isEqualTo(409)
         assertThat(segunda.code).isEqualTo("ORDER_ALREADY_CONFIRMED")
-        // Y el inventario bajó una sola vez: 100 − 10.
+        // And the inventory went down only once: 100 − 10.
         assertThat(quantityAt(token, "04")).isEqualTo("90.000")
     }
 
@@ -237,28 +237,28 @@ class FulfillmentFlowTest : ApiTest() {
         stockIn(token, "04", 4, who)
         val id = order(token)
         val line = lineId(token, id)
-        // La ubicación de la línea la anota el empaque: M04 no tiene ruta de asignación,
-        // así que un empalme de 1 es lo que deja la línea con su estante.
+        // The line's location is noted by the packing: M04 has no assignment route,
+        // so locating 1 unit is what leaves the line with its shelf.
         packageLine(token, id, line, quantity = 1, locationId = location)
 
         val response = post("/v1/orders/$id/confirm", emptyMap<String, Any>(), token)
 
         assertThat(response.status).isEqualTo(422)
         assertThat(response.code).isEqualTo("INSUFFICIENT_STOCK")
-        // Faltan 9 y quedan 3.
+        // 9 are missing and 3 are left.
         assertThat(response.at<Map<String, String>>("details")["available"]).isEqualTo("3")
         assertThat(response.at<Map<String, String>>("details")["lineId"]).isEqualTo(line.toString())
-        // La confirmación no se llevó nada: ni el estado ni el saldo.
+        // The confirmation did not take anything: neither the status nor the balance.
         assertThat(get("/v1/orders/$id", token).at<String>("status")).isEqualTo("IN_PROGRESS")
         assertThat(quantityAt(token, "04")).isEqualTo("3.000")
-        // El único movimiento de salida es el del empalme de 1, no el de la confirmación.
+        // The only outflow movement is the one from the locate of 1, not the one from the confirmation.
         assertThat(
             db.sql("SELECT COALESCE(sum(units), 0) FROM kardex WHERE move_type = 'FULFILLMENT_OUT'")
                 .query(java.math.BigDecimal::class.java).single(),
         ).isEqualByComparingTo("1.000")
     }
 
-    // ── S5, S6 y S7: la exportación al ERP ──────────────────────────────────
+    // ── S5, S6 and S7: the ERP export ─────────────────────────────────────
 
     @Test
     fun `S5 - without an ERP the export fails with a reason, and the inventory did leave`() {
@@ -280,7 +280,7 @@ class FulfillmentFlowTest : ApiTest() {
         assertThat(detail.at<String>("exportStatus")).isEqualTo("FAILED")
         assertThat(detail.at<Int>("exportAttempts")).isEqualTo(1)
         assertThat(detail.at<String>("exportLastError")).startsWith("ERP_NOT_CONNECTED")
-        // La confirmación NO se revierte: el stock ya salió.
+        // The confirmation is NOT rolled back: the stock has already left.
         assertThat(quantityAt(token, "04")).isEqualTo("90.000")
     }
 
@@ -302,7 +302,7 @@ class FulfillmentFlowTest : ApiTest() {
         assertThat(response.at<Int>("attempts")).isEqualTo(2)
         assertThat(response.at<String>("status")).isEqualTo("FAILED")
         assertThat(response.at<String>("lastError")).startsWith("ERP_NOT_CONNECTED")
-        // El inventario no se movió otra vez.
+        // The inventory did not move again.
         assertThat(quantityAt(token, "04")).isEqualTo("90.000")
     }
 
@@ -318,7 +318,7 @@ class FulfillmentFlowTest : ApiTest() {
         assertThat(response.code).isEqualTo("ORDER_NOT_CONVERTED")
     }
 
-    // ── S8: el faltante sigue las reglas de ajuste ──────────────────────────
+    // ── S8: the shortage follows the adjustment rules ──────────────────────
 
     @Test
     fun `S8 - a shortage without a reason deducts nothing`() {
@@ -351,7 +351,7 @@ class FulfillmentFlowTest : ApiTest() {
         stockIn(token, "04", 100, who)
         val id = order(token)
         val line = lineId(token, id)
-        // Un empalme de 10 deja la ubicación anotada en la línea.
+        // Locating 10 leaves the location noted on the line.
         packageLine(token, id, line, quantity = 10, locationId = location)
 
         val response = post(
@@ -361,9 +361,9 @@ class FulfillmentFlowTest : ApiTest() {
         )
 
         assertThat(response.status).isEqualTo(200)
-        // 100 − 10 empacados − 3 del faltante.
+        // 100 − 10 packed − 3 of the shortage.
         assertThat(quantityAt(token, "04")).isEqualTo("87.000")
-        // El movimiento lleva el origen del surtido, no un ajuste manual.
+        // The movement carries the fulfillment origin, not a manual adjustment.
         assertThat(
             db.sql("SELECT adjustment_origin FROM kardex WHERE move_type = 'ADJUSTMENT_OUT'")
                 .query(String::class.java).single(),
@@ -383,7 +383,7 @@ class FulfillmentFlowTest : ApiTest() {
 
         createUser("operador", USER_PASSWORD, BaseRole.WAREHOUSE_OPERATOR.key.value)
         val token = accessTokenOf("operador", USER_PASSWORD)
-        // El operador de almacén tiene `order.package` pero no `inventory.adjust_shortage`.
+        // The warehouse operator has `order.package` but not `inventory.adjust_shortage`.
         db.sql(
             """
             INSERT INTO role_permissions (role_id, permission_id, scope)
@@ -403,7 +403,7 @@ class FulfillmentFlowTest : ApiTest() {
         assertThat(response.code).isEqualTo("PERMISSION_DENIED")
     }
 
-    // ── Permisos por ruta ───────────────────────────────────────────────────
+    // ── Permissions per route ─────────────────────────────────────────────────
 
     @Test
     fun `a warehouse operator does not confirm or export orders`() {
@@ -415,7 +415,7 @@ class FulfillmentFlowTest : ApiTest() {
         assertThat(post("/v1/orders", mapOf("lines" to emptyList<Any>()), token).code).isEqualTo("PERMISSION_DENIED")
     }
 
-    // ── Asignación de la línea (M04) ────────────────────────────────────────
+    // ── Line assignment (M04) ──────────────────────────────────────────────────
 
     @Test
     fun `assigning a line puts it in someone's charge and on their shelf`() {
@@ -436,9 +436,9 @@ class FulfillmentFlowTest : ApiTest() {
         assertThat(response.at<String>("status")).isEqualTo("ASSIGNED")
         assertThat((response.at<Number>("assignedUserId")).toLong()).isEqualTo(operador)
         assertThat((response.at<Number>("locationId")).toLong()).isEqualTo(estante)
-        // Y el detalle lo publica, que es lo que el operador consulta para saber qué le toca.
+        // And the detail publishes it, which is what the operator checks to know what is theirs.
         val detalle = get("/v1/orders/$pedido", token).at<List<Map<String, Any?>>>("lines").single()
-        // El nombre visible de la persona, no su usuario: es lo que se lee en pantalla.
+        // The person's visible name, not their username: it is what is read on screen.
         assertThat(detalle["assignedUserName"]).isEqualTo("Usuario operador")
         assertThat(detalle["locationDisplayName"]).isEqualTo("04-B-C")
     }
@@ -470,7 +470,7 @@ class FulfillmentFlowTest : ApiTest() {
 
         val response = put("/v1/orders/$pedido/lines/$linea/assign", mapOf<String, Any?>(), token)
 
-        // Asignar trabajo sobre mercancía que ya salió sería decir que alguien la va a sacar
+        // Assigning work on goods that already left would mean someone is going to take them out
         // dos veces.
         assertThat(response.status).isEqualTo(409)
         assertThat(response.code).isEqualTo("INVALID_TRANSITION")

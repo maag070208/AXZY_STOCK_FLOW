@@ -1,10 +1,10 @@
 package dev.axzy.stock.application.health
 
-/** Lo que el servicio sabe de su base de datos en este momento. */
+/** What the service knows about its database at this moment. */
 data class DatabaseHealth(
     val up: Boolean,
     val latencyMs: Long,
-    /** La última migración aplicada, o `null` si no se pudo leer el historial. */
+    /** The last migration applied, or `null` if the history could not be read. */
     val schemaVersion: String?,
     val error: String? = null,
 )
@@ -15,14 +15,14 @@ data class HealthReport(
     val database: DatabaseHealth,
 )
 
-/** Hace una consulta real a la base. Un health que no comprueba nada dice «sano» con la base caída. */
+/** Makes a real query to the database. A health check that checks nothing says "healthy" with the database down. */
 fun interface DatabaseProbe {
     fun probe(): DatabaseHealth
 }
 
 /**
- * El estado del servicio (docs/api/salud.md). Lo decide la base de datos: `schemaVersion` es
- * diagnóstico y no cambia el estado.
+ * The service status (docs/api/salud.md). The database decides it: `schemaVersion` is
+ * diagnostic and does not change the status.
  */
 class CheckHealth(
     private val database: DatabaseProbe,

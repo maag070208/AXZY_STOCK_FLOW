@@ -36,12 +36,12 @@ import java.math.BigDecimal
 import java.util.UUID
 
 /**
- * Existencias, kardex y movimientos (docs/api/inventario.md).
+ * Stock, ledger and movements (docs/api/inventario.md).
  *
- * El controlador **no decide permisos**: el de un ajuste depende de la dirección y
- * del motivo, y eso lo resuelve el caso de uso. La anotación de cada ruta declara el
- * permiso que se comprueba; en el ajuste declara el más amplio de los cinco, porque
- * el real se sabe al leer el cuerpo — y el caso de uso vuelve a decidir.
+ * The controller **does not decide permissions**: an adjustment's depends on the direction and
+ * the reason, and the use case resolves that. Each route's annotation declares the
+ * permission that is checked; for the adjustment it declares the broadest of the five, because
+ * the real one is known only when reading the body — and the use case decides again.
  */
 @RestController
 @RequestMapping("/v1/inventory")
@@ -127,9 +127,9 @@ class InventoryController(
     }
 
     /**
-     * El ajuste. Responde **`201`** si se aplicó y **`202`** si quedó pendiente de
-     * aprobación: son dos desenlaces distintos y el cliente tiene que poder
-     * distinguirlos sin leer el cuerpo.
+     * The adjustment. It answers **`201`** if it was applied and **`202`** if it was left pending
+     * approval: these are two different outcomes, and the client has to be able to
+     * tell them apart without reading the body.
      */
     @PostMapping("/adjustments")
     @RequiresPermission(
@@ -214,7 +214,7 @@ class InventoryController(
     }
 }
 
-/** El resultado a HTTP: `201` aplicado, `202` pendiente de aprobación. */
+/** The result to HTTP: `201` applied, `202` pending approval. */
 private fun Outcome<MovementResult>.toMovementResponse(): ResponseEntity<Any> =
     when (this) {
         is Either.Left -> error.toResponse()
@@ -224,10 +224,10 @@ private fun Outcome<MovementResult>.toMovementResponse(): ResponseEntity<Any> =
     }
 
 /**
- * La clave de idempotencia es un UUID y viaja en la cabecera.
+ * The idempotency key is a UUID and travels in the header.
  *
- * Se valida aquí y **no** se deja al `CAST` de PostgreSQL: una clave mal formada
- * saldría como `500` por un dato del cliente (docs/api/convenciones.md §1.5).
+ * It is validated here and **not** left to PostgreSQL's `CAST`: a malformed key
+ * would come out as a `500` because of client data (docs/api/convenciones.md §1.5).
  */
 internal fun idempotencyKeyOf(raw: String?): Outcome<UUID?> {
     if (raw.isNullOrBlank()) return null.asRight()
@@ -243,7 +243,7 @@ internal fun idempotencyKeyOf(raw: String?): Outcome<UUID?> {
     )
 }
 
-/** La cantidad llega como número JSON y se convierte al tipo del dominio sin perder precisión. */
+/** The quantity arrives as a JSON number and is converted to the domain type without losing precision. */
 private fun quantityOf(raw: BigDecimal?): Outcome<Quantity?> {
     if (raw == null) return null.asRight()
     return Quantity.parse(raw.toPlainString()).fold(

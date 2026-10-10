@@ -35,11 +35,11 @@ import org.springframework.web.bind.annotation.RestController
 import java.math.BigDecimal
 
 /**
- * Traslados entre bodegas (docs/api/traslados.md).
+ * Transfers between warehouses (docs/api/traslados.md).
  *
- * El informe de tránsito va **antes** que `/{id}` en el mismo controlador y con su
- * propio permiso: `transit.view` es una entrada del catálogo, y quien vigila la deuda
- * de los traslados no tiene por qué poder ver ni crear traslados.
+ * The in-transit report goes **before** `/{id}` in the same controller and with its own
+ * permission: `transit.view` is a catalog entry, and whoever watches the transfers' debt does not
+ * need to be able to see or create transfers.
  */
 @RestController
 @RequestMapping("/v1/transfers")
@@ -112,8 +112,8 @@ class TransferController(
     }
 
     /**
-     * La mercancía en tránsito. **Va antes que `/{id}`** para que `in-transit` no se lea
-     * como un identificador.
+     * The goods in transit. **It goes before `/{id}`** so that `in-transit` is not read
+     * as an identifier.
      */
     @GetMapping("/in-transit")
     @RequiresPermission("transit.view")
@@ -157,7 +157,7 @@ class TransferController(
     }
 }
 
-/** La cantidad que llega como número o como cadena, sin perder precisión. */
+/** The quantity that arrives as a number or as a string, without losing precision. */
 private fun quantityOf(raw: BigDecimal): Quantity =
     Quantity.parse(raw.toPlainString()).getOrElse {
         throw FailureException(

@@ -20,11 +20,11 @@ import java.math.BigDecimal
 import java.sql.ResultSet
 
 /**
- * Los productos sobre PostgreSQL.
+ * The products on PostgreSQL.
  *
- * El saldo sale de `product_stock`, **la proyección**, no de sumar el kardex
- * (regla R-P3): es el mismo número que mantiene el motor de inventario, pero sin
- * recorrer el historial.
+ * The balance comes from `product_stock`, **the projection**, not from summing the ledger
+ * (rule R-P3): it is the same number the inventory engine maintains, but without
+ * walking through the history.
  */
 class JdbcProducts(private val jdbc: JdbcClient, private val json: JsonMapper) : Products {
 
@@ -57,8 +57,8 @@ class JdbcProducts(private val jdbc: JdbcClient, private val json: JsonMapper) :
         }
         val clause = if (where.isEmpty()) "" else "WHERE " + where.joinToString(" AND ")
 
-        // El conteo usa LOS MISMOS filtros que el listado: si los ignorara, el sobre
-        // diría una cosa y los `items` otra (docs/api/convenciones.md §1.4).
+        // The count uses THE SAME filters as the listing: if it ignored them, the envelope
+        // would say one thing and the `items` another (docs/api/convenciones.md §1.4).
         val total = query("SELECT count(*) FROM products p $clause", params) { rs, _ -> rs.getLong(1) }.single()
 
         val items = query(
@@ -110,15 +110,15 @@ class JdbcProducts(private val jdbc: JdbcClient, private val json: JsonMapper) :
     }
 
     /**
-     * El alta masiva de la importación: **una sentencia para todo el archivo**.
+     * The bulk insert of the import: **one statement for the whole file**.
      *
-     * El archivo viaja como un documento JSON y la base lo expande con
-     * `jsonb_to_recordset` (regla R-P9). Una sentencia por producto serían 1.398
-     * idas y vueltas para un archivo que se importa de una vez.
+     * The file travels as a JSON document and the database expands it with
+     * `jsonb_to_recordset` (rule R-P9). One statement per product would be 1,398
+     * round trips for a file that is imported at once.
      *
-     * El `WHERE` del `DO UPDATE` es lo que distingue «actualizado» de «ya estaba
-     * igual»: sin él, la segunda importación diría «1.398 actualizados» cuando no
-     * cambió ninguno (K2).
+     * The `WHERE` of the `DO UPDATE` is what distinguishes "updated" from "already was
+     * the same": without it, the second import would say "1,398 updated" when
+     * none changed (K2).
      */
     override fun upsertAll(products: List<ValidatedProduct>): UpsertSummary {
         if (products.isEmpty()) return UpsertSummary(0, 0, 0)
@@ -151,8 +151,8 @@ class JdbcProducts(private val jdbc: JdbcClient, private val json: JsonMapper) :
             else -> "p.product_code"
         }
         val direction = if (request.sort.direction == SortDirection.DESC) "DESC" else "ASC"
-        // Se añade el id como desempate: sin él, dos productos con el mismo nombre
-        // pueden salir en orden distinto entre páginas y perderse o repetirse.
+        // The id is added as a tiebreaker: without it, two products with the same name
+        // can come out in a different order between pages and be lost or repeated.
         return "$column $direction, p.id ASC"
     }
 
@@ -177,8 +177,8 @@ class JdbcProducts(private val jdbc: JdbcClient, private val json: JsonMapper) :
 
     private companion object {
         /**
-         * La proyección del saldo va en la misma consulta que el listado: resolverla
-         * con una consulta por producto sería el N+1 que la regla R-P2 prohíbe.
+         * The balance projection goes in the same query as the listing: resolving it
+         * with a query per product would be the N+1 that rule R-P2 forbids.
          */
         const val COLUMNS =
             "p.id, p.product_code, p.name, p.description, p.unit_measure_id, " +

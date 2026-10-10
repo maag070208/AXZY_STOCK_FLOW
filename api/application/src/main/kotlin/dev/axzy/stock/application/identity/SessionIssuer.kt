@@ -5,8 +5,8 @@ import dev.axzy.stock.domain.identity.SessionPolicy
 import java.time.Instant
 
 /**
- * Emite una sesión: guarda el refresh token (su hash) y firma el token de acceso. Lo comparten el
- * inicio de sesión y la renovación para que una sesión se emita de una sola forma.
+ * Issues a session: it stores the refresh token (its hash) and signs the access token. Sign-in and renewal
+ * share it so that a session is issued in only one way.
  */
 class SessionIssuer(
     private val refreshTokens: RefreshTokens,
@@ -14,7 +14,7 @@ class SessionIssuer(
     private val accessTokens: AccessTokenIssuer,
     private val policy: SessionPolicy,
 ) {
-    /** Debe llamarse dentro de la transacción de quien emite. */
+    /** Must be called inside the issuer's transaction. */
     fun issue(account: ActorSnapshot, familyId: String, generation: Int, origin: RequestOrigin, now: Instant): IssuedSession {
         val actor = account.actor
         val refreshToken = codec.generate()

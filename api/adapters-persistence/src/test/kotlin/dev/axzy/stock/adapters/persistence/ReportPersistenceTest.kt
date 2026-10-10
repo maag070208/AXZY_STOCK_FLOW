@@ -17,16 +17,16 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * Los reportes contra PostgreSQL real: el presupuesto de consultas y el **día
+ * The reports against real PostgreSQL: the query budget and the **operating day
  * operativo**.
  *
- * Lo del día operativo se prueba aquí y no por HTTP porque hace falta un movimiento
- * con una hora concreta: por la API se crea «ahora», y una prueba que dependa de la
- * hora a la que se ejecuta es una prueba que falla sola un día.
+ * The operating-day part is tested here and not over HTTP because it needs a movement
+ * with a specific time: over the API it is created "now", and a test that depends on the
+ * time it runs is a test that fails by itself one day.
  */
 class ReportPersistenceTest {
 
-    /** La misma zona que usa la API en las pruebas y en Compose. */
+    /** The same zone the API uses in the tests and in Compose. */
     private val zone = ZoneId.of("America/Mexico_City")
 
     private val db = TestPersistence()
@@ -44,14 +44,14 @@ class ReportPersistenceTest {
         ).query(Long::class.java).single()
         receivingId = db.jdbc.sql("SELECT id FROM locations WHERE kind = 'RECEIVING'").query(Long::class.java).single()
         /*
-         * **Sin ningún movimiento de arranque.** Cada prueba inserta las filas del
-         * kardex que necesita, con su fecha: un movimiento creado «ahora» cae en el
-         * día operativo en curso, y contar con él haría que estas pruebas dependieran
-         * de la hora a la que se ejecutan —y de la zona del que las ejecuta.
+         * **No startup movement.** Each test inserts the rows of the
+         * ledger it needs, with its date: a movement created "now" falls in the
+         * current operating day, and counting with it would make these tests depend
+         * on the time at which they run —and on the time zone of whoever runs them.
          */
     }
 
-    /** Un movimiento fechado a mano: es lo que permite probar el día operativo. */
+    /** A movement dated by hand: it is what makes it possible to test the operating day. */
     private fun movementAt(units: Int, at: String) {
         db.asOwner.sql(
             """
@@ -62,7 +62,7 @@ class ReportPersistenceTest {
         ).param("product", productId).param("units", units).param("location", receivingId).param("at", at).update()
     }
 
-    // ── Presupuesto de consultas ────────────────────────────────────────────
+    // ── Query budget ────────────────────────────────────────────
 
     @Test
     fun `R-P2 - the stock report takes three statements - count, totals and page`() {
@@ -98,18 +98,18 @@ class ReportPersistenceTest {
         assertThat(second).hasSize(2)
         assertThat(third).hasSize(1)
         assertThat(first.size + second.size + third.size).isEqualTo(5)
-        // Los identificadores de los tres trozos son todos distintos: un `offset` que
-        // no avanza repetiría filas y el archivo tendría duplicados.
+        // The identifiers of the three chunks are all different: an `offset` that
+        // does not advance would repeat rows and the file would have duplicates.
         val ids = (first + second + third).map { it.id }
         assertThat(ids).doesNotHaveDuplicates()
     }
 
-    // ── El día operativo ────────────────────────────────────────────────────
+    // ── The operating day ────────────────────────────────────────────────────
 
     @Test
     fun `a night movement belongs to its operating day and not to the UTC day`() {
-        // 04:00 UTC del 10 son las 22:00 del 9 en Ciudad de México: en el almacén
-        // aquello pasó el día 9.
+        // 04:00 UTC on the 10th is 22:00 on the 9th in Mexico City: in the warehouse
+        // that happened on the 9th.
         movementAt(units = 7, at = "2026-10-10T04:00:00Z")
 
         val dia9 = reports.movementSummary(
@@ -126,7 +126,7 @@ class ReportPersistenceTest {
 
     @Test
     fun `the date filter includes the whole operating day`() {
-        // 05:59 UTC del 10 son las 23:59 del 9; 06:00 UTC del 10 son las 00:00 del 10.
+        // 05:59 UTC on the 10th is 23:59 on the 9th; 06:00 UTC on the 10th is 00:00 on the 10th.
         movementAt(units = 1, at = "2026-10-10T05:59:00Z")
         movementAt(units = 2, at = "2026-10-10T06:00:00Z")
 
@@ -154,7 +154,7 @@ class ReportPersistenceTest {
             PageRequest.of(),
         )
 
-        // El movimiento del 9 operativo aparece el 9 y no el 10, igual que en el resumen.
+        // The movement of operating day the 9th appears on the 9th and not the 10th, as in the summary.
         assertThat(dia9.totalItems).isEqualTo(1)
         assertThat(dia10.totalItems).isZero()
     }

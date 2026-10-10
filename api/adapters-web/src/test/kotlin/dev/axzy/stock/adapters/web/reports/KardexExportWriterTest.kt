@@ -13,12 +13,12 @@ import java.io.ByteArrayOutputStream
 import java.time.Instant
 
 /**
- * La exportación del kardex.
+ * The ledger export.
  *
- * Lo que se comprueba aquí es lo que el contrato promete y no se ve en el código:
- * **en XLSX las cantidades son celdas numéricas**, no texto. Una columna de texto no
- * se suma y Excel la contaría como cero, así que un archivo que "se ve bien" puede
- * ser inútil.
+ * What is checked here is what the contract promises and is not visible in the code:
+ * **in XLSX the quantities are numeric cells**, not text. A text column is not
+ * summed and Excel would count it as zero, so a file that "looks right" can be
+ * useless.
  */
 class KardexExportWriterTest {
 
@@ -71,8 +71,8 @@ class KardexExportWriterTest {
     fun `a field with a comma or quote is quoted and the quote is doubled`() {
         val csv = csvOf(listOf(line(productName = "ABRAZADERA 1-5/8\", CON TUERCA", note = "Caja rota, pasillo 3")))
 
-        // El nombre lleva comilla y coma: sin entrecomillar, el archivo tendría una
-        // columna de más y ninguna fila cuadraría con la cabecera.
+        // The name has a quote and a comma: without quoting, the file would have one
+        // extra column and no row would match the header.
         assertThat(csv).contains("\"ABRAZADERA 1-5/8\"\", CON TUERCA\"")
         assertThat(csv).contains("\"Caja rota, pasillo 3\"")
     }
@@ -97,8 +97,8 @@ class KardexExportWriterTest {
             val sheet = workbook.getSheetAt(0)
             val row = sheet.getRow(1)
 
-            // El id es un entero y las dos cantidades, números: es lo que hace que una
-            // columna de existencias se pueda sumar en Excel.
+            // The id is an integer and the two quantities are numbers: that is what makes a
+            // stock column summable in Excel.
             assertThat(row.getCell(0).cellType).isEqualTo(CellType.NUMERIC)
             assertThat(row.getCell(5).cellType).isEqualTo(CellType.NUMERIC)
             assertThat(row.getCell(6).cellType).isEqualTo(CellType.NUMERIC)
@@ -106,7 +106,7 @@ class KardexExportWriterTest {
             assertThat(row.getCell(6).numericCellValue).isEqualTo(1100.0)
             assertThat(row.getCell(5).cellStyle.dataFormat).isNotZero()
 
-            // Y el texto sigue siendo texto.
+            // And the text stays text.
             assertThat(row.getCell(2).stringCellValue).isEqualTo("ABRAA1B")
             assertThat(row.getCell(7).stringCellValue).isEqualTo("")   // origen nulo
             assertThat(sheet.getRow(0).getCell(1).stringCellValue).isEqualTo("fecha")
@@ -120,7 +120,7 @@ class KardexExportWriterTest {
         val rows = (1..7).map { line(id = it.toLong()) }
 
         val out = ByteArrayOutputStream()
-        // Trozos de 2 y 7 filas: el último trozo es incompleto a propósito.
+        // Chunks of 2 and 7 rows: the last chunk is incomplete on purpose.
         KardexExportWriter.write(export(ExportFormat.XLSX, rows, chunkSize = 2), out)
 
         val sheet = WorkbookFactory.create(ByteArrayInputStream(out.toByteArray())).use { it.getSheetAt(0) }

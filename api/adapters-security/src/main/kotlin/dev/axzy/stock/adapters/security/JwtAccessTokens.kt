@@ -24,21 +24,21 @@ import java.util.UUID
 import javax.crypto.spec.SecretKeySpec
 
 /**
- * Los tokens de acceso: JWT firmados con HMAC-SHA256.
+ * Access tokens: JWTs signed with HMAC-SHA256.
  *
- * **El token solo identifica** (quién, de qué sesión, hasta cuándo). Los permisos NO viajan en él:
- * se leen de la base en cada petición. Con los permisos dentro, quitarle uno a alguien o
- * desactivar su cuenta no surtía efecto hasta que el token caducaba, y además el token pesaba
- * varios kilobytes en cada petición.
+ * **The token only identifies** (who, which session, until when). Permissions are NOT carried in it:
+ * they are read from the database on every request. With permissions inside, removing one from someone or
+ * deactivating their account had no effect until the token expired, and the token also weighed
+ * several kilobytes on every request.
  *
- * El mismo objeto emite y entrega el [decoder] que verifica, para que las dos mitades compartan
- * clave, emisor y audiencia por construcción.
+ * The same object issues and delivers the [decoder] that verifies, so that the two halves share
+ * key, issuer and audience by construction.
  */
 class JwtAccessTokens(
     secret: String,
     private val issuer: String,
     private val audience: String,
-    /** El reloj con el que se comprueba la caducidad: el mismo con el que la aplicación fecha los tokens. */
+    /** The clock used to check expiry: the same one the application timestamps the tokens with. */
     clock: Clock = Clock.systemUTC(),
 ) : AccessTokenIssuer {
 
@@ -52,11 +52,11 @@ class JwtAccessTokens(
     private val key = SecretKeySpec(secret.toByteArray(Charsets.UTF_8), "HmacSHA256")
     private val encoder = NimbusJwtEncoder(ImmutableSecret(key))
 
-    /** Verifica firma, caducidad, emisor y audiencia. Lo usa la cadena de seguridad HTTP. */
+    /** Verifies signature, expiry, issuer and audience. Used by the HTTP security chain. */
     val decoder: JwtDecoder = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build().apply {
         setJwtValidator(
             DelegatingOAuth2TokenValidator(
-                // Sin tolerancia de reloj: quien emite y quien verifica son el mismo proceso.
+                // No clock tolerance: whoever issues and whoever verifies are the same process.
                 JwtTimestampValidator(Duration.ZERO).apply { setClock(clock) },
                 JwtIssuerValidator(issuer),
                 OAuth2TokenValidator<Jwt> { jwt ->
@@ -75,9 +75,9 @@ class JwtAccessTokens(
             .id(UUID.randomUUID().toString())
             .issuedAt(issuedAt)
             .expiresAt(expiresAt)
-            // La familia de la sesión: permite saber de qué inicio de sesión viene una petición.
+            // The session's family: it allows knowing which sign-in a request comes from.
             .claim(CLAIM_FAMILY, familyId)
-            // El sello de credenciales: si la contraseña cambia, este token deja de coincidir con la cuenta.
+            // The credentials stamp: if the password changes, this token stops matching the account.
             .claim(CLAIM_CREDENTIALS, credentialsStamp)
             .build()
         val header = JwsHeader.with(MacAlgorithm.HS256).build()

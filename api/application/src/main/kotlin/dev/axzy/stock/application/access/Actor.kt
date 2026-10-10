@@ -3,11 +3,11 @@ package dev.axzy.stock.application.access
 import dev.axzy.stock.domain.access.AccessUser
 
 /**
- * Quién ejecuta un caso de uso. Llega como ARGUMENTO, nunca desde un contexto global: un caso de
- * uso que lee al usuario de una variable de hilo no se puede probar ni llamar desde un job.
+ * Who executes a use case. It arrives as an ARGUMENT, never from a global context: a use
+ * case that reads the user from a thread variable cannot be tested or called from a job.
  *
- * Se reconstruye de la base en cada petición. El token solo dice quién es; qué puede hacer se lee
- * en el momento, así que desactivar una cuenta o quitar un permiso surte efecto de inmediato.
+ * It is rebuilt from the database on every request. The token only says who it is; what it can do is read
+ * at that moment, so disabling an account or removing a permission takes effect immediately.
  */
 data class Actor(
     val user: AccessUser,

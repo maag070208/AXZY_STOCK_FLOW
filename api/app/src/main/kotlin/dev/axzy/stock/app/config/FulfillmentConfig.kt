@@ -29,12 +29,12 @@ import org.springframework.jdbc.core.simple.JdbcClient
 import java.time.Clock
 
 /**
- * Surtido (M04) y exportación al ERP (M09).
+ * Fulfillment (M04) and export to the ERP (M09).
  *
- * El puerto del ERP se cablea con una implementación que **falla con motivo**: la
- * conexión real no existe todavía ([ADR-0013]). El caso de uso ya aplica las reglas que
- * no dependen de ella —la confirmación no se revierte, el intento se cuenta y el
- * motivo queda guardado para el reintento—, así que el día que haya ERP solo entra un
+ * The ERP port is wired with an implementation that **fails with a reason**: the real
+ * connection does not exist yet ([ADR-0013]). The use case already applies the rules that
+ * do not depend on it —the confirmation is not rolled back, the attempt is counted and the
+ * reason is kept for the retry—, so the day there is an ERP, only one adapter changes.
  * adaptador nuevo.
  */
 @Configuration(proxyBeanMethods = false)
@@ -130,10 +130,10 @@ class FulfillmentConfig {
     )
 
     /**
-     * **No hay ERP configurado.** El intento falla con un motivo que empieza por
-     * `ERP_NOT_CONNECTED` (S5), el contador sube y el reintento manual lo vuelve a
-     * mostrar (S6). Inventar un envío correcto sería mentir en la bitácora y en el
-     * estado de la orden.
+     * **No ERP is configured.** The attempt fails with a reason that starts with
+     * `ERP_NOT_CONNECTED` (S5), the counter goes up and the manual retry shows it again
+     * show it (S6). Making up a successful export would lie in the audit log and in the
+     * status of the order.
      */
     @Bean
     fun erpClient(): ErpClient = object : ErpClient {

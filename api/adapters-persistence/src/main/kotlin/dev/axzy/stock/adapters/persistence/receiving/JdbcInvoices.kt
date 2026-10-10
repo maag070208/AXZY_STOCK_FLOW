@@ -31,16 +31,16 @@ import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
 /**
- * Las facturas de recepción sobre PostgreSQL (docs/api/recepcion.md).
+ * The receiving invoices on PostgreSQL (docs/api/recepcion.md).
  *
- * Dos decisiones que se repiten en todo el archivo:
+ * Two decisions that are repeated throughout the file:
  *
- * · **Los contadores se calculan en la base**, junto a la cabecera, en la misma
- *   sentencia: pedirlos por fila sería una consulta por factura en un listado de
+ * · **The counters are computed in the database**, next to the header, in the same
+ *   statement: requesting them per row would be one query per invoice in a listing of
  *   doscientas.
- * · **El criterio de qué línea bloquea sale del dominio**, no de una lista escrita
- *   aquí. `BLOQUEANTES` se compone desde `InvoiceLineStatus.blocksInvoiceClosing`, así
- *   que la lista y la acción de cerrar no pueden separarse.
+ * · **The rule for which line blocks comes from the domain**, not from a list written
+ *   here. `BLOQUEANTES` is composed from `InvoiceLineStatus.blocksInvoiceClosing`, so
+ *   that the list and the close action cannot be separated.
  */
 class JdbcInvoices(private val jdbc: JdbcClient) : Invoices, ReceivingCatalog, LocatingLines {
 
@@ -102,14 +102,14 @@ class JdbcInvoices(private val jdbc: JdbcClient) : Invoices, ReceivingCatalog, L
                 ),
             ) { rs, _ -> rs.getLong(1) }.single()
         } catch (error: DataIntegrityViolationException) {
-            // El índice único decide en una carrera; el caso normal lo atrapa el
-            // prechequeo del caso de uso, pero entre los dos cabe otra petición.
+            // The unique index decides in a race; the normal case is caught by the
+            // use-case pre-check, but another request can fit in between the two.
             if (error.message?.contains(INVOICE_NUMBER_INDEX) == true) return InsertResult.DuplicateNumber
             throw error
         }
 
-        // **Una sola sentencia para todas las líneas**: doce líneas no pueden ser doce
-        // viajes a la base (R-P9).
+        // **One single statement for all the lines**: twelve lines cannot be twelve
+        // round trips to the database (R-P9).
         val values = lines.indices.joinToString(", ") { index ->
             "(:invoice, :product$index, :container$index, :unit$index, :quantity$index, " +
                 ":boxes$index, :unitsPerBox$index)"
@@ -182,11 +182,11 @@ class JdbcInvoices(private val jdbc: JdbcClient) : Invoices, ReceivingCatalog, L
     }
 
     /**
-     * La captura, reclamada contra el saldo ingresado que se leyó.
+     * The count, claimed against the balance entered that was read.
      *
-     * Es el mismo `UPDATE` de [replaceLine] con una condición más: `received_quantity` tiene que
-     * seguir siendo el que se leyó. Sin ella, dos capturas simultáneas de la misma línea
-     * ingresarían la misma diferencia dos veces.
+     * It is the same `UPDATE` as [replaceLine] with one more condition: `received_quantity` has to
+     * still be the one that was read. Without it, two simultaneous counts of the same line
+     * would enter the same difference twice.
      */
     override fun claimCapture(line: InvoiceLine, expectedReceived: Quantity, at: Instant): Int =
         update(
@@ -315,12 +315,12 @@ class JdbcInvoices(private val jdbc: JdbcClient) : Invoices, ReceivingCatalog, L
                 receiptDate = rs.getObject("receipt_date", java.time.LocalDate::class.java),
                 status = rs.getString("status"),
                 pendingLines = rs.getInt("pending_lines"),
-                // La suma de diferencias ABSOLUTAS: va positiva aunque falte mercancía.
+                // The sum of ABSOLUTE differences: it stays positive even when goods are missing.
                 totalDifference = rs.getBigDecimal("total_difference").toQuantity(),
             )
         }
 
-    // ── El enganche con la ubicación (M02) ──────────────────────────────────
+    // ── The hook into the location (M02) ──────────────────────────────────
 
     override fun find(lineId: Long): InvoiceLine? =
         query("$LINE_COLUMNS $LINE_FROM WHERE l.deleted = FALSE AND l.id = :line", mapOf("line" to lineId)) { rs, _ ->
@@ -349,7 +349,7 @@ class JdbcInvoices(private val jdbc: JdbcClient) : Invoices, ReceivingCatalog, L
         )
     }
 
-    // ── El catálogo que necesita el alta ────────────────────────────────────
+    // ── The catalog the creation needs ────────────────────────────────────
 
     override fun product(code: ProductCode): ReceivingProduct? =
         query(
@@ -382,8 +382,8 @@ class JdbcInvoices(private val jdbc: JdbcClient) : Invoices, ReceivingCatalog, L
     private fun ResultSet.toLineView(): InvoiceLineView {
         val quantity = getBigDecimal("quantity").toQuantity()
         val unitsPerBox = getBigDecimal("units_per_box")
-            // La columna es anulable y el dominio exige el dato: una fila sin él es un
-            // problema de datos que hay que ver, no redondear en silencio.
+            // The column is nullable and the domain requires the value: a row without it is a
+            // data problem to be looked at, not something to round off silently.
             ?: error("Line ${getLong("id")} has no units per box: the packing cannot be validated.")
         val physical = getBigDecimal("physical_quantity").toQuantity().takeIf { !wasNull() }
         val physicalBoxes = getBigDecimal("physical_box_quantity")?.longValueExact()?.let(BoxQuantity::of)
@@ -418,11 +418,11 @@ class JdbcInvoices(private val jdbc: JdbcClient) : Invoices, ReceivingCatalog, L
             approvedBy = getLong("approved_by").takeUnless { wasNull() },
             adjustmentReason = getString("adjustment_reason"),
             /*
-             * La ubicación del dominio es el código plano del legacy (`04BCA`, con la
-             * letra del nivel al final) y la tabla guarda una clave foránea: el nivel
-             * no está en la fila, así que **no se puede reconstruir** sin inventarlo.
-             * Se deja nula y el nombre visible —que es lo que el contrato pide— viaja
-             * en `locationDisplayName`, compuesto por el dominio.
+             * The domain location is the legacy's flat code (`04BCA`, with the
+             * level letter at the end), and the table has a foreign key: the level
+             * is not in the row, so it **cannot be rebuilt** without inventing it.
+             * It is left null, and the visible name —which is what the contract asks for— travels
+             * in `locationDisplayName`, composed by the domain.
              */
             location = null,
         )
@@ -433,8 +433,8 @@ class JdbcInvoices(private val jdbc: JdbcClient) : Invoices, ReceivingCatalog, L
             productName = getString("product_name"),
             container = getString("container"),
             boxQuantity = getBigDecimal("box_quantity").toQuantity(),
-            // La `difference` de la respuesta es la columna GENERADA de la base: es la
-            // que no se puede desincronizar.
+            // The `difference` in the response is the database's GENERATED column: it is
+            // the one that cannot drift out of sync.
             difference = getBigDecimal("difference").toQuantity().takeIf { !wasNull() },
             capturedByName = getString("captured_by_name"),
             capturedAt = getObject("captured_at", OffsetDateTime::class.java)?.toInstant(),
@@ -452,10 +452,10 @@ class JdbcInvoices(private val jdbc: JdbcClient) : Invoices, ReceivingCatalog, L
     }
 
     /**
-     * Ejecuta una escritura y devuelve **cuántas filas cambió**.
+     * Executes a write and returns **how many rows it changed**.
      *
-     * El número no es un detalle: las transiciones lo comprueban contra el que se
-     * esperaba, y una diferencia significa que alguien las cambió a la vez.
+     * The number is not a detail: the transitions check it against the one that was
+     * expected, and a difference means someone changed them at the same time.
      */
     private fun update(sql: String, params: Map<String, Any?>): Int {
         var spec = jdbc.sql(sql)
@@ -464,10 +464,10 @@ class JdbcInvoices(private val jdbc: JdbcClient) : Invoices, ReceivingCatalog, L
     }
 
     /**
-     * Ejecuta una escritura y devuelve **cuántas filas cambió**.
+     * Executes a write and returns **how many rows it changed**.
      *
-     * El número no es un detalle: las transiciones lo comprueban contra el que se
-     * esperaba, y una diferencia significa que alguien las cambió a la vez.
+     * The number is not a detail: the transitions check it against the one that was
+     * expected, and a difference means someone changed them at the same time.
      */
     private fun query(sql: String, params: Map<String, Any?>): Int {
         var spec = jdbc.sql(sql)
@@ -481,10 +481,10 @@ class JdbcInvoices(private val jdbc: JdbcClient) : Invoices, ReceivingCatalog, L
         const val INVOICE_NUMBER_INDEX = "invoices_invoice_number_key"
 
         /**
-         * Los estados que impiden cerrar, **compuestos desde el dominio**.
+         * The states that prevent closing, **composed from the domain**.
          *
-         * Escribirlos a mano aquí sería la segunda definición de la regla, y el día que
-         * cambie el dominio el listado diría una cosa y el cierre otra.
+         * Writing them by hand here would be the second definition of the rule, and the day
+         * the domain changes the list would say one thing and the close another.
          */
         val BLOQUEANTES: String = InvoiceLineStatus.entries
             .filter { it.blocksInvoiceClosing }

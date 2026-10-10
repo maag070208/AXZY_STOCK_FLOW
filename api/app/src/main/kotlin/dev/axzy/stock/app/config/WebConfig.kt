@@ -22,17 +22,17 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping
 
-/** Los puertos de entrada por HTTP: los controladores y lo que necesitan para recibir sus argumentos. */
+/** The input ports over HTTP: the controllers and what they need to receive their arguments. */
 @Configuration(proxyBeanMethods = false)
 class WebConfig(private val resolveActor: ResolveActor) : WebMvcConfigurer {
 
-    /** Un controlador declara `Actor` y `RequestOrigin` como parámetros; estos resolutores se los dan. */
+    /** A controller declares `Actor` and `RequestOrigin` as parameters; these resolvers provide them. */
     override fun addArgumentResolvers(resolvers: MutableList<HandlerMethodArgumentResolver>) {
         resolvers += RequestOriginArgumentResolver()
         resolvers += ActorArgumentResolver(resolveActor)
     }
 
-    /** Antes que la seguridad: así una respuesta `401` también lleva su `X-Request-Id`. */
+    /** Before security: so that a `401` response also carries its `X-Request-Id`. */
     @Bean
     fun requestIdFilter(): FilterRegistrationBean<RequestIdFilter> =
         FilterRegistrationBean(RequestIdFilter()).apply { order = Ordered.HIGHEST_PRECEDENCE }
@@ -41,8 +41,8 @@ class WebConfig(private val resolveActor: ResolveActor) : WebMvcConfigurer {
     fun globalErrorHandler() = GlobalErrorHandler()
 
     /**
-     * I5: una ruta que no declare qué exige **impide el arranque**. Se ejecuta
-     * cuando el contexto ya conoce todas las rutas, no antes.
+     * I5: a route that does not declare what it requires **prevents startup**. It runs
+     * when the context already knows all the routes, not before.
      */
     @Bean
     fun routePermissionGuard(mapping: RequestMappingHandlerMapping) = ApplicationRunner {

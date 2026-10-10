@@ -20,11 +20,11 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 /**
- * Las bodegas (docs/api/catalogo.md).
+ * The warehouses (docs/api/catalogo.md).
  *
- * El listado **no se pagina**: es un catálogo cerrado y diminuto que la interfaz
- * necesita completo para poblar un desplegable. Paginarlo obligaría a pedir todas
- * las páginas antes de poder dibujar un `select`.
+ * The list **is not paginated**: it is a closed and tiny catalog that the interface
+ * needs whole to fill a dropdown. Paginating it would force requesting all
+ * the pages before a `select` can be drawn.
  */
 @RestController
 @RequestMapping("/v1/warehouses")
@@ -60,7 +60,7 @@ class WarehouseController(
     ): ResponseEntity<Any> = updateWarehouse.execute(actor, id, body.toInput(), origin).toResponse { it.toDto() }
 }
 
-/** Sin sobre de paginación, pero con `items`: el cliente ya sabe leer esa forma. */
+/** No pagination envelope, but with `items`: the client already knows how to read that shape. */
 data class WarehouseListDto(val items: List<WarehouseDto>)
 
 private fun WarehouseRequest.toInput() = WarehouseInput(code, name, address, isDefault)

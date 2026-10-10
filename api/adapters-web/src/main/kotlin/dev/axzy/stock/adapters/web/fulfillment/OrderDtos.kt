@@ -10,11 +10,11 @@ import dev.axzy.stock.application.fulfillment.OrderLineView
 import java.time.Instant
 
 /**
- * El contrato HTTP de surtido (docs/api/surtido.md).
+ * The HTTP contract of fulfillment (docs/api/surtido.md).
  *
- * Las cantidades viajan como cadena con tres decimales, y el campo `supplied` de la
- * línea es lo que el legacy llamaba «empacado»: aquí es **lo ya descontado del
- * inventario**, que es lo que permite confirmar sin descontar dos veces.
+ * Quantities travel as a string with three decimals, and the `supplied` field of the
+ * line is what the legacy called "packed": here it is **what is already deducted from the**
+ * inventory**, which is what allows confirming without deducting twice.
  */
 
 data class OrderHeaderDto(
@@ -56,7 +56,7 @@ data class OrderLineDto(
     val productName: String,
     val unitMeasure: String,
     val quantity: String,
-    /** Lo **ya descontado** del inventario, no «lo empacado». */
+    /** What has **already been deducted** from the inventory, not "packed". */
     val suppliedQuantity: String,
     val supplied: Boolean,
     val status: String,
@@ -116,13 +116,13 @@ fun OrderDetail.toDto(): OrderDetailDto = OrderDetailDto(
     lines = lines.map { it.toDto() },
 )
 
-// ── Cuerpos de entrada ──────────────────────────────────────────────────────
+// ── Input bodies ──────────────────────────────────────────────────────────
 
 data class NewOrderLineDto(
     val productCode: String? = null,
     /**
-     * Se acepta número (`10.000`) o cadena (`"10.000"`): el contrato muestra la
-     * segunda forma y el resto de la API usa la primera.
+     * A number (`10.000`) or a string (`"10.000"`) is accepted: the contract shows the
+     * second form, and the rest of the API uses the first.
      */
     val quantity: java.math.BigDecimal? = null,
 )
@@ -151,5 +151,5 @@ data class ExportAttemptDto(val attempts: Int, val status: String, val lastError
 
 fun ExportAttempt.toDto(): ExportAttemptDto = ExportAttemptDto(attempts, status, lastError)
 
-/** Un instante en ISO 8601 UTC, que es el formato de la API. */
+/** An instant in ISO 8601 UTC, which is the API's format. */
 private fun Instant.toIso(): String = toString()

@@ -16,14 +16,14 @@ import dev.axzy.stock.domain.value.Quantity
 import java.time.LocalDate
 
 /**
- * Los reportes de existencias (M02, docs/api/reportes.md).
+ * The stock reports (M02, docs/api/reportes.md).
  *
- * Leen de las mismas tablas que las consultas de inventario y comparten sus
- * filtros: un reporte con otro filtro obliga a reconciliar dos vistas de los mismos
+ * They read from the same tables as the inventory queries and share their
+ * filters: a report with another filter forces reconciling two views of the same data
  * datos.
  */
 
-/** Filtros del reporte de existencias. */
+/** Stock report filters. */
 data class InventoryReportFilter(
     val productCode: ProductCode?,
     val warehouseCode: String?,
@@ -31,9 +31,9 @@ data class InventoryReportFilter(
 )
 
 /**
- * Los totales del reporte, calculados sobre **el filtro entero** y no sobre la
- * página: un total que ignora el filtro es peor que no tenerlo, porque el usuario
- * decide con él.
+ * The report totals, computed over **the whole filter** and not over the
+ * page: a total that ignores the filter is worse than not having it, because the
+ * user decides with it.
  */
 data class InventoryTotals(
     val distinctProducts: Long,
@@ -41,12 +41,12 @@ data class InventoryTotals(
 )
 
 /**
- * Por qué se agrupa el resumen de movimientos.
+ * Why the movement summary is grouped.
  *
- * Las expresiones convierten el instante a la **hora del almacén** antes de truncar
- * (`AT TIME ZONE :zone`): un movimiento de las 21:00 del día 9 es del día 9, aunque en
- * UTC sea ya el 10. Un resumen agrupado en UTC tiene los movimientos de la tarde en el
- * día siguiente y no cuadra con lo que pasó en el piso.
+ * The expressions convert the instant to the **warehouse's time** before truncating
+ * (`AT TIME ZONE :zone`): a movement at 21:00 on the 9th is from the 9th, even though in
+ * UTC it is already the 10th. A summary grouped in UTC puts the afternoon's movements on the
+ * next day and does not match what happened on the floor.
  */
 enum class SummaryGroup(val sql: String) {
     DAY("date_trunc('day', k.moved_at AT TIME ZONE :zone)"),
@@ -71,9 +71,9 @@ data class MovementSummaryFilter(
 )
 
 data class SummaryLine(
-    /** El valor por el que se agrupa: una fecha ISO, un código o un nombre visible. */
+    /** The value grouped by: an ISO date, a code or a visible name. */
     val key: String,
-    /** Su forma para mostrar. Se separan porque una fecha se ordena como texto ISO. */
+    /** Its display form. They are separated because a date sorts as ISO text. */
     val keyLabel: String,
     val inUnits: Quantity,
     val outUnits: Quantity,
@@ -90,7 +90,7 @@ data class SummaryTotals(
     val netUnits: Quantity get() = inUnits - outUnits
 }
 
-/** Una fila descuadrada entre el ledger y la proyección. */
+/** A row out of balance between the ledger and the projection. */
 data class Divergence(
     val productId: Long,
     val productCode: String,
@@ -111,15 +111,15 @@ interface ReportQueries {
 
     fun movementSummary(filter: MovementSummaryFilter): List<SummaryLine>
 
-    /** Solo los productos descuadrados: el estado sano es una lista vacía. */
+    /** Only the out-of-balance products: the healthy state is an empty list. */
     fun divergences(): List<Divergence>
 
     /**
-     * Las filas del kardex para exportar, en trozos.
+     * The ledger rows to export, in chunks.
      *
-     * Un `offset` que avanza es lo que hace que el archivo no cargue el kardex
-     * entero en memoria; el presupuesto es **una consulta por cada `chunkSize`
-     * filas**, nunca una por fila (R-P2).
+     * An `offset` that advances is what keeps the file from loading the whole ledger
+     * into memory; the budget is **one query for each `chunkSize`**
+     * rows**, never one per row (R-P2).
      */
     fun kardexChunk(filter: KardexFilter, offset: Int, chunkSize: Int): List<KardexLine>
 }
@@ -148,10 +148,10 @@ class MovementSummary(private val queries: ReportQueries, private val access: Ac
         access.authorizeOr(actor, "report.view", origin) {
             val items = queries.movementSummary(filter)
             /*
-             * Los totales son la suma de los grupos, y se calculan aquí en vez de con
-             * una segunda consulta por dos razones: la aritmética de `Quantity` es
-             * exacta (milésimas enteras) y así no puede pasar que el sobre diga una
-             * cosa y las filas otra. El resumen no se pagina: los grupos son los del
+             * The totals are the sum of the groups, and they are computed here instead of with
+             * a second query for two reasons: the arithmetic of `Quantity` is
+             * exact (integer thousandths) and so it cannot happen that the envelope says one
+             * thing and the rows another. The summary is not paginated: the groups are those of the
              * filtro entero.
              */
             MovementSummaryResult(

@@ -29,15 +29,15 @@ import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
 /**
- * Las órdenes de surtido sobre PostgreSQL (docs/api/surtido.md).
+ * The fulfillment orders on PostgreSQL (docs/api/surtido.md).
  *
- * Dos cosas se componen **desde el dominio** en vez de escribirse aquí:
+ * Two things are composed **from the domain** instead of being written here:
  *
- * · los estados que admiten empaque ([OrderStatus.allowsPackaging]) — la lista de la
- *   que se puede reclamar una confirmación;
- * · el estado de cada línea, que la tabla escribe pero el dominio nombra.
+ * · the states that admit packing ([OrderStatus.allowsPackaging]) — the list of the
+ *   states from which a confirmation can be claimed;
+ * · the status of each line, which the table writes but the domain names.
  *
- * Escribirlos a mano sería la segunda definición de la misma regla.
+ * Writing them by hand would be the second definition of the same rule.
  */
 class JdbcOrders(private val jdbc: JdbcClient) : Orders, OrderCatalog {
 
@@ -89,11 +89,11 @@ class JdbcOrders(private val jdbc: JdbcClient) : Orders, OrderCatalog {
         ) { _, _ -> 1 }.isNotEmpty()
 
     /**
-     * El correlativo del año.
+     * The yearly sequence number.
      *
-     * Se calcula sobre el mayor existente y no con una secuencia: el número tiene que
-     * ser legible (`ORD-2026-0042`) y el hueco que deja una orden anulada no importa.
-     * Dos altas simultáneas pueden calcular el mismo: el índice único lo decide y el
+     * It is computed from the largest existing one and not with a sequence: the number has to be
+     * readable (`ORD-2026-0042`) and the gap left by a cancelled order does not matter.
+     * Two simultaneous creations can compute the same one: the unique index decides and the
      * alta devuelve `DUPLICATE_ORDER_NUMBER`.
      */
     override fun nextOrderNumber(year: Int): String {
@@ -126,9 +126,9 @@ class JdbcOrders(private val jdbc: JdbcClient) : Orders, OrderCatalog {
             throw error
         }
 
-        // Una sola sentencia para todas las líneas (R-P9). El orden de los parámetros
-        // sigue el de las COLUMNAS: invertirlo mete el id de la orden en el producto y
-        // la clave foránea lo caza solo cuando hay más de una orden.
+        // A single statement for all the lines (R-P9). The order of the parameters
+        // follows that of the COLUMNS: reversing it puts the order id into the product and
+        // the foreign key catches it only when there is more than one order.
         val values = lines.indices.joinToString(", ") { index ->
             "(:order, :product$index, :unit$index, :quantity$index)"
         }
@@ -237,7 +237,7 @@ class JdbcOrders(private val jdbc: JdbcClient) : Orders, OrderCatalog {
         )
     }
 
-    // ── El catálogo que necesita el surtido ─────────────────────────────────
+    // ── The catalog the fulfillment needs ─────────────────────────────────
 
     override fun product(code: ProductCode): OrderProduct? =
         query(
@@ -308,7 +308,7 @@ class JdbcOrders(private val jdbc: JdbcClient) : Orders, OrderCatalog {
         )
     }
 
-    /** El nombre visible de la ubicación, compuesto por el dominio a partir de sus columnas. */
+    /** The visible name of the location, composed by the domain from its columns. */
     private fun ResultSet.locationName(): String? {
         if (getString("location_hall") == null) return null
         return dev.axzy.stock.domain.catalog.Location(
@@ -339,8 +339,8 @@ class JdbcOrders(private val jdbc: JdbcClient) : Orders, OrderCatalog {
         const val ORDER_NUMBER_INDEX = "orders_order_number_key"
 
         /**
-         * Los estados desde los que se puede reclamar una confirmación, **compuestos
-         * desde el dominio**: la lista y la regla no pueden separarse.
+         * The states from which a confirmation can be claimed, **composed
+         * from the domain**: the list and the rule cannot be separated.
          */
         val CONFIRMABLE: String = OrderStatus.entries
             .filter { it.allowsPackaging }

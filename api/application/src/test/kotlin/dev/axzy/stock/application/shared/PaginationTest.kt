@@ -5,10 +5,10 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 /**
- * Las reglas de paginación de docs/api/convenciones.md §1.4.
+ * The pagination rules of docs/api/convenciones.md §1.4.
  *
- * El detalle que más importa: **`size` mayor de 200 se rechaza, no se recorta**.
- * Recortar en silencio hace que el cliente crea que tiene todos los datos.
+ * The detail that matters most: **`size` greater than 200 is rejected, not truncated.**
+ * Silently truncating makes the client believe it has all the data.
  */
 class PaginationTest {
 
@@ -61,7 +61,7 @@ class PaginationTest {
     fun `the order is read as field, direction`() {
         assertThat(value(analyze(sort = "name,desc")).sort)
             .isEqualTo(SortSpec("name", SortDirection.DESC))
-        // Sin dirección, ascendente: es lo que hace un cliente que solo manda el campo.
+        // No direction: ascending, which is what a client that only sends the field does.
         assertThat(value(analyze(sort = "name")).sort).isEqualTo(SortSpec("name", SortDirection.ASC))
     }
 

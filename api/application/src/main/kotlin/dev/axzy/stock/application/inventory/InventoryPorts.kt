@@ -14,34 +14,34 @@ import dev.axzy.stock.domain.value.Quantity
 import java.util.UUID
 
 /**
- * Los puertos de salida de existencias (M02, docs/flujos/existencias-y-ajustes.md).
+ * The stock output ports (M02, docs/flujos/existencias-y-ajustes.md).
  *
- * **Toda escritura pasa por el motor SQL** ([ADR-0015]): la API no toca
- * `stock_by_location` ni `product_stock` directamente. Por eso aquí no hay
- * `saveStock` ni nada parecido: hay [StockLedger.apply], que es
+ * **Every write goes through the SQL engine** ([ADR-0015]): the API does not touch
+ * `stock_by_location` nor `product_stock` directly. That is why there is no
+ * `saveStock` or anything similar here: there is [StockLedger.apply], which is
  * `record_movement`.
  */
 
 /**
- * Una ubicación, tal como la identifica el contrato: **por su nombre visible**
+ * A location, as the contract identifies it: **by its visible name**
  * (`04-B-C`, `RECEIVING`, `UNASSIGNED`).
  *
- * Se traduce a partes en la capa de aplicación y no en SQL, porque la regla de
- * composición vive en el dominio ([Location.displayName]) y tenerla dos veces
- * garantizaría que un día digan cosas distintas. Un test de ida y vuelta
- * (`LocationRefTest`) impide que se separen.
+ * It is translated into parts in the application layer and not in SQL, because the composition rule
+ * lives in the domain ([Location.displayName]) and having it twice would
+ * guarantee that one day they would say different things. A round-trip test
+ * (`LocationRefTest`) prevents them from separating.
  */
 sealed interface LocationRef {
-    /** Un estante: sus tres partes. */
+    /** A shelf: its three parts. */
     data class Shelf(val hall: String, val code: String, val position: String) : LocationRef
 
-    /** La zona de recepción: donde aterriza lo recibido y sin ubicar. */
+    /** The receiving area: where what was received and not located lands. */
     data object Receiving : LocationRef
 
-    /** El saldo heredado del sistema anterior, del que se sabe que existe pero no dónde. */
+    /** The inherited balance of the previous system, of which it is known that it exists but not where. */
     data object Unassigned : LocationRef
 
-    /** El nombre visible canónico de esta referencia, para devolverlo en una respuesta. */
+    /** The canonical visible name of this reference, to return it in a response. */
     val displayName: String
         get() = when (this) {
             is Shelf -> "$hall-$code-$position"
@@ -54,10 +54,10 @@ sealed interface LocationRef {
         const val UNASSIGNED_CODE = "UNASSIGNED"
 
         /**
-         * Reconstruye la referencia desde el nombre visible.
+         * Rebuilds the reference from the visible name.
          *
-         * `null` cuando no tiene forma de ubicación: el alfabeto de cada parte
-         * excluye el guion, así que una cadena con otro número de partes no puede
+         * `null` when it has no location form: each part's alphabet
+         * excludes the hyphen, so a string with another number of parts cannot
          * corresponder a ninguna fila.
          */
         fun parse(raw: String): LocationRef? {
@@ -76,23 +76,23 @@ sealed interface LocationRef {
     }
 }
 
-/** De dónde salen los identificadores reales de producto y ubicación. */
+/** Where the real product and location identifiers come from. */
 interface InventoryCatalog {
-    /** El producto **activo** con ese código: un producto inactivo no recibe movimientos. */
+    /** The **active** product with that code: an inactive product receives no movements. */
     fun activeProduct(code: ProductCode): Product?
 
-    /** La ubicación **activa** de esa bodega, o `null` si no existe o está inactiva. */
+    /** The **active** location of that warehouse, or `null` if it does not exist or is inactive. */
     fun activeLocation(warehouseId: Long, ref: LocationRef): Location?
 
-    /** La bodega por defecto: la que se usa cuando la petición no dice otra. */
+    /** The default warehouse: the one used when the request does not say another. */
     fun defaultWarehouseId(): Long
 }
 
 /**
- * Un movimiento, tal como lo necesita el motor SQL.
+ * A movement, as the SQL engine needs it.
  *
- * Los tipos son los del dominio y no cadenas: un `MovementType` que no existe no
- * compila, y el adaptador es el único que traduce a los `enum` de PostgreSQL.
+ * The types are the domain's and not strings: a `MovementType` that does not exist does not
+ * compile, and the adapter is the only one that translates to PostgreSQL's `enum`s.
  */
 data class MovementCommand(
     val productId: Long,
@@ -106,39 +106,39 @@ data class MovementCommand(
     val adjustmentReason: AdjustmentReason? = null,
     val adjustmentOrigin: AdjustmentOrigin? = null,
     val userId: Long? = null,
-    /** Clave de idempotencia: repetirla no duplica el movimiento (A8). */
+    /** Idempotency key: repeating it does not duplicate the movement (A8). */
     val clientUuid: UUID? = null,
     val note: String? = null,
 )
 
-/** El libro de inventario. Es la única puerta de escritura. */
+/** The inventory ledger. It is the only write gate. */
 interface StockLedger {
     /**
-     * Saldo de una ubicación.
+     * Balance of a location.
      *
-     * Con `forUpdate` bloquea la fila hasta el fin de la transacción. Es lo que
-     * permite decir «hay 100» **y** que siga siendo verdad al escribir: sin el
-     * bloqueo, la comprobación y el descuento son dos verdades distintas
+     * With `forUpdate` it locks the row until the end of the transaction. That is what
+     * allows saying "there are 100" **and** that it is still true when writing: without the
+     * lock, the check and the deduction are two different truths.
      * (requisito Q9).
      */
     fun balanceAt(productId: Long, locationId: Long, forUpdate: Boolean): Quantity
 
     /**
-     * Aplica el movimiento por el motor y devuelve el identificador del kardex.
+     * Applies the movement through the engine and returns the ledger identifier.
      *
-     * Si el saldo no alcanza, la base lo rechaza; el caso de uso lo comprueba antes
-     * para poder decir **cuánto hay**.
+     * If the balance is not enough, the database rejects it; the use case checks it beforehand
+     * to be able to say **how much there is**.
      */
     fun apply(command: MovementCommand): Long
 
-    /** El movimiento de esa clave de idempotencia, si ya se aplicó. */
+    /** The movement of that idempotency key, if it was already applied. */
     fun movementIdOf(clientUuid: UUID): Long?
 
-    /** Total del producto, leído de la proyección y no del historial (R-P3). */
+    /** Product total, read from the projection and not from the history (R-P3). */
     fun productTotal(productId: Long): Quantity
 }
 
-/** Una fila de existencias: producto, ubicación y cuánto hay. */
+/** A stock row: product, location and how much there is. */
 data class StockLine(
     val productId: Long,
     val productCode: String,
@@ -150,7 +150,7 @@ data class StockLine(
     val quantity: Quantity,
 )
 
-/** Una fila del kardex, con los nombres visibles ya compuestos. */
+/** A ledger row, with the visible names already composed. */
 data class KardexLine(
     val id: Long,
     val movedAt: java.time.Instant,
@@ -170,15 +170,15 @@ data class KardexLine(
     val note: String?,
 )
 
-/** Filtros del listado de existencias. `null` es «sin filtrar», nunca «falso». */
+/** Stock listing filters. `null` means "unfiltered", never "false". */
 data class StockFilter(
     val productCode: ProductCode?,
     val location: LocationRef?,
-    /** Por defecto `true`: un listado de miles de filas a cero no lo lee nadie. */
+    /** Defaults to `true`: nobody reads a listing of thousands of zero-rows. */
     val onlyWithStock: Boolean,
 )
 
-/** Filtros del kardex. */
+/** Ledger filters. */
 data class KardexFilter(
     val productCode: ProductCode?,
     val moveType: MovementType?,
@@ -195,21 +195,21 @@ interface KardexQueries {
 }
 
 /**
- * El enganche con la **línea de factura** de recepción (M03).
+ * The hook into the **receiving invoice line** (M03).
  *
- * Ubicar mercancía que viene de una factura no es solo mover saldo: hay que saber de
- * qué línea salió para que la factura pueda cerrarse, y hay que respetar la regla B1
- * —una línea con diferencia sin aprobar no se puede ubicar—. El puerto vive aquí, en
- * el módulo de inventario, porque es quien lo consume; lo implementa el adaptador de
- * facturas, que es quien tiene las líneas.
+ * Locating goods that come from an invoice is not just moving balance: it is necessary to know which
+ * line they came from so that the invoice can be closed, and rule B1 has to be respected
+ * —a line with an unapproved difference cannot be located—. The port lives here, in
+ * the inventory module, because it is the one that consumes it; the invoices adapter
+ * implements it, since it is the one that has the lines.
  */
 interface LocatingLines {
 
     fun find(lineId: Long): InvoiceLine?
 
     /**
-     * Anota lo ubicado en la línea: la cantidad acumulada, su estado y **la ubicación
-     * de destino**, que en la tabla es una clave foránea.
+     * Records what was located on the line: the accumulated quantity, its status and **the location
+     * of destination**, which in the table is a foreign key.
      */
     fun markLocated(lineId: Long, line: InvoiceLine, locationId: Long, at: Instant): Unit
 }

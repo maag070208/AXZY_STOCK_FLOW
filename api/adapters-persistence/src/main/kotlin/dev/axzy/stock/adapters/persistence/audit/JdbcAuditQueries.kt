@@ -11,15 +11,15 @@ import java.time.LocalDate
 import java.time.OffsetDateTime
 
 /**
- * La lectura de la bitácora (M08).
+ * The audit log read (M08).
  *
- * **Dos sentencias por consulta** —el conteo y la página— con **los mismos filtros**: si
- * el conteo los ignorara, el sobre diría una cosa y las filas otra, y U5 exige
- * justamente que el total se calcule con el mismo filtro.
+ * **Two statements per query** —the count and the page— with **the same filters**: if
+ * the count ignored them, the envelope would say one thing and the rows another, and U5 requires
+ * precisely that the total is computed with the same filter.
  *
- * La tabla es inmutable por disparadores y está particionada por mes: el rango de fechas
- * no es solo un filtro de negocio, es lo que permite que la consulta toque una sola
- * partición cuando se pide un mes.
+ * The table is immutable through triggers and partitioned by month: the date range
+ * is not just a business filter; it is what lets the query touch a single
+ * partition when a month is requested.
  */
 class JdbcAuditQueries(private val jdbc: JdbcClient) : AuditQueries {
 
@@ -67,8 +67,8 @@ class JdbcAuditQueries(private val jdbc: JdbcClient) : AuditQueries {
             entityLabel = getString("entity_label"),
             action = getString("action"),
             level = getString("action_level"),
-            // El estado anterior y el nuevo se devuelven **como JSON en texto**: son
-            // documentos libres y cada acción tiene los suyos.
+            // The previous and the new state are returned **as JSON text**: they are
+            // free-form documents and each action has its own.
             previousState = getString("previous_state"),
             newState = getString("new_state"),
             reason = getString("reason"),
@@ -92,9 +92,9 @@ class JdbcAuditQueries(private val jdbc: JdbcClient) : AuditQueries {
 
     private companion object {
         /**
-         * Las columnas de la respuesta. `previous_state` y `new_state` se piden como
-         * texto y no como objeto: el conductor no tiene por qué mapear JSONB a un tipo
-         * del dominio que no existe, y el contrato los publica como documentos.
+         * The response columns. `previous_state` and `new_state` are requested as
+         * text and not as an object: the driver does not have to map JSONB to a
+         * domain type that does not exist, and the contract publishes them as documents.
          */
         val COLUMNS =
             """

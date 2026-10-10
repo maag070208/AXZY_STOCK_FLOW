@@ -33,10 +33,10 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 /**
- * El catálogo (M01): casos de uso y rutas.
+ * The catalog (M01): use cases and routes.
  *
- * Aquí se ve el orden de las capas —el controlador recibe casos de uso, el caso de
- * uso recibe puertos, y ninguno conoce al otro— y es el único lugar donde se
+ * Here the order of the layers is visible —the controller receives use cases, the use case
+ * receives ports, and neither knows the other— and it is the only place where
  * construyen.
  */
 @Configuration(proxyBeanMethods = false)
@@ -45,7 +45,7 @@ class CatalogConfig {
     @Bean
     fun catalogImporter() = CatalogImporter()
 
-    // ── Casos de uso ────────────────────────────────────────────────────────
+    // ── Use cases ──────────────────────────────────────────────────────────
 
     @Bean
     fun listProducts(products: Products, access: AccessDecider) = ListProducts(products, access)

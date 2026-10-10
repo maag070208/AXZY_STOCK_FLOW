@@ -14,15 +14,15 @@ import org.springframework.web.multipart.MultipartFile
 import java.util.Locale
 
 /**
- * Convierte el archivo subido en filas del catálogo.
+ * Converts the uploaded file into catalog rows.
  *
- * **CSV, TSV y XLSX.** El delimitador se decide por el contenido de la cabecera y no por la
- * extensión, porque renombrar un archivo no cambia su formato.
+ * **CSV, TSV and XLSX.** The delimiter is decided by the header content, not by the
+ * extension, because renaming a file does not change its format.
  *
- * **El XLSX se convierte a CSV y se parsea con el mismo lector que los demás.** Leerlo por
- * separado sería tener dos caminos de validación para el mismo dato, y el día que uno
- * cambiara el archivo de Excel y el de texto darían resultados distintos sin que nadie lo
- * notara. La conversión solo se ocupa de lo que es del formato: celdas, comillas y saltos.
+ * **The XLSX is converted to CSV and parsed with the same reader as the others.** Reading it
+ * separately would mean two validation paths for the same data, and the day one
+ * changed the Excel file and the text one would give different results without anyone
+ * noticing. The conversion only handles what belongs to the format: cells, quotes and line breaks.
  */
 class CatalogUpload(private val importer: CatalogImporter) {
 
@@ -30,8 +30,8 @@ class CatalogUpload(private val importer: CatalogImporter) {
         if (file == null) {
             return failure(FailureKind.INVALID_REQUEST, "FILE_REQUIRED", "The catalog file is missing.")
         }
-        // Un archivo de cero bytes no es «falta el archivo»: llegó, y está vacío. El
-        // cliente hace algo distinto con cada código (volver a adjuntar, o mirar el archivo).
+        // A zero-byte file is not "the file is missing": it arrived, and it is empty. The
+        // client does something different with each code (attach it again, or look at the file).
         if (file.isEmpty) {
             return failure(FailureKind.INVALID_REQUEST, "EMPTY_FILE", "The file has no data rows.")
         }
@@ -61,12 +61,12 @@ class CatalogUpload(private val importer: CatalogImporter) {
     }
 
     /**
-     * La primera hoja del libro, como CSV.
+     * The first sheet of the workbook, as CSV.
      *
-     * `DataFormatter` es lo que hace que un número salga como se ve en la hoja (`10914130`)
-     * y no como lo imprime un `double` (`1.091413E7`), que rompería el parseo del stock. Se
-     * fija el idioma a inglés para que el separador decimal no dependa de la máquina donde
-     * corra la API.
+     * `DataFormatter` is what makes a number come out the way it looks in the sheet (`10914130`)
+     * and not the way a `double` prints it (`1.091413E7`), which would break the stock parsing. The
+     * language is fixed to English so that the decimal separator does not depend on the machine
+     * the API runs on.
      */
     private fun toCsv(file: MultipartFile): Outcome<String> = try {
         WorkbookFactory.create(file.inputStream).use { workbook ->
@@ -85,8 +85,8 @@ class CatalogUpload(private val importer: CatalogImporter) {
             }
         }
     } catch (error: Exception) {
-        // Un Excel corrupto es un error del archivo, no del servidor: `500` mandaría al
-        // usuario a mirar los registros de la API por algo que puede arreglar él.
+        // A corrupt Excel is a file error, not a server error: a `500` would send the
+        // user to look at the API logs for something they can fix themselves.
         failure(
             FailureKind.INVALID_REQUEST, "IMPORT_FILE_FORMAT",
             "The Excel file could not be read: ${error.message ?: "the file is not a valid workbook"}.",
@@ -94,14 +94,14 @@ class CatalogUpload(private val importer: CatalogImporter) {
         )
     }
 
-    /** Un campo con coma, comilla o salto de línea va entre comillas, y la comilla se dobla. */
+    /** A field with a comma, quote or line break goes in quotes, and the quote is doubled. */
     private fun csvField(value: String): String {
         val needsQuotes = value.any { it == ',' || it == '"' || it == '\n' || it == '\r' }
         val escaped = value.replace("\"", "\"\"")
         return if (needsQuotes) "\"$escaped\"" else escaped
     }
 
-    /** Con tabuladores gana el TSV; si no, coma. Se mira solo la cabecera. */
+    /** With tabs, TSV wins; otherwise comma. Only the header is checked. */
     private fun delimiterOf(text: String): Char {
         val header = text.lineSequence().firstOrNull { it.isNotBlank() }.orEmpty()
         val tabs = header.count { it == '\t' }

@@ -31,11 +31,11 @@ import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody
 
 /**
- * Los reportes (docs/api/reportes.md).
+ * The reports (docs/api/reportes.md).
  *
- * Los tres listados exigen `report.view`; la exportación, `report.export`. **Son los
- * mismos permisos que los guards de las pantallas**: un permiso distinto hace que el
- * usuario entre a la pantalla y reciba `403` al cargarla.
+ * The three listings require `report.view`; the export, `report.export`. **They are the
+ * same permissions as the screen guards**: a different permission would let the
+ * user enter the screen and receive a `403` when it loads.
  */
 @RestController
 @RequestMapping("/v1/reports")
@@ -80,8 +80,8 @@ class ReportController(
         actor: Actor,
         origin: RequestOrigin,
     ): ResponseEntity<Any> {
-        // Las dos fechas son obligatorias: un resumen sin rango recorrería todo el
-        // kardex, que es justo lo que el reporte existe para evitar.
+        // Both dates are mandatory: a summary without a range would walk the whole
+        // kardex, which is exactly what the report exists to avoid.
         if (from.isNullOrBlank()) {
             return failure(FailureKind.RULE_VIOLATION, "FIELD_REQUIRED", "The start date is missing.", mapOf("from" to ""))
                 .toResponse()
@@ -120,11 +120,11 @@ class ReportController(
         reconciliation.execute(actor, origin).toResponse { it.toDto() }
 
     /**
-     * La exportación del kardex.
+     * The ledger export.
      *
-     * Se responde **por trozos**: el archivo se escribe a medida que se leen las
-     * filas, así que un kardex de un año no se carga en memoria. El `StreamingResponseBody`
-     * tiene que escribir y cerrar; el filtro es exactamente el del listado.
+     * It is answered **in chunks**: the file is written as the rows are read
+     * so a year's ledger is not loaded into memory. The `StreamingResponseBody`
+     * has to write and close; the filter is exactly the listing's.
      */
     @GetMapping("/kardex/export")
     @RequiresPermission("report.export")
@@ -138,12 +138,12 @@ class ReportController(
         origin: RequestOrigin,
     ): ResponseEntity<StreamingResponseBody> {
         /*
-         * El tipo declarado es `StreamingResponseBody` y no `Any` a propósito: Spring
-         * elige el escritor por el tipo DECLARADO del método, y con `ResponseEntity<Any>`
-         * no encuentra convertidor y responde un `500` diciendo que no sabe escribir
-         * una lambda. Un archivo se escribe a medida que se lee, así que el cuerpo es
-         * un flujo y el contrato de error se lanza como excepción, que el manejador
-         * global ya traduce al mismo cuerpo de siempre.
+         * The declared type is `StreamingResponseBody` and not `Any` on purpose: Spring
+         * picks the writer by the DECLARED type of the method, and with `ResponseEntity<Any>`
+         * it finds no converter and answers with a `500` saying it cannot write
+         * a lambda. A file is written as it is read, so the body is
+         * a stream and the error contract is thrown as an exception, which the global handler
+         * already translates into the same usual body.
          */
         val exportFormat = ExportFormat.parse(format)
             ?: throw FailureException(

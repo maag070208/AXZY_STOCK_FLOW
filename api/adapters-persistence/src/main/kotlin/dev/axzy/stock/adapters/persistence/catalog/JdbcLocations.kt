@@ -15,11 +15,11 @@ import org.springframework.jdbc.core.simple.JdbcClient
 import java.sql.ResultSet
 
 /**
- * Las ubicaciones sobre PostgreSQL.
+ * The locations on PostgreSQL.
  *
- * El nombre visible (`displayName`) **no se guarda**: se compone en el dominio a
- * partir de `hall`, `code` y `position`, que es lo que hace imposible que la
- * etiqueta del estante y el nombre que muestra la API se separen.
+ * The visible name (`displayName`) **is not stored**: it is composed in the domain from
+ * `hall`, `code` and `position`, which is what makes it impossible for the
+ * shelf label and the name the API shows to drift apart.
  */
 class JdbcLocations(private val jdbc: JdbcClient) : Locations {
 
@@ -133,9 +133,9 @@ class JdbcLocations(private val jdbc: JdbcClient) : Locations {
             else -> "l.hall"
         }
         /*
-         * Se ordena por las tres partes y por el id, no por una sola: dos ubicaciones
-         * del mismo pasillo con el campo de orden repetido pueden salir en orden
-         * distinto entre páginas, y entonces una fila se repite y otra desaparece.
+         * It is sorted by the three parts and by the id, not by just one: two locations
+         * of the same aisle with the sort field repeated can come out in a
+         * different order between pages, and then one row repeats and another disappears.
          */
         return "$column $direction, l.hall ASC, l.code ASC, l.position ASC, l.id ASC"
     }

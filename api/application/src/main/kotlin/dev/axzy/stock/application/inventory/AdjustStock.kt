@@ -33,18 +33,18 @@ import dev.axzy.stock.domain.value.ProductCode
 import dev.axzy.stock.domain.value.Quantity
 import java.util.UUID
 
-/** El resultado de un movimiento, tal como lo devuelve el contrato. */
+/** The result of a movement, as the contract returns it. */
 enum class MovementStatus { APPLIED, PENDING_APPROVAL }
 
 data class MovementResult(
     val kardexIds: List<Long>,
     val status: MovementStatus,
-    /** Total del producto tras el movimiento. `null` cuando el total no cambia (ubicar, mover). */
+    /** Product total after the movement. `null` when the total does not change (locating, moving). */
     val total: Quantity?,
     val message: String? = null,
 )
 
-/** Un ajuste, ya traducido de la petición HTTP. */
+/** An adjustment, already translated from the HTTP request. */
 data class AdjustmentInput(
     val productCode: String?,
     val locationCode: String?,
@@ -57,11 +57,11 @@ data class AdjustmentInput(
 )
 
 /**
- * El permiso de un ajuste **depende de la dirección y del motivo**.
+ * An adjustment's permission **depends on the direction and the reason**.
  *
- * No existe un permiso genérico de «ajustar», y es deliberado: aumentar no es lo
- * mismo que mermar, y un robo no es un error de conteo. Un permiso único daría a
- * cualquiera la capacidad de tapar un robo con un ajuste que él mismo firma
+ * There is no generic "adjust" permission, and that is deliberate: increasing is not the same as
+ * shrinking, and a theft is not a counting error. A single permission would give
+ * anyone the ability to cover up a theft with an adjustment they sign themselves.
  * (docs/api/inventario.md).
  */
 fun adjustmentPermission(direction: AdjustmentDirection, reason: AdjustmentReason): String = when {
@@ -73,19 +73,19 @@ fun adjustmentPermission(direction: AdjustmentDirection, reason: AdjustmentReaso
 }
 
 /**
- * Ajusta existencias: la regla única que unifica los cuatro orígenes del legacy
+ * Adjusts stock: the single rule that unifies the legacy's four origins
  * (docs/flujos/existencias-y-ajustes.md §4).
  *
- * El orden no es casual:
+ * The order is not accidental:
  *
- *  1. **Validar y autorizar antes de tocar la base.** Un ajuste que no se puede
- *     hacer no debe abrir conexión.
- *  2. **Bloquear el saldo dentro de la transacción** y decidir con ese número. El
- *     `CHECK` de la tabla también impide el saldo negativo, pero su mensaje dice
- *     «stock_non_negative»; el caso de uso puede decir **cuánto hay** (Q9).
- *  3. **Escribir solo si la decisión es aplicar.** Un ajuste pendiente de
- *     aprobación **no toca el inventario**: un cambio de stock sin autorizar es
- *     justo lo que la aprobación evita.
+ *  1. **Validate and authorize before touching the database.** An adjustment that cannot be
+ *     made must not open a connection.
+ *  2. **Lock the balance inside the transaction** and decide with that number. The table's
+ *     `CHECK` also prevents a negative balance, but its message says
+ *     "stock_non_negative"; the use case can say **how much there is** (Q9).
+ *  3. **Write only if the decision is to apply.** A pending adjustment
+ *     awaiting approval **does not touch the inventory**: a stock change without authorization is
+ *     exactly what approval prevents.
  */
 class AdjustStock(
     private val catalog: InventoryCatalog,
@@ -97,7 +97,7 @@ class AdjustStock(
     private val tx: TransactionRunner,
 ) {
 
-    /** Lo que hace falta para aplicar un ajuste, ya validado. */
+    /** What is needed to apply an adjustment, already validated. */
     private data class Parsed(
         val code: ProductCode,
         val location: LocationRef,
@@ -118,15 +118,15 @@ class AdjustStock(
         parse(input).flatMap { parsed ->
             val permission = adjustmentPermission(parsed.direction, parsed.reason)
             access.authorizeOr(actor, permission, origin) { grant ->
-                // La bodega de la petición: la del usuario si tiene una sola, y si no
-                // la predeterminada. El contrato de movimientos no lleva `warehouseId`
-                // porque mover entre bodegas es un traslado (M05), no un movimiento.
+                // The request's warehouse: the user's, if they have only one, and if not
+                // the default one. The movements contract does not carry a `warehouseId`
+                // because moving between warehouses is a transfer (M05), not a movement.
                 val warehouseId = actor.user.warehouseIds.singleOrNull() ?: catalog.defaultWarehouseId()
                 val location = catalog.activeLocation(warehouseId, parsed.location)
                     ?: return@authorizeOr DomainError.LocationNotFound(parsed.location.displayName).toFailure().asLeft()
 
-                // Segundo control, ya con la bodega REAL de la ubicación: el alcance
-                // `AREA`/`OWN` se comprueba sobre el recurso, no sobre una suposición.
+                // Second check, now with the REAL warehouse of the location: the `AREA`/`OWN`
+                // scope is checked against the resource, not against an assumption.
                 access.authorizeOr(
                     actor, permission, origin,
                     resource = ResourceContext(warehouseId = location.warehouseId, locationKind = location.kind.name),
@@ -149,7 +149,7 @@ class AdjustStock(
         origin: RequestOrigin,
         grant: dev.axzy.stock.application.access.AccessGrant,
     ): Outcome<MovementResult> = tx.inTransaction {
-        // ── Idempotencia: repetir la clave devuelve el MISMO movimiento (A8) ──
+        // ── Idempotency: repeating the key returns the SAME movement (A8) ──────
         val alreadyApplied = idempotencyKey?.let { ledger.movementIdOf(it) }
         if (alreadyApplied != null) {
             return@inTransaction MovementResult(
@@ -160,8 +160,8 @@ class AdjustStock(
             ).asRight()
         }
 
-        // El saldo se lee CON BLOQUEO cuando el ajuste resta: así el número que se
-        // comprueba sigue siendo verdad al escribir (Q9).
+        // The balance is read WITH A LOCK when the adjustment subtracts: that way the number
+        // that is checked is still true when writing (Q9).
         val available = if (parsed.direction == AdjustmentDirection.DECREASE) {
             ledger.balanceAt(product.id, location.id, forUpdate = true)
         } else {
@@ -179,18 +179,18 @@ class AdjustStock(
             requestedBy = actor.id,
             idempotencyKey = idempotencyKey?.toString(),
         ).toOutcome().flatMap { request ->
-            // **Quien aprueba tiene que poder aprobar.** Hasta ahora bastaba con mandar el
-            // `approverId` de otro: cualquiera con el permiso del motivo podía firmar su propio
-            // ajuste con el identificador de un supervisor, y el permiso
-            // `inventory.approve_adjustment` —que el catálogo concede, documenta y audita— no lo
-            // comprobaba nadie. Un permiso que no se comprueba es un permiso que no existe.
+            // **Whoever approves has to be able to approve.** Until now it was enough to send someone else's
+            // `approverId`: anyone with the reason's permission could sign their own
+            // adjustment with a supervisor's identifier, and the permission
+            // `inventory.approve_adjustment` —which the catalog grants, documents and audits— was not
+            // checked by anyone. A permission that is not checked is a permission that does not exist.
             val sinPermisoDeAprobar = approverDenial(parsed.approverId, location.warehouseId, origin)
             if (sinPermisoDeAprobar != null) {
                 sinPermisoDeAprobar.asLeft()
             } else when (val decision = AdjustmentPolicy.decide(request, parsed.approverId, available)) {
                 is AdjustmentPolicy.Decision.Reject -> decision.error.toFailure().asLeft()
 
-                // Pendiente de aprobación: NO se escribe nada, ni kardex ni bitácora.
+                // Pending approval: nothing is written, neither ledger nor audit log.
                 is AdjustmentPolicy.Decision.PendingApproval -> MovementResult(
                     kardexIds = emptyList(),
                     status = MovementStatus.PENDING_APPROVAL,
@@ -221,7 +221,7 @@ class AdjustStock(
                             actor = actor,
                             origin = origin,
                             action = "INVENTORY_ADJUSTED",
-                            // Mueve inventario: nivel crítico y en la MISMA transacción (U1).
+                            // Moves inventory: critical level and in the SAME transaction (U1).
                             level = AuditLevel.CRITICAL,
                             entity = AuditEntity("product", product.id.toString(), parsed.code.value),
                             grant = grant,
@@ -245,7 +245,7 @@ class AdjustStock(
         }
     }
 
-    // ── Validación ──────────────────────────────────────────────────────────
+    // ── Validation ─────────────────────────────────────────────────────────
 
     private fun parse(input: AdjustmentInput): Outcome<Parsed> =
         parseEnum(input.direction, AdjustmentDirection.entries, "direction").flatMap { direction: AdjustmentDirection ->
@@ -278,10 +278,10 @@ class AdjustStock(
         }
 
     /**
-     * El motivo **no es un parámetro cualquiera**: sin él, un ajuste no se puede
-     * auditar dentro de un año, y por eso su ausencia es `REASON_REQUIRED` (A5) y no
-     * un `INVALID_PARAMETER`. Un motivo que no está en la lista sí es un parámetro
-     * inválido: el cliente mandó algo, y no es lo que se admite.
+     * The reason **is not an ordinary parameter**: without it, an adjustment cannot be
+     * audited a year later, and that is why its absence is `REASON_REQUIRED` (A5) and not
+     * an `INVALID_PARAMETER`. A reason that is not on the list is an invalid
+     * parameter: the client sent something that is not admitted.
      */
     private fun parseReason(raw: String?): Outcome<AdjustmentReason> {
         if (raw.isNullOrBlank()) {
@@ -319,11 +319,11 @@ class AdjustStock(
     }
 
     /**
-     * El fallo del aprobador, si lo hay.
+     * The approver's failure, if there is one.
      *
-     * Devuelve `null` cuando no hace falta aprobador o cuando el que viene puede aprobar. El
-     * alcance se comprueba **en la bodega de la ubicación del ajuste**: un `AREA` solo aprueba
-     * en la suya.
+     * Returns `null` when no approver is needed or when the one that comes can approve. The
+     * scope is checked **in the adjustment location's warehouse**: an `AREA` approves only
+     * in its own.
      */
     private fun approverDenial(approverId: Long?, warehouseId: Long, origin: RequestOrigin): Failure? {
         if (approverId == null) return null

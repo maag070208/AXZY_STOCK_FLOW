@@ -29,7 +29,7 @@ class Argon2idPasswordHasherTest {
 
     @Test
     fun `a hash with weaker parameters still verifies, and is marked for regeneration`() {
-        // Generado con m=4096: válido, pero por debajo del coste actual.
+        // Generated with m=4096: valid, but below the current cost.
         val weak = org.springframework.security.crypto.argon2.Argon2PasswordEncoder(16, 32, 1, 4096, 2).encode("Almacen-Seguro-2026")!!
 
         assertThat(hasher.verify("Almacen-Seguro-2026", weak)).isTrue()
@@ -59,10 +59,10 @@ class JwtAccessTokensTest {
         assertThat(jwt.issuedAt).isEqualTo(now)
         assertThat(jwt.expiresAt).isEqualTo(now.plusSeconds(900))
         assertThat(jwt.getClaimAsString(JwtAccessTokens.CLAIM_FAMILY)).isEqualTo("fam-1")
-        // El sello conserva los milisegundos: es lo que hace exacta la comparación con la cuenta.
+        // The stamp keeps the milliseconds: it is what makes the comparison with the account exact.
         assertThat((jwt.claims[JwtAccessTokens.CLAIM_CREDENTIALS] as Number).toLong()).isEqualTo(1_760_000_000_123)
         assertThat(jwt.claims.keys).containsExactlyInAnyOrder("iss", "aud", "sub", "jti", "iat", "exp", "fam", "pwd")
-        // Un token de identidad es corto: el anterior, con los permisos dentro, pasaba de 4.600 caracteres.
+        // An identity token is short: the previous one, with the permissions inside, went past 4,600 characters.
         assertThat(issued.token.length).isLessThan(400)
     }
 

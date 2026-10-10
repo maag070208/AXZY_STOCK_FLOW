@@ -15,12 +15,12 @@ import java.time.Clock
 import java.time.ZoneOffset
 
 /**
- * Construye los eventos de bitácora. Existe para que cada caso de uso escriba solo lo que es
- * suyo (qué pasó, sobre qué, por qué) y no repita cómo se obtiene el quién, el cuándo y el dónde.
+ * Builds the audit events. It exists so that each use case writes only what is its own
+ * (what happened, to what, why) and does not repeat how the who, the when and the where are obtained.
  */
 class AuditEvents(private val clock: Clock) {
 
-    /** Un hecho realizado por una persona. */
+    /** A fact done by a person. */
     fun byActor(
         actor: Actor,
         origin: RequestOrigin,
@@ -55,8 +55,8 @@ class AuditEvents(private val clock: Clock) {
     )
 
     /**
-     * Un hecho sin persona identificada todavía (un login fallido) o hecho por el propio sistema
-     * (una siembra, una tarea programada).
+     * A fact without an identified person yet (a failed sign-in) or done by the system itself
+     * (a seed, a scheduled task).
      */
     fun byActor(
         actor: AuditActor,
@@ -67,10 +67,10 @@ class AuditEvents(private val clock: Clock) {
         permissionKey: String? = null,
         trace: AccessDecisionTrace? = null,
         /**
-         * Qué credencial de servicio lo hizo.
+         * Which service credential did it.
          *
-         * Un trabajo marcado como impreso sin usuario detrás tiene que poder distinguirse
-         * de uno hecho por una persona, y `null` no distingue «fue un sistema» de «no lo
+         * A job marked as printed with no user behind it must be distinguishable
+         * from one done by a person, and `null` does not distinguish "it was a system" from "I do not
          * sabemos».
          */
         serviceKeyId: Long? = null,
@@ -108,7 +108,7 @@ class AuditEvents(private val clock: Clock) {
         return AuditEvent(
             timing = AuditTiming(
                 occurredAt = now.toEpochMilli(),
-                // Fecha de negocio en UTC. Cuando exista el turno de noche, la decidirá quien llama.
+                // Business date in UTC. When the night shift exists, the caller will decide it.
                 businessDate = now.atZone(ZoneOffset.UTC).toLocalDate().toString(),
             ),
             actor = actor,

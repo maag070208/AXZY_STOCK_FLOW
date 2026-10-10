@@ -21,11 +21,11 @@ import org.springframework.security.web.access.AccessDeniedHandler
 import tools.jackson.databind.json.JsonMapper
 
 /**
- * La seguridad HTTP. Aquí solo se responde una pregunta: **¿quién llama?** Se verifica el token y
- * se deja la identidad en el contexto. Qué puede hacer esa identidad lo decide cada caso de uso
- * (docs/arquitectura/api-spring.md §6), no esta cadena de filtros.
+ * HTTP security. It answers only one question: **who is calling?** The token is verified and
+ * the identity is left in the context. What that identity can do is decided by each use case
+ * (docs/arquitectura/api-spring.md §6), not by this filter chain.
  *
- * Por defecto todo exige identidad: una ruta nueva que nadie declare pública nace protegida.
+ * By default everything requires identity: a new route that nobody declares public is born protected.
  */
 @Configuration(proxyBeanMethods = false)
 class SecurityConfig {
@@ -41,18 +41,18 @@ class SecurityConfig {
         }
 
         http
-            // Sin cookies ni sesión de servidor: no hay nada que un sitio ajeno pueda aprovechar, así
-            // que la protección CSRF no aplica.
+            // No cookies or server session: there is nothing that a foreign site could take advantage of, so
+            // CSRF protection does not apply.
             .csrf { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests {
                 PUBLIC_ROUTES.forEach { (method, path) -> it.requestMatchers(method, path).permitAll() }
                 /*
-                 * La confirmación de la impresora no lleva token de usuario: lleva una
-                 * credencial de servicio. En la cadena se deja pasar y **la credencial la
-                 * comprueba el caso de uso**, que es quien puede hacerlo antes de mirar
-                 * nada más —ni siquiera si el trabajo existe, porque un `404` a quien no
-                 * tiene credencial le diría qué identificadores son válidos—.
+                 * The printer's confirmation does not carry a user token: it carries a
+                 * service credential. The chain lets it through and **the use case checks the
+                 * credential**, which is the one that can do it before looking at
+                 * anything else —not even whether the job exists, because a `404` to whoever has no
+                 * credential would tell them which identifiers are valid—.
                  */
                 SERVICE_ROUTES.forEach { (method, path) -> it.requestMatchers(method, path).permitAll() }
                 it.anyRequest().authenticated()
@@ -63,8 +63,8 @@ class SecurityConfig {
                 server.accessDeniedHandler(forbidden)
                 server.jwt { jwt ->
                     jwt.decoder(tokens.decoder)
-                    // Del token solo se toma quién es y su sello de credenciales. Uno bien firmado pero
-                    // sin esos dos datos no es de esta API: se rechaza como cualquier otro token inválido.
+                    // From the token only who it is and its credentials stamp are taken. A well-signed one but
+                    // without those two fields does not belong to this API: it is rejected like any other invalid token.
                     jwt.jwtAuthenticationConverter { token ->
                         val userId = token.subject?.toLongOrNull()
                         val credentialsStamp = token.claims[JwtAccessTokens.CLAIM_CREDENTIALS] as? Number
@@ -80,9 +80,9 @@ class SecurityConfig {
     }
 
     /**
-     * En las rutas públicas el token NO se lee. Cerrar sesión con un token de acceso ya vencido es
-     * lo normal, y con la cabecera presente el filtro lo rechazaría con `401` antes de llegar a la
-     * ruta: la sesión seguiría viva justo cuando el usuario pide cerrarla.
+     * On public routes the token is NOT read. Signing out with an already expired access token is
+     * the normal case, and with the header present the filter would reject it with `401` before reaching the
+     * route: the session would stay alive exactly when the user asks to close it.
      */
     private fun bearerTokenResolver(): BearerTokenResolver {
         val default = DefaultBearerTokenResolver()
@@ -100,8 +100,8 @@ class SecurityConfig {
     }
 
     private companion object {
-        /** Las únicas rutas sin identidad: la salud y las tres que permiten obtener o soltar una sesión. */
-        /** Rutas que se autentican con `X-Service-Key` y no con un token de usuario. */
+        /** The only routes without identity: health and the three that let a session be obtained or released. */
+        /** Routes that authenticate with `X-Service-Key` and not with a user token. */
         val SERVICE_ROUTES = listOf(
             HttpMethod.PATCH to "/v1/print-jobs/*",
         )

@@ -7,12 +7,12 @@ import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
 /**
- * Los reportes (docs/api/reportes.md) por HTTP real.
+ * The reports (docs/api/reportes.md) over real HTTP.
  *
- * Lo que se comprueba aquí y no en las pruebas de escritura: que los **totales se
- * calculan sobre el filtro entero** y no sobre la página, que el resumen no cuenta
- * los traslados internos como entradas ni salidas, y que el veredicto de la
- * reconciliación lo da el servidor.
+ * What is checked here and not in the write tests: that the **totals are
+ * computed over the whole filter** and not over the page, that the summary does not count
+ * internal transfers as inflows or outflows, and that the verdict of the
+ * reconciliation is given by the server.
  */
 class ReportFlowTest : ApiTest() {
 
@@ -62,7 +62,7 @@ class ReportFlowTest : ApiTest() {
         stockIn(token, "AAA001", "05-B-C", 50, who)
         stockIn(token, "AAA002", "04-B-C", 25, who)
 
-        // Una fila por página, y los totales siguen siendo los de las tres.
+        // One row per page, and the totals are still those of the three.
         val response = get("/v1/reports/inventory?size=1&onlyWithStock=false", token)
 
         assertThat(response.at<List<Any>>("items")).hasSize(1)
@@ -103,7 +103,7 @@ class ReportFlowTest : ApiTest() {
         assertThat(ajena.at<Int>("totalItems")).isZero()
     }
 
-    // ── Resumen de movimientos ──────────────────────────────────────────────
+    // ── Movement summary ──────────────────────────────────────────────────
 
     @Test
     fun `the summary groups by day and does not count locating as inbound or outbound`() {
@@ -133,12 +133,12 @@ class ReportFlowTest : ApiTest() {
         val item = response.at<List<Map<String, Any?>>>("items").single()
         val totals = response.at<Map<String, Any?>>("totals")
 
-        // Entra el aumento (1000) y sale la merma (10). El ubicar de 300 no suma: es
-        // un traslado y el total del producto no cambió.
+        // The increase (1000) comes in and the shrinkage (10) goes out. The locate of 300 does not add up: it is
+        // a transfer and the product total did not change.
         assertThat(item["inUnits"]).isEqualTo("1000.000")
         assertThat(item["outUnits"]).isEqualTo("10.000")
         assertThat(item["netUnits"]).isEqualTo("990.000")
-        // Pero sí cuenta como movimiento: pasó.
+        // But it does count as a movement: it happened.
         assertThat(item["movements"]).isEqualTo(3)
         assertThat(totals["movements"]).isEqualTo(3)
         assertThat(totals["inUnits"]).isEqualTo("1000.000")
@@ -180,7 +180,7 @@ class ReportFlowTest : ApiTest() {
         assertThat(inverted.code).isEqualTo("INVALID_FILTER_RANGE")
     }
 
-    // ── Reconciliación ──────────────────────────────────────────────────────
+    // ── Reconciliation ─────────────────────────────────────────────────────
 
     @Test
     fun `the reconciliation says healthy when the projections match`() {
@@ -204,8 +204,8 @@ class ReportFlowTest : ApiTest() {
         createProduct(token, "AAA001")
         stockIn(token, "AAA001", "RECEIVING", 100, who)
 
-        // Se rompe la proyección a mano: es lo que pasaría si alguien escribiera el
-        // saldo por fuera del motor. El ledger sigue diciendo 100.
+        // The projection is broken by hand: that is what would happen if someone wrote the
+        // balance outside the engine. The ledger still says 100.
         db.sql("UPDATE product_stock SET quantity = quantity + 5").update()
 
         val response = get("/v1/reports/kardex-vs-projection", token)
@@ -219,7 +219,7 @@ class ReportFlowTest : ApiTest() {
         assertThat(item["difference"]).isEqualTo("5.000")
     }
 
-    // ── Exportación ─────────────────────────────────────────────────────────
+    // ── Export ──────────────────────────────────────────────────────────────
 
     @Test
     fun `the CSV export brings the same rows as the list and with its filters`() {
@@ -240,8 +240,8 @@ class ReportFlowTest : ApiTest() {
         assertThat(todos.raw.trim().lines()).hasSize(3)
         assertThat(todos.raw).contains("AAA001").contains("BBB002")
 
-        // El archivo lleva el mismo filtro que el listado: si no, habría que
-        // reconciliar dos vistas de los mismos datos.
+        // The file carries the same filter as the listing: otherwise two views of the same data
+        // would have to be reconciled.
         assertThat(filtrado.raw).contains("AAA001").doesNotContain("BBB002")
     }
 
@@ -257,8 +257,8 @@ class ReportFlowTest : ApiTest() {
         assertThat(response.status).isEqualTo(200)
         assertThat(response.header("Content-Type")).contains("spreadsheetml.sheet")
         assertThat(response.header("Content-Disposition")).contains("kardex.xlsx")
-        // Un XLSX es un contenedor ZIP: sus dos primeros bytes lo dicen. Que las
-        // cantidades sean celdas numéricas se comprueba en `KardexExportWriterTest`.
+        // An XLSX is a ZIP container: its first two bytes say so. That the
+        // quantities are numeric cells is checked in `KardexExportWriterTest`.
         assertThat(response.raw).startsWith("PK")
     }
 
@@ -277,8 +277,8 @@ class ReportFlowTest : ApiTest() {
 
     @Test
     fun `reports require their own permissions and not the inventory ones`() {
-        // `inventory.view` no basta para un reporte: la pantalla y su guard comparten
-        // permiso, y dar otro haría que el usuario entrara y recibiera 403 al cargar.
+        // `inventory.view` is not enough for a report: the screen and its guard share the
+        // permission, and giving a different one would make the user enter and get a 403 on load.
         createUser("operador", USER_PASSWORD, BaseRole.WAREHOUSE_OPERATOR.key.value)
         val token = accessTokenOf("operador", USER_PASSWORD)
 

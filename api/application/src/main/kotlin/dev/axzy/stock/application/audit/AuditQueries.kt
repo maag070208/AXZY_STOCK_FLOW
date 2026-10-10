@@ -14,14 +14,14 @@ import java.time.Instant
 import java.time.LocalDate
 
 /**
- * La consulta de la bitácora (M08, docs/flujos/auditoria.md §5, U5).
+ * The audit log query (M08, docs/flujos/auditoria.md §5, U5).
  *
- * La bitácora **ya se escribe** en cada escritura desde la fase 3; lo que faltaba era
- * poder leerla. Y leerla es un acto que también se registra: quien consulta la bitácora
- * está viendo quién hizo qué, y eso es información sensible.
+ * The audit log **is already written** on every write since phase 3; what was missing was
+ * being able to read it. And reading it is an act that is also recorded: whoever queries the audit log
+ * is seeing who did what, and that is sensitive information.
  */
 
-/** Una fila de la bitácora, con lo que hace falta para responder «quién, qué, cuándo y por qué». */
+/** An audit log row, with what is needed to answer "who, what, when and why". */
 data class AuditEntryView(
     val id: Long,
     val occurredAt: Instant,
@@ -45,19 +45,19 @@ data class AuditEntryView(
     val result: String,
     val errorCode: String?,
     val errorMessage: String?,
-    /** `SERVICE_PRINTER` con su credencial: un hecho sin persona detrás se distingue. */
+    /** `SERVICE_PRINTER` with its credential: a fact without a person behind it is told apart. */
     val serviceKeyId: Long?,
     val requestId: String?,
     val idempotencyKey: String?,
 )
 
 /**
- * Los filtros de la consulta.
+ * The query filters.
  *
- * `from` y `to` son **fechas de negocio** (`business_date`), que la tabla ya guarda: un
- * cierre se explica por día de trabajo, no por el huso horario de quien consulta. Un
- * rango invertido se rechaza en lugar de devolver nada, que es lo que hace imposible
- * distinguir «no hay nada» de «pedí mal el rango».
+ * `from` and `to` are **business dates** (`business_date`), which the table already stores: a
+ * close is explained by working day, not by the time zone of whoever queries. An
+ * inverted range is rejected instead of returning nothing, which is what makes it impossible to
+ * tell "there is nothing" from "I asked for the wrong range".
  */
 data class AuditFilters(
     val entityType: String?,
@@ -71,7 +71,7 @@ data class AuditFilters(
     val to: LocalDate?,
 ) {
     companion object {
-        /** Un rango de fechas invertido no es un rango vacío: es un error de quien pregunta. */
+        /** An inverted date range is not an empty range: it is an error on the part of the one asking. */
         fun isInverted(from: LocalDate?, to: LocalDate?): Boolean = from != null && to != null && from > to
     }
 }
@@ -81,12 +81,12 @@ interface AuditQueries {
 }
 
 /**
- * Consulta la bitácora y **deja constancia de la consulta**.
+ * Queries the audit log and **records the query**.
  *
- * El registro va con nivel `ACCESS`: no mueve inventario ni dinero, pero sí expone quién
- * hizo qué, y el propio módulo dice que su consulta se registra como acceso. Se escribe
- * **después** de leer, en su propia transacción: si el registro fallara, la consulta ya
- * se hizo y lo que no puede quedar es el hecho sin rastro.
+ * The record goes at level `ACCESS`: it does not move inventory or money, but it does expose who
+ * did what, and the module itself says that its query is recorded as access. It is written
+ * **after** reading, in its own transaction: if the record failed, the query would already
+ * have been done, and what cannot remain is the fact without a trace.
  */
 class QueryAuditLog(
     private val queries: AuditQueries,

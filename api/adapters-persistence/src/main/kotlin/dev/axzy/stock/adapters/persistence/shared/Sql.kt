@@ -10,7 +10,7 @@ import java.time.ZoneId
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
-/** El controlador de PostgreSQL no acepta `Instant` como parámetro; sí `OffsetDateTime`. */
+/** The PostgreSQL driver does not accept `Instant` as a parameter; it does accept `OffsetDateTime`. */
 internal fun Instant.toSql(): OffsetDateTime = OffsetDateTime.ofInstant(this, ZoneOffset.UTC)
 
 internal fun ResultSet.instant(column: String): Instant? =
@@ -21,37 +21,37 @@ internal fun ResultSet.longOrNull(column: String): Long? = getLong(column).takeU
 private val IP_LITERAL = Regex("^[0-9a-fA-F:.]{2,45}$")
 
 /**
- * Devuelve la dirección solo si es una IP literal. La columna es `INET`: un valor que no lo sea
- * («unknown», un nombre de host) haría fallar la inserción, y un dato accesorio del cliente no
- * debe tumbar la operación que se está registrando.
+ * Returns the address only if it is a literal IP. The column is `INET`: a value that is not one
+ * ("unknown", a host name) would make the insert fail, and an accessory client datum must
+ * must not bring down the operation being recorded.
  */
 internal fun inetOrNull(value: String?): String? {
     val candidate = value?.trim()?.takeIf { IP_LITERAL.matches(it) } ?: return null
-    // Con una IP literal `getByName` no consulta el DNS: solo la valida.
+    // With a literal IP, `getByName` does not query DNS: it only validates it.
     return runCatching { InetAddress.getByName(candidate).hostAddress }.getOrNull()
 }
 
 /**
- * `NUMERIC(14,3)` de PostgreSQL a la cantidad del dominio, que va en milésimas.
+ * PostgreSQL's `NUMERIC(14,3)` to the domain quantity, which is in thousandths.
  *
- * `null` (una fila que no existe, un `SUM` sin filas) es **cero**: en el inventario
- * «no hay fila» y «hay cero» son la misma cosa, y obligar a cada consulta a
- * decidirlo sería repetir el mismo `?:` en todas.
+ * `null` (a row that does not exist, a `SUM` with no rows) is **zero**: in the inventory
+ * "no row" and "zero" are the same thing, and forcing every query to
+ * decide it would repeat the same `?:` everywhere.
  */
 internal fun BigDecimal?.toQuantity(): Quantity =
     this?.setScale(Quantity.SCALE)?.movePointRight(Quantity.SCALE)?.longValueExact()?.let(Quantity::ofScaled)
         ?: Quantity.ZERO
 
-/** La cantidad del dominio al `NUMERIC` que espera PostgreSQL. */
+/** The domain quantity to the `NUMERIC` that PostgreSQL expects. */
 internal fun Quantity.toSql(): BigDecimal = BigDecimal.valueOf(value, Quantity.SCALE)
 
 /**
- * El comienzo de un **día operativo**, en la zona del negocio.
+ * The start of an **operating day**, in the business time zone.
  *
- * La zona es un parámetro obligatorio a propósito. Un día operativo no es un día UTC:
- * en `America/Mexico_City` empieza a las 06:00 UTC, así que un movimiento de las 21:00
- * del día 9 en el almacén es del día 9 aunque en UTC sea ya el 10. Interpretarlo en UTC
- * deja movimientos fuera de su propio día, y el síntoma es un reporte vacío que parece
+ * The zone is a mandatory parameter on purpose. An operating day is not a UTC day:
+ * in `America/Mexico_City` it starts at 06:00 UTC, so a movement at 21:00 on the 9th at the
+ * warehouse is from the 9th even though in UTC it is already the 10th. Interpreting it in UTC
+ * leaves movements outside their own day, and the symptom is an empty report that looks
  * «no hubo movimientos».
  */
 internal fun LocalDate.atStartOfDayIn(zone: ZoneId): OffsetDateTime =

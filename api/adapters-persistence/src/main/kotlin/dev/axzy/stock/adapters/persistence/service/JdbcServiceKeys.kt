@@ -9,14 +9,14 @@ import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
 /**
- * Las credenciales de servicio (la Zebra, y mañana el ERP).
+ * Service credentials (the Zebra, and tomorrow the ERP).
  *
- * El hash se calcula **aquí** y no en la capa de aplicación: la aplicación no hace
- * criptografía. Se usa **SHA-256** y no Argon2id —el que protege las contraseñas— por
- * una razón concreta: una contraseña de persona es corta y adivinable, y hay que hacer
- * cara cada prueba; un secreto de servicio son 32 bytes aleatorios, así que no hay nada
- * que adivinar, y en cambio hay que poder **buscar por hash** en cada llamada de la
- * impresora. Con Argon2id habría que probar fila por fila.
+ * The hash is computed **here**, not in the application layer: the application does not do
+ * cryptography. **SHA-256** is used, not Argon2id —the one that protects passwords— for
+ * a specific reason: a person's password is short and guessable, and every guess has to be made
+ * expensive; a service secret is 32 random bytes, so there is nothing
+ * to guess, and instead one has to be able to **look up by hash** on each call to the
+ * printer. With Argon2id, each row would have to be tried one by one.
  */
 class JdbcServiceKeys(private val jdbc: JdbcClient) : ServiceKeys {
 
@@ -54,9 +54,9 @@ class JdbcServiceKeys(private val jdbc: JdbcClient) : ServiceKeys {
         MessageDigest.getInstance("SHA-256").digest(secret.toByteArray(Charsets.UTF_8))
             .joinToString("") { byte -> "%02x".format(byte) }
     /*
-     * El hash no se expone: quien siembra una credencial —una prueba, un script de
-     * aprovisionamiento— calcula el SHA-256 en hexadecimal, que es el formato que esta
-     * clase espera. Si el algoritmo cambiara, esas siembras fallarían y la prueba lo
-     * diría, que es justo lo que se quiere de un formato de credencial.
+     * The hash is not exposed: whoever seeds a credential —a test, a provisioning script—
+     * computes the SHA-256 in hexadecimal, which is the format that this
+     * class expects. If the algorithm changed, those seeds would fail and the test
+     * would say so, which is exactly what is wanted from a credential format.
      */
 }

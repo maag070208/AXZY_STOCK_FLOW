@@ -28,25 +28,25 @@ import dev.axzy.stock.application.shared.toFailure
 import dev.axzy.stock.domain.value.Quantity
 
 /**
- * El informe de la importación, tal como lo devuelve la API.
+ * The import report, as the API returns it.
  *
- * `stockPersisted` es **siempre `false`** en esta fase, y no es un olvido: el
- * archivo trae el total del legacy y no dice en qué estantería está cada pieza.
- * Cargarlo a una ubicación inventaría mal desde el primer día; se concilia con
- * conteo antes del corte (ADR-0012). El movimiento `INITIAL` y las existencias
- * son de la fase 5.
+ * `stockPersisted` is **always `false`** in this phase, and it is not an oversight: the
+ * file carries the legacy total and does not say which shelf each piece is on.
+ * Loading it into a location would misstate the inventory from day one; it is reconciled with a
+ * count before the cutover (ADR-0012). The `INITIAL` movement and the stock
+ * belong to phase 5.
  */
 data class CatalogImportResult(
     val dryRun: Boolean,
     /**
-     * Cuántos productos **no** tenían existencias y recibieron su carga inicial.
+     * How many products **did not** have stock and received their initial load.
      *
-     * La carga inicial es el total heredado puesto en `UNASSIGNED`: no dice en qué
-     * estantería está cada pieza, y eso se resuelve con conteo ([ADR-0012]). Solo se carga
-     * a quien no tiene nada: reimportar el archivo no puede duplicar el stock (K2).
+     * The initial load is the inherited total placed in `UNASSIGNED`: it does not say which
+     * shelf each piece is on, and that is resolved by counting ([ADR-0012]). It is only loaded
+     * to whoever has nothing: reimporting the file cannot duplicate the stock (K2).
      */
     val stockLoaded: Int,
-    /** Cuántos ya tenían existencias y se dejaron como estaban. */
+    /** How many already had stock and were left as they were. */
     val stockSkipped: Int,
     val totalRows: Int,
     val accepted: Int,
@@ -64,16 +64,16 @@ data class CatalogImportResult(
 }
 
 /**
- * Importa el archivo inicial del catálogo (docs/flujos/catalogo.md §4).
+ * Imports the initial catalog file (docs/flujos/catalogo.md §4).
  *
- * **Estricta**: una fila inválida rechaza el archivo entero y no se escribe nada.
- * No corrige nada adivinando; un importador tolerante esconde errores de captura
- * que después reaparecen como stock mal contado.
+ * **Strict**: one invalid row rejects the whole file and nothing is written.
+ * It corrects nothing by guessing; a tolerant importer hides capture errors that
+ * later reappear as miscounted stock.
  *
- * **Idempotente**: el `upsert` va por `product_code`, así que importar dos veces
- * el mismo archivo no duplica productos (K2). Los que ya existen sin cambios se
- * cuentan como `skipped`, que es lo que hace visible que la segunda vez no hizo
- * nada en lugar de decir «1.398 actualizados».
+ * **Idempotent**: the `upsert` goes by `product_code`, so importing the same file twice does not
+ * duplicate products (K2). Those that already exist unchanged are counted as `skipped`, which is what
+ * counted as `skipped`, which is what makes visible that the second time it did
+ * nothing, instead of saying "1,398 updated".
  */
 class ImportCatalog(
     private val products: Products,
@@ -99,8 +99,8 @@ class ImportCatalog(
                 )
             }
 
-            // El catálogo cerrado de unidades es de la base, no del código: una
-            // unidad nueva se añade con una migración, no con un despliegue.
+            // The closed catalog of units belongs to the database, not the code: a
+            // new unit is added with a migration, not with a deployment.
             val importer = CatalogImporter(units.all().map { it.code }.toSet())
             val report = importer.import(rows, dryRun = dryRun)
 
@@ -140,17 +140,17 @@ class ImportCatalog(
         }
 
     /**
-     * La carga inicial de existencias: el total heredado, a `UNASSIGNED`.
+     * The initial stock load: the inherited total, to `UNASSIGNED`.
      *
-     * **Solo a quien no tiene nada.** El archivo del legacy trae un total por producto y no
-     * dice en qué estantería está cada pieza ([ADR-0012]); lo que hace esta carga es dejar
-     * ese total en el saldo sin ubicar para que el conteo físico lo reparta. Cargarlo a un
-     * producto que **ya tiene existencias** duplicaría el inventario con solo reimportar el
-     * archivo, así que se salta y se cuenta aparte: el informe dice cuántos se saltaron, en
-     * lugar de esconderlo.
+     * **Only to whoever has nothing.** The legacy file carries a total per product and does not
+     * say which shelf each piece is on ([ADR-0012]); what this load does is leave
+     * that total in the unassigned balance so that the physical count can distribute it. Loading it into a
+     * product that **already has stock** would double the inventory by merely reimporting the
+     * file, so it is skipped and counted separately: the report says how many were skipped, instead of
+     * hiding it.
      *
-     * El movimiento es `INITIAL` en el kardex, con la ubicación sin ubicar y el usuario que
-     * importó: queda con responsable y fecha.
+     * The movement is `INITIAL` in the ledger, with the unassigned location and the user who
+     * imported: it is left with a responsible person and a date.
      */
     private fun loadInitialStock(actor: Actor, accepted: List<ValidatedProduct>): StockLoad {
         val conStock = accepted.filter { it.stock.isPositive }

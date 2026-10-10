@@ -9,16 +9,16 @@ import java.io.File
 import javax.sql.DataSource
 
 /**
- * La base de datos de las pruebas de integración: **PostgreSQL real, con las migraciones reales**.
+ * The integration-test database: **real PostgreSQL, with the real migrations**.
  *
- * Se levanta una vez por proceso de pruebas. Si Docker no está disponible, la primera prueba que
- * la use FALLA con el error de Testcontainers; no se salta. Una prueba saltada cuenta como
- * aprobada en el recuento y eso ya ocultó huecos antes (requisito Q5).
+ * It is started once per test process. If Docker is not available, the first test that
+ * uses it FAILS with the Testcontainers error; it is not skipped. A skipped test counts as
+ * passed in the count, and that has already hidden gaps before (requirement Q5).
  *
- * Expone dos conexiones, como en producción:
- *  - [owner]: el dueño del esquema. Solo para migrar y para limpiar entre pruebas.
- *  - [api]: un usuario miembro del rol `stock_api` (migración V11). Es con el que corre el código
- *    bajo prueba, así que las pruebas ejercen los permisos de verdad.
+ * It exposes two connections, as in production:
+ *  - [owner]: the schema owner. Only to migrate and to clean up between tests.
+ *  - [api]: a member of the `stock_api` role (migration V11). It is the one the code under test
+ *    runs with, so the tests exercise the permissions for real.
  */
 object TestDatabase {
 
@@ -33,7 +33,7 @@ object TestDatabase {
     val owner: DataSource
     val api: DataSource
 
-    /** Las credenciales de la API, para arrancar la aplicación completa contra esta base. */
+    /** The API credentials, to start the full application against this database. */
     val jdbcUrl: String get() = container.jdbcUrl
     const val apiUsername: String = API_USER
     const val apiPassword: String = API_PASSWORD
@@ -60,19 +60,19 @@ object TestDatabase {
         JdbcClient.create(owner)
             .sql("CREATE ROLE $API_USER LOGIN PASSWORD '$API_PASSWORD' IN ROLE stock_api")
             .update()
-        // 16 conexiones: las pruebas de concurrencia abren varias transacciones a la vez.
+        // 16 connections: the concurrency tests open several transactions at once.
         api = pool(API_USER, API_PASSWORD, size = 16)
     }
 
     /**
-     * Deja la base como recién migrada. Vacía TODAS las tablas menos el historial de migraciones y
-     * los catálogos que siembran las migraciones (unidades, la bodega por defecto y las ubicaciones
-     * especiales). La lista se calcula: una tabla nueva queda cubierta sin tocar esto.
+     * Leaves the database as freshly migrated. It empties ALL tables except the migration history and
+     * the catalogs that the migrations seed (units, the default warehouse and the special
+     * locations). The list is computed: a new table is covered without touching this.
      *
-     * Las tres últimas sentencias restauran la semilla, y no son cosméticas: una prueba que
-     * **mueve la predeterminada** (K6) deja a la bodega sembrada sin la marca y con una ubicación
-     * de recepción que la referencia, y sin restaurarla la limpieza de la prueba siguiente falla
-     * por la clave foránea. Una prueba no debe poder romper a la siguiente.
+     * The last three statements restore the seed, and they are not cosmetic: a test that
+     * **moves the default** (K6) leaves the seeded warehouse without the mark and with a location
+     * of receiving that references it, and without restoring it the next test's cleanup fails
+     * on the foreign key. A test must not be able to break the next one.
      */
     fun reset() {
         JdbcClient.create(owner).sql(

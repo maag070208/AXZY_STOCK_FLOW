@@ -3,10 +3,10 @@ package dev.axzy.stock.application.audit
 import dev.axzy.stock.domain.audit.AuditEvent
 
 /**
- * Escribe en la bitácora. **Participa en la transacción en curso**: si el caso de uso revierte,
- * el registro tampoco queda, y si el registro falla, el caso de uso revierte.
+ * Writes to the audit log. **It joins the transaction in progress**: if the use case rolls back,
+ * the record does not survive either, and if the record fails, the use case rolls back.
  *
- * Un cambio sin registro es justo lo que la bitácora existe para impedir
+ * A change without a record is exactly what the audit log exists to prevent.
  * (docs/flujos/auditoria.md, prueba U1).
  */
 fun interface AuditRecorder {
@@ -14,11 +14,11 @@ fun interface AuditRecorder {
 }
 
 /**
- * Registra una denegación de acceso en una transacción PROPIA.
+ * Records an access denial in its OWN transaction.
  *
- * Es un puerto distinto de [AuditRecorder] porque su contrato es el contrario: una denegación
- * tiene que quedar escrita aunque el caso de uso que la provocó revierta. Con un solo puerto,
- * el intento denegado desaparecería junto con el rollback.
+ * It is a different port from [AuditRecorder] because its contract is the opposite: a denial
+ * has to be written even if the use case that caused it rolls back. With a single port
+ * the denied attempt would disappear together with the rollback.
  */
 fun interface AccessDenialLog {
     fun record(event: AuditEvent)

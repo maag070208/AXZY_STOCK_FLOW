@@ -19,10 +19,10 @@ import dev.axzy.stock.domain.identity.RevocationReason
 import java.time.Clock
 
 /**
- * Cierra la sesión: revoca el refresh token presentado y su familia.
+ * Signs out: revokes the presented refresh token and its family.
  *
- * **Nunca falla.** Es idempotente y no exige un token válido: si alguien quiere cerrar sesión hay
- * que dejarlo, y responder con error dejaría la sesión viva justo cuando pide lo contrario.
+ * **It never fails.** It is idempotent and does not require a valid token: if someone wants to sign out
+ * they have to be let do it, and answering with an error would leave the session alive exactly when they ask for the opposite.
  */
 class Logout(
     private val refreshTokens: RefreshTokens,
@@ -35,9 +35,9 @@ class Logout(
 }
 
 /**
- * Cambia la contraseña e **invalida todas las sesiones**, incluida la actual: quien la cambia
- * suele sospechar que está comprometida. El cambio y la revocación van en la misma transacción;
- * por separado, un fallo entre ambos dejaría la contraseña nueva con las sesiones viejas vivas.
+ * Changes the password and **invalidates all the sessions**, including the current one: whoever changes it
+ * usually suspects it has been compromised. The change and the revocation go in the same transaction;
+ * separately, a failure between the two would leave the new password with the old sessions still alive.
  */
 class ChangePassword(
     private val users: UserAccounts,
@@ -63,8 +63,8 @@ class ChangePassword(
             return failure(FailureKind.RULE_VIOLATION, "SAME_PASSWORD", "The new password must be different from the current one.")
         }
 
-        // El hash es deliberadamente lento: se calcula ANTES de abrir la transacción para no
-        // retener una conexión de la base mientras tanto.
+        // The hash is deliberately slow: it is computed BEFORE opening the transaction so as not to
+        // hold a database connection meanwhile.
         val newHash = hasher.hash(newPassword)
         val now = clock.instant()
         return tx.inTransaction {
@@ -86,10 +86,10 @@ class ChangePassword(
 }
 
 /**
- * Reconstruye al [Actor] de una petición a partir de un token ya verificado.
+ * Rebuilds the [Actor] of a request from an already verified token.
  *
- * Es donde un token todavía vigente deja de servir: si la cuenta se desactivó, o si la contraseña
- * cambió después de emitirse, la petición se rechaza aunque la firma y la caducidad sean válidas.
+ * It is where a token that is still valid stops working: if the account was deactivated, or the password
+ * changed after it was issued, the request is rejected even though the signature and the expiry are valid.
  */
 class ResolveActor(private val users: UserAccounts) {
 

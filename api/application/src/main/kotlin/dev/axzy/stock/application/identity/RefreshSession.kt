@@ -23,11 +23,11 @@ import dev.axzy.stock.domain.identity.decideRefresh
 import java.time.Clock
 
 /**
- * Renueva la sesión rotando el refresh token. La decisión —rotar, vencido, reuso— es del dominio
- * ([decideRefresh]); aquí se le da el registro y se aplica el resultado.
+ * Renews the session by rotating the refresh token. The decision —rotate, expired, reuse— belongs to the domain
+ * ([decideRefresh]); here it is given the record and the result is applied.
  *
- * La búsqueda bloquea la fila del token: dos renovaciones simultáneas con el mismo token no
- * pueden rotarlo las dos «por primera vez».
+ * The lookup locks the token's row: two simultaneous renewals with the same token cannot
+ * both rotate it "for the first time".
  */
 class RefreshSession(
     private val users: UserAccounts,
@@ -73,8 +73,8 @@ class RefreshSession(
                         origin = origin,
                         now = now,
                     )
-                    // En la ventana de gracia el token ya estaba rotado: se entrega una sesión
-                    // nueva sin volver a marcarlo, para conservar a qué token dio paso primero.
+                    // In the grace window the token was already rotated: a new session is delivered
+                    // without marking it again, to keep which token gave way first.
                     if (record.rotatedAt == null) {
                         refreshTokens.markRotated(hash, issued.refreshHash, now)
                     }
@@ -83,8 +83,8 @@ class RefreshSession(
             }
         }
 
-        // La revocación va en su propia transacción: la anterior terminó en fallo y se revirtió,
-        // y esto tiene que quedar escrito.
+        // The revocation goes in its own transaction: the previous one ended in failure and was rolled back,
+        // and this has to be written down.
         reused?.let { record ->
             tx.inTransaction {
                 val revoked = refreshTokens.revokeFamily(record.familyId, RevocationReason.REUSE_DETECTED)

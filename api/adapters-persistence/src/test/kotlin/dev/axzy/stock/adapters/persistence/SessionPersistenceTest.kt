@@ -43,7 +43,7 @@ class SessionPersistenceTest {
     fun `only recent credential failures for that name count`() {
         attempts.record("jperez", null, succeeded = false, failureCode = "INVALID_CREDENTIALS", origin = origin, at = Instant.now())
         attempts.record("jperez", null, succeeded = false, failureCode = "INVALID_CREDENTIALS", origin = origin, at = Instant.now())
-        // No cuentan: otro motivo, un acierto y otro usuario.
+        // They do not count: another reason, a hit and another user.
         attempts.record("jperez", null, succeeded = false, failureCode = "ACCOUNT_LOCKED", origin = origin, at = Instant.now())
         attempts.record("jperez", userId, succeeded = true, failureCode = null, origin = origin, at = Instant.now())
         attempts.record("otra", null, succeeded = false, failureCode = "INVALID_CREDENTIALS", origin = origin, at = Instant.now())
@@ -144,7 +144,7 @@ class SessionPersistenceTest {
             }
             first.get(10, TimeUnit.SECONDS)
 
-            // La segunda esperó a la primera: ya ve el token rotado, y no lo rota «por primera vez».
+            // The second waited for the first: it sees the rotated token and does not rotate it "for the first time."
             assertThat(second.get(10, TimeUnit.SECONDS)).isEqualTo(now)
         } finally {
             executor.shutdownNow()

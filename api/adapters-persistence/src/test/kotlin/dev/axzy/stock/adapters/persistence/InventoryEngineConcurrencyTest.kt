@@ -12,8 +12,8 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 /**
- * El motor de inventario bajo concurrencia, contra PostgreSQL real y con el usuario de la API.
- * Son las pruebas A3 y A4 de docs/flujos/existencias-y-ajustes.md (requisitos Q1 y Q7).
+ * The inventory engine under concurrency, against real PostgreSQL and with the API user.
+ * These are tests A3 and A4 of docs/flujos/existencias-y-ajustes.md (requirements Q1 and Q7).
  */
 class InventoryEngineConcurrencyTest {
 
@@ -29,7 +29,7 @@ class InventoryEngineConcurrencyTest {
             .query(Long::class.java).single()
         shelfA = shelf("A")
         shelfB = shelf("B")
-        // 100 unidades en cada estante: total 200.
+        // 100 units on each shelf: total 200.
         move(shelfA, 100)
         move(shelfB, 100)
         recalculate()
@@ -61,7 +61,7 @@ class InventoryEngineConcurrencyTest {
         val firstRecalculated = CountDownLatch(1)
         val executor = Executors.newFixedThreadPool(2)
         try {
-            // La primera transacción deja su recálculo sin confirmar mientras la segunda hace el suyo.
+            // The first transaction leaves its recalculation uncommitted while the second does its own.
             val first = executor.submit {
                 db.tx.inTransaction {
                     move(shelfA, 10)
@@ -85,7 +85,7 @@ class InventoryEngineConcurrencyTest {
             executor.shutdownNow()
         }
 
-        // Sin el bloqueo de V10 el total quedaba en 205.000: el segundo recálculo no veía los 10 del primero.
+        // Without the V10 lock the total stayed at 205.000: the second recalculation did not see the first one's 10.
         assertThat(sumOfLocations()).isEqualTo("215.000")
         assertThat(total()).isEqualTo("215.000")
         assertThat(db.jdbc.sql("SELECT count(*) FROM check_projections()").query(Int::class.java).single()).isZero()
@@ -96,7 +96,7 @@ class InventoryEngineConcurrencyTest {
         val start = CountDownLatch(1)
         val executor = Executors.newFixedThreadPool(2)
         val outcomes = try {
-            // Cada una saca 60 de un estante con 100: las dos no caben.
+            // Each one takes 60 from a shelf with 100: the two do not fit.
             (1..2).map {
                 executor.submit<Boolean> {
                     start.await(5, TimeUnit.SECONDS)
@@ -122,9 +122,9 @@ class InventoryEngineConcurrencyTest {
 
     @Test
     fun `withdrawing more than there is is rejected by the database`() {
-        // Lo rechaza el CHECK de la tabla, dentro del propio UPDATE. El mensaje de «stock
-        // insuficiente» que la función de V6 prometía no llega a ejecutarse en este camino: quien
-        // le dice al usuario cuánto había es el caso de uso, que lee el saldo bloqueado antes.
+        // The table's CHECK rejects it, inside the UPDATE itself. The "insufficient stock" message
+        // the V6 function promised never runs on this path: whoever
+        // tells the user how much there was is the use case, which reads the locked balance beforehand.
         assertThatThrownBy { move(shelfA, -150) }
             .rootCause().hasMessageContaining("stock_non_negative")
         assertThat(sumOfLocations()).isEqualTo("200.000")

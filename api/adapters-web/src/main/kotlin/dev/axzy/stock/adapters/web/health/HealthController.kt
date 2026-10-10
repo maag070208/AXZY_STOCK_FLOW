@@ -16,7 +16,7 @@ data class HealthDto(
     val database: DatabaseHealthDto,
 )
 
-/** `GET /v1/health`: público. Lo consultan Compose y la monitorización (docs/api/salud.md). */
+/** `GET /v1/health`: public. Compose and monitoring query it (docs/api/salud.md). */
 @RestController
 class HealthController(private val checkHealth: CheckHealth) {
 
@@ -34,7 +34,7 @@ class HealthController(private val checkHealth: CheckHealth) {
                 error = report.database.error,
             ),
         )
-        // 503 y no 200 con «DOWN» dentro: un orquestador mira el código, no el cuerpo.
+        // 503 and not 200 with "DOWN" inside: an orchestrator looks at the code, not the body.
         return ResponseEntity.status(if (report.up) HttpStatus.OK else HttpStatus.SERVICE_UNAVAILABLE).body(body)
     }
 }

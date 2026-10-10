@@ -37,11 +37,11 @@ import java.time.Clock
 import java.time.LocalDate
 
 /**
- * Los casos de uso de recepción (M03, docs/flujos/recepcion.md).
+ * The receiving use cases (M03, docs/flujos/recepcion.md).
  *
- * La regla que gobierna el módulo es **B1**: una línea con diferencia sin aprobar no
- * se puede ubicar. Vive en el dominio ([InvoiceLine.locate]) y aquí solo se respeta:
- * la aprobación es una decisión sobre el documento entero, no sobre una línea suelta.
+ * The rule that governs the module is **B1**: a line with an unapproved difference cannot
+ * be located. It lives in the domain ([InvoiceLine.locate]) and here it is only respected:
+ * approval is a decision on the whole document, not on a single line.
  */
 
 // ── Consultas ───────────────────────────────────────────────────────────────
@@ -66,7 +66,7 @@ class GetInvoice(private val invoices: Invoices, private val access: AccessDecid
         }
 }
 
-/** La bandeja de pendientes: sin ella, una discrepancia se queda bloqueada y nadie lo sabe. */
+/** The pending inbox: without it, a discrepancy gets stuck and nobody knows. */
 class PendingApprovalInbox(private val invoices: Invoices, private val access: AccessDecider) {
 
     fun execute(actor: Actor, origin: RequestOrigin): Outcome<List<PendingApproval>> =
@@ -78,12 +78,12 @@ class PendingApprovalInbox(private val invoices: Invoices, private val access: A
 data class CreatedInvoice(val id: Long, val invoiceNumber: String)
 
 /**
- * Crea una factura con sus líneas.
+ * Creates an invoice with its lines.
  *
- * Se resuelven producto y unidad **antes** de escribir, dentro de la transacción: la
- * clave de negocio es lo que manda el cliente y el identificador es lo que guarda la
- * tabla. Una factura sin líneas se rechaza porque no se puede capturar ni ubicar, y
- * bloquearía el flujo desde el primer paso.
+ * Product and unit are resolved **before** writing, inside the transaction: the
+ * business key is what the client sends and the identifier is what the
+ * table stores. An invoice without lines is rejected because it cannot be counted or located, and
+ * it would block the flow from the first step.
  */
 class CreateInvoice(
     private val catalog: ReceivingCatalog,
@@ -111,8 +111,8 @@ class CreateInvoice(
         lines: List<ResolvedLine>,
         origin: RequestOrigin,
     ): Outcome<CreatedInvoice> {
-        // El prechequeo da el error legible en el caso normal; el índice único es el
-        // que decide si dos peticiones llegan a la vez.
+        // The pre-check gives the readable error in the normal case; the unique index is the
+        // one that decides whether two requests arrive at the same time.
         if (invoices.numberExists(draft.invoiceNumber)) return duplicateNumber(draft.invoiceNumber)
 
         return tx.inTransaction {
@@ -148,8 +148,8 @@ class CreateInvoice(
                 mapOf("field" to "invoiceNumber"),
             )
         }
-        // La columna es VARCHAR(60): decirlo aquí da un error claro en lugar de un
-        // `22001 value too long` de PostgreSQL.
+        // The column is VARCHAR(60): saying so here gives a clear error instead of a
+        // `22001 value too long` from PostgreSQL.
         if (number.length > 60) {
             return failure(
                 FailureKind.RULE_VIOLATION, "FIELD_TOO_LONG",
@@ -189,7 +189,7 @@ class CreateInvoice(
         return InvoiceDraft(number, date, type).asRight()
     }
 
-    /** Resuelve producto, unidad y las reglas de empaque de cada línea. */
+    /** Resolves product, unit and the packing rules of each line. */
     private fun resolveLines(lines: List<NewInvoiceLine>): Outcome<List<ResolvedLine>> {
         val resolved = mutableListOf<ResolvedLine>()
         lines.forEachIndexed { index, line ->
@@ -211,8 +211,8 @@ class CreateInvoice(
                     "does not exist in the catalog or is inactive",
                 ).toFailure().asLeft()
 
-            // La unidad de la línea es la del producto salvo que el cliente diga otra:
-            // obligarle a repetir lo que el catálogo ya sabe sería fricción sin motivo.
+            // The line's unit is the product's unless the client says another: making them repeat
+            // what the catalog already knows would be friction for no reason.
             val unitMeasureId = line.unitMeasure?.trim()?.takeUnless { it.isBlank() }?.let { unit ->
                 catalog.unitMeasureId(unit) ?: return DomainError.UnknownUnitMeasure(unit).toFailure().asLeft()
             } ?: product.unitMeasureId
@@ -229,9 +229,9 @@ class CreateInvoice(
                 ).toFailure().asLeft()
             }
 
-            // Las unidades por caja y las cajas son cosas **discretas**: dos cajas y
-            // media no existe. Se exige un entero en lugar de redondear a espaldas del
-            // cliente, que es lo que hacía el legacy con `Math.floor`.
+            // Units per box and boxes are **discrete** things: two boxes and a half do not
+            // exist. An integer is required instead of rounding behind the
+            // client's back, which is what the legacy did with `Math.floor`.
             val rawUnitsPerBox = line.unitsPerBox
                 ?: return failure(
                     FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
@@ -253,8 +253,8 @@ class CreateInvoice(
             }
             val boxes = BoxQuantity.of(boxQuantity.units)
 
-            // Las cajas de la FACTURA tienen que cuadrar exactamente (R-80); las del
-            // conteo físico no, porque «1 caja y 30 sueltas» es un faltante legítimo.
+            // The invoice's boxes must add up exactly (R-80); those of the physical count do not,
+            // because "1 box and 30 loose" is a legitimate shortage.
             when (val packing = InvoiceLine.validatePackingSpecification(quantity, unitsPerBox)) {
                 is Either.Left -> return packing.error.toFailure().asLeft()
                 is Either.Right -> Unit
@@ -286,12 +286,12 @@ class CreateInvoice(
 data class CaptureInput(val physicalQuantity: Quantity?, val physicalBoxQuantity: BoxQuantity?)
 
 /**
- * El conteo físico de una línea.
+ * The physical count of a line.
  *
- * El dominio decide el estado —`CAPTURED` si coincide con la factura, `DISCREPANCY`
- * si no— y **sin umbral**: una unidad de diferencia pide aprobación igual que cien.
- * El estado de la factura se recalcula después con el criterio del dominio
- * ([InvoiceLineStatus.blocksInvoiceClosing]), no con una lista escrita aquí.
+ * The domain decides the status —`CAPTURED` if it matches the invoice, `DISCREPANCY`
+ * if not— and **with no threshold**: a one-unit difference requires approval just like a hundred.
+ * The invoice status is recalculated afterwards with the domain's criterion
+ * ([InvoiceLineStatus.blocksInvoiceClosing]), not with a list written here.
  */
 class CaptureLine(
     private val invoices: Invoices,
@@ -317,8 +317,8 @@ class CaptureLine(
                 ?: return@inTransaction lineNotFound(lineId)
             val line = view.line
 
-            // Aprobar o ubicar cierra la captura de esa línea: volver a contar lo ya
-            // autorizado borraría la decisión de un supervisor.
+            // Approving or locating closes the count of that line: recounting what was already
+            // authorized would erase a supervisor's decision.
             if (line.status == InvoiceLineStatus.APPROVED || line.status == InvoiceLineStatus.LOCATED) {
                 return@inTransaction failure(
                     FailureKind.CONFLICT, "LINE_ALREADY_RESOLVED",
@@ -342,20 +342,20 @@ class CaptureLine(
             when (val captured = line.capture(quantity, boxes, actor.id)) {
                 is Either.Left -> captured.error.toFailure().asLeft()
                 is Either.Right -> {
-                    // **La mercancía entra al contar, y solo la diferencia.** El conteo es el
-                    // momento en que el almacén toma posesión de lo que de verdad llegó —lo
-                    // contado, no lo facturado—, y hasta aquí nadie la metía: el saldo tenía que
-                    // aparecer por un ajuste a mano, así que ubicar desde RECEIVING se encontraba
-                    // cero. Se ingresa la diferencia contra lo ya ingresado por la línea porque
-                    // una línea descartada por el supervisor se recuenta (`rejectDiscrepancy`) y
-                    // la entrada a ciegas contaría la mercancía dos veces.
+                    // **The goods enter on counting, and only the difference.** Counting is the
+                    // moment the warehouse takes possession of what really arrived —what was counted,
+                    // not what was invoiced— and until now nobody put it in: the balance had to
+                    // appear through a manual adjustment, so locating from RECEIVING found
+                    // zero. The difference is entered against what the line already entered, because
+                    // a line discarded by the supervisor is recounted (`rejectDiscrepancy`) and
+                    // a blind entry would count the goods twice.
                     val yaIngresado = line.receivedQuantity
                     val delta = (captured.value.physicalQuantity ?: Quantity.ZERO) - yaIngresado
                     val persisted = captured.value.copy(receivedQuantity = yaIngresado + delta)
-                    // **Se reclama antes de mover.** Dos capturas simultáneas de la misma línea
-                    // leerían el mismo saldo ingresado e ingresarían la misma diferencia: el
-                    // stock se duplicaría. La condición sobre `received_quantity` hace que solo
-                    // una gane; la otra no escribe ni el movimiento.
+                    // **It is claimed before moving.** Two simultaneous counts of the same line would
+                    // read the same entered balance and enter the same difference: the
+                    // stock would double. The condition on `received_quantity` means that only
+                    // one wins; the other one writes neither the movement nor the line.
                     if (invoices.claimCapture(persisted, yaIngresado, clock.instant()) == 0) {
                         return@inTransaction failure(
                             FailureKind.CONFLICT, "LINE_CHANGED",
@@ -389,7 +389,7 @@ class CaptureLine(
                             ),
                         ),
                     )
-                    // La respuesta es la LÍNEA capturada, no la factura.
+                    // The response is the LINE counted, not the invoice.
                     view.copy(
                         line = persisted,
                         difference = persisted.difference,
@@ -402,12 +402,12 @@ class CaptureLine(
     }
 
     /**
-     * Mete en `RECEIVING` lo que se acaba de contar de más, o saca lo que ya no está.
+     * Puts into `RECEIVING` what was just counted in excess, or takes out what is no longer there.
      *
-     * · Si lo contado es **más** que lo ingresado, entra la diferencia con `RECEIPT_IN`.
-     * · Si es **menos**, la diferencia sale con un ajuste por **error de conteo**: el conteo
-     *   anterior estaba alto, y decirlo con el motivo correcto es lo que permite auditar por
-     *   qué bajó el inventario en lugar de dejarlo como una entrada que nunca existió.
+     * · If what was counted is **more** than what was entered, the difference comes in with `RECEIPT_IN`.
+     * · If it is **less**, the difference goes out with an adjustment for a **counting error**: the previous count
+     *   was too high, and saying so with the right reason is what lets one audit why
+     *   the inventory went down instead of leaving it as an entry that never existed.
      */
     private fun enterReceiving(actor: Actor, lineId: Long, line: InvoiceLine, delta: Quantity) {
         val productId = catalog.activeProduct(line.productCode)?.id ?: return
@@ -442,18 +442,18 @@ class CaptureLine(
     }
 }
 
-// ── Aprobación y rechazo ────────────────────────────────────────────────────
+// ── Approval and rejection ─────────────────────────────────────────────────
 
-/** La decisión del supervisor: el motivo es obligatorio, la nota es opcional. */
+/** The supervisor's decision: the reason is mandatory, the note is optional. */
 data class DecisionInput(val reason: AdjustmentReason?, val note: String?)
 
 /**
- * Aprueba **todas** las discrepancias de una factura.
+ * Approves **all** the discrepancies of an invoice.
  *
- * Es la única ruta de aprobación: aprobar por línea obligaría al supervisor a repetir
- * el mismo juicio N veces y dejaría la factura a medias, y era además lo que invitaba
- * a aprobar lo propio sin darse cuenta. Con una sola acción sobre el documento, la
- * segregación de funciones es evidente.
+ * It is the only approval route: approving line by line would force the supervisor to repeat
+ * the same judgment N times and would leave the invoice half-done, and it was also what invited
+ * approving one's own without noticing. With a single action on the document, the
+ * segregation of duties is evident.
  */
 class ApproveInvoice(
     private val invoices: Invoices,
@@ -479,8 +479,8 @@ class ApproveInvoice(
             if (mine.isNotEmpty()) return@inTransaction segregation(mine, "aprobar")
             val reason = input.reason ?: return@inTransaction reasonRequired()
 
-            // El dominio valida cada transición antes de escribir: si una no se puede
-            // aprobar, no se aprueba ninguna.
+            // The domain validates each transition before writing: if one cannot be
+            // approved, none is approved.
             val approved = mutableMapOf<Long, InvoiceLine>()
             pending.forEach { view ->
                 when (val result = view.line.approveDiscrepancy(actor.id, reason.name)) {
@@ -491,9 +491,9 @@ class ApproveInvoice(
 
             val affected = invoices.approveDiscrepancies(invoiceId, actor.id, reason.name, clock.instant())
             if (affected != pending.size) {
-                // La sentencia lleva la condición (`status = 'DISCREPANCY'`): si el
-                // número no cuadra, otra persona las cambió a la vez y esta operación
-                // no se puede dar por buena.
+                // The statement carries the condition (`status = 'DISCREPANCY'`): if the
+                // number does not match, another person changed them at the same time and this operation
+                // cannot be accepted.
                 return@inTransaction failure(
                     FailureKind.CONFLICT, "INVALID_TRANSITION",
                     "The lines changed while they were being approved: review the invoice again.",
@@ -519,18 +519,18 @@ class ApproveInvoice(
                     note = input.note,
                 ),
             )
-            // La respuesta es la factura releída: el estado real, con quién aprobó y cuándo.
+            // The response is the invoice re-read: the real state, with who approved and when.
             invoices.detail(invoiceId)!!.asRight()
         }
     }
 }
 
 /**
- * La otra salida de B1: el supervisor **no acepta** la diferencia.
+ * The other exit of B1: the supervisor **does not accept** the difference.
  *
- * La línea vuelve a `PENDING` con el conteo limpio, no se cancela: el número que vio
- * el supervisor puede ser el correcto, y lo que falta es un reconteo. Cancelarla
- * dejaría mercancía en el almacén que nadie contó y una línea muerta que ya no se
+ * The line goes back to `PENDING` with a clean count; it is not cancelled: the number the
+ * supervisor saw may be the correct one, and what is missing is a recount. Cancelling it would
+ * leave goods in the warehouse that nobody counted and a dead line that no longer
  * puede capturar.
  */
 class RejectInvoiceDiscrepancy(
@@ -595,11 +595,11 @@ class RejectInvoiceDiscrepancy(
 // ── Cierre ──────────────────────────────────────────────────────────────────
 
 /**
- * Cierra la factura.
+ * Closes the invoice.
  *
- * El criterio de qué bloquea lo define el dominio
- * ([InvoiceLineStatus.blocksInvoiceClosing]) y es **el mismo que cuenta el listado**:
- * así la lista y la acción no pueden discrepar.
+ * The rule for what blocks is defined by the domain
+ * ([InvoiceLineStatus.blocksInvoiceClosing]) and it is **the same one the listing counts**:
+ * so the list and the action cannot disagree.
  */
 class CloseInvoice(
     private val invoices: Invoices,
@@ -654,13 +654,13 @@ class CloseInvoice(
         }
 }
 
-// ── Común ───────────────────────────────────────────────────────────────────
+// ── Common ──────────────────────────────────────────────────────────────
 
 /**
- * El estado de la factura a partir de sus líneas, con el criterio del dominio.
+ * The invoice status from its lines, with the domain's rule.
  *
- * Una factura sin líneas bloqueantes pasa a `PENDING_TO_LOCATE`: ya está contada y lo
- * que queda es ubicarla. No se toca una factura cerrada ni anulada.
+ * An invoice without blocking lines moves to `PENDING_TO_LOCATE`: it is already counted and what
+ * remains is to locate it. A closed or cancelled invoice is not touched.
  */
 internal fun invoiceStatusFor(lines: List<InvoiceLine>, current: String): String = when {
     current == COMPLETED || current == CANCELLED -> current
@@ -708,7 +708,7 @@ private fun reasonRequired(action: String = "approve"): Outcome<Nothing> = failu
     mapOf("field" to "adjustmentReason", "action" to action),
 )
 
-/** Se dicen CUÁLES líneas: un «no puedes» sin ellas obliga a adivinar qué contó uno. */
+/** It says WHICH lines: a "you cannot" without them forces guessing what one counted. */
 private fun segregation(lines: List<InvoiceLineView>, action: String): Outcome<Nothing> = failure(
     FailureKind.FORBIDDEN, "SEGREGATION_OF_DUTIES",
     "You cannot $action a discrepancy you counted yourself: these are the lines " +
@@ -716,14 +716,14 @@ private fun segregation(lines: List<InvoiceLineView>, action: String): Outcome<N
     mapOf("lines" to lines.joinToString(",") { it.line.id.toString() }),
 )
 
-/** La cantidad con los tres decimales del contrato, sin notación científica. */
+/** The quantity with the contract's three decimals, without scientific notation. */
 internal fun Quantity.toPlainString(): String = BigDecimal.valueOf(value, Quantity.SCALE).toPlainString()
 
 /**
- * Indica si la cantidad es un número entero de unidades.
+ * Indicates whether the quantity is a whole number of units.
  *
- * La cantidad del dominio va en milésimas, así que «entero» es múltiplo de mil. Se
- * necesita para los campos que cuentan cosas discretas —cajas, unidades por caja—:
- * dos cajas y media no existe, y aceptar `2.5` sería redondear a espaldas del cliente.
+ * The domain quantity is in thousandths, so "whole" is a multiple of a thousand. It is
+ * needed for the fields that count discrete things —boxes, units per box—:
+ * two and a half boxes do not exist, and accepting `2.5` would round behind the client's back.
  */
 internal val Quantity.isWhole: Boolean get() = Quantity.of(units) == this

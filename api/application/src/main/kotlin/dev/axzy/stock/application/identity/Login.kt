@@ -11,8 +11,8 @@ import java.time.Clock
 import java.time.Duration
 
 /**
- * Cuántos fallos bloquean un nombre de usuario y durante cuánto. El bloqueo es TEMPORAL: uno
- * permanente convertiría la fuerza bruta en una denegación de servicio contra el usuario legítimo.
+ * How many failures lock a username and for how long. The lock is TEMPORARY: a
+ * permanent one would turn brute force into a denial of service against the legitimate user.
  */
 data class LockoutPolicy(
     val maxFailedAttempts: Int = 5,
@@ -25,14 +25,14 @@ data class LockoutPolicy(
 }
 
 /**
- * Inicia sesión (docs/flujos/autenticacion-y-permisos.md §3).
+ * Signs in (docs/flujos/autenticacion-y-permisos.md §3).
  *
- * **No se puede averiguar si un usuario existe.** Las tres defensas:
- *  1. Usuario inexistente y contraseña incorrecta devuelven lo mismo, y tardan lo mismo: cuando no
- *     hay cuenta se verifica igualmente contra un hash señuelo.
- *  2. El bloqueo se decide por NOMBRE de usuario, exista o no la cuenta. Si solo se bloquearan las
- *     cuentas reales, cinco intentos bastarían para saber cuáles lo son.
- *  3. «Cuenta desactivada» solo se dice a quien acertó la contraseña.
+ * **It cannot be found out whether a user exists.** The three defenses:
+ *  1. A nonexistent user and a wrong password return the same thing, and take the same time: when
+ *     there is no account, the password is verified anyway against a decoy hash.
+ *  2. The lock is decided by USERNAME, whether or not the account exists. If only real accounts were locked,
+ *     five attempts would be enough to know which ones are real.
+ *  3. "Account deactivated" is only said to whoever guessed the password.
  */
 class Login(
     private val users: UserAccounts,
@@ -44,7 +44,7 @@ class Login(
     private val clock: Clock,
     private val lockout: LockoutPolicy = LockoutPolicy(),
 ) {
-    /** Un hash válido que no corresponde a ninguna contraseña conocida. Se calcula una sola vez. */
+    /** A valid hash that matches no known password. It is computed only once. */
     private val decoyHash: String by lazy { hasher.hash(codec.generate()) }
 
     fun execute(username: String, password: String, origin: RequestOrigin): Outcome<AuthSession> {
@@ -55,8 +55,8 @@ class Login(
 
         val now = clock.instant()
         if (attempts.failedSince(name, now.minus(lockout.window)) >= lockout.maxFailedAttempts) {
-            // No se verifica la contraseña ni se cuenta el intento: contar durante el bloqueo
-            // permitiría mantener bloqueada una cuenta para siempre con una petición cada rato.
+            // The password is not verified nor is the attempt counted: counting during the lock
+            // would allow keeping an account locked forever with a request every so often.
             attempts.record(name, null, succeeded = false, failureCode = ACCOUNT_LOCKED, origin = origin, at = now)
             return failure(
                 FailureKind.UNAUTHENTICATED, ACCOUNT_LOCKED,

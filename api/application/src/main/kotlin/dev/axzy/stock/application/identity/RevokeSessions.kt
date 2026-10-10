@@ -16,23 +16,23 @@ import dev.axzy.stock.domain.common.asLeft
 import dev.axzy.stock.domain.common.asRight
 import dev.axzy.stock.domain.identity.RevocationReason
 
-/** Lo que se revocó, para que la respuesta diga algo y no solo «vale». */
+/** What was revoked, so that the response says something and not just "ok". */
 data class SessionsRevoked(val userId: Long, val username: String, val revoked: Int)
 
 /**
- * Cierra **todas** las sesiones de un usuario, desde la cuenta de un administrador (M07,
+ * Closes **all** the sessions of a user, from an administrator's account (M07,
  * `session.revoke`).
  *
- * Es la respuesta a «a esta persona le robaron el portátil» o «se va de la empresa hoy»: sin
- * esta ruta, cerrar la sesión de otro exigía cambiarle la contraseña, que es una decisión
- * mucho más grande —se la comunicas, la cambia, y con eso invalidas también lo que estaba
- * haciendo—. Revocar es lo pequeño y suficiente.
+ * It is the answer to "this person's laptop was stolen" or "they leave the company today": without
+ * this route, closing someone else's session required changing their password, which is a decision
+ * much bigger —you tell them, they change it, and with that you also invalidate what they were
+ * doing—. Revoking is the small and sufficient thing.
  *
- * **Lo que corta es la renovación, y hay que decirlo.** El token de acceso ya emitido es un
- * JWT firmado y no se consulta en la base en cada petición, así que sigue siendo válido hasta
- * que expire por su cuenta; lo que se revoca son los tokens de refresco, que son los que
- * mantienen la sesión viva. Para cortar el acceso de inmediato está cambiar la contraseña, que
- * sí mueve el sello de credenciales.
+ * **What it cuts is the renewal, and it has to be said.** The access token already issued is a
+ * signed JWT and is not checked against the database on every request, so it stays valid until
+ * it expires on its own; what is revoked are the refresh tokens, which are the ones that
+ * keep the session alive. To cut access immediately, there is changing the password, which
+ * does move the credentials stamp.
  */
 class RevokeUserSessions(
     private val accounts: UserAccounts,
@@ -59,8 +59,8 @@ class RevokeUserSessions(
                         actor = actor,
                         origin = origin,
                         action = "USER_SESSIONS_REVOKED",
-                        // Crítico: revocar sesiones es quitarle el acceso a alguien, y quién lo
-                        // hizo tiene que poder responderse un año después.
+                        // Critical: revoking sessions is taking someone's access away, and whoever
+                        // did it must be able to answer for it a year later.
                         level = AuditLevel.CRITICAL,
                         entity = AuditEntity("user", userId.toString(), account.username),
                         grant = grant,

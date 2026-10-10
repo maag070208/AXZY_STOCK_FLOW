@@ -6,14 +6,14 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 /**
- * Recepción (M03) de punta a punta por HTTP real.
+ * Receiving (M03) end to end over real HTTP.
  *
- * Los nombres R1…R8 son los de docs/flujos/recepcion.md §6. Aquí están R2–R6 y R8;
- * **R1 (una línea en discrepancia no se puede ubicar) y R7 (ubicar no cambia el
- * total) dependen del flujo de ubicación**, que es la ruta de inventario de M02: R7
- * está cubierta allí (`InventoryFlowTest` A1) y R1 es la integración que falta
- * —la ruta de ubicar todavía no recibe la línea de factura—, documentada como
- * pendiente en el plan.
+ * The names R1…R8 are those of docs/flujos/recepcion.md §6. Here R2–R6 and R8 are tested;
+ * **R1 (a line with a discrepancy cannot be located) and R7 (locating does not change the
+ * total) depend on the locate flow**, which is the M02 inventory route: R7
+ * is covered there (`InventoryFlowTest` A1) and R1 is the missing integration
+ * —the locate route still does not receive the invoice line—, documented as
+ * pending in the plan.
  */
 class ReceivingFlowTest : ApiTest() {
 
@@ -32,7 +32,7 @@ class ReceivingFlowTest : ApiTest() {
     private fun product(token: String, code: String = "ABRAA1B") =
         post("/v1/products", mapOf("productCode" to code, "name" to "ABRAZADERA", "unitMeasure" to "PZA"), token)
 
-    /** Una factura de una línea: 10 unidades, cajas de 5. */
+    /** An invoice with one line: 10 units, boxes of 5. */
     private fun invoice(
         token: String,
         number: String = "F-2026-001",
@@ -73,8 +73,8 @@ class ReceivingFlowTest : ApiTest() {
     private fun decide(token: String, invoiceId: Long, route: String, reason: String = "SUPPLIER_ERROR") =
         post("/v1/invoices/$invoiceId/$route", mapOf("adjustmentReason" to reason, "note" to "Revisado"), token)
 
-    /** Deja saldo en la recepción: es de donde sale una ubicación. */
-    /** Ubica mercancía de la recepción a un estante, diciendo de qué línea sale. */
+    /** Leaves balance in receiving: it is where a location draws from. */
+    /** Locates goods from receiving onto a shelf, saying which line they come from. */
     private fun locate(
         token: String,
         lineId: Long?,
@@ -96,7 +96,7 @@ class ReceivingFlowTest : ApiTest() {
     private fun shelf(token: String) =
         post("/v1/locations", mapOf("warehouseId" to 1, "hall" to "04", "code" to "B", "position" to "C"), token)
 
-    /** El aprobador de los aumentos: cualquier persona distinta de quien los pide. */
+    /** The approver of increases: any person other than the one who requests them. */
     private fun approver(token: String): Long {
         val existing = db.sql("SELECT id FROM users WHERE username = 'supervisor'").query(Long::class.java).list()
         return existing.firstOrNull() ?: supervisor().let {
@@ -114,7 +114,7 @@ class ReceivingFlowTest : ApiTest() {
         get("/v1/invoices/$invoiceId", token).at<List<Map<String, Any?>>>("lines")
             .first { (it["id"] as Number).toLong() == lineId }
 
-    // ── Alta y consulta ─────────────────────────────────────────────────────
+    // ── Creation and query ─────────────────────────────────────────────────
 
     @Test
     fun `creating answers 201 with the reference and the detail includes the lines`() {
@@ -202,7 +202,7 @@ class ReceivingFlowTest : ApiTest() {
         assertThat(linea.code).isEqualTo("LINE_NOT_FOUND")
     }
 
-    // ── R2: toda diferencia pide aprobación, sin umbral ─────────────────────
+    // ── R2: every difference requires approval, with no threshold ──────────
 
     @Test
     fun `R2 - a difference of one unit leaves the line in DISCREPANCY`() {
@@ -211,13 +211,13 @@ class ReceivingFlowTest : ApiTest() {
         val id = invoice(token)
         val lineId = lineIds(token, id).single()
 
-        // Se facturaron 10 y llegaron 9: una unidad de diferencia.
+        // 10 were invoiced and 9 arrived: a one-unit difference.
         val response = capture(token, id, lineId, quantity = 9, boxes = 1)
 
         assertThat(response.status).isEqualTo(200)
         assertThat(response.at<String>("status")).isEqualTo("DISCREPANCY")
         assertThat(response.at<String>("difference")).isEqualTo("-1.000")
-        // El contador de la cabecera dice lo mismo que la línea: es lo que impide cerrar.
+        // The header's counter says the same as the line: it is what prevents closing.
         assertThat(get("/v1/invoices/$id", token).at<Int>("pendingApprovalLines")).isEqualTo(1)
     }
 
@@ -232,7 +232,7 @@ class ReceivingFlowTest : ApiTest() {
 
         assertThat(response.at<String>("status")).isEqualTo("CAPTURED")
         assertThat(response.at<String>("difference")).isEqualTo("0.000")
-        // Sin líneas bloqueantes la factura pasa a «pendiente de ubicar».
+        // Without blocking lines the invoice moves to "pending locate".
         assertThat(get("/v1/invoices/$id", token).at<String>("status")).isEqualTo("PENDING_TO_LOCATE")
         assertThat(get("/v1/invoices/$id", token).at<Int>("pendingApprovalLines")).isZero()
     }
@@ -244,14 +244,14 @@ class ReceivingFlowTest : ApiTest() {
         val id = invoice(token)
         val lineId = lineIds(token, id).single()
 
-        // 9 piezas no pueden ser 2 cajas de 5: el dato se contradice a sí mismo.
+        // 9 pieces cannot be 2 boxes of 5: the data contradicts itself.
         val response = capture(token, id, lineId, quantity = 9, boxes = 2)
 
         assertThat(response.status).isEqualTo(422)
         assertThat(response.code).isEqualTo("INCONSISTENT_BOX_COUNT")
     }
 
-    // ── R3 y R4: quién aprueba y a quién cubre ──────────────────────────────
+    // ── R3 and R4: who approves and who covers ────────────────────────────
 
     @Test
     fun `R3 - whoever counted cannot approve their own discrepancy`() {
@@ -261,12 +261,12 @@ class ReceivingFlowTest : ApiTest() {
         val lineId = lineIds(token, id).single()
         capture(token, id, lineId, quantity = 9, boxes = 1)
 
-        // El mismo usuario que capturó (es administrador, tiene el permiso).
+        // The same user who counted (is an administrator, has the permission).
         val response = decide(token, id, "approve")
 
         assertThat(response.status).isEqualTo(403)
         assertThat(response.code).isEqualTo("SEGREGATION_OF_DUTIES")
-        // Y la línea sigue como estaba: no se aprobó nada.
+        // And the line stays as it was: nothing was approved.
         assertThat(get("/v1/invoices/$id", token).at<List<Map<String, Any?>>>("lines").single()["status"])
             .isEqualTo("DISCREPANCY")
     }
@@ -284,7 +284,7 @@ class ReceivingFlowTest : ApiTest() {
 
         assertThat(response.status).isEqualTo(200)
         assertThat(lines.map { it["status"] }).containsOnly("APPROVED")
-        // El mismo aprobador en las dos, y con su nombre: la bitácora se lee sin ids.
+        // The same approver in both, and with their name: the audit log is read without ids.
         val approvers = lines.map { it["approvedByName"] }.distinct()
         assertThat(approvers).hasSize(1)
         assertThat(approvers.single()).isEqualTo("Usuario supervisor")
@@ -305,7 +305,7 @@ class ReceivingFlowTest : ApiTest() {
 
         assertThat(response.status).isEqualTo(200)
         assertThat(line["status"]).isEqualTo("PENDING")
-        // El conteo se limpió: el motivo del rechazo es que hay que volver a contar.
+        // The count was cleared: the reason for the rejection is that it has to be counted again.
         assertThat(line["physicalQuantity"]).isNull()
         assertThat(line["capturedByName"]).isNull()
     }
@@ -325,7 +325,7 @@ class ReceivingFlowTest : ApiTest() {
         assertThat(response.code).isEqualTo("REASON_REQUIRED")
     }
 
-    // ── R5 y R6: cierre y aprobación sin pendientes ─────────────────────────
+    // ── R5 and R6: closing and approval with nothing pending ──────────────
 
     @Test
     fun `R5 - an invoice with unresolved lines is not closed`() {
@@ -374,7 +374,7 @@ class ReceivingFlowTest : ApiTest() {
         assertThat(response.code).isEqualTo("NO_PENDING_APPROVAL")
     }
 
-    // ── La bandeja de pendientes ────────────────────────────────────────────
+    // ── The pending inbox ─────────────────────────────────────────────────────
 
     @Test
     fun `the pending queue brings only what awaits a decision`() {
@@ -388,12 +388,12 @@ class ReceivingFlowTest : ApiTest() {
         val response = get("/v1/invoices/pending-approval", token)
         val items = response.at<List<Map<String, Any?>>>("items")
 
-        // Sin sobre de paginación: es `{ items: [...] }` y nada más.
+        // No pagination envelope: it is `{ items: [...] }` and nothing else.
         assertThat(response.raw).contains("\"items\"").doesNotContain("totalPages")
         assertThat(items).hasSize(1)
         assertThat(items.single()["invoiceNumber"]).isEqualTo("F-DISC")
         assertThat(items.single()["pendingLines"]).isEqualTo(1)
-        // La suma de diferencias ABSOLUTAS: positiva aunque falte mercancía.
+        // The sum of ABSOLUTE differences: positive even when goods are missing.
         assertThat(items.single()["totalDifference"]).isEqualTo("1.000")
     }
 
@@ -407,7 +407,7 @@ class ReceivingFlowTest : ApiTest() {
         assertThat(get("/v1/invoices?status=IN_PROGRESS", token).at<Int>("totalItems")).isEqualTo(1)
         assertThat(get("/v1/invoices?status=COMPLETED", token).at<Int>("totalItems")).isZero()
 
-        // R8: se rechaza el valor en lugar de recortarlo en silencio.
+        // R8: the value is rejected instead of being silently truncated.
         val response = get("/v1/invoices?page=-1", token)
         assertThat(response.status).isEqualTo(400)
         assertThat(response.code).isEqualTo("INVALID_PAGINATION")
@@ -424,7 +424,7 @@ class ReceivingFlowTest : ApiTest() {
         assertThat(response.at<Map<String, String>>("details")["allowed"]).contains("IN_PROGRESS")
     }
 
-    // ── R1 y R7: ubicar lo que viene de una factura ─────────────────────────
+    // ── R1 and R7: locating what comes from an invoice ─────────────────────
 
     @Test
     fun `R1 - a discrepant line cannot be located and the inventory does not change`() {
@@ -433,17 +433,17 @@ class ReceivingFlowTest : ApiTest() {
         shelf(token)
         val id = invoice(token)
         val lineId = lineIds(token, id).single()
-        // Se facturaron 10 y se contaron 9: discrepancia sin aprobar.
+        // 10 were invoiced and 9 were counted: a discrepancy not yet approved.
         capture(token, id, lineId, quantity = 9, boxes = 1)
 
         val response = locate(token, lineId, quantity = 9)
 
         assertThat(response.status).isEqualTo(409)
         assertThat(response.code).isEqualTo("DISCREPANCY_NOT_APPROVED")
-        // El inventario no cambió: sigue todo en la recepción y nada en el estante.
+        // The inventory did not change: everything is still in receiving and nothing on the shelf.
         assertThat(quantityAt(token, "RECEIVING")).isEqualTo("9.000")
         assertThat(quantityAt(token, "04-B-C")).isNull()
-        // Y la línea sigue esperando decisión.
+        // And the line is still waiting for a decision.
         assertThat(line(token, id, lineId)["status"]).isEqualTo("DISCREPANCY")
     }
 
@@ -463,10 +463,10 @@ class ReceivingFlowTest : ApiTest() {
         assertThat(line["status"]).isEqualTo("LOCATED")
         assertThat(line["locatedQuantity"]).isEqualTo("10.000")
         assertThat(line["locationDisplayName"]).isEqualTo("04-B-C")
-        // El total del producto no cambia: sale de la recepción y entra en el estante.
+        // The product total does not change: it leaves receiving and enters the shelf.
         assertThat(quantityAt(token, "RECEIVING")).isEqualTo("0.000")
         assertThat(quantityAt(token, "04-B-C")).isEqualTo("10.000")
-        // El catálogo manda las cantidades como número (su excepción documentada).
+        // The catalog sends quantities as a number (its documented exception).
         assertThat(
             (get("/v1/products?q=ABRAA1B", token).at<List<Map<String, Any?>>>("items").single()["stock"] as Number).toDouble(),
         ).isEqualTo(10.0)
@@ -484,8 +484,8 @@ class ReceivingFlowTest : ApiTest() {
         locate(token, lineId, quantity = 4)
         val line = line(token, id, lineId)
 
-        // Sigue contada: no hubo discrepancia que aprobar, y la base prohíbe
-        // `APPROVED` sin aprobador.
+        // Still counted: there was no discrepancy to approve, and the database forbids
+        // `APPROVED` without an approver.
         assertThat(line["status"]).isEqualTo("CAPTURED")
         assertThat(line["locatedQuantity"]).isEqualTo("4.000")
     }
@@ -518,8 +518,8 @@ class ReceivingFlowTest : ApiTest() {
         assertThat(inexistente.status).isEqualTo(404)
         assertThat(inexistente.code).isEqualTo("LINE_NOT_FOUND")
 
-        // Mover el saldo de un producto mientras se anota la línea de otro dejaría la
-        // factura diciendo una cosa y el almacén otra.
+        // Moving one product's balance while another product's line is recorded would leave the
+        // invoice saying one thing and the warehouse another.
         product(token, code = "OTRO01")
         val otro = post(
             "/v1/inventory/locate",
@@ -533,21 +533,21 @@ class ReceivingFlowTest : ApiTest() {
         assertThat(otro.code).isEqualTo("INVALID_PARAMETER")
     }
 
-    // ── Permisos por ruta ───────────────────────────────────────────────────
+    // ── Permissions per route ─────────────────────────────────────────────────
 
     @Test
     fun `a warehouse operator does not capture or approve invoices`() {
         createUser("operador", USER_PASSWORD, BaseRole.WAREHOUSE_OPERATOR.key.value)
         val token = accessTokenOf("operador", USER_PASSWORD)
 
-        // El operador de piso consulta facturas —las necesita para ubicar— pero no
-        // las crea ni las cierra: eso es del capturista y del supervisor.
+        // The floor operator looks up invoices —he needs them to locate— but does not
+        // create or close them: that belongs to the counter and the supervisor.
         assertThat(get("/v1/invoices", token).status).isEqualTo(200)
         assertThat(post("/v1/invoices", mapOf("invoiceNumber" to "F-X"), token).code).isEqualTo("PERMISSION_DENIED")
         assertThat(post("/v1/invoices/1/close", emptyMap<String, Any>(), token).code).isEqualTo("PERMISSION_DENIED")
     }
 
-    // ── M10/M03: la mercancía entra al contar ───────────────────────────────
+    // ── M10/M03: the goods enter on counting ───────────────────────────────
 
     private fun kardexOf(token: String, moveType: String): List<Map<String, Any?>> =
         get("/v1/inventory/kardex?moveType=$moveType", token).at<List<Map<String, Any?>>>("items")
@@ -562,8 +562,8 @@ class ReceivingFlowTest : ApiTest() {
         val response = capture(token, factura, linea, quantity = 10, boxes = 2)
 
         assertThat(response.status).describedAs(response.raw).isEqualTo(200)
-        // Antes de esto, contar no metía nada: el saldo tenía que aparecer por un ajuste a
-        // mano y ubicar desde RECEIVING se encontraba cero.
+        // Before this, counting put nothing in: the balance had to appear through a manual
+        // adjustment, and locating from RECEIVING found zero.
         assertThat(quantityAt(token, "RECEIVING")).isEqualTo("10.000")
         val entradas = kardexOf(token, "RECEIPT_IN")
         assertThat(entradas).hasSize(1)
@@ -577,7 +577,7 @@ class ReceivingFlowTest : ApiTest() {
         product(token)
         val factura = invoice(token)
         val linea = lineIds(token, factura).single()
-        // Se contaron 9 de 10 facturadas: discrepancia, que el supervisor manda a recuento.
+        // 9 of 10 invoiced were counted: a discrepancy, which the supervisor sends to a recount.
         capture(token, factura, linea, quantity = 9, boxes = 1)
         val rechazo = post(
             "/v1/invoices/$factura/reject-discrepancy",
@@ -589,8 +589,8 @@ class ReceivingFlowTest : ApiTest() {
         val response = capture(token, factura, linea, quantity = 8, boxes = 1)
 
         assertThat(response.status).describedAs(response.raw).isEqualTo(200)
-        // Quedan 8: entraron 9 y el recuento sacó 1 con un ajuste por error de conteo. Sin
-        // la cuenta de lo ya ingresado, el kardex tendría 17 y el stock no cuadraría con nada.
+        // 8 are left: 9 entered and the recount took out 1 with a counting-error adjustment. Without
+        // the count of what was already entered, the ledger would have 17 and the stock would not match anything.
         assertThat(quantityAt(token, "RECEIVING")).isEqualTo("8.000")
         assertThat(kardexOf(token, "RECEIPT_IN")).hasSize(1)
         val ajustes = kardexOf(token, "ADJUSTMENT_OUT")
@@ -614,12 +614,12 @@ class ReceivingFlowTest : ApiTest() {
         val response = capture(token, factura, linea, quantity = 14, boxes = 2)
 
         assertThat(response.status).describedAs(response.raw).isEqualTo(200)
-        // 9 + 5: la segunda entrada es la diferencia, no los 14 otra vez.
+        // 9 + 5: the second entry is the difference, not the 14 again.
         assertThat(quantityAt(token, "RECEIVING")).isEqualTo("14.000")
         assertThat(kardexOf(token, "RECEIPT_IN").map { it["units"] }).containsExactly("9.000", "5.000")
     }
 
-    // ── Asignar el conteo a una persona (M03) ───────────────────────────────
+    // ── Assigning the count to a person (M03) ──────────────────────────────
 
     @Test
     fun `assigning a line records who counts it and it is seen in the detail`() {
@@ -634,9 +634,9 @@ class ReceivingFlowTest : ApiTest() {
         assertThat(response.status).describedAs(response.raw).isEqualTo(200)
         assertThat(response.at<String>("status")).isEqualTo("ASSIGNED")
         assertThat((response.at<Number>("assignedUserId")).toLong()).isEqualTo(capturista)
-        // El nombre visible, para que el cliente no tenga que resolverlo.
+        // The visible name, so the client does not have to resolve it.
         assertThat(response.at<String>("assignedUserName")).isEqualTo("Usuario capturista")
-        // Y el detalle de la factura lo publica.
+        // And the invoice detail publishes it.
         assertThat(line(token, factura, linea)["assignedUserName"]).isEqualTo("Usuario capturista")
     }
 
@@ -664,7 +664,7 @@ class ReceivingFlowTest : ApiTest() {
 
         val response = put("/v1/invoices/$factura/lines/$linea/assign", mapOf<String, Any?>(), token)
 
-        // El conteo tiene responsable: cambiarlo después sería reescribir quién hizo el trabajo.
+        // The count has a responsible person: changing it later would be rewriting who did the work.
         assertThat(response.status).isEqualTo(409)
         assertThat(response.code).isEqualTo("INVALID_TRANSITION")
     }

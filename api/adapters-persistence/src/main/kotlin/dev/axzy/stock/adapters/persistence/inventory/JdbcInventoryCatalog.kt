@@ -10,14 +10,14 @@ import dev.axzy.stock.domain.catalog.Product
 import dev.axzy.stock.domain.value.ProductCode
 
 /**
- * Resuelve producto y ubicación por su clave de negocio, **reutilizando los puertos
- * del catálogo** en lugar de volver a escribir las consultas.
+ * Resolves product and location by their business key, **reusing the ports
+ * of the catalog** instead of rewriting the queries.
  *
- * La traducción de nombre visible a columnas vive aquí y es la única del sistema:
- * `04-B-C` son tres columnas, `RECEIVING` y `UNASSIGNED` son las dos ubicaciones
- * especiales que siembra la migración. Los nombres de esas dos columnas
- * (`RECEIVING`, `UNASSIGNED`) están en la migración `V6` y **no** son el nombre
- * visible: el de `UNASSIGNED` lo compone el dominio (`UNASSIGNED`).
+ * The translation of the visible name to columns lives here and is the only one in the system:
+ * `04-B-C` are three columns, `RECEIVING` and `UNASSIGNED` are the two special
+ * special locations that the migration seeds. The names of those two columns
+ * (`RECEIVING`, `UNASSIGNED`) are in migration `V6` and are **not** the visible name:
+ * the visible name of `UNASSIGNED` is composed by the domain (`UNASSIGNED`).
  */
 class JdbcInventoryCatalog(
     private val products: Products,
@@ -46,10 +46,10 @@ class JdbcInventoryCatalog(
     }
 
     private companion object {
-        /** Cómo se llama la recepción en las columnas (`V3`). */
+        /** What the receiving location is called in the columns (`V3`). */
         const val RECEIVING_COLUMNS = "RECEIVING"
 
-        /** Cómo se llama el saldo sin ubicar en las columnas (`V6`); su nombre visible es `UNASSIGNED`. */
+        /** What the unassigned balance is called in the columns (`V6`); its visible name is `UNASSIGNED`. */
         const val UNASSIGNED_COLUMNS = "UNASSIGNED"
     }
 }

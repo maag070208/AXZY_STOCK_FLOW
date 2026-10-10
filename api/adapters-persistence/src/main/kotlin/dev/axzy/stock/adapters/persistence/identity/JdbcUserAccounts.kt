@@ -29,8 +29,8 @@ class JdbcUserAccounts(private val jdbc: JdbcClient) : UserAccounts {
             .optional().orElse(null)
 
     /**
-     * Dos consultas, siempre: la cuenta con sus bodegas, y sus roles con todas sus celdas. Una
-     * consulta por rol haría que el coste de CADA petición creciera con los roles del usuario.
+     * Two queries, always: the account with its warehouses, and its roles with all their cells. One
+     * query per role would make the cost of EACH request grow with the user's roles.
      */
     override fun loadActor(userId: Long): ActorSnapshot? {
         data class Row(
@@ -65,7 +65,7 @@ class JdbcUserAccounts(private val jdbc: JdbcClient) : UserAccounts {
             }
             .optional().orElse(null) ?: return null
 
-        // LinkedHashMap: conserva el orden de `sort_order` con que llegan los roles.
+        // LinkedHashMap: keeps the order of `sort_order` with which the roles arrive.
         val roles = LinkedHashMap<String, RoleRow>()
         jdbc.sql(
             """

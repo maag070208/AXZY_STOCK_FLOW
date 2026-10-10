@@ -5,25 +5,25 @@ import org.junit.jupiter.api.Test
 import java.io.File
 
 /**
- * La regla del plan: **el saldo lo cambia la base con bloqueo, y solo por el motor**
- * (requisitos Q7 y R-P6, y el riesgo «dos rutas de escritura al inventario» de
+ * The plan's rule: **the balance is changed by the database, with a lock, and only by the engine**
+ * (requirements Q7 and R-P6, and the risk "two write paths to the inventory" of
  * PLAN-IMPLEMENTACION §6).
  *
- * Ninguna capa de adaptadores puede escribir a mano `stock_by_location`,
- * `product_stock` ni `kardex`: las tres las mueve `record_movement`, dentro de
- * su transacción y con el bloqueo que evita perder escrituras. Un `UPDATE` suelto
- * desde la API compilaría, pasaría las pruebas de felicidad y rompería la
- * concurrencia justo cuando el almacén tiene carga.
+ * No adapter layer may write `stock_by_location` by hand,
+ * `product_stock` or `kardex`: `record_movement` moves all three, inside
+ * its transaction and with the lock that avoids losing writes. A stray `UPDATE`
+ * from the API would compile, pass the happy-path tests and break
+ * concurrency exactly when the warehouse is under load.
  *
- * **Por qué mira el código fuente y no la base.** Es una regla sobre cómo está
- * escrito el adaptador, y en SQL no hay forma de distinguir un `SELECT` legítimo de
- * un `UPDATE` por consultar el catálogo de la base. Se revisan los archivos
- * `.kt` de la capa: la lista es corta, la regla es clara y el fallo dice el archivo y
- * la línea.
+ * **Why it looks at the source code and not the database.** It is a rule about how the
+ * adapter is written, and in SQL there is no way to tell a legitimate `SELECT` from an
+ * `UPDATE` by querying the database catalog. The layer's `.kt` files are reviewed:
+ * the list is short, the rule is clear, and the failure names the file and
+ * the line.
  */
 class InventoryWriteGuardTest {
 
-    /** Las tres tablas que solo crecen o que solo mueve el motor. */
+    /** The three tables that only grow or that only the engine moves. */
     private val protectedTables = listOf("stock_by_location", "product_stock", "kardex", "audit_log")
 
     private val persistenceRoot = File("src/main/kotlin/dev/axzy/stock/adapters/persistence")
@@ -34,17 +34,17 @@ class InventoryWriteGuardTest {
 
         persistenceRoot.walkTopDown().filter { it.extension == "kt" }.forEach { file ->
             file.readLines().forEachIndexed { index, line ->
-                // Se analiza el CÓDIGO, no la prosa: las líneas de un bloque de
-                // comentario (`/* … */`, que empiezan por `*`) hablan de escrituras
-                // sin serlo, y la primera versión de esta guardia acusaba a un
-                // comentario que explicaba justo lo que prohíbe.
+                // The CODE is analyzed, not the prose: the lines of a block
+                // comment (`/* … */`, which start with `*`) talk about writes
+                // without being writes, and the first version of this guard accused a
+                // comment that explained exactly what it forbids.
                 val trimmed = line.trim()
                 if (trimmed.startsWith("*") || trimmed.startsWith("/*")) return@forEachIndexed
                 val code = line.substringBefore("//").lowercase()
                 val writes = code.contains("update ") || code.contains("delete from ") || code.contains("insert into ")
                 val touchesProtected = protectedTables.any { code.contains(it) }
-                // El kardex sí se INSERTA, pero solo desde el motor: `record_movement`
-                // es una función de la base, y este adaptador la llama con un SELECT.
+                // The ledger IS inserted into, but only from the engine: `record_movement`
+                // is a database function, and this adapter calls it with a SELECT.
                 if (writes && touchesProtected) {
                     offenders += "${file.path}:${index + 1} → ${line.trim()}"
                 }
@@ -61,7 +61,7 @@ class InventoryWriteGuardTest {
         val ledger = File(persistenceRoot, "inventory/JdbcStockLedger.kt").readText().lowercase()
 
         assertThat(ledger).contains("record_movement")
-        // Sin `UPDATE` ni `INSERT` propios: el motor los hace dentro de su transacción.
+        // No `UPDATE` or `INSERT` of its own: the engine does them inside its transaction.
         assertThat(ledger).doesNotContain("update stock_by_location")
         assertThat(ledger).doesNotContain("insert into stock_by_location")
         assertThat(ledger).doesNotContain("insert into kardex")

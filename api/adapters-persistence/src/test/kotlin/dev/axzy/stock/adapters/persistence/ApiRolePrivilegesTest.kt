@@ -8,14 +8,14 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 /**
- * Lo que el usuario de la API NO puede hacer en la base (migración V11). Si un defecto de la API
- * intentara cualquiera de estas cosas, la base lo rechaza: no depende de que el código se porte bien.
+ * What the API user CANNOT do in the database (migration V11). If a defect in the API
+ * tried any of these things, the database rejects it: it does not depend on the code behaving.
  */
 class ApiRolePrivilegesTest {
 
     private val db = TestPersistence()
 
-    /** Spring envuelve el error del controlador: lo que dijo PostgreSQL está en la causa raíz. */
+    /** Spring wraps the controller's error: what PostgreSQL said is in the root cause. */
     private fun assertRejected(reason: String, operation: () -> Unit) {
         assertThatThrownBy { operation() }.rootCause().hasMessageContaining(reason)
     }
@@ -51,7 +51,7 @@ class ApiRolePrivilegesTest {
         db.jdbc.sql("SELECT audit_log_ensure_partition(DATE '2031-05-10')").query(String::class.java).single()
 
         assertRejected("permission denied for table audit_log_2031_05") { db.jdbc.sql("UPDATE audit_log_2031_05 SET note = 'x'").update() }
-        // No queda ninguna partición de más: se elimina como dueño para no afectar a otras pruebas.
+        // No extra partition is left: it is dropped as owner so as not to affect other tests.
         db.asOwner.sql("DROP TABLE audit_log_2031_05").update()
     }
 
@@ -60,7 +60,7 @@ class ApiRolePrivilegesTest {
         val indexes = db.asOwner
             .sql("SELECT count(*) FROM pg_indexes WHERE indexname LIKE 'audit_log%sequence_no_idx'")
             .query(Int::class.java).single()
-        // El de la tabla padre, el de la partición por defecto y uno por cada partición mensual.
+        // The parent table's, the default partition's, and one for each monthly partition.
         assertThat(indexes).isGreaterThan(2)
     }
 }

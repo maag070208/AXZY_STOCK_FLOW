@@ -26,46 +26,46 @@ import dev.axzy.stock.domain.value.ProductCode
 import dev.axzy.stock.domain.value.Quantity
 import java.util.UUID
 
-/** El cuerpo de ubicar y mover: el mismo, porque la diferencia es el permiso y la regla. */
+/** The body of locate and move: the same one, because the difference is the permission and the rule. */
 data class MovementInput(
     val productCode: String?,
     val fromLocationCode: String?,
     val toLocationCode: String?,
     val quantity: Quantity?,
     /**
-     * La línea de factura de la que sale la mercancía, si viene de una recepción.
+     * The invoice line the goods leave from, if they come from a receipt.
      *
-     * Opcional a propósito: ubicar mercancía que no viene de una factura —una
-     * regularización, una devolución— sigue siendo posible y no tiene línea.
+     * Optional on purpose: locating goods that do not come from an invoice —a
+     * regularization, a return— is still possible and has no line.
      */
     val invoiceLineId: Long? = null,
 )
 
 /**
- * Las dos operaciones que **mueven** existencias sin cambiar el total.
+ * The two operations that **move** stock without changing the total.
  *
- * Se distinguen a propósito, y no solo por el nombre: ubicar saca de la recepción
- * y mover reorganiza estantes. Un operador tiene la primera y no necesariamente la
- * segunda, y por eso son permisos distintos (`invoice.locate` frente a
- * `inventory.move`). Si fueran la misma operación, quien puede ubicar podría
- * reorganizar el almacén entero.
+ * They are distinguished on purpose, not just by name: locating takes out of receiving
+ * and moving reorganizes shelves. One operator has the first and not necessarily the
+ * second, and that is why they are different permissions (`invoice.locate` versus
+ * `inventory.move`). If they were the same operation, whoever can locate could
+ * reorganize the whole warehouse.
  */
 enum class MovementKind(val permission: String, val moveType: MovementType) {
     LOCATE("invoice.locate", MovementType.LOCATE),
     MOVE("inventory.move", MovementType.MOVE_WITHIN_WAREHOUSE),
     ;
 
-    /** La acción de bitácora, para que el reporte de auditoría se lea sin traducir. */
+    /** The audit action, so that the audit report reads without translation. */
     val auditAction: String get() = if (this == LOCATE) "INVENTORY_LOCATED" else "INVENTORY_MOVED"
 }
 
 /**
- * Aplica un movimiento de traslado interno (docs/flujos/existencias-y-ajustes.md §4).
+ * Applies an internal transfer movement (docs/flujos/existencias-y-ajustes.md §4).
  *
- * **El total no cambia**: sale de una ubicación y entra en otra. Lo que sí cambia es
- * el contenido de cada ubicación, y por eso se bloquea el saldo del origen antes de
- * restar (Q9) y se escribe un movimiento `LOCATE` o `MOVE_WITHIN_WAREHOUSE` en el
- * kardex, que es lo que permite explicar después de dónde salió cada pieza.
+ * **The total does not change**: it leaves one location and enters another. What does change is
+ * the content of each location, which is why the origin's balance is locked before
+ * subtracting (Q9) and a `LOCATE` or `MOVE_WITHIN_WAREHOUSE` movement is written in the
+ * ledger, which is what makes it possible to explain afterwards where each piece left from.
  */
 open class ApplyStockMovement(
     private val kind: MovementKind,
@@ -93,14 +93,14 @@ open class ApplyStockMovement(
                 val to = catalog.activeLocation(warehouseId, parsed.to)
                     ?: return@authorizeOr DomainError.LocationNotFound(parsed.to.displayName).toFailure().asLeft()
 
-                // Origen y destino iguales no es un traslado: no mueve nada y ensucia
-                // el kardex con un movimiento sin efecto (A7).
+                // The same origin and destination is not a transfer: it moves nothing and dirties
+                // the ledger with a movement that has no effect (A7).
                 if (from.id == to.id) {
                     return@authorizeOr DomainError.SameSourceAndDestination(from.displayName).toFailure().asLeft()
                 }
 
-                // Un movimiento no cambia de bodega: para eso está el traslado (M05),
-                // que es el único que sabe poner mercancía en tránsito.
+                // A movement does not change warehouse: that is what the transfer is for (M05),
+                // which is the only one that knows how to put goods in transit.
                 if (from.warehouseId != to.warehouseId) {
                     return@authorizeOr failure(
                         FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
@@ -113,7 +113,7 @@ open class ApplyStockMovement(
                 val ruleError = checkRule(from, to)
                 if (ruleError != null) return@authorizeOr ruleError
 
-                // Solo ubicar conoce líneas de factura: mover es reorganizar estantes.
+                // Only locating knows invoice lines: moving is reorganizing shelves.
                 if (kind != MovementKind.LOCATE && parsed.invoiceLineId != null) {
                     return@authorizeOr failure(
                         FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
@@ -132,10 +132,10 @@ open class ApplyStockMovement(
                         ?: return@authorizeOr DomainError.ProductNotFound(parsed.code.value).toFailure().asLeft()
 
                     /*
-                     * La regla B1 se aplica **antes** de mover nada: si la línea tiene
-                     * una diferencia sin aprobar, no se mueve el saldo y la línea no
-                     * cambia. Es lo que exige R1 —«responde 409 y el inventario no
-                     * cambia»— y por eso la validación del dominio va primero.
+                     * Rule B1 is applied **before** moving anything: if the line has
+                     * an unapproved difference, the balance does not move and the line does not
+                     * change. That is what R1 requires —"responds 409 and the inventory does not
+                     * change"— and that is why the domain's validation goes first.
                      */
                     val line = parsed.invoiceLineId?.let { lineId ->
                         locatingLines.find(lineId) ?: return@authorizeOr failure(
@@ -145,8 +145,8 @@ open class ApplyStockMovement(
                         )
                     }
                     if (line != null && line.productCode != parsed.code) {
-                        // Mover el saldo de un producto mientras se anota la línea de
-                        // otro dejaría la factura diciendo una cosa y el almacén otra.
+                        // Moving one product's balance while the line of another is recorded would leave the
+                        // invoice saying one thing and the warehouse another.
                         return@authorizeOr failure(
                             FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
                             "Line ${line.id} belongs to ${line.productCode.value}, not ${parsed.code.value}.",
@@ -179,7 +179,7 @@ open class ApplyStockMovement(
         origin: RequestOrigin,
         grant: dev.axzy.stock.application.access.AccessGrant,
     ): Outcome<MovementResult> = tx.inTransaction {
-        // Idempotencia: repetir la clave devuelve el mismo movimiento y no vuelve a mover.
+        // Idempotency: repeating the key returns the same movement and does not move again.
         val alreadyApplied = idempotencyKey?.let { ledger.movementIdOf(it) }
         if (alreadyApplied != null) {
             return@inTransaction MovementResult(
@@ -190,8 +190,8 @@ open class ApplyStockMovement(
             ).asRight()
         }
 
-        // El saldo del origen se lee CON BLOQUEO: el número que se comprueba tiene
-        // que seguir siendo verdad al restar (Q9).
+        // The origin's balance is read WITH A LOCK: the number that is checked has to
+        // still be true when subtracting (Q9).
         val available = ledger.balanceAt(product.id, from.id, forUpdate = true)
         if (parsed.quantity > available) {
             return@inTransaction DomainError.InsufficientStock(
@@ -215,9 +215,9 @@ open class ApplyStockMovement(
         )
 
         /*
-         * La línea se anota **en la misma transacción** que el movimiento: o quedan
-         * los dos o no queda ninguno. Si la anotación fallara después de mover, el
-         * saldo habría cambiado y la factura no lo sabría.
+         * The line is recorded **in the same transaction** as the movement: either both
+         * stay or neither does. If recording the line failed after moving, the
+         * balance would have changed and the invoice would not know it.
          */
         locatedLine?.let { line -> locatingLines.markLocated(line.id, line, to.id, clock.instant()) }
 
@@ -235,16 +235,16 @@ open class ApplyStockMovement(
             ),
         )
 
-        // El total NO cambia al mover: devolverlo sería invitar a creer que sí.
+        // The total does NOT change when moving: returning it would invite believing that it does.
         MovementResult(listOf(kardexId), MovementStatus.APPLIED, total = null).asRight()
     }
 
     /**
-     * La forma de cada operación, que es lo que las hace permisos distintos.
+     * The shape of each operation, which is what makes them different permissions.
      *
-     * Ubicar **sale de la recepción** y entra en un estante; mover va de estante a
-     * estante. Sin esta comprobación, quien solo puede ubicar podría reorganizar el
-     * almacén llamando a `locate` con dos estantes.
+     * Locating **takes out of receiving** and puts goods on a shelf; moving goes from shelf to
+     * shelf. Without this check, whoever can only locate could reorganize the
+     * warehouse by calling `locate` with two shelves.
      */
     private fun checkRule(from: Location, to: Location): Outcome<Nothing>? = when (kind) {
         MovementKind.LOCATE -> when {
@@ -309,12 +309,12 @@ open class ApplyStockMovement(
 }
 
 /**
- * Ubicar: saca de la recepción y deja la mercancía en un estante (`invoice.locate`).
+ * Locating: takes out of receiving and leaves the goods on a shelf (`invoice.locate`).
  *
- * Los dos movimientos son la misma clase con distinta regla y distinto permiso. Se
- * declaran como dos tipos —y no como dos instancias del mismo— porque el cableado
- * construye **dos objetos** y, con el mismo tipo, cuál es cuál dependería del nombre
- * del parámetro. Un tipo por operación lo hace imposible de confundir.
+ * The two movements are the same class with a different rule and a different permission. They
+ * are declared as two types —and not as two instances of the same— because the wiring
+ * builds **two objects** and, with the same type, which one is which would depend on the name
+ * of the parameter. One type per operation makes it impossible to confuse them.
  */
 class LocateStock(
     catalog: InventoryCatalog,
@@ -329,7 +329,7 @@ class LocateStock(
     MovementKind.LOCATE, catalog, ledger, locatingLines, audit, auditEvents, access, tx, clock,
 )
 
-/** Mover: reorganiza estantes de la misma bodega (`inventory.move`). */
+/** Moving: reorganizes shelves of the same warehouse (`inventory.move`). */
 class MoveStock(
     catalog: InventoryCatalog,
     ledger: StockLedger,

@@ -33,10 +33,10 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 /**
- * Las plantillas de etiqueta (docs/api/etiquetas.md).
+ * The label templates (docs/api/etiquetas.md).
  *
- * El listado y el detalle exigen `label.template_view`; el alta y la edición,
- * `label.template_edit`: mirar una plantilla y cambiarla son permisos distintos.
+ * The listing and the detail require `label.template_view`; creation and editing,
+ * `label.template_edit`: viewing a template and changing it are different permissions.
  */
 @RestController
 @RequestMapping("/v1/label-templates")
@@ -47,7 +47,7 @@ class LabelTemplateController(
     private val updateTemplate: UpdateLabelTemplate,
 ) {
 
-    /** Devuelve un **arreglo sin sobre**: es un catálogo cerrado que la interfaz necesita completo. */
+    /** Returns a **plain array without an envelope**: it is a closed catalog that the interface needs whole. */
     @GetMapping
     @RequiresPermission("label.template_view")
     fun list(
@@ -87,10 +87,10 @@ class LabelTemplateController(
 }
 
 /**
- * Previsualización, impresión y cola.
+ * Preview, printing and queue.
  *
- * **Ningún endpoint de usuario marca una etiqueta como impresa**: eso solo lo hace la
- * confirmación de la impresora (`PATCH /v1/print-jobs/{id}`), porque el sistema no se
+ * **No user endpoint marks a label as printed**: only the printer's
+ * confirmation (`PATCH /v1/print-jobs/{id}`), because the system does not
  * autocertifica.
  */
 @RestController
@@ -112,7 +112,7 @@ class LabelController(
     ): ResponseEntity<Any> = previewLabel.execute(actor, PreviewInput(body.templateId, body.data), origin)
         .toResponse { it.toDto() }
 
-    /** **202**: el trabajo queda `PENDING` hasta que la impresora confirma. */
+    /** **202**: the job stays `PENDING` until the printer confirms it. */
     @PostMapping("/print")
     @RequiresPermission("label.print")
     fun print(
@@ -164,7 +164,7 @@ class LabelController(
         origin: RequestOrigin,
     ): ResponseEntity<Any> = getJob.execute(actor, id, origin).toResponse { it.toDto() }
 
-    /** **202 con el trabajo nuevo**, que también nace `PENDING`. */
+    /** **202 with the new job**, which is also born `PENDING`. */
     @PostMapping("/jobs/{id}/reprint")
     @RequiresPermission("label.reprint")
     fun reprint(

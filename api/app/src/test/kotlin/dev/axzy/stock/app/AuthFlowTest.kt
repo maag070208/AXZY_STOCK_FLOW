@@ -7,8 +7,8 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 /**
- * Los flujos de docs/flujos/autenticacion-y-permisos.md, de punta a punta por HTTP.
- * Los nombres I1…I8 son los de la sección «Pruebas de aceptación» de ese documento.
+ * The flows of docs/flujos/autenticacion-y-permisos.md, end to end over HTTP.
+ * The names I1…I8 are those of the "Acceptance tests" section of that document.
  */
 class AuthFlowTest : ApiTest() {
 
@@ -17,7 +17,7 @@ class AuthFlowTest : ApiTest() {
     private fun auditRows(action: String): Int =
         db.sql("SELECT count(*) FROM audit_log WHERE action = :action").param("action", action).query(Int::class.java).single()
 
-    // ── Inicio de sesión ─────────────────────────────────────────────────────
+    // ── Sign-in ───────────────────────────────────────────────────────────────
 
     @Test
     fun `signing in returns the tokens and the user with their permissions`() {
@@ -31,7 +31,7 @@ class AuthFlowTest : ApiTest() {
         assertThat(response.at<List<String>>("user", "roles")).containsExactly("ADMIN")
         assertThat(response.at<List<String>>("user", "permissions")).hasSize(PermissionCatalog.all.size)
         assertThat(response.at<Map<String, String>>("user", "scopes")).containsEntry("product.view", "ALL")
-        // El primer administrador nace obligado a cambiar la contraseña que vino por configuración.
+        // The first administrator is born required to change the password that came from the configuration.
         assertThat(response.at<Boolean>("user", "mustChangePassword")).isTrue()
     }
 
@@ -70,12 +70,12 @@ class AuthFlowTest : ApiTest() {
     fun `I2 - five failures lock the username, and the lock is temporary`() {
         repeat(5) { assertThat(login(password = "incorrecta-000").code).isEqualTo("INVALID_CREDENTIALS") }
 
-        // Bloqueado: ni con la contraseña correcta.
+        // Locked: not even with the correct password.
         val locked = login()
         assertThat(locked.status).isEqualTo(401)
         assertThat(locked.code).isEqualTo("ACCOUNT_LOCKED")
 
-        // Insistir durante el bloqueo no lo prolonga.
+        // Insisting during the lock does not extend it.
         clock.advanceSeconds(10 * 60)
         assertThat(login().code).isEqualTo("ACCOUNT_LOCKED")
 
@@ -101,7 +101,7 @@ class AuthFlowTest : ApiTest() {
         assertThat(response.code).isEqualTo("ACCOUNT_DISABLED")
     }
 
-    // ── El usuario actual ────────────────────────────────────────────────────
+    // ── The current user ──────────────────────────────────────────────────────
 
     @Test
     fun `returns the token's user, re-read from the database`() {
@@ -156,7 +156,7 @@ class AuthFlowTest : ApiTest() {
         assertThat(get("/v1/auth/me", token).code).isEqualTo("UNAUTHENTICATED")
     }
 
-    // ── Renovación ───────────────────────────────────────────────────────────
+    // ── Renewal ───────────────────────────────────────────────────────────────
 
     @Test
     fun `renewing gives new tokens and marks the previous one as rotated`() {
@@ -194,7 +194,7 @@ class AuthFlowTest : ApiTest() {
 
         assertThat(reuse.status).isEqualTo(401)
         assertThat(reuse.code).isEqualTo("TOKEN_REUSED")
-        // El token vigente más reciente también deja de servir.
+        // The most recent valid token also stops working.
         val legitimate = post("/v1/auth/refresh", mapOf("refreshToken" to second))
         assertThat(legitimate.status).isEqualTo(401)
         assertThat(legitimate.code).isEqualTo("INVALID_CREDENTIALS")
@@ -213,7 +213,7 @@ class AuthFlowTest : ApiTest() {
         assertThat(post("/v1/auth/refresh", mapOf("refreshToken" to refreshToken)).code).isEqualTo("INVALID_CREDENTIALS")
     }
 
-    // ── Cierre de sesión ─────────────────────────────────────────────────────
+    // ── Sign-out ─────────────────────────────────────────────────────────────
 
     @Test
     fun `signing out revokes the refresh token and never answers with an error`() {
@@ -223,14 +223,14 @@ class AuthFlowTest : ApiTest() {
         assertThat(post("/v1/auth/logout", mapOf("refreshToken" to refreshToken)).status).isEqualTo(204)
 
         assertThat(post("/v1/auth/refresh", mapOf("refreshToken" to refreshToken)).code).isEqualTo("INVALID_CREDENTIALS")
-        // Repetirlo, no mandar cuerpo, mandar basura o traer un token de acceso inválido: siempre 204.
+        // Repeating it, sending no body, sending garbage or bringing an invalid access token: always 204.
         assertThat(post("/v1/auth/logout", mapOf("refreshToken" to refreshToken)).status).isEqualTo(204)
         assertThat(post("/v1/auth/logout").status).isEqualTo(204)
         assertThat(post("/v1/auth/logout", mapOf("refreshToken" to "basura")).status).isEqualTo(204)
         assertThat(post("/v1/auth/logout", mapOf("refreshToken" to refreshToken), token = "token-de-acceso-caducado").status).isEqualTo(204)
     }
 
-    // ── Cambio de contraseña ─────────────────────────────────────────────────
+    // ── Password change ────────────────────────────────────────────────────────
 
     @Test
     fun `I4 - changing the password closes all sessions, including the current one`() {
@@ -245,7 +245,7 @@ class AuthFlowTest : ApiTest() {
         )
 
         assertThat(change.status).isEqualTo(204)
-        // Sin que pase el tiempo: el token de acceso de AMBAS sesiones deja de servir de inmediato.
+        // Without any time passing: the access token of BOTH sessions stops working immediately.
         assertThat(get("/v1/auth/me", current.at("accessToken")).status).isEqualTo(401)
         assertThat(get("/v1/auth/me", other.at("accessToken")).status).isEqualTo(401)
         assertThat(post("/v1/auth/refresh", mapOf("refreshToken" to other.at<String>("refreshToken"))).code).isEqualTo("INVALID_CREDENTIALS")
@@ -280,7 +280,7 @@ class AuthFlowTest : ApiTest() {
         assertThat(same.status).isEqualTo(422)
         assertThat(same.code).isEqualTo("SAME_PASSWORD")
 
-        // La sesión sigue viva y la contraseña es la de antes.
+        // The session stays alive and the password is the old one.
         assertThat(get("/v1/auth/me", token).status).isEqualTo(200)
         assertThat(login("ana", USER_PASSWORD).status).isEqualTo(200)
         assertThat(auditRows("PASSWORD_CHANGED")).isZero()

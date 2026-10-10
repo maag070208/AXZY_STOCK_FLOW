@@ -19,18 +19,18 @@ import dev.axzy.stock.domain.common.asLeft
 import dev.axzy.stock.domain.common.asRight
 
 /**
- * Crear y editar roles con su matriz de permisos (M07, docs/api/usuarios.md).
+ * Creating and editing roles with their permission matrix (M07, docs/api/usuarios.md).
  *
- * Dos reglas mandan aquí:
+ * Two rules govern here:
  *
- * · **El catálogo de permisos es código, no una tabla editable.** Una matriz no puede
- *   conceder un permiso que no exista en [PermissionCatalog]: sería un permiso que nadie
- *   comprueba y que daría una falsa sensación de control.
- * · **El alcance tiene que ser uno de los que el permiso admite.** Conceder `OWN` sobre un
- *   permiso que solo admite `ALL` es una celda que el motor no sabe evaluar.
+ * · **The permission catalog is code, not an editable table.** A matrix cannot
+ *   grant a permission that does not exist in [PermissionCatalog]: it would be a permission that nobody
+ *   checks and that would give a false sense of control.
+ * · **The scope has to be one of those the permission admits.** Granting `OWN` over a
+ *   permission that only admits `ALL` is a cell the engine does not know how to evaluate.
  *
- * Todo cambio de matriz es `CRITICAL` en la bitácora: cambiar qué puede hacer un rol es
- * cambiar los permisos de todas las personas que lo tienen.
+ * Every matrix change is `CRITICAL` in the audit log: changing what a role can do is
+ * changing the permissions of everyone who has it.
  */
 
 data class RoleGrantView(val permissionKey: String, val scope: PermissionScope)
@@ -61,7 +61,7 @@ interface RoleAdminStore {
 
     fun update(key: String, name: String?, description: String?, active: Boolean?): Unit
 
-    /** Reemplaza la matriz del rol: lo que no venga, deja de estar concedido. */
+    /** Replaces the role's matrix: whatever is not sent stops being granted. */
     fun replaceGrants(key: String, grants: List<RoleGrantView>): Unit
 }
 
@@ -85,8 +85,8 @@ class CreateRole(
         access.authorizeOr(actor, "role.manage", origin) { grant ->
             val key = input.key?.trim()?.uppercase()
             if (key.isNullOrBlank()) return@authorizeOr fieldRequired("key")
-            // La clave viaja en el token y en la bitácora: con espacios o minúsculas acabaría
-            // siendo dos cosas distintas según quién la escriba.
+            // The key travels in the token and in the audit log: with spaces or lowercase it would end up
+            // being two different things depending on who types it.
             if (!KEY_PATTERN.matches(key)) {
                 return@authorizeOr failure(
                     FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
@@ -199,11 +199,11 @@ class SetRolePermissions(
                     level = AuditLevel.CRITICAL,
                     entity = AuditEntity("role", key, current.name),
                     grant = grant,
-                    // La matriz anterior y la nueva, permiso a permiso: es lo que permite
-                    // responder «¿desde cuándo puede este rol hacer esto?».
+                    // The previous and the new matrix, permission by permission: that is what allows
+                    // answering "since when can this role do this?".
                     previousState = mapOf("grants" to current.grants.associate { it.permissionKey to it.scope.name }),
                     newState = mapOf("grants" to grants.associate { it.permissionKey to it.scope.name }),
-                    // Cambiar la matriz de un rol afecta a todas las personas que lo tienen.
+                    // Changing a role's matrix affects everyone who has it.
                     note = "Affects ${current.users} user(s) with this role.",
                 ),
             )
@@ -212,13 +212,13 @@ class SetRolePermissions(
     }
 }
 
-// ── Validación ──────────────────────────────────────────────────────────────
+// ── Validation ─────────────────────────────────────────────────────────
 
 /**
- * Cada permiso tiene que existir en el catálogo y admitir el alcance pedido.
+ * Each permission has to exist in the catalog and admit the requested scope.
  *
- * Y no puede repetirse: dos celdas del mismo permiso con alcances distintos dejarían la
- * decisión en manos del orden de lectura.
+ * And it cannot repeat: two cells of the same permission with different scopes would leave the
+ * decision in the hands of the reading order.
  */
 private fun validateGrants(grants: List<RoleGrantView>): Outcome<List<RoleGrantView>> {
     val repeated = grants.groupBy { it.permissionKey }.filterValues { it.size > 1 }.keys
@@ -237,7 +237,7 @@ private fun validateGrants(grants: List<RoleGrantView>): Outcome<List<RoleGrantV
                 mapOf("permission" to grant.permissionKey),
             )
         if (grant.scope == PermissionScope.NONE) {
-            // Conceder NONE no es conceder: para quitar una celda, no se manda.
+            // Granting NONE is not granting: to remove a cell, nothing is sent.
             return failure(
                 FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
                 "The NONE scope is not granted: to remove a permission, do not send it.",
@@ -259,7 +259,7 @@ private fun validateGrants(grants: List<RoleGrantView>): Outcome<List<RoleGrantV
     return grants.asRight()
 }
 
-/** El alcance de una celda, tal como viaja en la API. Lo usan también los adaptadores. */
+/** The scope of a cell, as it travels in the API. The adapters use it too. */
 fun parseScope(raw: String?): PermissionScope? =
     raw?.trim()?.uppercase()?.let { value -> PermissionScope.entries.firstOrNull { it.name == value } }
 

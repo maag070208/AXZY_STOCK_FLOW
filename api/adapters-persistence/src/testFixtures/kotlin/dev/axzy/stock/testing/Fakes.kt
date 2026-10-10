@@ -7,9 +7,9 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 
 /**
- * Un hasher instantáneo para las pruebas que no tratan de criptografía. Argon2id es lento a
- * propósito, y usarlo en cada prueba de un flujo las haría tardar segundos sin probar nada más.
- * El hasher real se prueba en `adapters-security`.
+ * An instant hasher for the tests that are not about cryptography. Argon2id is slow on
+ * purpose, and using it in every test of a flow would make them take seconds without testing anything else.
+ * The real hasher is tested in `adapters-security`.
  */
 class FakePasswordHasher : PasswordHasher {
     override fun hash(password: String): String = "fake:$password"
@@ -17,7 +17,7 @@ class FakePasswordHasher : PasswordHasher {
     override fun needsRehash(hash: String): Boolean = false
 }
 
-/** Un reloj que solo avanza cuando la prueba lo mueve. */
+/** A clock that only advances when the test moves it. */
 class MutableClock(private var now: Instant = Instant.parse("2026-10-12T15:00:00Z")) : Clock() {
     override fun instant(): Instant = now
     override fun getZone(): ZoneId = ZoneOffset.UTC

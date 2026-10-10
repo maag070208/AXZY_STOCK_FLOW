@@ -13,8 +13,8 @@ class SchemaVersionTest {
         val latest = migrations.listFiles { file -> file.name.matches(Regex("V\\d+__.*\\.sql")) }!!
             .maxOf { it.name.substringAfter('V').substringBefore("__").toInt() }
 
-        // Si esto falla, alguien añadió una migración y no subió REQUIRED_SCHEMA_VERSION: la API
-        // arrancaría contra una base sin ella y fallaría más tarde, en la ruta que la necesita.
+        // If this fails, someone added a migration and did not raise REQUIRED_SCHEMA_VERSION: the API
+        // would start against a database without it and fail later, on the route that needs it.
         assertThat(SchemaGuard.REQUIRED_SCHEMA_VERSION).isEqualTo(latest)
     }
 }

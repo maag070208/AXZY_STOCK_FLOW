@@ -29,15 +29,15 @@ import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
 /**
- * Los traslados sobre PostgreSQL (docs/api/traslados.md).
+ * Transfers on PostgreSQL (docs/api/traslados.md).
  *
- * **Las tres operaciones que mueven mercancía llaman a las funciones del motor**
- * (`dispatch_transfer`, `receive_transfer`, `cancel_transfer`, migración V13). Este
- * archivo no tiene ningún `UPDATE stock_by_location`: si lo tuviera, sería la segunda
- * ruta de escritura al inventario y la guardia `InventoryWriteGuardTest` lo cazaría.
+ * **The three operations that move goods call the engine's functions**
+ * (`dispatch_transfer`, `receive_transfer`, `cancel_transfer`, migration V13). This
+ * file has no `UPDATE stock_by_location` at all: if it did, it would be the
+ * second write path to inventory, and the `InventoryWriteGuardTest` guard would catch it.
  *
- * El `totalUnits` de la cabecera se suma en la base, no en Kotlin: un total que se
- * calcula en dos sitios acaba diciendo cosas distintas.
+ * The header's `totalUnits` is summed in the database, not in Kotlin: a total that is
+ * computed in two places ends up saying different things.
  */
 class JdbcTransfers(private val jdbc: JdbcClient) : Transfers, TransferCatalog {
 
@@ -107,8 +107,8 @@ class JdbcTransfers(private val jdbc: JdbcClient) : Transfers, TransferCatalog {
             throw error
         }
 
-        // Los parámetros siguen el orden de las COLUMNAS: invertirlos mete el id del
-        // traslado en el producto, y la clave foránea solo lo caza con más de un alta.
+        // The parameters follow the order of the COLUMNS: reversing them puts the transfer id
+        // into the product, and the foreign key only catches it with more than one creation.
         val values = lines.indices.joinToString(", ") { index ->
             "(:transfer, :product$index, :fromLocation$index, :quantity$index, :note$index)"
         }
@@ -171,14 +171,14 @@ class JdbcTransfers(private val jdbc: JdbcClient) : Transfers, TransferCatalog {
                 lineCount = rs.getInt("line_count"),
                 totalUnits = rs.getBigDecimal("total_units").toQuantity(),
                 dispatchedAt = rs.getObject("dispatched_at", OffsetDateTime::class.java)?.toInstant(),
-                // Los días los pone el caso de uso, con el reloj de la aplicación.
+                // The days are set by the use case, with the application's clock.
                 daysInTransit = 0,
                 dispatchedBy = dispatchedBy,
                 dispatchedByName = rs.getString("dispatched_by_name"),
             )
         }
 
-    // ── El catálogo ─────────────────────────────────────────────────────────
+    // ── The catalog ─────────────────────────────────────────────────────────
 
     override fun product(code: ProductCode): TransferProduct? =
         query(

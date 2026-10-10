@@ -9,7 +9,7 @@ import dev.axzy.stock.application.shared.Outcome
 import dev.axzy.stock.application.shared.RequestOrigin
 import dev.axzy.stock.domain.common.asRight
 
-/** Los formatos que el contrato admite para la exportación del kardex. */
+/** The formats the contract admits for the ledger export. */
 enum class ExportFormat {
     CSV,
     XLSX,
@@ -25,27 +25,27 @@ enum class ExportFormat {
 }
 
 /**
- * Un plan de exportación: los filtros, el formato y los trozos de filas.
+ * An export plan: the filters, the format and the row chunks.
  *
- * Los trozos son una `Sequence` **perezosa** a propósito: la primera consulta sale
- * cuando el adaptador empieza a escribir la respuesta, y cada trozo siguiente
- * cuando hace falta. Así el archivo de un kardex de un año no se carga entero en
- * memoria, y el presupuesto es una consulta por trozo, no una por fila (R-P2).
+ * The chunks are a **lazy** `Sequence` on purpose: the first query goes out
+ * when the adapter starts writing the response, and each next chunk
+ * when it is needed. That way the file of a year's ledger is not loaded whole into
+ * memory, and the budget is one query per chunk, not one per row (R-P2).
  */
 data class KardexExport(
     val format: ExportFormat,
     val chunks: Sequence<List<KardexLine>>,
 ) {
     companion object {
-        /** Cuántas filas trae cada consulta. */
+        /** How many rows each query brings. */
         const val CHUNK_SIZE = 1_000
     }
 }
 
 /**
- * Exporta el kardex con **los mismos filtros que el listado**: si el usuario ve 200
- * filas filtradas y exporta, tiene que recibir esas 200. Un archivo con otro filtro
- * obliga a reconciliar dos vistas de los mismos datos.
+ * Exports the ledger with **the same filters as the listing**: if the user sees 200
+ * filtered rows and exports, they have to receive those 200. A file with another filter
+ * forces reconciling two views of the same data.
  */
 class ExportKardex(private val queries: ReportQueries, private val access: AccessDecider) {
 
@@ -64,8 +64,8 @@ class ExportKardex(private val queries: ReportQueries, private val access: Acces
                         val chunk = queries.kardexChunk(filter, offset, KardexExport.CHUNK_SIZE)
                         if (chunk.isEmpty()) break
                         yield(chunk)
-                        // Un trozo incompleto es el último: pedir otro daría una lista
-                        // vacía y una consulta de más.
+                        // An incomplete chunk is the last one: requesting another would give an empty list
+                        // and one query too many.
                         if (chunk.size < KardexExport.CHUNK_SIZE) break
                         offset += chunk.size
                     }

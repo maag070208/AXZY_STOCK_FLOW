@@ -11,12 +11,12 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 /**
- * El presupuesto de consultas de traslados y etiquetas (M05 y M06, listón §4).
+ * The query budget of transfers and labels (M05 and M06, the §4 bar).
  *
- * Faltaba: estos dos módulos tenían sus pruebas de flujo y su motor probado, pero nadie había
- * **medido** cuántas sentencias cuesta leerlos, y un presupuesto sin medir se pierde en el primer
- * cambio bienintencionado. Lo que se fija aquí es que un listado son dos sentencias —el conteo y
- * la página— y que las líneas de un traslado vienen en su propia consulta y no una por línea.
+ * It was missing: these two modules had their flow tests and their engine tested, but nobody had
+ * **measured** how many statements it costs to read them, and a budget that is not measured is lost at the first
+ * well-meant change. What is pinned here is that a listing is two statements —the count and
+ * the page— and that a transfer's lines come in their own query, not one per line.
  */
 class TransferAndLabelBudgetTest {
 
@@ -29,7 +29,7 @@ class TransferAndLabelBudgetTest {
     @BeforeEach
     fun prepare() {
         TestDatabase.reset()
-        // Un traslado exige bodegas **distintas** (lo dice un CHECK), así que hay dos.
+        // A transfer requires **different** warehouses (a CHECK says so), so there are two.
         val origen = db.asOwner.sql("SELECT id FROM warehouses ORDER BY id LIMIT 1").query(Long::class.java).single()
         val destino = db.asOwner.sql(
             "INSERT INTO warehouses (code, name) VALUES ('NORTE', 'Bodega Norte') RETURNING id",
@@ -44,7 +44,7 @@ class TransferAndLabelBudgetTest {
             "INSERT INTO label_templates (code, name, zpl) " +
                 "VALUES ('ETI-01', 'Etiqueta de estante', '^XA^FDHOLA^FS^XZ') RETURNING id",
         ).query(Long::class.java).single()
-        // Tres trabajos: la página tiene que costar lo mismo con uno que con veinte.
+        // Three jobs: the page has to cost the same with one as with twenty.
         repeat(3) {
             db.asOwner.sql(
                 "INSERT INTO print_jobs (label_template_id, payload, status) " +
@@ -59,7 +59,7 @@ class TransferAndLabelBudgetTest {
         val detalle = db.statements.during { transfers.detail(transferId) }
 
         assertThat(listado).isEqualTo(2)
-        // La cabecera y sus líneas.
+        // The header and its lines.
         assertThat(detalle).isEqualTo(2)
     }
 

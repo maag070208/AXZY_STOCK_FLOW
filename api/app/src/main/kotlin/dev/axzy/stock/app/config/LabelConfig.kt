@@ -30,9 +30,9 @@ import tools.jackson.databind.json.JsonMapper
 /**
  * Etiquetas (M06).
  *
- * El mismo adaptador implementa los dos puertos —plantillas y cola de impresión—
- * porque comparten la tabla del trabajo: separarlos daría dos conexiones para leer un
- * trabajo con el código de su plantilla.
+ * The same adapter implements the two ports —templates and print queue—
+ * because they share the job table: separating them would mean two connections to read a
+ * job together with its template's code.
  */
 @Configuration(proxyBeanMethods = false)
 class LabelConfig {
@@ -100,9 +100,9 @@ class LabelConfig {
     fun serviceKeys(jdbc: JdbcClient): JdbcServiceKeys = JdbcServiceKeys(jdbc)
 
     /**
-     * La confirmación de la impresora: **el único sitio donde una etiqueta pasa a
-     * impresa**. No pasa por el motor de acceso porque no hay persona ni permiso que
-     * decidir; la credencial es la autorización.
+     * The printer's confirmation: **the only place where a label becomes
+     * printed**. It does not go through the access engine because there is no person or permission
+     * to decide; the credential is the authorization.
      */
     @Bean
     fun confirmPrintJob(

@@ -43,11 +43,11 @@ import java.math.BigDecimal
 import java.util.UUID
 
 /**
- * Órdenes de surtido (docs/api/surtido.md).
+ * Fulfillment orders (docs/api/surtido.md).
  *
- * La creación **no toca el inventario**: el stock sale al empacar y al confirmar, que
- * son actos con responsable. Confirmar dispara la exportación al ERP, y si el ERP no
- * responde la confirmación **no se revierte**: el stock ya salió.
+ * Creation **does not touch the inventory**: stock leaves when packing and confirming, which
+ * are acts with someone responsible. Confirming triggers the export to the ERP, and if the ERP
+ * does not respond, the confirmation is **not rolled back**: the stock has already left.
  */
 @RestController
 @RequestMapping("/v1/orders")
@@ -155,15 +155,15 @@ class OrderController(
     ): ResponseEntity<Any> = exportOrder.execute(actor, id, origin).toResponse { it.toDto() }
 
     /**
-     * El faltante delega en la regla única de ajuste, y **su permiso es el del
-     * ajuste** (`inventory.adjust_shortage`): el caso de uso delegado lo comprueba. Sin
-     * él, cualquiera que pudiera empacar podría mover inventario por merma.
+     * The shortage delegates to the single adjustment rule, and **its permission is that of the
+     * adjustment** (`inventory.adjust_shortage`): the delegated use case checks it. Without
+     * it, anyone who could pack could move inventory through shrinkage.
      */
     /**
-     * Asigna la línea a quien la va a surtir (M04).
+     * Assigns the line to the person who is going to fulfill it (M04).
      *
-     * `userId` es opcional: sin él, quien llama **se asigna a sí mismo**, que es el caso diario
-     * del operador. Con él, un supervisor reparte el trabajo.
+     * `userId` is optional: without it, the caller **assigns to themselves**, which is the daily case
+     * for the operator. With it, a supervisor distributes the work.
      */
     @PutMapping("/{id}/lines/{lineId}/assign")
     @RequiresPermission("order.assign")
@@ -224,7 +224,7 @@ class OrderController(
     }
 }
 
-/** La cantidad que llega como número o como cadena, sin perder precisión. */
+/** The quantity that arrives as a number or as a string, without losing precision. */
 private fun quantityOf(raw: BigDecimal): Quantity =
     Quantity.parse(raw.toPlainString()).getOrElse {
         throw FailureException(
@@ -232,5 +232,5 @@ private fun quantityOf(raw: BigDecimal): Quantity =
         )
     }
 
-/** Sin `userId`, la asignación es a quien llama. */
+/** Without `userId`, the assignment is to the caller. */
 data class AssignLineDto(val userId: Long? = null, val locationId: Long? = null)

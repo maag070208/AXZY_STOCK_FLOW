@@ -22,13 +22,13 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 
 /**
- * La concurrencia de la recepción contra PostgreSQL real (M03).
+ * Receiving's concurrency against real PostgreSQL (M03).
  *
- * Lo que se prueba aquí y no por HTTP: contar mete mercancía en `RECEIVING` por la **diferencia**
- * contra lo ya ingresado, así que dos capturas simultáneas de la misma línea que lean el mismo
- * saldo ingresarían la misma diferencia dos veces y **el stock se duplicaría**. La reclamación es
- * una sentencia condicional sobre `received_quantity`, y lo que hay que demostrar es que dos
- * transacciones de verdad no se la llevan las dos.
+ * What is tested here and not over HTTP: counting puts goods into `RECEIVING` by the **difference**
+ * against what was already entered, so two simultaneous counts of the same line that read the same
+ * balance would enter the same difference twice and **the stock would be doubled**. The claim is
+ * a conditional statement on `received_quantity`, and what has to be shown is that two real
+ * transactions do not both get it.
  */
 class ReceivingConcurrencyTest {
 
@@ -50,7 +50,7 @@ class ReceivingConcurrencyTest {
             "INSERT INTO invoices (invoice_number, receipt_date, invoice_type, status) " +
                 "VALUES ('F-2026-001', CURRENT_DATE, 'NATIONAL', 'PENDING') RETURNING id",
         ).query(Long::class.java).single()
-        // El capturista tiene que existir: `captured_by` es una clave foránea.
+        // The counter must exist: `captured_by` is a foreign key.
         capturista = db.asOwner.sql(
             "INSERT INTO users (username, password_hash, name) VALUES ('capturista', 'hash', 'Capturista') RETURNING id",
         ).query(Long::class.java).single()
@@ -76,16 +76,16 @@ class ReceivingConcurrencyTest {
             capturedBy = capturista,
         )
 
-    // ── Presupuesto de consultas (listón §4) ────────────────────────────────
+    // ── Query budget (§4 bar) ────────────────────────────────
 
     @Test
     fun `listing invoices is two statements and the detail is two`() {
         val listado = db.statements.during { invoices.page(InvoiceFilter(null, null), PageRequest.of()) }
         val detalle = db.statements.during { invoices.detail(invoiceId) }
 
-        // El conteo y la página.
+        // The count and the page.
         assertThat(listado).isEqualTo(2)
-        // La cabecera y las líneas con sus uniones: veinte líneas no son veinte consultas.
+        // The header and the lines with their joins: twenty lines are not twenty queries.
         assertThat(detalle).isEqualTo(2)
     }
 
@@ -97,8 +97,8 @@ class ReceivingConcurrencyTest {
             val primera = executor.submit<Int> {
                 db.tx.inTransaction {
                     val changed = invoices.claimCapture(line(received = "9", counted = "9"), Quantity.of(0), Instant.now())
-                    // Se mantiene la transacción abierta: la segunda tiene que esperar al bloqueo
-                    // de la fila y, al continuar, reevaluar la condición.
+                    // The transaction stays open: the second one has to wait for the row lock
+                    // and, when it continues, re-evaluate the condition.
                     primeraReclamo.countDown()
                     Thread.sleep(400)
                     changed.asRight()
@@ -112,8 +112,8 @@ class ReceivingConcurrencyTest {
             }
 
             assertThat(primera.get()).isEqualTo(1)
-            // Cero: la línea ya cambió. Sin esta condición, las dos ingresarían 9 y el stock
-            // tendría 18 de una mercancía que se contó una vez.
+            // Zero: the line already changed. Without this condition, both would enter 9 and the
+            // stock would have 18 of goods that were counted once.
             assertThat(segunda.get()).isZero()
             assertThat(
                 db.asOwner.sql("SELECT received_quantity FROM invoice_lines WHERE id = :id")

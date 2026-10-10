@@ -46,12 +46,12 @@ import org.springframework.web.bind.annotation.RestController
 import java.time.Instant
 
 /**
- * La administración de usuarios (M07, docs/api/usuarios.md).
+ * User administration (M07, docs/api/usuarios.md).
  *
- * Es la puerta de todo lo demás: **quien puede asignar roles puede darse cualquier
- * permiso**. Por eso editar el perfil y asignar roles son rutas con permisos distintos
- * (`user.edit` frente a `role.assign`) y por eso todo lo que se escribe aquí queda en la
- * bitácora con nivel `CRITICAL`.
+ * It is the gate to everything else: **whoever can assign roles can grant any
+ * permission**. That is why editing the profile and assigning roles are routes with different permissions
+ * (`user.edit` versus `role.assign`), and why everything written here is recorded in the
+ * audit log at level `CRITICAL`.
  */
 @RestController
 @RequestMapping("/v1/users")
@@ -120,9 +120,9 @@ class UserController(
     ): ResponseEntity<Any> = getUser.execute(actor, id, origin).toResponse { it.toDto() }
 
     /**
-     * El mismo cuerpo sirve para editar el perfil y para asignar roles, y **el permiso que
-     * se exige depende de lo que venga**: mandar `roles` es decidir qué puede hacer alguien,
-     * y eso es `role.assign`.
+     * The same body serves to edit the profile and to assign roles, and **the permission required depends on
+     * what comes in**: sending `roles` means deciding what someone can do,
+     * and that is `role.assign`.
      */
     @PutMapping("/{id}")
     @RequiresPermission("user.edit", "role.assign")
@@ -147,11 +147,11 @@ class UserController(
         .toResponse { it.toDto() }
 
     /**
-     * Cierra todas las sesiones de un usuario.
+     * Closes all of a user's sessions.
      *
-     * **Corta la renovación, no el token vivo**: el acceso ya emitido es un JWT firmado y vale
-     * hasta que expire por su cuenta; lo que se revoca son los tokens de refresco. Para cortar
-     * el acceso de inmediato está restablecer la contraseña, que sí mueve el sello de
+     * **It cuts renewal, not the live token**: the access token already issued is a signed JWT and is valid
+     * until it expires on its own; what is revoked are the refresh tokens. To cut
+     * access immediately is to reset the password, which does move the credentials stamp.
      * credenciales.
      */
     @PostMapping("/{id}/revoke-sessions")
@@ -164,10 +164,10 @@ class UserController(
 }
 
 /**
- * Los roles y el catálogo de permisos.
+ * Roles and the permission catalog.
  *
- * Los dos exigen `role.manage`: el catálogo dice que ver la matriz de permisos es parte de
- * administrarla, y `role.view` no existe a propósito.
+ * Both require `role.manage`: the catalog says that viewing the permission matrix is part of
+ * managing it, and `role.view` deliberately does not exist.
  */
 @RestController
 @RequestMapping("/v1")
@@ -226,7 +226,7 @@ class RoleController(
         .execute(actor, key, body.name, body.description, body.active, origin)
         .toResponse { it.toDto() }
 
-    /** La matriz del rol: lo que no venga, deja de estar concedido. */
+    /** The role's matrix: whatever is not sent stops being granted. */
     @PutMapping("/roles/{key}/permissions")
     @RequiresPermission("role.manage")
     fun setPermissions(
@@ -318,7 +318,7 @@ data class RoleDto(val key: String, val name: String, val description: String?, 
 
 fun RoleView.toDto(): RoleDto = RoleDto(key, name, description, permissions)
 
-/** Un rol con su matriz: es lo que hace falta para editarlo sin adivinar. */
+/** A role with its matrix: what is needed to edit it without guessing. */
 data class RoleDetailDto(
     val key: String,
     val name: String,
@@ -359,5 +359,5 @@ data class PermissionDto(val key: String, val module: String, val displayName: S
 
 fun PermissionView.toDto(): PermissionDto = PermissionDto(key, module, displayName, sensitive)
 
-/** Un instante en ISO 8601 UTC, que es el formato de la API. */
+/** An instant in ISO 8601 UTC, which is the API's format. */
 private fun Instant.toIso(): String = toString()

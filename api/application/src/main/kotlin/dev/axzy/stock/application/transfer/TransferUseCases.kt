@@ -33,16 +33,16 @@ import java.time.Year
 import java.time.temporal.ChronoUnit
 
 /**
- * Los casos de uso de traslados (M05, docs/flujos/traslados.md).
+ * The transfer use cases (M05, docs/flujos/traslados.md).
  *
- * **Ninguno mueve saldo por su cuenta**: despachar, recibir y cancelar llaman a las
- * funciones del motor (V13), que son las que aplican el movimiento, abren o cierran el
- * tránsito y recalculan el total contando lo que va por el camino.
+ * **None of them moves balance on its own**: dispatching, receiving and cancelling call the
+ * engine's functions (V13), which apply the movement, open or close the
+ * transit and recalculate the total counting what is on the way.
  *
- * Lo que sí hace la capa de aplicación es **comprobar antes de llamar**: que la
- * transición sea legal (el dominio), que haya saldo en el origen (con el saldo leído
- * **con bloqueo**) y que la bodega de destino tenga dónde recibir. Sin esas
- * comprobaciones, el motor fallaría con un error de restricción que no dice qué pasó.
+ * What the application layer does do is **check before calling**: that the
+ * transition is legal (the domain), that there is balance at the origin (with the balance read
+ * **with a lock**) and that the destination warehouse has where to receive. Without those
+ * checks, the engine would fail with a constraint error that does not say what happened.
  */
 
 // ── Consultas ───────────────────────────────────────────────────────────────
@@ -68,12 +68,12 @@ class GetTransfer(private val transfers: Transfers, private val access: AccessDe
 }
 
 /**
- * El informe de mercancía en tránsito.
+ * The report of goods in transit.
  *
- * Su permiso es **`transit.view` y no `transfer.view`**: quien vigila la deuda de los
- * traslados no tiene por qué poder ver ni crear traslados. Y los días los cuenta el
- * servidor: con el reloj del equipo, el mismo dato daría un número distinto en cada
- * máquina, y un dato de gestión que cambia según quién mire no sirve para decidir.
+ * Its permission is **`transit.view` and not `transfer.view`**: whoever watches the debt of
+ * transfers does not need to be able to see or create transfers. And the days are counted by the
+ * server: with the machine's clock, the same data would give a different number on each
+ * machine, and a management figure that changes depending on who looks at it is no use for deciding.
  */
 class InTransitReport(
     private val transfers: Transfers,
@@ -118,7 +118,7 @@ class CreateTransfer(
                             mapOf("field" to if (from == null) "fromWarehouseId" else "toWarehouseId"),
                         )
                     }
-                    // Las dos reglas que no dependen del estado las valida el dominio.
+                    // The two rules that do not depend on the state are validated by the domain.
                     when (
                         val valid = Transfer.validate(
                             fromWarehouseId = from,
@@ -222,16 +222,16 @@ class CreateTransfer(
     }
 }
 
-// ── Despacho, recepción y cancelación ───────────────────────────────────────
+// ── Dispatch, receiving and cancellation ───────────────────────────────────
 
 /**
- * Despacha el traslado.
+ * Dispatches the transfer.
  *
- * Antes de llamar al motor se comprueba, **con el saldo leído con bloqueo** (Q9), que
- * cada línea tenga de dónde salir: sin esa comprobación el motor fallaría con la
- * restricción de saldo no negativo, que no dice cuál línea ni cuánto falta. La
- * comprobación no sustituye al motor: si dos despachos simultáneos pasaran los dos
- * controles, la restricción de la base seguiría impidiendo el saldo negativo.
+ * Before calling the engine, it is checked, **with the balance read with a lock** (Q9), that
+ * each line has somewhere to leave from: without that check the engine would fail with the
+ * non-negative balance constraint, which does not say which line or how much is missing. The
+ * check does not replace the engine: if two simultaneous dispatches passed both
+ * checks, the database constraint would still prevent a negative balance.
  */
 class DispatchTransfer(
     private val transfers: Transfers,
@@ -255,7 +255,7 @@ class DispatchTransfer(
                     is Either.Right -> Unit
                 }
 
-                // Saldo suficiente en cada origen, con bloqueo.
+                // Sufficient balance at each origin, with a lock.
                 detail.lines.forEach { view ->
                     val originLocation = view.line.fromLocationId
                         ?: catalog.receivingLocationId(detail.header.fromWarehouseId)
@@ -269,8 +269,8 @@ class DispatchTransfer(
                         return@inTransaction DomainError.InsufficientStock(
                             available = available.units,
                             requested = view.line.quantity.units,
-                            // El nombre visible lo compone el dominio a partir de la
-                            // ubicación; si es un estante concreto, se resuelve ahí.
+                            // The visible name is composed by the domain from the
+                            // location; if it is a specific shelf, it is resolved there.
                             location = inventoryCatalog.activeLocation(
                                 detail.header.fromWarehouseId,
                                 LocationRef.Receiving,
@@ -316,8 +316,8 @@ class ReceiveTransfer(
                     is Either.Left -> return@inTransaction moved.error.toFailure().asLeft()
                     is Either.Right -> Unit
                 }
-                // La bodega de destino tiene que tener dónde recibir: si no, la
-                // mercancía llegaría a un sitio que no existe.
+                // The destination warehouse has to have somewhere to receive: otherwise the
+                // goods would arrive at a place that does not exist.
                 catalog.receivingLocationId(detail.header.toWarehouseId)
                     ?: return@inTransaction failure(
                         FailureKind.RULE_VIOLATION, "NO_RECEIVING_LOCATION",
@@ -365,13 +365,13 @@ class CancelTransfer(
             tx.inTransaction {
                 val detail = transfers.detail(transferId) ?: return@inTransaction transferNotFound(transferId)
                 val transfer = toDomain(detail)
-                // El dominio decide: desde `RECEIVED` no se cancela, y lo recibido se
-                // corrige con un traslado de vuelta, que deja rastro.
+                // The domain decides: from `RECEIVED` it is not cancelled, and what was received is
+                // corrected with a transfer back, which leaves a trace.
                 when (val cancelled = transfer.cancel()) {
                     is Either.Left -> return@inTransaction cancelled.error.toFailure().asLeft()
                     is Either.Right -> Unit
                 }
-                // Si estaba despachado, la vuelta al origen la hace el motor.
+                // If it was dispatched, the return to the origin is done by the engine.
                 transfers.cancel(transferId, actor.id)
 
                 audit.record(
@@ -392,10 +392,10 @@ class CancelTransfer(
 }
 
 /**
- * El traslado del dominio a partir de lo que devolvió la consulta.
+ * The domain transfer from what the query returned.
  *
- * Existe para que las transiciones se decidan con las reglas del dominio y no con un
- * `if` sobre el estado escrito en la ruta.
+ * It exists so that the transitions are decided by the domain's rules and not by an
+ * `if` on the state written in the route.
  */
 internal fun toDomain(detail: TransferDetail): Transfer = Transfer(
     id = detail.header.id,

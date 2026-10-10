@@ -6,12 +6,12 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 /**
- * La administración de usuarios y roles (M07) por HTTP real.
+ * User and role administration (M07) over real HTTP.
  *
- * Es la puerta de todo lo demás: quien puede asignar roles puede darse cualquier
- * permiso. Por eso casi todo lo que se comprueba aquí es **quién puede hacerlo**, y por
- * eso la última prueba mira el efecto que de verdad importa: restablecer una contraseña
- * tiene que dejar fuera a quien tenía la sesión abierta.
+ * It is the gate to everything else: whoever can assign roles can grant any
+ * permission. That is why almost everything checked here is **who can do it**, and
+ * that is why the last test checks the effect that really matters: resetting a password
+ * has to lock out whoever had the session open.
  */
 class UserAdminFlowTest : ApiTest() {
 
@@ -70,7 +70,7 @@ class UserAdminFlowTest : ApiTest() {
 
         assertThat(response.at<String>("username")).isEqualTo("ana")
         assertThat(response.at<List<String>>("roles")).containsExactly(almacen)
-        // Sin alcances por bodega, el usuario ve las de su área; el arreglo va vacío.
+        // Without warehouse scopes, the user sees the ones in their area; the array is empty.
         assertThat(response.at<List<Long>>("warehouseIds")).isEmpty()
     }
 
@@ -85,7 +85,7 @@ class UserAdminFlowTest : ApiTest() {
         assertThat(roles.raw).contains(almacen)
         assertThat(permisos.status).isEqualTo(200)
         assertThat(permisos.raw).contains("inventory.adjust_theft")
-        // El catálogo de permisos es código y se publica con su módulo y su sensibilidad.
+        // The permission catalog is code and is published with its module and its sensitivity.
         assertThat(permisos.raw).contains("\"sensitive\":true")
     }
 
@@ -100,9 +100,9 @@ class UserAdminFlowTest : ApiTest() {
         assertThat(response.status).describedAs(response.raw).isEqualTo(201)
         assertThat(response.at<String>("username")).isEqualTo("ana")
         assertThat(response.at<List<String>>("roles")).containsExactly(almacen)
-        // Nace obligada a cambiarla: quien la creó conoce la contraseña.
+        // It is born required to change it: whoever created it knows the password.
         assertThat(response.at<Boolean>("mustChangePassword")).isTrue()
-        // Y la contraseña no se devuelve nunca.
+        // And the password is never returned.
         assertThat(response.raw).doesNotContain(USER_PASSWORD)
     }
 
@@ -132,13 +132,13 @@ class UserAdminFlowTest : ApiTest() {
         val sesion = post("/v1/auth/login", mapOf("username" to "ana", "password" to USER_PASSWORD))
         val conLaClave = sesion.at<String>("accessToken")
 
-        // I8: con la contraseña pendiente, cualquier ruta que no sea cambiarla se rechaza.
+        // I8: with the password pending, any route other than changing it is rejected.
         val otraRuta = get("/v1/inventory/stock", conLaClave)
         assertThat(sesion.status).isEqualTo(200)
         assertThat(otraRuta.code).isEqualTo("PASSWORD_CHANGE_REQUIRED")
     }
 
-    // ── Edición y asignación de roles ───────────────────────────────────────
+    // ── Editing and role assignment ───────────────────────────────────────
 
     @Test
     fun `assigning roles changes what the person can do`() {
@@ -150,7 +150,7 @@ class UserAdminFlowTest : ApiTest() {
 
         assertThat(response.status).describedAs(response.raw).isEqualTo(200)
         assertThat(response.at<List<String>>("roles")).containsExactly(auditor)
-        // Y queda en la base, que es lo que decide de verdad al entrar.
+        // And it stays in the database, which is what really decides on sign-in.
         assertThat(
             db.sql("SELECT count(*) FROM user_roles WHERE user_id = :id").param("id", ana)
                 .query(Int::class.java).single(),
@@ -169,7 +169,7 @@ class UserAdminFlowTest : ApiTest() {
         assertThat(renombrada.status).isEqualTo(200)
         assertThat(renombrada.at<String>("name")).isEqualTo("Ana Pérez")
         assertThat(renombrada.at<List<String>>("roles")).containsExactly(almacen)
-        // Un usuario sin roles no podría hacer nada, y lo descubriría al entrar.
+        // A user without roles could not do anything, and would find out on sign-in.
         assertThat(sinRoles.status).isEqualTo(422)
         assertThat(sinRoles.code).isEqualTo("FIELD_REQUIRED")
     }
@@ -184,20 +184,20 @@ class UserAdminFlowTest : ApiTest() {
         val sesion = post("/v1/auth/login", mapOf("username" to "ana", "password" to USER_PASSWORD))
 
         assertThat(response.at<Boolean>("disabled")).isTrue()
-        // 401 y no 403: la cuenta desactivada es un fallo de credenciales, y el contrato
-        // solo lo dice **si la contraseña era correcta** (docs/api/autenticacion.md).
+        // 401 and not 403: a deactivated account is a credentials failure, and the contract only
+        // says so **if the password was correct** (docs/api/autenticacion.md).
         assertThat(sesion.status).isEqualTo(401)
         assertThat(sesion.code).isEqualTo("ACCOUNT_DISABLED")
     }
 
-    // ── Restablecer la contraseña ───────────────────────────────────────────
+    // ── Resetting the password ─────────────────────────────────────────────
 
     @Test
     fun `resetting the password drops the open session`() {
         val token = manager()
         create(token, "ana", roles = listOf(almacen))
         val ana = userIdOf("ana")
-        // Ana entra y cambia su contraseña: su sesión es válida y no está pendiente.
+        // Ana signs in and changes her password: her session is valid and is not pending.
         val sesion = post("/v1/auth/login", mapOf("username" to "ana", "password" to USER_PASSWORD))
             .at<String>("accessToken")
         post(
@@ -208,26 +208,26 @@ class UserAdminFlowTest : ApiTest() {
         val suToken = post("/v1/auth/login", mapOf("username" to "ana", "password" to "otra-clave-larga-y-buena"))
             .at<String>("accessToken")
         assertThat(get("/v1/inventory/stock", suToken).status).isEqualTo(200)
-        // El reloj de las pruebas está congelado: sin avanzarlo, el sello de credenciales
-        // del token nuevo y el viejo serían el mismo milisegundo y no se podría comprobar
-        // que el token viejo muere.
+        // The test clock is frozen: without advancing it, the credentials stamp
+        // of the new token and the old one would be the same millisecond and it could not be checked
+        // that the old token dies.
         clock.advanceSeconds(60)
 
         val response = post(
             "/v1/users/$ana/reset-password",
-            // `mustChangePassword = false` a propósito: así lo que se comprueba es que el
-            // token viejo muere, y no la pantalla de cambio obligatorio.
+            // `mustChangePassword = false` on purpose: so what is checked is that the
+            // old token dies, and not the mandatory change screen.
             mapOf("password" to "clave-restablecida-larga", "mustChangePassword" to false),
             token,
         )
 
         assertThat(response.status).describedAs(response.raw).isEqualTo(200)
         assertThat(response.at<Boolean>("mustChangePassword")).isFalse()
-        // R3: el token que estaba vivo ya no vale. Si a alguien se le restablece la
-        // contraseña porque sospecha que se la robaron, dejar vivo el token del ladrón
-        // sería no haber hecho nada.
+        // R3: the token that was alive no longer works. If someone's password is reset
+        // because they suspect it was stolen, leaving the thief's token alive
+        // would be doing nothing.
         assertThat(get("/v1/inventory/stock", suToken).status).isEqualTo(401)
-        // Y con la contraseña nueva sí entra.
+        // And with the new password they can sign in.
         assertThat(post("/v1/auth/login", mapOf("username" to "ana", "password" to "clave-restablecida-larga")).status)
             .isEqualTo(200)
     }
@@ -244,7 +244,7 @@ class UserAdminFlowTest : ApiTest() {
         assertThat(debil.code).isEqualTo("WEAK_PASSWORD")
     }
 
-    // ── Permisos por ruta ───────────────────────────────────────────────────
+    // ── Permissions per route ─────────────────────────────────────────────────
 
     @Test
     fun `managing users is not for just anyone`() {
@@ -257,7 +257,7 @@ class UserAdminFlowTest : ApiTest() {
         assertThat(get("/v1/permissions", token).code).isEqualTo("PERMISSION_DENIED")
     }
 
-    // ── Revocar las sesiones de otro ────────────────────────────────────────
+    // ── Revoking another person's sessions ───────────────────────────────
 
     @Test
     fun `revoking the sessions leaves the person unable to renew`() {
@@ -271,11 +271,11 @@ class UserAdminFlowTest : ApiTest() {
 
         assertThat(response.status).describedAs(response.raw).isEqualTo(200)
         assertThat(response.at<Int>("revokedSessions")).isGreaterThanOrEqualTo(1)
-        // Lo que se corta es la renovación: el refresco vivo ya no vale y hay que volver a entrar.
-        // (Se prueba con el token sin rotar: rotarlo antes metería en medio la detección de reuso,
-        // que es otra regla y tiene sus propias pruebas.)
+        // What is cut is the renewal: the live refresh token no longer works and they must sign in again.
+        // (It is tested with the token not rotated: rotating it first would bring in the reuse detection,
+        // which is another rule and has its own tests.)
         assertThat(post("/v1/auth/refresh", mapOf("refreshToken" to suRefresh)).status).isEqualTo(401)
-        // Y puede volver a entrar: revocar no es bloquear la cuenta.
+        // And they can sign in again: revoking is not locking the account.
         assertThat(post("/v1/auth/login", mapOf("username" to "ana", "password" to USER_PASSWORD)).status)
             .isEqualTo(200)
     }
@@ -288,7 +288,7 @@ class UserAdminFlowTest : ApiTest() {
         val response = post("/v1/users/${userIdOf("ana")}/revoke-sessions", null, token)
 
         assertThat(response.status).describedAs(response.raw).isEqualTo(200)
-        // Cero no es un error: la persona no tenía la sesión abierta, que es lo que se quería.
+        // Zero is not an error: the person did not have the session open, which is what was wanted.
         assertThat(response.at<Int>("revokedSessions")).isZero()
     }
 

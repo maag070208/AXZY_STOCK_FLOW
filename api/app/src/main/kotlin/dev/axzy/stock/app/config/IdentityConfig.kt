@@ -30,7 +30,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import java.time.Clock
 
-/** Identidad y acceso: la criptografía, el motor de acceso y los casos de uso de sesión. */
+/** Identity and access: the cryptography, the access engine and the session use cases. */
 @Configuration(proxyBeanMethods = false)
 class IdentityConfig {
 
@@ -60,16 +60,16 @@ class IdentityConfig {
         BootstrapIdentity(store, hasher, properties.admin.username, properties.admin.bootstrapPassword)
 
     /**
-     * El motor de acceso se crea DESPUÉS de sincronizar el catálogo: necesita saber qué versión de
-     * la matriz y de las políticas está vigente para que cada decisión auditada sea reproducible.
-     * Si la sincronización falla, la API no arranca.
+     * The access engine is created AFTER syncing the catalog: it needs to know which version of
+     * the matrix and the policies is in force so that every audited decision is reproducible.
+     * If the sync fails, the API does not start.
      */
     @Bean
     fun accessEngine(
         bootstrap: BootstrapIdentity,
         tx: TransactionRunner,
         properties: StockProperties,
-        // No se usa: pedirla obliga a que el esquema se compruebe antes de escribir en la base.
+        // Not used: requesting it forces the schema to be checked before writing to the database.
         @Suppress("UNUSED_PARAMETER") schema: SchemaVersion,
     ): AccessEngine {
         val result = tx.inTransaction { bootstrap.execute().asRight() }.getOrNull()!!

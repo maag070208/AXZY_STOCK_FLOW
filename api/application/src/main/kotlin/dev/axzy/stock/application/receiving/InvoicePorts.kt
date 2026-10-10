@@ -10,15 +10,15 @@ import java.time.Instant
 import java.time.LocalDate
 
 /**
- * Los puertos de recepción (M03, docs/flujos/recepcion.md).
+ * The receiving ports (M03, docs/flujos/recepcion.md).
  *
- * La factura es un documento con líneas, y las dos cosas se leen juntas: el listado
- * devuelve **solo la cabecera** con sus contadores —que la base calcula— y el detalle
- * añade las líneas. Separarlos es lo que permite que un listado de 200 facturas no
- * traiga 2.400 líneas que nadie va a mirar.
+ * The invoice is a document with lines, and both are read together: the listing
+ * returns **only the header** with its counters —which the database calculates— and the detail
+ * adds the lines. Separating them is what allows a listing of 200 invoices not to
+ * bring 2,400 lines that nobody is going to look at.
  */
 
-/** La cabecera de una factura, con los contadores que la base calcula. */
+/** The header of an invoice, with the counters the database calculates. */
 data class InvoiceHeader(
     val id: Long,
     val invoiceNumber: String,
@@ -29,15 +29,15 @@ data class InvoiceHeader(
     val concept: String?,
     val totalLines: Int,
     /**
-     * Las líneas que **impiden cerrar**: sin capturar, en discrepancia o asignadas a
-     * medias. Es el mismo criterio que aplica el cierre, calculado en la base, así que
-     * la lista y la acción no pueden discrepar.
+     * The lines that **prevent closing**: uncounted, in discrepancy or assigned
+     * halfway. It is the same criterion the closing applies, calculated in the database, so
+     * the list and the action cannot disagree.
      */
     val pendingApprovalLines: Int,
     val createdAt: Instant,
 )
 
-/** Una línea con lo que la respuesta necesita y la línea del dominio no tiene: nombres. */
+/** A line with what the response needs and the domain line does not have: names. */
 data class InvoiceLineView(
     val line: InvoiceLine,
     val productId: Long,
@@ -50,16 +50,16 @@ data class InvoiceLineView(
     val approvedByName: String?,
     val approvedAt: Instant?,
     val locationDisplayName: String?,
-    /** El nombre visible de quien tiene la línea asignada, para no obligar al cliente a resolverlo. */
+    /** The visible name of whoever has the line assigned, so the client does not have to resolve it. */
     val assignedUserName: String? = null,
 )
 
 data class InvoiceDetail(val header: InvoiceHeader, val lines: List<InvoiceLineView>)
 
-/** Filtros del listado de facturas. */
+/** Invoice listing filters. */
 data class InvoiceFilter(val status: String?, val query: String?)
 
-/** Una línea tal como llega en el alta. */
+/** A line as it arrives on creation. */
 data class NewInvoiceLine(
     val productCode: String?,
     val container: String?,
@@ -70,10 +70,10 @@ data class NewInvoiceLine(
 )
 
 /**
- * La factura tal como llega en el alta: sin validar.
+ * The invoice as it arrives on creation: unvalidated.
  *
- * Los campos son opcionales a propósito, para que el caso de uso diga **cuál** falta
- * en lugar de que el cliente reciba un error de deserialización sin campo.
+ * The fields are optional on purpose, so that the use case says **which** one is missing
+ * instead of the client receiving a deserialization error without a field.
  */
 data class NewInvoice(
     val invoiceNumber: String?,
@@ -82,7 +82,7 @@ data class NewInvoice(
     val lines: List<NewInvoiceLine>,
 )
 
-/** La cabecera ya validada, lista para escribir. */
+/** The header, already validated, ready to write. */
 data class InvoiceDraft(
     val invoiceNumber: String,
     val receiptDate: LocalDate,
@@ -90,10 +90,10 @@ data class InvoiceDraft(
 )
 
 /**
- * Una línea del alta con sus identificadores ya resueltos.
+ * A creation line with its identifiers already resolved.
  *
- * El producto y la unidad se resuelven antes de escribir: la clave de negocio
- * (`productCode`) es lo que manda el cliente, y el `id` es lo que guarda la tabla.
+ * The product and the unit are resolved before writing: the business key
+ * (`productCode`) is what the client sends, and the `id` is what the table stores.
  */
 data class ResolvedLine(
     val productId: Long,
@@ -102,18 +102,18 @@ data class ResolvedLine(
     val container: String?,
     val quantity: Quantity,
     val boxQuantity: Quantity,
-    /** Unidades por caja: es un entero positivo, y el tipo del dominio lo garantiza. */
+    /** Units per box: a positive integer, and the domain type guarantees it. */
     val unitsPerBox: UnitsPerBox,
 )
 
-/** Una factura con líneas que esperan decisión, para la bandeja. */
+/** An invoice with lines awaiting a decision, for the inbox. */
 data class PendingApproval(
     val invoiceId: Long,
     val invoiceNumber: String,
     val receiptDate: LocalDate,
     val status: String,
     val pendingLines: Int,
-    /** Suma de las diferencias **absolutas**: va positiva aunque falte mercancía. */
+    /** Sum of the **absolute** differences: positive even when goods are missing. */
     val totalDifference: Quantity,
 )
 
@@ -122,85 +122,85 @@ interface Invoices {
 
     fun detail(id: Long): InvoiceDetail?
 
-    /** La clave de negocio es única; el prechequeo da el error legible en el caso normal. */
+    /** The business key is unique; the pre-check gives the readable error in the normal case. */
     fun numberExists(invoiceNumber: String): Boolean
 
     fun insert(draft: InvoiceDraft, lines: List<ResolvedLine>): InsertResult
 
-    /** Las líneas de una factura, sin los nombres: es lo que necesitan las transiciones. */
+    /** The lines of an invoice, without the names: that is what the transitions need. */
     fun linesOf(invoiceId: Long): List<InvoiceLine>
 
     fun lineOf(invoiceId: Long, lineId: Long): InvoiceLine?
 
-    /** Escribe una línea: captura, aprobación o rechazo ya decididos por el dominio. */
+    /** Writes a line: capture, approval or rejection already decided by the domain. */
     fun replaceLine(line: InvoiceLine, at: Instant): Unit
 
     /**
-     * Reclama la captura de la línea **contra el saldo ingresado que se leyó**.
+     * Claims the line's count **against the entered balance that was read**.
      *
-     * Es un *compare-and-set*, y existe por lo que escribe: contar mete mercancía en
-     * `RECEIVING` por la **diferencia** contra lo ya ingresado, así que si dos capturas de la
-     * misma línea leen el mismo saldo, las dos ingresan la misma diferencia y **el stock se
-     * duplica**. El `WHERE` exige que `received_quantity` siga siendo el que se leyó: la
-     * primera gana y la segunda cambia cero filas.
+     * It is a *compare-and-set*, and it exists because of what it writes: counting puts goods into
+     * `RECEIVING` by the **difference** against what was already entered, so if two counts of the
+     * same line read the same balance, both enter the same difference and **the stock
+     * is doubled**. The `WHERE` requires that `received_quantity` is still the one that was read: the
+     * first one wins and the second changes zero rows.
      *
-     * Devolver cero **no es un error del usuario**: significa que otra persona contó esa línea
-     * mientras tanto, y el caso de uso lo dice con un código propio.
+     * Returning zero **is not a user error**: it means another person counted that line
+     * in the meantime, and the use case says so with its own code.
      */
     fun claimCapture(line: InvoiceLine, expectedReceived: Quantity, at: Instant): Int
 
     /**
-     * Asigna la línea a un capturista en **una sola sentencia condicional**.
+     * Assigns the line to a counter in **a single conditional statement**.
      *
-     * El `WHERE` exige que la línea siga en `PENDING`: si otra persona la contó entre la lectura
-     * y la escritura, no se le asigna trabajo ya hecho. Devuelve cuántas filas cambió.
+     * The `WHERE` requires that the line is still in `PENDING`: if another person counted it between the read
+     * and the write, no work already done is assigned. It returns how many rows changed.
      */
     fun assignLine(lineId: Long, userId: Long, at: Instant): Int
 
     fun setStatus(invoiceId: Long, status: String, at: Instant): Unit
 
-    /** Cierra la factura: además del estado, deja quién la revisó y cuándo. */
+    /** Closes the invoice: besides the status, it records who reviewed it and when. */
     fun close(invoiceId: Long, actorId: Long, at: Instant): Unit
 
     /**
-     * Aprueba **todas** las líneas en discrepancia de una factura, en una sentencia.
+     * Approves **all** the discrepancy lines of an invoice, in one statement.
      *
-     * La condición viaja en el `WHERE` (`status = 'DISCREPANCY'`) y el número de filas
-     * afectadas se compara con el que se esperaba: si no coincide, alguien las cambió
-     * a la vez y la operación no se da por buena.
+     * The condition travels in the `WHERE` (`status = 'DISCREPANCY'`) and the number of affected rows is
+     * compared with the expected one: if it does not match, someone changed them at the same time and the
+     * operation is not accepted.
      */
     fun approveDiscrepancies(invoiceId: Long, approverId: Long, reason: String, at: Instant): Int
 
     /**
-     * Devuelve a captura todas las líneas en discrepancia de una factura, en una
-     * sentencia: se limpian la cantidad contada, las cajas y quién capturó, para
-     * forzar un reconteo. Es lo que hace [dev.axzy.stock.domain.receiving.InvoiceLine.rejectDiscrepancy].
+     * Returns to counting all the discrepancy lines of an invoice, in one
+     * statement: the counted quantity, the boxes and who counted are cleared, so as to
+     * force a recount. It is what [dev.axzy.stock.domain.receiving.InvoiceLine.rejectDiscrepancy] does.
      */
     fun rejectDiscrepancies(invoiceId: Long, at: Instant): Int
 
     fun pendingApproval(): List<PendingApproval>
 }
 
-/** Lo que la factura necesita saber de un producto del catálogo. */
+/** What the invoice needs to know about a catalog product. */
 data class ReceivingProduct(val id: Long, val unitMeasureId: Long)
 
-/** De dónde salen los identificadores de un producto y de una unidad. */
+/** Where a product's and a unit's identifiers come from. */
 interface ReceivingCatalog {
     fun product(code: ProductCode): ReceivingProduct?
 
     fun unitMeasureId(code: String): Long?
 }
 
-/** El resultado del alta: un identificador, o que el número ya existía. */
+/** The result of the creation: an identifier, or that the number already existed. */
 sealed interface InsertResult {
     data class Inserted(val id: Long) : InsertResult
 
     /**
-     * El número de factura es único y ya estaba tomado.
+     * The invoice number is unique and was already taken.
      *
-     * Es un resultado y no una excepción porque el prechequeo no basta: entre la
-     * comprobación y el `INSERT` cabe otra petición, y el índice único es el que
-     * decide. Devolverlo como valor evita que una carrera acabe en un `500`.
+     * It is a result and not an exception because the pre-check is not enough: between the
+     * check and the `INSERT` another request can fit, and the unique index is the one that
+     * decides. Returning it as a value keeps a race from ending in a `500`.
      */
     data object DuplicateNumber : InsertResult
 }

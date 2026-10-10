@@ -24,7 +24,7 @@ class IdentityPersistenceTest {
     private val users = JdbcUserAccounts(db.jdbc)
     private val hasher = FakePasswordHasher()
 
-    // Las claves de rol son las del dominio (`WAREHOUSE_MANAGER`, …): se toman de allí, no se escriben a mano.
+    // The role keys are the domain's (`WAREHOUSE_MANAGER`, …): they are taken from there, not written by hand.
     private val manager = BaseRole.WAREHOUSE_MANAGER.key.value
     private val operations = BaseRole.OPERATIONS_MANAGER.key.value
     private val auditor = BaseRole.AUDITOR.key.value
@@ -69,7 +69,7 @@ class IdentityPersistenceTest {
     fun `the whole seeding is set-based statements, not one per permission`() {
         val statements = db.statements.during { bootstrap().execute() }
 
-        // 3 sincronizaciones + matriz actual + 2 versiones (lectura y escritura cada una) + usuarios.
+        // 3 syncs + the current matrix + 2 versions (read and write each) + users.
         assertThat(statements).isLessThanOrEqualTo(12)
     }
 

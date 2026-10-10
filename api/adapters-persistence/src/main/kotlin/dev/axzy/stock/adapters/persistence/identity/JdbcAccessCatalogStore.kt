@@ -11,11 +11,11 @@ import org.springframework.jdbc.core.simple.JdbcClient
 import tools.jackson.databind.json.JsonMapper
 
 /**
- * El catálogo de acceso en PostgreSQL.
+ * The access catalog on PostgreSQL.
  *
- * **Cada sincronización es UNA sentencia**, sea cual sea el tamaño del catálogo: la lista viaja
- * como un documento JSON y la base la expande con `jsonb_to_recordset`. Una sentencia por permiso
- * y por celda serían varios cientos de viajes a la base en cada arranque.
+ * **Each synchronization is ONE statement**, whatever the size of the catalog: the list travels
+ * as a JSON document and the database expands it with `jsonb_to_recordset`. One statement per permission
+ * and per cell would be several hundred round trips to the database on every startup.
  */
 class JdbcAccessCatalogStore(
     private val jdbc: JdbcClient,

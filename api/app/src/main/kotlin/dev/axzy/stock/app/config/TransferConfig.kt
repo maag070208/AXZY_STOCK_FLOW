@@ -25,8 +25,8 @@ import java.time.Clock
 /**
  * Traslados (M05).
  *
- * Las tres operaciones que mueven mercancía llaman a las funciones del motor (V13);
- * este cableado no añade ninguna ruta de escritura de saldo.
+ * The three operations that move goods call the engine's functions (V13);
+ * this wiring does not add any balance write route.
  */
 @Configuration(proxyBeanMethods = false)
 class TransferConfig {

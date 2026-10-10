@@ -3,11 +3,11 @@ package dev.axzy.stock.adapters.web.http
 import dev.axzy.stock.application.shared.Page
 
 /**
- * El sobre de un listado paginado, definido **una vez** para toda la API
+ * The envelope of a paginated list, defined **once** for the whole API:
  * (docs/api/convenciones.md §1.4).
  *
- * `totalItems` viene del `count(*)` que hizo el caso de uso con los mismos filtros
- * que la página; nunca de `items.size`.
+ * `totalItems` comes from the `count(*)` the use case ran with the same filters
+ * as the page; never from `items.size`.
  */
 data class PageDto<T>(
     val items: List<T>,

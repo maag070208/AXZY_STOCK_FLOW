@@ -29,12 +29,12 @@ import org.springframework.jdbc.core.simple.JdbcClient
 import java.time.Clock
 
 /**
- * Existencias (M02): el motor, las consultas y las rutas.
+ * Stock (M02): the engine, the queries and the routes.
  *
- * **No hay ningún adaptador que escriba existencias.** El único puerto de escritura
- * es [StockLedger], que llama a `record_movement`; el resto de la clase es
- * lectura. Es la regla del plan y el riesgo número dos de su tabla: dos rutas de
- * escritura al inventario por fuera del motor.
+ * **No adapter writes stock.** The only write port
+ * is [StockLedger], which calls `record_movement`; the rest of the class is
+ * reading. It is the plan's rule and the second risk in its table: two
+ * write paths to the inventory outside the engine.
  */
 @Configuration(proxyBeanMethods = false)
 class InventoryConfig {

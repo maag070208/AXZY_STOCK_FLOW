@@ -14,16 +14,16 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 /**
- * La confirmación de la impresora (docs/api/etiquetas.md).
+ * The printer's confirmation (docs/api/etiquetas.md).
  *
- * **Es la única ruta que no vive bajo `/v1/labels`**, y cuelga del recurso que modifica:
- * el trabajo de impresión. La ruta lleva el `jobId` y no el cuerpo porque el cuerpo
- * describe el cambio, no el recurso, y repetir la llamada no debe imprimir dos veces.
+ * **It is the only route that does not live under `/v1/labels`**, and hangs off the resource it modifies:
+ * the print job. The route carries the `jobId` and not the body, because the body
+ * describes the change, not the resource, and repeating the call must not print twice.
  *
- * **No exige token de usuario sino credencial de servicio**, y esa distinción no es
- * cosmética: la auditoría guarda `SERVICE_PRINTER` como canal y el identificador de la
- * clave, así que un trabajo marcado como impreso sin persona detrás se distingue de uno
- * hecho por alguien. El legacy tenía esta dirección **abierta sin ninguna credencial**.
+ * **It does not require a user token but a service credential**, and that distinction is not
+ * cosmetic: the audit stores `SERVICE_PRINTER` as the channel and the key's identifier, so a job marked
+ * as printed with no person behind it is told apart from one
+ * done by someone. The legacy had this address **open with no credential at all**.
  */
 @RestController
 @RequestMapping("/v1/print-jobs")
@@ -41,5 +41,5 @@ class PrintJobController(private val confirmPrintJob: ConfirmPrintJob) {
         .toResponse { it.toDto() }
 }
 
-/** Lo que reporta la impresora: el estado y, si falló, por qué. */
+/** What the printer reports: the status and, if it failed, why. */
 data class PrintJobStatusDto(val status: String? = null, val error: String? = null)

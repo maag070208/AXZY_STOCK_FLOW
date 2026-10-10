@@ -1,17 +1,17 @@
 package dev.axzy.stock.application.shared
 
 /**
- * La frontera de transacción, como puerto. El caso de uso decide QUÉ va junto; el adaptador sabe
- * CÓMO se abre y se cierra una transacción. Así `application` no depende de `@Transactional`.
+ * The transaction boundary, as a port. The use case decides WHAT goes together; the adapter knows
+ * HOW a transaction is opened and closed. That way `application` does not depend on `@Transactional`.
  */
 interface TransactionRunner {
 
     /**
-     * Ejecuta [block] en UNA transacción. **Un `Left` la revierte**: lo que el bloque haya escrito
-     * antes de fallar no queda. Una excepción también la revierte y se propaga.
+     * Runs [block] in ONE transaction. **A `Left` rolls it back**: what the block wrote before
+     * failing does not remain. An exception also rolls it back and propagates.
      *
-     * Todo lo que un caso de uso escribe —el cambio y su registro de bitácora— va dentro de un
-     * solo bloque: o quedan los dos o no queda ninguno.
+     * Everything a use case writes —the change and its audit record— goes in a single block:
+     * either both stay or neither does.
      */
     fun <A> inTransaction(block: () -> Outcome<A>): Outcome<A>
 }

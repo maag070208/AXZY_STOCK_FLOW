@@ -4,14 +4,14 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 import java.time.ZoneId
 
 /**
- * La configuración propia de la API. Los valores salen de variables de entorno
- * (`application.yml`); los secretos no tienen valor por defecto, así que sin ellos la API no arranca.
+ * The API's own configuration. The values come from environment variables
+ * (`application.yml`); the secrets have no default value, so without them the API does not start.
  */
 @ConfigurationProperties("stock")
 data class StockProperties(
-    /** La versión desplegada; la informa `GET /v1/health`. */
+    /** The deployed version; `GET /v1/health` reports it. */
     val version: String,
-    /** La zona horaria de la operación: en ella se evalúan las políticas de horario. */
+    /** The operation's time zone: the schedule policies are evaluated in it. */
     val businessZone: ZoneId,
     val jwt: Jwt,
     val admin: Admin,
@@ -24,7 +24,7 @@ data class StockProperties(
 
     data class Admin(
         val username: String,
-        /** Solo se usa si la base no tiene usuarios: crea el primer administrador. */
+        /** Only used if the database has no users: it creates the first administrator. */
         val bootstrapPassword: String?,
     )
 }

@@ -26,11 +26,11 @@ import java.time.ZoneId
 import java.util.UUID
 
 /**
- * Existencias contra PostgreSQL real: el adaptador que llama al motor y las dos
+ * Stock against real PostgreSQL: the adapter that calls the engine and the two
  * consultas paginadas.
  *
- * La concurrencia del motor (A3, A4) y la inmutabilidad del kardex (A9) ya están en
- * `InventoryEngineConcurrencyTest`, con dos transacciones de verdad.
+ * The engine's concurrency (A3, A4) and the immutability of the ledger (A9) are already in
+ * `InventoryEngineConcurrencyTest`, with two real transactions.
  */
 class InventoryPersistenceTest {
 
@@ -56,7 +56,7 @@ class InventoryPersistenceTest {
             "INSERT INTO locations (warehouse_id, hall, code, position, levels, kind) " +
                 "VALUES (1, '04', 'B', 'C', 1, 'SHELF') RETURNING id",
         ).query(Long::class.java).single()
-        // 100 unidades en el estante, por el motor.
+        // 100 units on the shelf, by the engine.
         ledger.apply(
             MovementCommand(
                 productId = productId,
@@ -107,13 +107,13 @@ class InventoryPersistenceTest {
 
     @Test
     fun `the balance is read locked inside the transaction and the total comes from the projection`() {
-        // El `FOR UPDATE` solo tiene efecto dentro de una transacción. Que el saldo
-        // bloqueado impida el negativo se demuestra en `InventoryEngineConcurrencyTest`
-        // (A3), con dos transacciones de verdad.
+        // `FOR UPDATE` only has an effect inside a transaction. That the locked balance
+        // prevents a negative balance is shown in `InventoryEngineConcurrencyTest`
+        // (A3), with two real transactions.
         val available = db.tx.inTransaction { ledger.balanceAt(productId, shelfId, forUpdate = true).asRight() }
 
         assertThat(available.getOrNull()).isEqualTo(Quantity.of(100))
-        // La proyección la mantuvo el motor al aplicar el movimiento, no una suma aquí.
+        // The projection was maintained by the engine when applying the movement, not by a sum here.
         assertThat(ledger.productTotal(productId)).isEqualTo(Quantity.of(100))
     }
 
@@ -125,8 +125,8 @@ class InventoryPersistenceTest {
     @Test
     fun `the idempotency key returns the same movement and does not write twice`() {
         val key = UUID.randomUUID()
-        // Un ajuste **siempre** lleva motivo: lo impone un `CHECK` del esquema y lo
-        // exige el flujo. Un `ADJUSTMENT_IN` sin motivo no llega a la tabla.
+        // An adjustment **always** carries a reason: a schema `CHECK` enforces it and
+        // the flow requires it. An `ADJUSTMENT_IN` without a reason never reaches the table.
         val command = MovementCommand(
             productId = productId,
             warehouseId = 1,
@@ -150,7 +150,7 @@ class InventoryPersistenceTest {
 
     @Test
     fun `the ledger stores the balance after and the visible names`() {
-        // Mercancía en la recepción, que es de donde sale un ubicar.
+        // Goods in receiving, which is where a locate draws from.
         val receivingId = db.jdbc.sql("SELECT id FROM locations WHERE kind = 'RECEIVING'").query(Long::class.java).single()
         ledger.apply(
             MovementCommand(
@@ -173,9 +173,9 @@ class InventoryPersistenceTest {
         val line = queries.page(KardexFilter(null, MovementType.LOCATE, null, null), PageRequest.of()).items.single()
 
         assertThat(line.id).isEqualTo(kardexId)
-        // `quantity_after` es el total del PRODUCTO, no el saldo de la ubicación: tras
-        // ubicar sigue siendo 200 (100 en el estante y 100 en la recepción). Eso es lo
-        // que hace el ledger auto-auditable y lo que demuestra que ubicar no cambia el
+        // `quantity_after` is the PRODUCT total, not the location balance: after
+        // locating it is still 200 (100 on the shelf and 100 in receiving). That is
+        // what makes the ledger self-auditing, and what shows that locating does not change the
         // total (A1).
         assertThat(line.quantityAfter).isEqualTo(Quantity.of(200))
         assertThat(line.fromLocationDisplayName).isEqualTo("RECEIVING")
@@ -188,7 +188,7 @@ class InventoryPersistenceTest {
         assertThat(catalog.activeLocation(1, LocationRef.Shelf("04", "B", "C"))!!.id).isEqualTo(shelfId)
         assertThat(catalog.activeLocation(1, LocationRef.Receiving)!!.kind.name).isEqualTo("RECEIVING")
         assertThat(catalog.activeLocation(1, LocationRef.Unassigned)!!.kind.name).isEqualTo("UNASSIGNED")
-        // Y una que no existe no se inventa.
+        // And one that does not exist is not invented.
         assertThat(catalog.activeLocation(1, LocationRef.Shelf("99", "Z", "Z"))).isNull()
     }
 

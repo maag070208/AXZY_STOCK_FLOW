@@ -11,11 +11,11 @@ import java.time.Instant
 import java.time.LocalDate
 
 /**
- * El contrato HTTP de recepción (docs/api/recepcion.md).
+ * The HTTP contract of receiving (docs/api/recepcion.md).
  *
- * Las cantidades viajan como cadena con tres decimales, como en el resto de la API
- * salvo el catálogo. La `difference` **la calcula el servidor**: es una columna
- * generada de la base, y el legacy la devolvía siempre en cero.
+ * Quantities travel as a string with three decimals, as in the rest of the API
+ * except the catalog. The `difference` **is computed by the server**: it is a
+ * generated column in the database, and the legacy always returned zero.
  */
 
 // ── Facturas ────────────────────────────────────────────────────────────────
@@ -58,7 +58,7 @@ data class InvoiceLineDto(
     val physicalQuantity: String?,
     val physicalBoxQuantity: String?,
     val locatedQuantity: String,
-    /** `physicalQuantity - quantity`. Positiva si llegó de más. La calcula el servidor. */
+    /** `physicalQuantity - quantity`. Positive if more arrived. The server computes it. */
     val difference: String?,
     val status: String,
     val capturedBy: Long?,
@@ -69,7 +69,7 @@ data class InvoiceLineDto(
     val approvedAt: String?,
     val adjustmentReason: String?,
     val locationDisplayName: String?,
-    /** Quién tiene la línea asignada para contarla, y su nombre visible. */
+    /** Who has the line assigned to count it, and their visible name. */
     val assignedUserId: Long?,
     val assignedUserName: String?,
 )
@@ -148,7 +148,7 @@ data class NewInvoiceDto(
 
 data class CreatedInvoiceDto(val id: Long, val invoiceNumber: String)
 
-// ── Captura y decisiones ────────────────────────────────────────────────────
+// ── Capture and decisions ──────────────────────────────────────────────────
 
 data class CaptureDto(
     val physicalQuantity: java.math.BigDecimal? = null,
@@ -157,7 +157,7 @@ data class CaptureDto(
 
 data class DecisionDto(val adjustmentReason: String? = null, val note: String? = null)
 
-// ── Bandeja de pendientes ───────────────────────────────────────────────────
+// ── Pending inbox ───────────────────────────────────────────────────────
 
 data class PendingApprovalDto(
     val invoiceId: Long,
@@ -165,7 +165,7 @@ data class PendingApprovalDto(
     val receiptDate: String,
     val status: String,
     val pendingLines: Int,
-    /** Suma de las diferencias **absolutas**: positiva aunque falte mercancía. */
+    /** Sum of the **absolute** differences: positive even when goods are missing. */
     val totalDifference: String,
 )
 
@@ -178,11 +178,11 @@ fun PendingApproval.toDto(): PendingApprovalDto = PendingApprovalDto(
     totalDifference = totalDifference.toContractString(),
 )
 
-/** La bandeja **no** usa el sobre de paginación: es `{ "items": [...] }`. */
+/** The inbox does **not** use the pagination envelope: it is `{ "items": [...] }`. */
 data class ItemsDto<T>(val items: List<T>)
 
-/** Un instante en ISO 8601 UTC, que es el formato de la API. */
+/** An instant in ISO 8601 UTC, which is the API's format. */
 private fun Instant.toIso(): String = toString()
 
-/** Fechas de recepción en el formato del contrato. */
+/** Receiving dates in the contract's format. */
 internal fun LocalDate.toContractString(): String = toString()

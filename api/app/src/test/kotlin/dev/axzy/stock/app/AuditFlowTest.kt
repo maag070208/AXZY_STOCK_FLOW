@@ -8,11 +8,11 @@ import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
 /**
- * La consulta de la bitácora (M08) por HTTP real: **U5** de docs/flujos/auditoria.md §5.
+ * The audit log query (M08) over real HTTP: **U5** of docs/flujos/auditoria.md §5.
  *
- * La bitácora se escribe en cada escritura desde la fase 3 —U1 a U4 están probadas en su
- * sitio—, así que lo que se comprueba aquí es que se puede **leer**: filtrar por entidad
- * y rango de fechas, paginar con el total calculado con el mismo filtro, y que la propia
+ * The audit log is written on every write since phase 3 —U1 to U4 are tested in their
+ * place—, so what is checked here is that it can be **read**: filtering by entity
+ * and date range, paginating with the total computed with the same filter, and that the
  * consulta quede registrada.
  */
 class AuditFlowTest : ApiTest() {
@@ -28,17 +28,17 @@ class AuditFlowTest : ApiTest() {
         post("/v1/products", mapOf("productCode" to code, "name" to "PRODUCTO $code", "unitMeasure" to "PZA"), token)
 
     /**
-     * La fecha de negocio **en UTC**, que es como la escribe la bitácora.
+     * The business date **in UTC**, which is how the audit log writes it.
      *
-     * No es un detalle: a las 22:00 de Ciudad de México ya es el día siguiente en UTC, y
-     * una prueba que use la fecha local falla todas las noches y pasa todas las mañanas.
+     * It is not a detail: at 22:00 in Mexico City it is already the next day in UTC, and
+     * a test that uses the local date fails every night and passes every morning.
      */
     private fun today(): String = LocalDate.now(java.time.ZoneOffset.UTC).toString()
 
     private fun log(token: String, query: String = ""): dev.axzy.stock.app.support.ApiResponse =
         get("/v1/audit/log?from=${businessToday().minusDays(1)}&to=${businessToday().plusDays(1)}$query", token)
 
-    // ── U5: la consulta filtra y pagina ─────────────────────────────────────
+    // ── U5: the query filters and paginates ─────────────────────────────────
 
     @Test
     fun `U5 - the query filters by entity and the total uses the same filter`() {
@@ -65,7 +65,7 @@ class AuditFlowTest : ApiTest() {
         val segunda = log(token, "&entityType=product&size=1&page=1")
 
         assertThat(primera.at<List<Map<String, Any?>>>("items")).hasSize(1)
-        // El total se calcula con el mismo filtro, no con lo que cabe en la página.
+        // The total is computed with the same filter, not with what fits on the page.
         assertThat(primera.at<Int>("totalItems")).isEqualTo(3)
         assertThat(primera.at<Int>("totalPages")).isEqualTo(3)
         val primerId = (primera.at<List<Map<String, Any?>>>("items").single()["id"] as Number).toLong()
@@ -87,7 +87,7 @@ class AuditFlowTest : ApiTest() {
         assertThat(deUsuario.at<Int>("totalItems")).isEqualTo(1)
         assertThat(relevantes.at<Int>("totalItems")).isEqualTo(1)
         assertThat(criticos.at<Int>("totalItems")).isZero()
-        // La acción de cambiar la contraseña la escribió el caso de uso, no esta prueba.
+        // The password change action was written by the use case, not by this test.
         assertThat(porAccion.at<Int>("totalItems")).isZero()
     }
 
@@ -103,7 +103,7 @@ class AuditFlowTest : ApiTest() {
         assertThat(entrada["channel"]).isEqualTo("WEB")
         assertThat(entrada["level"]).isEqualTo("RELEVANT")
         assertThat(entrada["result"]).isEqualTo("SUCCESS")
-        // El estado nuevo es un documento, y va como JSON en texto.
+        // The new state is a document, and it goes as JSON text.
         assertThat(entrada["newState"] as String).contains("AAA001")
         assertThat(entrada["businessDate"]).isEqualTo(today())
     }
@@ -128,15 +128,15 @@ class AuditFlowTest : ApiTest() {
         val entradas = log(token, "&entityType=product&level=CRITICAL").at<List<Map<String, Any?>>>("items")
 
         val ajuste = entradas.first { it["action"] == "INVENTORY_ADJUSTED" }
-        // CRITICAL exige permiso y traza de decisión: la base lo impone, y aquí se ve.
-        // Un aumento se autoriza con el permiso de aumentar, no con el del motivo: el
-        // permiso depende de la dirección y del motivo (M02).
+        // CRITICAL requires permission and a decision trace: the database enforces it, and it is visible here.
+        // An increase is authorized with the permission to increase, not with the reason's: the
+        // permission depends on the direction and on the reason (M02).
         assertThat(ajuste["permissionKey"]).isEqualTo("inventory.adjust_increase")
         assertThat(ajuste["decision"]).isNotNull()
         assertThat((ajuste["actorUserId"] as Number).toLong()).isEqualTo(quien)
     }
 
-    // ── La propia consulta queda registrada ─────────────────────────────────
+    // ── The query itself is recorded ─────────────────────────────────────────
 
     @Test
     fun `querying the audit log leaves its own access record`() {
@@ -150,11 +150,11 @@ class AuditFlowTest : ApiTest() {
         val entrada = consultas.at<List<Map<String, Any?>>>("items").single()
         assertThat(entrada["level"]).isEqualTo("ACCESS")
         assertThat(entrada["entityType"]).isEqualTo("audit_log")
-        // Y se sabe qué se consultó: los filtros van en el estado nuevo.
+        // And it is known what was queried: the filters go in the new state.
         assertThat(entrada["newState"] as String).contains("entityType=product")
     }
 
-    // ── Errores y permisos ──────────────────────────────────────────────────
+    // ── Errors and permissions ────────────────────────────────────────────
 
     @Test
     fun `an inverted range and a badly formed date are rejected`() {
@@ -186,11 +186,11 @@ class AuditFlowTest : ApiTest() {
         product(token, "AAA001")
         val antes = db.sql("SELECT count(*) FROM audit_log").query(Int::class.java).single()
 
-        // No hay ruta de escritura…
+        // There is no write route…
         assertThat(put("/v1/audit/log", emptyMap<String, Any>(), token).status).isIn(403, 404, 405)
 
-        // …y la tabla lo impide por disparador, que es lo que hace que la bitácora sirva
-        // para algo: **una auditoría que se puede editar no es auditoría** (U2).
+        // …and the table prevents it with a trigger, which is what makes the audit log serve
+        // something: **an audit log that can be edited is not an audit log** (U2).
         assertThatThrownBy { db.sql("UPDATE audit_log SET note = 'cambiado'").update() }
             .hasMessageContaining("append-only")
         assertThatThrownBy { db.sql("DELETE FROM audit_log").update() }

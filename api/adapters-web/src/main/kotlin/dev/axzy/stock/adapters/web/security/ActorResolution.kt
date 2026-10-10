@@ -16,8 +16,8 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver
 import org.springframework.web.method.support.ModelAndViewContainer
 
 /**
- * La identidad que deja un token de acceso ya verificado: de quién es y con qué sello de
- * credenciales se emitió. No lleva permisos ni roles; eso se lee de la base al resolver al [Actor].
+ * The identity left by an already verified access token: whose it is and with which credentials
+ * stamp it was issued. It carries no permissions or roles; those are read from the database when resolving the [Actor].
  */
 class TokenIdentity(val userId: Long, val credentialsStamp: Long) : AbstractAuthenticationToken(emptyList()) {
     init {
@@ -29,19 +29,19 @@ class TokenIdentity(val userId: Long, val credentialsStamp: Long) : AbstractAuth
 }
 
 /**
- * Una ruta que se puede usar aunque la cuenta tenga pendiente cambiar su contraseña. Son las
- * imprescindibles para salir de ese estado: cambiarla, ver quién soy y cerrar sesión.
+ * A route that can be used even though the account has a pending password change. These are the
+ * ones essential to get out of that state: changing it, seeing who I am and signing out.
  */
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class AllowedWithPendingPasswordChange
 
 /**
- * Entrega el [Actor] a los controladores que lo piden como parámetro.
+ * Delivers the [Actor] to the controllers that ask for it as a parameter.
  *
- * Lo reconstruye de la base EN CADA PETICIÓN a partir del token. Es aquí donde un token todavía
- * vigente deja de servir si la cuenta se desactivó o la contraseña cambió, y donde una cuenta con
- * el cambio de contraseña pendiente se queda sin poder hacer nada más.
+ * It is rebuilt from the database ON EVERY REQUEST from the token. This is where a token that is still
+ * valid stops working if the account was deactivated or the password changed, and where an account with
+ * a pending password change is left unable to do anything else.
  */
 class ActorArgumentResolver(private val resolveActor: ResolveActor) : HandlerMethodArgumentResolver {
 

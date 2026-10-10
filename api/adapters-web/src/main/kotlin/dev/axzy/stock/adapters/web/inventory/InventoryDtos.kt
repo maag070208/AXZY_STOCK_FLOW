@@ -11,12 +11,12 @@ import java.math.BigDecimal
 import java.time.Instant
 
 /**
- * El contrato HTTP de inventario (docs/api/inventario.md).
+ * The HTTP contract of inventory (docs/api/inventario.md).
  *
- * Las cantidades viajan **como cadena con tres decimales** (`"100.000"`), que es la
- * regla general de la API: JSON no tiene decimales de precisión arbitraria y un
- * `number` de JavaScript invita a sumarlas en coma flotante. La excepción es el
- * catálogo, que las manda como número porque la interfaz solo las muestra.
+ * Quantities travel **as a string with three decimals** (`"100.000"`), which is the general
+ * rule of the API: JSON has no arbitrary-precision decimals, and a JavaScript
+ * `number` invites adding them in floating point. The exception is the
+ * catalog, which sends them as a number because the interface only displays them.
  */
 internal fun Quantity.toContractString(): String = BigDecimal.valueOf(value, Quantity.SCALE).toPlainString()
 
@@ -67,7 +67,7 @@ data class KardexLineDto(
 
 fun KardexLine.toDto(): KardexLineDto = KardexLineDto(
     id = id,
-    // ISO 8601 en UTC: es el formato que el contrato fija para los instantes.
+    // ISO 8601 in UTC: it is the format the contract fixes for instants.
     movedAt = movedAt.toString(),
     productCode = productCode,
     productName = productName,
@@ -87,7 +87,7 @@ fun KardexLine.toDto(): KardexLineDto = KardexLineDto(
 
 // ── Movimientos ─────────────────────────────────────────────────────────────
 
-/** Los campos son opcionales para que el caso de uso diga CUÁL falta. */
+/** The fields are optional so that the use case says WHICH one is missing. */
 data class AdjustmentRequestDto(
     val productCode: String? = null,
     val locationCode: String? = null,
@@ -105,8 +105,8 @@ data class MovementRequestDto(
     val toLocationCode: String? = null,
     val quantity: BigDecimal? = null,
     /**
-     * La línea de factura de la que sale la mercancía, si viene de una recepción.
-     * Opcional: ubicar mercancía que no viene de una factura sigue siendo posible.
+     * The invoice line the goods leave from, if they come from a receipt.
+     * Optional: locating goods that do not come from an invoice is still possible.
      */
     val invoiceLineId: Long? = null,
 )
@@ -114,7 +114,7 @@ data class MovementRequestDto(
 data class MovementResponseDto(
     val kardexIds: List<Long>,
     val status: String,
-    /** `null` cuando el total no cambia (ubicar y mover) o cuando el ajuste queda pendiente. */
+    /** `null` when the total does not change (locating and moving) or when the adjustment is left pending. */
     val total: String?,
     val message: String?,
 )
@@ -126,5 +126,5 @@ fun MovementResult.toDto(): MovementResponseDto = MovementResponseDto(
     message = message,
 )
 
-/** El estado HTTP que corresponde al resultado: creado o aceptado pendiente de aprobación. */
+/** The HTTP status that corresponds to the result: created, or accepted pending approval. */
 val MovementResult.isPendingApproval: Boolean get() = status == MovementStatus.PENDING_APPROVAL

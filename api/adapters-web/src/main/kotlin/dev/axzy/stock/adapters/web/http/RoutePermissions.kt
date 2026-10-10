@@ -1,53 +1,53 @@
 package dev.axzy.stock.adapters.web.http
 
 /**
- * La declaración de qué exige cada ruta, en la propia ruta.
+ * The declaration of what each route requires, on the route itself.
  *
- * **Por qué existe.** El permiso se comprueba dentro del caso de uso, que es donde
- * se decide de verdad (docs/arquitectura/api-spring.md §6). Pero eso deja un hueco:
- * una ruta nueva que llame a un caso de uso **sin** autorización funciona y nadie
- * se entera hasta que alguien la usa. Estas anotaciones son la declaración
- * explícita que `RoutePermissionGuard` comprueba al arrancar: una ruta que no
- * declare nada **impide el arranque** (I5).
+ * **Why it exists.** The permission is checked inside the use case, which is where
+ * it is really decided (docs/arquitectura/api-spring.md §6). But that leaves a gap:
+ * a new route that calls a use case **without** authorization works and nobody
+ * notices until someone uses it. These annotations are the explicit declaration
+ * that `RoutePermissionGuard` checks at startup: a route that
+ * declares nothing **prevents startup** (I5).
  *
- * La anotación no sustituye a la comprobación del caso de uso; la hace
- * verificable. Una anotación que dijera `product.view` sobre un caso de uso que no
- * autoriza seguiría siendo un agujero, y por eso las pruebas de flujo comprueban
- * el `403` de verdad.
+ * The annotation does not replace the use case's check; it makes it
+ * verifiable. An annotation that said `product.view` on a use case that does not
+ * authorize would still be a hole, which is why the flow tests check
+ * the real `403`.
  *
- * **Admite varios permisos** para el caso en que el permiso real dependa del cuerpo:
- * el ajuste de inventario exige uno distinto según la dirección y el motivo
- * (`inventory.adjust_increase`, `…_theft`, …). La ruta declara **el conjunto
- * cerrado** de los que pueden aplicar —todos tienen que existir en el catálogo— y
- * el caso de uso decide cuál de ellos. Declarar uno solo sería mentir en la
- * auditoría de rutas.
+ * **It accepts several permissions** for the case where the real permission depends on the body:
+ * the inventory adjustment requires a different one depending on the direction and the reason
+ * (`inventory.adjust_increase`, `…_theft`, …). The route declares **the closed
+ * set** of those that may apply —all of them have to exist in the catalog— and
+ * the use case decides which one. Declaring only one would be lying in the
+ * route audit.
  */
 
-/** La ruta exige este permiso, además de identidad. */
+/** The route requires this permission, in addition to identity. */
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class RequiresPermission(vararg val value: String)
 
 /**
- * La ruta exige identidad pero **ningún permiso concreto**: ver quién soy y
- * cambiar mi propia contraseña no son permisos que se concedan.
+ * The route requires identity but **no specific permission**: seeing who I am and
+ * changing my own password are not permissions that are granted.
  */
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class AuthenticatedOnly
 
-/** La ruta es pública: no exige identidad. La lista de `SecurityConfig` manda. */
+/** The route is public: it does not require identity. The `SecurityConfig` list decides. */
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class PublicRoute
 
 /**
- * La ruta no la llama una persona: exige **credencial de servicio** (`X-Service-Key`).
+ * The route is not called by a person: it requires a **service credential** (`X-Service-Key`).
  *
- * Existe para que la ruta sea declarable en la auditoría de rutas: sin ella habría que
- * marcarla «autenticada» y diría algo falso —una petición con token de usuario no vale
- * aquí, y una con credencial de servicio no es una persona—. La credencial la comprueba
- * el caso de uso, que es quien puede hacerlo antes de mirar nada más.
+ * It exists so that the route can be declared in the route audit: without it, it would have to be
+ * marked "authenticated", and that would say something false —a request with a user token is not valid
+ * here, and one with a service credential is not a person—. The credential is checked
+ * by the use case, which is the one that can do it before looking at anything else.
  */
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)

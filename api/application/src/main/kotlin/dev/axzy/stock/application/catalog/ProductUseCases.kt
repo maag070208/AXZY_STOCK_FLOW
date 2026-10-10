@@ -28,14 +28,14 @@ import dev.axzy.stock.application.shared.toFailure
 import dev.axzy.stock.domain.value.ProductCode
 
 /**
- * Los casos de uso de productos (M01).
+ * The product use cases (M01).
  *
- * Todos autorizan con `product.*` **antes** de tocar la base, y todos los que
- * escriben dejan su registro en la bitácora **en la misma transacción** (U1): un
- * catálogo que cambia sin dejar rastro no se puede reconstruir.
+ * All of them authorize with `product.*` **before** touching the database, and all of those that
+ * write leave their record in the audit log **in the same transaction** (U1): a
+ * catalog that changes without leaving a trace cannot be reconstructed.
  */
 
-/** El producto tal como llega del cliente. Los campos son opcionales para poder decir CUÁL falta. */
+/** The product as it arrives from the client. The fields are optional so that WHICH one is missing can be said. */
 data class ProductInput(
     val productCode: String? = null,
     val name: String? = null,
@@ -172,8 +172,8 @@ class DeactivateProduct(
     private val tx: TransactionRunner,
 ) {
     /**
-     * La baja es lógica y **exige motivo**: es la diferencia entre «esta
-     * referencia se dejó de usar» y un borrado que nadie puede explicar después.
+     * The deletion is logical and **requires a reason**: it is the difference between "this
+     * reference was stopped being used" and a deletion that nobody can explain later.
      */
     fun execute(actor: Actor, id: Long, reason: String?, origin: RequestOrigin): Outcome<ProductView> =
         access.authorizeOr(actor, "product.delete", origin, entityId = "$id") { grant ->
@@ -213,7 +213,7 @@ class DeactivateProduct(
         }
 }
 
-// ── Validación de campos, compartida por alta y edición ──────────────────────
+// ── Field validation, shared by create and edit ──────────────────────────
 
 private data class PreparedProduct(
     val code: ProductCode,
@@ -240,8 +240,8 @@ private fun requireName(raw: String?): Outcome<String> = when {
 }
 
 /**
- * La unidad de medida es un **catálogo cerrado**: no se acepta texto libre, que es
- * lo que en el legacy producía `KG`/`Kg`/`KGS` como tres unidades distintas.
+ * The unit of measure is a **closed catalog**: free text is not accepted, which is
+ * what in the legacy produced `KG`/`Kg`/`KGS` as three different units.
  */
 private fun resolveUnit(units: UnitsOfMeasure, raw: String?): Outcome<UnitOfMeasure> = when {
     raw.isNullOrBlank() ->

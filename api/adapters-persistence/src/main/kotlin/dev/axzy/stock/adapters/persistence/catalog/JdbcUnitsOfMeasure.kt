@@ -5,10 +5,10 @@ import dev.axzy.stock.domain.catalog.UnitOfMeasure
 import org.springframework.jdbc.core.simple.JdbcClient
 
 /**
- * El catálogo cerrado de unidades de medida.
+ * The closed catalog of units of measure.
  *
- * Es cerrado a propósito: un campo de texto libre es lo que en el legacy producía
- * `KG`, `Kg` y `KGS` como tres unidades distintas del mismo producto.
+ * It is closed on purpose: a free-text field is what in the legacy produced
+ * `KG`, `Kg` and `KGS` as three different units of the same product.
  */
 class JdbcUnitsOfMeasure(private val jdbc: JdbcClient) : UnitsOfMeasure {
 

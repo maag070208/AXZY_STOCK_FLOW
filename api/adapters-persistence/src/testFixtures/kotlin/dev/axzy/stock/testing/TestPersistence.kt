@@ -17,10 +17,10 @@ import java.util.concurrent.atomic.AtomicInteger
 import javax.sql.DataSource
 
 /**
- * Lo que hace falta para construir a mano los adaptadores de persistencia en una prueba, igual
- * que los cablea `app`: el cliente JDBC, la frontera de transacción y el serializador JSON.
+ * What is needed to build the persistence adapters by hand in a test, the same way
+ * that `app` wires them: the JDBC client, the transaction boundary and the JSON serializer.
  *
- * Trabaja sobre la conexión de la API ([TestDatabase.api]) y cuenta las sentencias que se ejecutan.
+ * Works over the API connection ([TestDatabase.api]) and counts the statements that run.
  */
 class TestPersistence {
     val statements = StatementCounter(TestDatabase.api)
@@ -30,18 +30,18 @@ class TestPersistence {
     private val transactionManager = DataSourceTransactionManager(statements)
     val tx: TransactionRunner = JdbcTransactionRunner(TransactionTemplate(transactionManager))
 
-    /** Una transacción aparte de la que esté en curso, como la que usa el registro de denegaciones. */
+    /** A transaction separate from the one in progress, like the one the denial log uses. */
     val independentTx = TransactionTemplate(transactionManager).apply {
         propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
     }
 
-    /** Para preparar datos y hacer comprobaciones que la API no tiene permiso de hacer. */
+    /** To prepare data and make checks that the API does not have permission to make. */
     val asOwner: JdbcClient = JdbcClient.create(TestDatabase.owner)
 }
 
 /**
- * Cuenta las sentencias SQL que se preparan. Sirve para comprobar que un listado hace un número
- * FIJO de consultas (regla R-P1): si el número crece con las filas, hay una consulta en un bucle.
+ * Counts the SQL statements that are prepared. It checks that a listing makes a
+ * FIXED number of queries (rule R-P1): if the number grows with the rows, there is a query in a loop.
  */
 class StatementCounter(delegate: DataSource) : DelegatingDataSource(delegate) {
     private val prepared = AtomicInteger()
@@ -58,7 +58,7 @@ class StatementCounter(delegate: DataSource) : DelegatingDataSource(delegate) {
         } as Connection
     }
 
-    /** Ejecuta [block] y devuelve cuántas sentencias preparó. */
+    /** Runs [block] and returns how many statements it prepared. */
     fun during(block: () -> Unit): Int {
         val before = prepared.get()
         block()

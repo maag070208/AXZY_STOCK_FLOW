@@ -45,11 +45,11 @@ import org.springframework.web.bind.annotation.RestController
 import java.math.BigDecimal
 
 /**
- * Facturas de recepción (docs/api/recepcion.md).
+ * Receiving invoices (docs/api/recepcion.md).
  *
- * El controlador traduce y valida el formato; **las reglas están en el caso de uso y
- * en el dominio**. La aprobación es una sola ruta sobre el documento entero: no existe
- * una variante por línea, y eso es lo que hace evidente la segregación de funciones.
+ * The controller translates and validates the format; **the rules are in the use case and
+ * in the domain**. The approval is a single route over the whole document: there is no
+ * per-line variant, and that is what makes segregation of duties evident.
  */
 @RestController
 @RequestMapping("/v1/invoices")
@@ -100,7 +100,7 @@ class InvoiceController(
         return listInvoices.execute(actor, filter, request, origin).toResponse { it.toDto { header -> header.toDto() } }
     }
 
-    /** **201 con la referencia, no con la factura completa**: el detalle se pide aparte. */
+    /** **201 with the reference, not the full invoice**: the detail is requested separately. */
     @PostMapping
     @RequiresPermission("invoice.create")
     fun create(
@@ -146,7 +146,7 @@ class InvoiceController(
         origin: RequestOrigin,
     ): ResponseEntity<Any> = getInvoice.execute(actor, id, origin).toResponse { it.toDto() }
 
-    /** **200 con la línea** capturada, no con la factura. */
+    /** **200 with the line** counted, not the invoice. */
     @PostMapping("/{id}/lines/{lineId}/capture")
     @RequiresPermission("invoice.capture")
     fun capture(
@@ -166,10 +166,10 @@ class InvoiceController(
     }
 
     /**
-     * Asigna la línea a quien la va a contar.
+     * Assigns the line to the person who is going to count it.
      *
-     * `userId` es opcional: sin él, quien llama **se asigna a sí mismo**, que es el caso diario
-     * del capturista. Con él, un supervisor reparte el conteo.
+     * `userId` is optional: without it, the caller **assigns to themselves**, which is the daily case
+     * of the counter. With it, a supervisor distributes the count.
      */
     @PutMapping("/{id}/lines/{lineId}/assign")
     @RequiresPermission("invoice.assign")
@@ -209,7 +209,7 @@ class InvoiceController(
         origin: RequestOrigin,
     ): ResponseEntity<Any> = closeInvoice.execute(actor, id, origin).toResponse { it.toDto() }
 
-    /** Las dos decisiones comparten forma: motivo obligatorio y nota opcional. */
+    /** The two decisions share a shape: a mandatory reason and an optional note. */
     private fun decision(
         useCase: ApproveInvoice,
         actor: Actor,
@@ -243,17 +243,17 @@ class InvoiceController(
 }
 
 /**
- * La cantidad que llega como número JSON, sin perder precisión.
+ * The quantity that arrives as a JSON number, without losing precision.
  *
- * Si no se puede convertir, **lanza** el fallo: es una petición mal formada y el
- * manejador global ya sabe traducirla al cuerpo de error de siempre.
+ * If it cannot be converted, it **throws** the failure: it is a malformed request, and the
+ * global handler already knows how to translate it into the usual error body.
  */
 private fun quantityOf(raw: BigDecimal): Quantity =
     Quantity.parse(raw.toPlainString()).getOrElse {
         throw FailureException(Failure(FailureKind.RULE_VIOLATION, "INVALID_QUANTITY", it.message ?: "Invalid quantity."))
     }
 
-/** Las cajas son una cuenta entera: media caja no existe. */
+/** Boxes are a whole count: half a box does not exist. */
 private fun boxesOf(raw: BigDecimal?): Outcome<BoxQuantity?> {
     if (raw == null) return null.asRight()
     val quantity = quantityOf(raw)
@@ -267,5 +267,5 @@ private fun boxesOf(raw: BigDecimal?): Outcome<BoxQuantity?> {
     return BoxQuantity.of(quantity.units).asRight()
 }
 
-/** Sin `userId`, la asignación es a quien llama. */
+/** Without `userId`, the assignment is to the caller. */
 data class AssignLineDto(val userId: Long? = null)

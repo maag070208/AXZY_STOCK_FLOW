@@ -10,16 +10,16 @@ import org.junit.jupiter.api.Test
 import java.math.BigDecimal
 
 /**
- * El motor de traslados (V13) contra PostgreSQL real.
+ * The transfer engine (V13) against real PostgreSQL.
  *
- * Aquí se demuestran las pruebas de aceptación del flujo que son **del motor**, no de
- * la ruta: T1, T2, T5 y T6, más la invariante que las resume todas —
- * `Σ stock_by_location + Σ stock_in_transit` se conserva en cada transición—. Las de
- * la API (T3, T4, T7, T8) van con las rutas.
+ * The acceptance tests of the flow that are **of the engine**, not of
+ * the route are demonstrated here: T1, T2, T5 and T6, plus the invariant that summarizes all of them —
+ * `Σ stock_by_location + Σ stock_in_transit` is preserved on every transition—. The
+ * API ones (T3, T4, T7, T8) go with the routes.
  *
- * El motor vive en SQL porque un traslado mueve saldo, y el saldo lo mueve el motor:
- * un `UPDATE stock_by_location` desde Kotlin sería la segunda ruta de escritura que
- * `InventoryWriteGuardTest` prohíbe.
+ * The engine lives in SQL because a transfer moves balance, and the balance is moved by the engine:
+ * an `UPDATE stock_by_location` from Kotlin would be the second write path that
+ * `InventoryWriteGuardTest` forbids.
  */
 class TransferEngineTest {
 
@@ -35,7 +35,7 @@ class TransferEngineTest {
     @BeforeEach
     fun prepare() {
         TestDatabase.reset()
-        // El kardex guarda quién movió: sin usuario, la clave foránea lo rechaza.
+        // The ledger records who moved: without a user, the foreign key rejects it.
         userId = db.asOwner.sql(
             "INSERT INTO users (username, password_hash, name) VALUES ('motor', 'x', 'Motor') RETURNING id",
         ).query(Long::class.java).single()
@@ -55,7 +55,7 @@ class TransferEngineTest {
             """.trimIndent(),
         ).param("warehouse", destinationWarehouse).query(Long::class.java).single()
 
-        // 100 unidades en la recepción del origen, por el motor.
+        // 100 units in the origin's receiving, by the engine.
         db.jdbc.sql(
             """
             SELECT record_movement(:product, 1, 'INITIAL', 100, NULL, :location, NULL, NULL, NULL, NULL, :user, NULL, NULL)
@@ -63,7 +63,7 @@ class TransferEngineTest {
         ).param("product", productId).param("location", origin).param("user", userId).query(Long::class.java).single()
     }
 
-    /** Un traslado en borrador con una línea de la cantidad pedida. */
+    /** A draft transfer with one line of the requested quantity. */
     private fun draft(quantity: Int, code: String = "TR-2026-0001"): Long {
         val id = db.asOwner.sql(
             "INSERT INTO transfers (code, from_warehouse_id, to_warehouse_id) VALUES (:code, 1, :to) RETURNING id",
@@ -109,7 +109,7 @@ class TransferEngineTest {
     private fun statusOf(id: Long): String =
         db.jdbc.sql("SELECT status::text FROM transfers WHERE id = :id").param("id", id).query(String::class.java).single()
 
-    // ── T1: despachar saca del origen y pone en tránsito ────────────────────
+    // ── T1: dispatching takes out of the origin and puts into transit ────────
 
     @Test
     fun `T1 - dispatching takes from the origin, leaves it in transit and does not change the total`() {
@@ -121,14 +121,14 @@ class TransferEngineTest {
         assertThat(lines).isEqualTo(1)
         assertThat(stockAt(origin)).isEqualTo(Quantity.of(60))
         assertThat(inTransit()).isEqualTo(Quantity.of(40))
-        // La mercancía en el camión SIGUE contando: si no, el total bajaría durante el
-        // viaje y parecería una venta.
+        // The goods on the truck STILL count: otherwise the total would drop during the
+        // trip and it would look like a sale.
         assertThat(total()).isEqualTo(Quantity.of(100))
         assertThat(total()).isEqualTo(stockAt(origin) + inTransit())
         assertThat(statusOf(transferId)).isEqualTo("DISPATCHED")
     }
 
-    // ── T2: recibir pone en el destino ──────────────────────────────────────
+    // ── T2: receiving puts into the destination ──────────────────────────
 
     @Test
     fun `T2 - receiving puts it in the destination, closes the transit and does not change the total`() {
@@ -158,7 +158,7 @@ class TransferEngineTest {
         assertThat(movimientos).containsExactly("TRANSFER_OUT", "TRANSFER_IN")
     }
 
-    // ── T5: sin existencias no se despacha ──────────────────────────────────
+    // ── T5: without stock there is no dispatch ──────────────────────────
 
     @Test
     fun `T5 - without stock nothing is dispatched and nothing is left half done`() {
@@ -167,8 +167,8 @@ class TransferEngineTest {
         assertThatThrownBy { dispatch() }
             .hasMessageContaining("stock_non_negative")
 
-        // La transacción del motor es de quien llama; aquí se comprueba el estado tras
-        // la excepción: ni salida parcial, ni tránsito, ni cambio de estado.
+        // The engine's transaction belongs to the caller; here the state is checked after
+        // the exception: no partial outflow, no transit, no status change.
         assertThat(stockAt(origin)).isEqualTo(Quantity.of(100))
         assertThat(inTransit()).isEqualTo(Quantity.ZERO)
         assertThat(statusOf(transferId)).isEqualTo("DRAFT")
@@ -187,7 +187,7 @@ class TransferEngineTest {
             """.trimIndent(),
         ).param("transfer", transferId).param("product", productId).update()
 
-        // La segunda línea pide más de lo que hay: la primera tampoco se mueve.
+        // The second line requests more than there is: the first one does not move either.
         assertThatThrownBy { dispatch() }.hasMessageContaining("stock_non_negative")
 
         assertThat(stockAt(origin)).isEqualTo(Quantity.of(100))
@@ -195,7 +195,7 @@ class TransferEngineTest {
         assertThat(statusOf(transferId)).isEqualTo("DRAFT")
     }
 
-    // ── T6: cancelar un despachado devuelve la mercancía ────────────────────
+    // ── T6: cancelling a dispatched transfer returns the goods ────────────────
 
     @Test
     fun `T6 - cancelling a dispatched transfer returns the goods to their origin`() {
@@ -221,7 +221,7 @@ class TransferEngineTest {
         assertThat(statusOf(transferId)).isEqualTo("CANCELLED")
     }
 
-    // ── La invariante ───────────────────────────────────────────────────────
+    // ── The invariant ───────────────────────────────────────────────────────
 
     @Test
     fun `the invariant holds on every transition`() {
@@ -233,8 +233,8 @@ class TransferEngineTest {
         receive()
         val recibido = stockAt(origin) + stockAt(destination) + inTransit()
 
-        // Σ stock_by_location + Σ stock_in_transit no cambia nunca. Es la invariante
-        // que resume el módulo entero.
+        // Σ stock_by_location + Σ stock_in_transit never changes. It is the invariant
+        // that summarizes the whole module.
         assertThat(despachado).isEqualTo(inicial)
         assertThat(recibido).isEqualTo(inicial)
         assertThat(total()).isEqualTo(inicial)
@@ -246,8 +246,8 @@ class TransferEngineTest {
         dispatch()
         receive()
 
-        // Al motor no le queda tránsito abierto que recibir: la segunda vuelta no
-        // encuentra líneas. La ruta lo rechaza antes, con `INVALID_TRANSITION`.
+        // The engine has no open transit left to receive: the second round finds no
+        // lines. The route rejects it earlier, with `INVALID_TRANSITION`.
         assertThat(receive()).isZero()
         assertThat(stockAt(destination)).isEqualTo(Quantity.of(40))
         assertThat(total()).isEqualTo(Quantity.of(100))

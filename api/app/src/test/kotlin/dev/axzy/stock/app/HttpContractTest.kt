@@ -6,7 +6,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.util.UUID
 
-/** El contrato HTTP transversal: salud, identificador de petición y cuerpo de error (docs/api/). */
+/** The cross-cutting HTTP contract: health, request identifier and error body (docs/api/). */
 class HttpContractTest : ApiTest() {
 
     @Test
@@ -26,10 +26,10 @@ class HttpContractTest : ApiTest() {
         val provided = UUID.randomUUID().toString()
 
         assertThat(get("/v1/health", headers = mapOf("X-Request-Id" to provided)).header("X-Request-Id")).isEqualTo(provided)
-        // Texto libre no se acepta: acabaría en el log y en la bitácora.
+        // Free text is not accepted: it would end up in the log and the audit log.
         val replaced = get("/v1/health", headers = mapOf("X-Request-Id" to "'; DROP TABLE users; --")).header("X-Request-Id")
         assertThat(UUID.fromString(replaced)).isNotNull()
-        // También los rechazos de la cadena de seguridad lo llevan.
+        // The security chain's rejections carry it too.
         assertThat(get("/v1/auth/me").header("X-Request-Id")).isNotBlank()
     }
 

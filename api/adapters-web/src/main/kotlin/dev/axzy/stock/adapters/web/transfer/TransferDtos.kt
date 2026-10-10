@@ -10,11 +10,11 @@ import dev.axzy.stock.application.transfer.TransferLineView
 import java.time.Instant
 
 /**
- * El contrato HTTP de traslados (docs/api/traslados.md).
+ * The HTTP contract of transfers (docs/api/traslados.md).
  *
- * El detalle tiene una forma propia —`{ "transfer": {...}, "lines": [...] }`— distinta
- * de la de facturas y órdenes, que devuelven el documento con las líneas dentro. Se
- * respeta porque el contrato la fija.
+ * The detail has its own shape —`{ "transfer": {...}, "lines": [...] }`— different
+ * from that of invoices and orders, which return the document with the lines inside. It is
+ * kept because the contract fixes it.
  */
 
 data class TransferHeaderDto(
@@ -109,7 +109,7 @@ fun InTransitRow.toDto(): InTransitDto = InTransitDto(
     dispatchedByName = dispatchedByName,
 )
 
-// ── Cuerpos de entrada ──────────────────────────────────────────────────────
+// ── Input bodies ──────────────────────────────────────────────────────────
 
 data class NewTransferLineDto(
     val productCode: String? = null,
@@ -125,5 +125,5 @@ data class NewTransferDto(
     val lines: List<NewTransferLineDto> = emptyList(),
 )
 
-/** Un instante en ISO 8601 UTC, que es el formato de la API. */
+/** An instant in ISO 8601 UTC, which is the API's format. */
 private fun Instant.toIso(): String = toString()

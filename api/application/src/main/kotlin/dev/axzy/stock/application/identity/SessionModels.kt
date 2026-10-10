@@ -4,17 +4,17 @@ import dev.axzy.stock.application.access.Actor
 import dev.axzy.stock.domain.access.PermissionScope
 
 /**
- * Lo que el cliente necesita saber de quien inició sesión (docs/api/autenticacion.md): para
- * dibujar la interfaz, no para decidir. Quien decide es siempre la API.
+ * What the client needs to know about who signed in (docs/api/autenticacion.md): to
+ * draw the interface, not to decide. The API always decides.
  */
 data class SessionUser(
     val id: Long,
     val username: String,
     val name: String,
     val roles: List<String>,
-    /** Los permisos concedidos, ordenados. */
+    /** The granted permissions, sorted. */
     val permissions: List<String>,
-    /** El alcance efectivo de cada permiso: el mayor entre sus roles y sus excepciones. */
+    /** The effective scope of each permission: the largest among its roles and its exceptions. */
     val scopes: Map<String, String>,
     val warehouses: List<Long>,
     val mustChangePassword: Boolean,
@@ -47,7 +47,7 @@ data class SessionUser(
 
 data class AuthSession(
     val accessToken: String,
-    /** En claro solo aquí: la base guarda su hash. */
+    /** In clear only here: the database stores its hash. */
     val refreshToken: String,
     val expiresInSeconds: Long,
     val user: SessionUser,

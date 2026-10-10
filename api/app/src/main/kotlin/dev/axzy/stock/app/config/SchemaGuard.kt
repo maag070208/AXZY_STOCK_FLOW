@@ -4,15 +4,15 @@ import dev.axzy.stock.application.health.DatabaseProbe
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
-/** La versión de esquema con la que arrancó la API. Pedirla como dependencia garantiza que ya se comprobó. */
+/** The schema version the API started with. Requesting it as a dependency guarantees the check has already run. */
 data class SchemaVersion(val applied: Int)
 
 /**
- * **La API no migra: comprueba.** Las migraciones las aplica el servicio `migrate` (ADR-0016). Si la
- * base está por detrás de lo que este código necesita, la API se niega a arrancar y dice qué falta.
+ * **The API does not migrate: it checks.** The migrations are applied by the `migrate` service (ADR-0016). If the
+ * database is behind what this code needs, the API refuses to start and says what is missing.
  *
- * El caso que esto evita ya ocurrió: una base de desarrollo se quedó sin una migración durante
- * semanas, y la API arrancaba igual y respondía 500 en las rutas que dependían de ella.
+ * The case this prevents already happened: a development database was left without a migration for
+ * weeks, and the API started anyway and answered 500 on the routes that depended on it.
  */
 @Configuration(proxyBeanMethods = false)
 class SchemaGuard {
@@ -33,8 +33,8 @@ class SchemaGuard {
 
     companion object {
         /**
-         * La última migración de `db/migrations` que este código da por aplicada. Al añadir una
-         * migración se sube aquí; una prueba comprueba que coincide con los archivos.
+         * The last migration in `db/migrations` that this code considers applied. When a migration is added
+         * it is raised here; a test checks that it matches the files.
          */
         const val REQUIRED_SCHEMA_VERSION = 17
     }

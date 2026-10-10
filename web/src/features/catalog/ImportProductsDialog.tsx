@@ -54,7 +54,7 @@ export default function ImportProductsDialog({ open, onClose, onImported }: Prop
     } catch (caught) {
       const apiError = caught as ApiError;
       setError(describeError(apiError, "catalog.importFailed"));
-      // `IMPORT_INVALID_ROWS` carries a detail per row (`fila_3`): it is what
+      // `IMPORT_INVALID_ROWS` carries a detail per row (`row_3`): it is what
       // lets the file be corrected without guessing which row was wrong.
       setRejected(Object.entries(apiError.details ?? {}));
       setReport(null);
@@ -100,7 +100,7 @@ export default function ImportProductsDialog({ open, onClose, onImported }: Prop
             <ul className="flex flex-col gap-1 text-xs text-red-800">
               {rejected.map(([row, reason]) => (
                 <li key={row}>
-                  <span className="font-semibold">{row.replace("fila_", i18n.t("catalog.row"))}:</span> {reason}
+                  <span className="font-semibold">{row.replace("row_", i18n.t("catalog.row"))}:</span> {reason}
                 </li>
               ))}
             </ul>

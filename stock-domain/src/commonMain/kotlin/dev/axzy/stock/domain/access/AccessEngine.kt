@@ -2,15 +2,15 @@ package dev.axzy.stock.domain.access
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * EL MOTOR DE ACCESO — pipeline Identidad → RBAC → ABAC
+ * THE ACCESS ENGINE — pipeline Identity → RBAC → ABAC
  *
- * Es una **función pura**: recibe el usuario, la acción, el recurso y el
- * contexto, y devuelve una decisión. No toca base de datos, no es `suspend`, no
+ * It is a **pure function**: it receives the user, the action, the resource and the
+ * context, and returns a decision. It does not touch the database, it is not `suspend`, and it does not
  * tiene efectos secundarios.
  *
- * Esa pureza es lo que permite tres cosas:
- *   1. Probar miles de combinaciones en milisegundos, sin servidor.
- *   2. Que **el backend y el móvil tomen la misma decisión**, porque ejecutan
+ * That purity is what allows three things:
+ *   1. Testing thousands of combinations in milliseconds, without a server.
+ *   2. That **the backend and the mobile take the same decision**, because they run
  *      literalmente el mismo código. La UI es una pista; el servidor es la
  *      autoridad, pero ambos coinciden.
  *   3. **Reproducir** una decisión histórica con la versión de la matriz y de

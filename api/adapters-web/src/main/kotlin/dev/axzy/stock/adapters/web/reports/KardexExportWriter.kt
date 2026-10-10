@@ -12,11 +12,11 @@ import java.io.OutputStream
 import java.math.BigDecimal
 
 /**
- * La exportación del kardex, en los dos formatos del contrato.
+ * The ledger export, in the two formats of the contract.
  *
- * **Se escribe por trozos.** Las filas llegan en `Sequence` y se van escribiendo: el
- * kardex de un año no se carga entero en memoria. En XLSX se usa `SXSSFWorkbook`
- * —la variante de flujo de POI— por la misma razón.
+ * **It is written in chunks.** The rows arrive as a `Sequence` and are written as they come: the
+ * ledger of a year is not loaded whole into memory. For XLSX `SXSSFWorkbook` is used
+ * —the streaming variant of POI— for the same reason.
  */
 internal object KardexExportWriter {
 
@@ -55,10 +55,10 @@ internal object KardexExportWriter {
 
     private fun writeCsv(chunks: Sequence<List<KardexLine>>, out: OutputStream) {
         /*
-         * Con marca de orden de bytes (BOM) y no sin ella: Excel abre un CSV UTF-8
-         * sin BOM como si fuera de la codificación del sistema, y los acentos de los
-         * nombres de producto salen como `ABRAZADERA DE ARRANQUE 1-5/8Â"`. La marca
-         * es la forma de que el archivo se lea como se escribió.
+         * With a byte order mark (BOM), and not without one: Excel opens a UTF-8 CSV
+         * without a BOM as if it were in the system encoding, and the accents of the
+         * product names come out as `ABRAZADERA DE ARRANQUE 1-5/8Â"`. The mark
+         * is the way to have the file read as it was written.
          */
         out.write(0xEF)
         out.write(0xBB)
@@ -73,7 +73,7 @@ internal object KardexExportWriter {
         writer.flush()
     }
 
-    /** Un campo con coma, comilla o salto de línea va entre comillas, y la comilla se dobla. */
+    /** A field with a comma, quote or line break goes in quotes, and the quote is doubled. */
     private fun escape(value: String?): String {
         if (value == null) return ""
         val needsQuotes = value.any { it == ',' || it == '"' || it == '\n' || it == '\r' }
@@ -84,8 +84,8 @@ internal object KardexExportWriter {
     // ── XLSX ────────────────────────────────────────────────────────────────
 
     private fun writeXlsx(chunks: Sequence<List<KardexLine>>, out: OutputStream) {
-        // 100 filas en memoria y el resto a un archivo temporal: es lo que permite
-        // exportar un kardex largo sin que el proceso crezca con él.
+        // 100 rows in memory and the rest in a temporary file: that is what allows
+        // exporting a long ledger without the process growing with it.
         val workbook = SXSSFWorkbook(100)
         try {
             val sheet = workbook.createSheet("Kardex")
@@ -108,11 +108,11 @@ internal object KardexExportWriter {
                     val row = sheet.createRow(rowIndex++)
                     values.forEachIndexed { index, value ->
                         val cell = row.createCell(index)
-                        // Las dos columnas de cantidad y el id van como NÚMERO: una
-                        // columna de texto no se suma y Excel la contaría como cero.
+                        // The two quantity columns and the id go as NUMBERS: a
+                        // text column is not summed and Excel would count it as zero.
                         when (index) {
-                            // El id es un entero; las dos cantidades llevan los tres
-                            // decimales del contrato.
+                            // The id is an integer; the two quantities carry the
+                            // three decimals of the contract.
                             0 -> {
                                 cell.setCellValue(line.id.toDouble())
                                 cell.cellStyle = integerStyle
@@ -128,8 +128,8 @@ internal object KardexExportWriter {
                 }
             }
 
-            // Anchos fijos y no `autoSizeColumn`: con un archivo largo, autoajustar
-            // cada columna recorre todas las filas en memoria y anula el flujo.
+            // Fixed widths and not `autoSizeColumn`: with a long file, auto-sizing
+            // each column walks all the rows in memory and defeats the stream.
             listOf(8, 22, 14, 40, 20, 12, 12, 14, 14, 14, 14, 16, 16, 18, 30).forEachIndexed { index, width ->
                 sheet.setColumnWidth(index, width * 256)
             }
@@ -139,13 +139,13 @@ internal object KardexExportWriter {
             out.flush()
         } finally {
             workbook.close()
-            // Los archivos temporales del flujo se borran explícitamente: `close()`
-            // no siempre los limpia y acabarían llenando el disco del contenedor.
+            // The stream's temporary files are deleted explicitly: `close()`
+            // does not always clean them up and they would end up filling the container's disk.
             workbook.dispose()
         }
     }
 
-    /** Las columnas de cantidad: unidades y saldo. */
+    /** The quantity columns: units and balance. */
     private val QUANTITY_COLUMNS = 5..6
 
     private fun headerStyle(workbook: Workbook) = workbook.createCellStyle().apply {
@@ -159,9 +159,9 @@ internal object KardexExportWriter {
     }
 }
 
-/** La cantidad del dominio a decimal exacto (milésimas), sin pasar por coma flotante. */
+/** The domain quantity as an exact decimal (thousandths), without going through floating point. */
 internal fun dev.axzy.stock.domain.value.Quantity.toBigDecimal(): BigDecimal =
     BigDecimal.valueOf(value, dev.axzy.stock.domain.value.Quantity.SCALE)
 
-/** La cantidad con los tres decimales del contrato, sin notación científica. */
+/** The quantity with the contract's three decimals, without scientific notation. */
 internal fun dev.axzy.stock.domain.value.Quantity.toPlainString(): String = toBigDecimal().toPlainString()

@@ -16,9 +16,9 @@ import java.time.LocalDate
 import java.time.format.DateTimeParseException
 
 /**
- * Las consultas de existencias y del kardex (M02).
+ * The stock and ledger queries (M02).
  *
- * Son de solo lectura: no abren transacción ni escriben bitácora. La bitácora
+ * They are read-only: they do not open a transaction nor write to the audit log. The audit log
  * registra **cambios**, no miradas (docs/seguridad/auditoria.md).
  */
 class ListStock(private val queries: StockQueries, private val access: AccessDecider) {
@@ -33,7 +33,7 @@ class ListKardex(private val queries: KardexQueries, private val access: AccessD
         access.authorizeOr(actor, "kardex.view", origin) { queries.page(filter, request).asRight() }
 }
 
-/** Traduce y valida los filtros de una consulta, que es donde el contrato admite `400`. */
+/** Translates and validates the query filters, which is where the contract allows a `400`. */
 object InventoryFilters {
 
     fun productCode(raw: String?): Outcome<ProductCode?> {
@@ -62,10 +62,10 @@ object InventoryFilters {
     }
 
     /**
-     * Una fecha operativa `AAAA-MM-DD`.
+     * An operating date `YYYY-MM-DD`.
      *
-     * Se valida aquí y no se deja al `CAST` de PostgreSQL: un dato del cliente que
-     * llegue a la base sale como `500`, y un `500` invita a reintentar para siempre
+     * It is validated here and not left to PostgreSQL's `CAST`: a client value that
+     * reaches the database comes out as a `500`, and a `500` invites retrying forever
      * (docs/api/errores.md §1.3-ter).
      */
     fun date(raw: String?, field: String): Outcome<LocalDate?> {
@@ -93,7 +93,7 @@ object InventoryFilters {
         return type.asRight()
     }
 
-    /** Un rango invertido no devuelve nada y parece «no hay movimientos»: se rechaza. */
+    /** An inverted range returns nothing and looks like "no movements": it is rejected. */
     fun range(from: LocalDate?, to: LocalDate?): Outcome<Unit> =
         if (from != null && to != null && from > to) {
             failure(

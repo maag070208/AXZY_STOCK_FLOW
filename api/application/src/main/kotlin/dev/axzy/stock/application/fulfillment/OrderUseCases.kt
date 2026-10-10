@@ -41,15 +41,15 @@ import java.time.LocalDate
 import java.time.Year
 
 /**
- * Los casos de uso de surtido (M04) y la exportación al ERP (M09).
+ * The fulfillment (M04) and ERP-export (M09) use cases.
  *
- * Dos reglas mandan sobre el resto y están en el dominio:
+ * Two rules govern the rest and live in the domain:
  *
- * · **Empacar descuenta contra lo PENDIENTE, no contra lo pedido** (S1): empacar 7 de
- *   10 dos veces sumaría 14.
- * · **Confirmar descuenta `quantity - suppliedQuantity`**, no `quantity` (S2): lo
- *   empacado ya salió, y volver a descontarlo completo dejaría el inventario corto y
- *   el descuadre se confundiría con una merma.
+ * · **Packing deducts against what is PENDING, not what was requested** (S1): packing 7 of
+ *   10 twice would add up to 14.
+ * · **Confirming deducts `quantity - suppliedQuantity`**, not `quantity` (S2): what was
+ *   packed has already left, and deducting it again in full would leave the inventory short and
+ *   the discrepancy would be confused with a shrinkage.
  */
 
 // ── Consultas ───────────────────────────────────────────────────────────────
@@ -134,7 +134,7 @@ class CreateOrder(
         }
     }
 
-    /** El número y la fecha son opcionales: si no vienen, los pone el servidor. */
+    /** The number and the date are optional: if they do not come, the server sets them. */
     private fun resolveHeader(input: NewOrder): Outcome<OrderDraft> {
         val rawDate = input.packagingDate?.trim()
         val date = if (rawDate.isNullOrBlank()) {
@@ -203,10 +203,10 @@ class CreateOrder(
 data class PackageInput(val quantity: Quantity?, val locationId: Long?)
 
 /**
- * Empaca una cantidad de una línea: **descuenta stock y escribe el kardex**.
+ * Packs a quantity of a line: **deducts stock and writes the ledger**.
  *
- * La cantidad se valida contra lo pendiente de la línea (S1) y el saldo se lee con
- * bloqueo para que dos empaques simultáneos no dejen el estante en negativo.
+ * The quantity is validated against the line's pending amount (S1), and the balance is read with
+ * a lock so that two simultaneous packings cannot leave the shelf negative.
  */
 class PackageLine(
     private val catalog: OrderCatalog,
@@ -246,7 +246,7 @@ class PackageLine(
                     mapOf("field" to "quantity"),
                 )
 
-            // El dominio decide si la operación es legal y cuánto queda pendiente.
+            // The domain decides whether the operation is legal and how much remains pending.
             val packaged = when (val result = line.packageQuantity(amount)) {
                 is Either.Left -> return@inTransaction result.error.toFailure().asLeft()
                 is Either.Right -> result.value
@@ -283,7 +283,7 @@ class PackageLine(
         }
     }
 
-    /** El movimiento de salida, con el saldo leído **con bloqueo** (Q9). */
+    /** The outflow movement, with the balance read **with a lock** (Q9). */
     private fun move(
         actor: Actor,
         line: OrderLine,
@@ -298,8 +298,8 @@ class PackageLine(
                 requested = amount.units,
                 location = location.displayName,
             ).toFailure().copy(
-                // El contrato pide la línea en el detalle: sin ella, con diez líneas
-                // el cliente no sabe de cuál le están hablando.
+                // The contract asks for the line in the detail: without it, with ten lines
+                // the client does not know which one they are being told about.
                 details = mapOf(
                     "available" to available.units.toString(),
                     "requested" to amount.units.toString(),
@@ -329,16 +329,16 @@ class PackageLine(
     )
 }
 
-// ── Confirmación ────────────────────────────────────────────────────────────
+// ── Confirmation ─────────────────────────────────────────────────────────
 
 /**
- * Confirma la orden: descuenta **lo que falta** de cada línea y dispara la
- * exportación.
+ * Confirms the order: deducts **what is missing** from each line and triggers the
+ * export.
  *
- * La confirmación se **reclama** con una sentencia condicional antes de mover nada:
- * dos confirmaciones simultáneas no pueden descontar dos veces (S3). Y si el ERP no
- * responde, la confirmación **no se revierte** —el stock ya salió—: el intento queda
- * registrado para el reintento manual.
+ * The confirmation is **claimed** with a conditional statement before moving anything:
+ * two simultaneous confirmations cannot deduct twice (S3). And if the ERP does not
+ * respond, the confirmation is **not rolled back** —the stock has already left—: the attempt is
+ * recorded for the manual retry.
  */
 class ConfirmOrder(
     private val orders: Orders,
@@ -357,7 +357,7 @@ class ConfirmOrder(
             tx.inTransaction {
                 val detail = orders.detail(orderId) ?: return@inTransaction orderNotFound(orderId)
 
-                // El dominio comprueba que la orden admita la confirmación.
+                // The domain checks that the order admits confirmation.
                 val order = Order(
                     id = detail.header.id,
                     orderNumber = detail.header.orderNumber,
@@ -370,7 +370,7 @@ class ConfirmOrder(
                     is Either.Right -> Unit
                 }
 
-                // El reclamo atómico: solo una transacción se lleva la fila.
+                // The atomic claim: only one transaction gets the row.
                 if (orders.claimConfirmation(orderId, clock.instant()) == 0) {
                     return@inTransaction DomainError.OrderAlreadyConfirmed(detail.header.orderNumber)
                         .toFailure().asLeft()
@@ -383,8 +383,8 @@ class ConfirmOrder(
                         ?: return@inTransaction locationRequiredFor(view.line.id)
                     val available = ledger.balanceAt(view.line.productId, location.id, forUpdate = true)
                     if (pending > available) {
-                        // Un `Left` revierte la transacción entera: ninguna línea
-                        // queda descontada a medias (S4), y la orden vuelve a su estado.
+                        // A `Left` rolls back the whole transaction: no line
+                        // is left half-deducted (S4), and the order goes back to its state.
                         return@inTransaction DomainError.InsufficientStock(
                             available = available.units,
                             requested = pending.units,
@@ -431,7 +431,7 @@ class ConfirmOrder(
                         newState = mapOf("status" to PENDING_TO_OUT, "lines" to detail.lines.size),
                     ),
                 )
-                // La exportación va **después**: si falla, la confirmación ya está hecha.
+                // The export goes **after**: if it fails, the confirmation is already done.
                 export(actor, orderId, origin, grant)
                 orders.detail(orderId)!!.asRight()
             }
@@ -443,7 +443,7 @@ class ConfirmOrder(
         mapOf("lineId" to lineId.toString()),
     )
 
-    /** Un intento de envío al ERP, con su contador. Nunca revierte la confirmación. */
+    /** An attempt to send to the ERP, with its counter. It never rolls back the confirmation. */
     private fun export(
         actor: Actor,
         orderId: Long,
@@ -452,7 +452,7 @@ class ConfirmOrder(
     ) {
         val current = orders.detail(orderId) ?: return
         val result = if (current.header.converted) {
-            // Ya estaba en el ERP: no se manda una segunda salida, solo se cuenta.
+            // It was already in the ERP: a second outflow is not sent, it is only counted.
             ErpResult.Sent
         } else {
             erp.send(current)
@@ -478,15 +478,15 @@ class ConfirmOrder(
     }
 }
 
-// ── Exportación manual ──────────────────────────────────────────────────────
+// ── Manual export ───────────────────────────────────────────────────────
 
 data class ExportAttempt(val attempts: Int, val status: String, val lastError: String?)
 
 /**
- * El reintento manual de la exportación.
+ * The manual retry of the export.
  *
- * Es **idempotente por el `orderNumber` convertido**: si la orden ya se exportó, no se
- * crea una segunda salida y solo se cuenta el intento.
+ * It is **idempotent by the converted `orderNumber`**: if the order was already exported, a
+ * second outflow is not created and only the attempt is counted.
  */
 class ExportOrder(
     private val orders: Orders,
@@ -509,7 +509,7 @@ class ExportOrder(
                     lines = detail.lines.map { it.line },
                     converted = detail.header.converted,
                 )
-                // Exportar algo que no se ha surtido mandaría al ERP una salida que no existe.
+                // Exporting something that has not been fulfilled would send the ERP an outflow that does not exist.
                 when (val recorded = order.recordExportAttempt(success = false, error = null)) {
                     is Either.Left -> return@inTransaction recorded.error.toFailure().asLeft()
                     is Either.Right -> Unit
@@ -551,12 +551,12 @@ data class ShortageInput(
 )
 
 /**
- * Registra un faltante durante el surtido.
+ * Records a shortage during fulfillment.
  *
- * **Delega en la regla única de ajuste** con origen `FULFILLMENT_SHORTAGE`: el surtido
- * no reimplementa cómo se mueve el inventario, porque con el tiempo una regla exigiría
- * aprobación y la otra no. El permiso que vale es el del ajuste
- * (`inventory.adjust_shortage`), que es el que decide el caso de uso delegado.
+ * **Delegates to the single adjustment rule** with origin `FULFILLMENT_SHORTAGE`: fulfillment
+ * does not reimplement how inventory moves, because over time one rule would require
+ * approval and the other would not. The permission that counts is that of the adjustment
+ * (`inventory.adjust_shortage`), which is what the delegated use case decides.
  */
 class RegisterShortage(
     private val orders: Orders,
@@ -595,8 +595,8 @@ class RegisterShortage(
                 mapOf("lineId" to lineId.toString()),
             )
 
-        // El ajuste delegado hace sus propias comprobaciones —cantidad, motivo y
-        // permiso— y escribe el movimiento y su bitácora.
+        // The delegated adjustment does its own checks —quantity, reason and
+        // permission— and writes the movement and its audit record.
         val adjustment = adjustStock.execute(
             actor = actor,
             input = AdjustmentInput(
@@ -604,7 +604,7 @@ class RegisterShortage(
                 locationCode = locationView,
                 quantity = input.quantity,
                 direction = AdjustmentDirection.DECREASE.name,
-                // Sin defecto: un faltante es un ajuste y el motivo es obligatorio (S8).
+                // No default: a shortage is an adjustment and the reason is mandatory (S8).
                 reason = input.reason?.name,
                 origin = AdjustmentOrigin.FULFILLMENT_SHORTAGE.name,
                 note = input.note,
@@ -671,15 +671,15 @@ internal fun duplicateNumber(number: String): Outcome<Nothing> = failure(
 )
 
 /**
- * Asigna una línea de una orden a quien la va a surtir (M04, `order.assign`).
+ * Assigns a line of an order to the person who is going to fulfill it (M04, `order.assign`).
  *
- * Es la ruta que faltaba: la tabla y la respuesta tenían `assigned_user_id` y `location_id`
- * desde el principio, y **nada los escribía**, así que el operador no tenía forma de saber qué
- * le tocaba ni de anotar en qué estantería estaba la mercancía.
+ * It is the route that was missing: the table and the response had `assigned_user_id` and `location_id`
+ * from the start, and **nothing wrote them**, so the operator had no way to know what was theirs
+ * nor to note which shelf the goods were on.
  *
- * `userId` es opcional a propósito: sin él, quien llama **se asigna a sí mismo**, que es el
- * caso diario del operador. Con él, un supervisor reparte el trabajo. Asignar a otro no es un
- * privilegio aparte: el permiso es el mismo, y quien lo tiene puede repartir.
+ * `userId` is optional on purpose: without it, the caller **assigns to themselves**, which is the
+ * operator's daily case. With it, a supervisor distributes the work. Assigning to someone else is not a
+ * separate privilege: the permission is the same, and whoever has it can distribute.
  */
 class AssignOrderLine(
     private val orders: Orders,
@@ -709,8 +709,8 @@ class AssignOrderLine(
                     "User $userId, to whom the line should be assigned, does not exist.",
                     mapOf("userId" to userId.toString()),
                 )
-            // Una ubicación que no existe se rechaza antes de escribir: asignar una estantería
-            // inventada mandaría al operador a buscar mercancía a un sitio que no está.
+            // A location that does not exist is rejected before writing: assigning an invented shelf
+            // would send the operator to look for goods in a place that does not exist.
             locationId?.let { id ->
                 locations.findById(id)
                     ?: return@inTransaction failure(
@@ -725,7 +725,7 @@ class AssignOrderLine(
                 is Either.Right -> {
                     val changed = orders.assignLine(lineId, userId, locationId, clock.instant())
                     if (changed == 0) {
-                        // El empaque la surtió entre la lectura y la escritura.
+                        // Packing fulfilled it between the read and the write.
                         return@inTransaction failure(
                             FailureKind.CONFLICT, "LINE_CHANGED",
                             "The line changed while it was being assigned. Look it up again.",

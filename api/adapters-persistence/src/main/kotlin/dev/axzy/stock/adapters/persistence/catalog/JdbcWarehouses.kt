@@ -7,11 +7,11 @@ import org.springframework.jdbc.core.simple.JdbcClient
 import java.sql.ResultSet
 
 /**
- * Las bodegas sobre PostgreSQL.
+ * The warehouses on PostgreSQL.
  *
- * `clearDefault` y el `UPDATE` que pone la nueva predeterminada van en la misma
- * transacción: el índice parcial `warehouses_one_default_idx` no admite dos, así
- * que entre las dos sentencias no puede quedar ninguna.
+ * `clearDefault` and the `UPDATE` that sets the new default go in the same
+ * transaction: the partial index `warehouses_one_default_idx` does not allow two, so
+ * that between the two statements none can be left.
  */
 class JdbcWarehouses(private val jdbc: JdbcClient) : Warehouses {
 
@@ -29,7 +29,7 @@ class JdbcWarehouses(private val jdbc: JdbcClient) : Warehouses {
         }
         val clause = if (where.isEmpty()) "" else "WHERE " + where.joinToString(" AND ")
 
-        // Sin paginación y sin tope: es un catálogo cerrado y diminuto que la
+        // Without pagination and without a cap: it is a closed and tiny catalog that the
         // interfaz necesita completo (docs/api/convenciones.md §1.4).
         return query("$SELECT $clause ORDER BY is_default DESC, code ASC", params) { rs, _ -> rs.toWarehouse() }
     }
