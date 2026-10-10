@@ -1,5 +1,4 @@
 # M07 — Usuarios y accesos: roles, permisos, sesiones
-
 > **Normativo.** Última verificación: 2026-10-09.
 
 | | |

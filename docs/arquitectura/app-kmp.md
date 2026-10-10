@@ -1,5 +1,4 @@
 # App — Vertical slice en KMP (`mobile-app/`)
-
 > **Normativo.** Build, targets y organización de la app móvil.
 > Última verificación: 2026-10-09.
 

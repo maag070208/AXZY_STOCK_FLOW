@@ -1,5 +1,4 @@
 # M0X — Nombre de la capacidad
-
 > **Normativo.** Un documento por módulo de negocio. Estado y fecha en la tabla de
 > abajo. Última verificación: AAAA-MM-DD.
 
@@ -51,11 +50,9 @@ El detalle de cada endpoint está en `docs/api/`, no aquí.
 
 Qué permisos gobiernan el módulo y con qué alcance (bodega, ubicación, propio).
 
-## 7. Pantallas
+## 7. Bitácora
 
-| Pantalla | Ruta en la web | Estado |
-|---|---|---|
-| | | |
+Qué escribe este módulo en `audit_log` y en qué transacción. Si no escribe nada, dilo.
 
 ## 8. Pruebas
 
@@ -72,12 +69,6 @@ Lista verificable: qué tiene que ser cierto para dar el módulo por terminado.
 
 - [ ]
 
-## 10. Decisiones y pendientes
-
-| Decisión | ADR |
-|---|---|
-| | |
-
-| Pendiente | Por qué está abierto |
-|---|---|
-| | |
+Las **pantallas** del módulo y las **decisiones** que lo gobiernan no llevan sección propia:
+las pantallas están en la tabla de [modulos/README.md](../modulos/README.md) y cada decisión
+se enlaza a su ADR en la regla que la usa.

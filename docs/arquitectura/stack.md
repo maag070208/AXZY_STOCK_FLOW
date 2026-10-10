@@ -1,5 +1,4 @@
 # Stack verificado
-
 > **Referencia.** Versiones reales del proyecto y el archivo donde están declaradas. No es
 > normativo: manda el archivo de build. Última verificación: 2026-10-09.
 

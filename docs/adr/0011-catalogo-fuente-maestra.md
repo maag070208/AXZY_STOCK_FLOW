@@ -1,5 +1,4 @@
 # ADR-0011 — El catálogo lo maneja la API; el Excel solo siembra la carga inicial
-
 > **Normativo.** Decisión aceptada. Última verificación: 2026-10-09.
 
 | | |

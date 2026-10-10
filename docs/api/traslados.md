@@ -3,8 +3,8 @@
 > cancelación y mercancía en tránsito. Última verificación: 2026-10-09.
 
 Implementado en
-`backend/src/main/kotlin/dev/axzy/stock/backend/transfer/TransferRoutes.kt` y
-`TransferService.kt`, con los DTO en `TransferDtos.kt`. La paginación está en
+`backend/src/main/kotlin/dev/axzy/stock/backend/infrastructure/inbound/http/transfer/TransferRoutes.kt` y
+`TransferUseCases.kt`, con los DTO en `TransferDtos.kt`. La paginación está en
 [convenciones.md](convenciones.md); los códigos, en [errores.md](errores.md).
 
 Estados: `DRAFT` → `DISPATCHED` → `IN_TRANSIT` → `RECEIVED`, con `CANCELLED`.

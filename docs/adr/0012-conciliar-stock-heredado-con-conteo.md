@@ -1,5 +1,4 @@
 # ADR-0012 — Reconciliar el stock heredado con conteo físico antes del corte
-
 > **Normativo.** Decisión aceptada; ejecución pendiente. Última verificación: 2026-10-09.
 
 | | |

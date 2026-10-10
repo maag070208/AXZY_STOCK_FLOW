@@ -1,5 +1,4 @@
 # Despliegue
-
 > **Plan.** Qué existe hoy para desplegar y qué falta. Última verificación: 2026-10-09.
 
 ## Qué existe

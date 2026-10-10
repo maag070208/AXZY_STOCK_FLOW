@@ -1,5 +1,4 @@
 # ADR-0005 — Un error esperado se devuelve, no se lanza
-
 > **Normativo.** Decisión aceptada. Última verificación: 2026-10-09.
 
 | | |

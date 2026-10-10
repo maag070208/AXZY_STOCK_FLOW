@@ -1,5 +1,4 @@
 # Estrategia de pruebas: cuatro capas
-
 > **Normativo.** Qué se prueba en cada nivel, para qué sirve cada uno y cómo se ejecuta. Última verificación: 2026-10-09.
 
 Cuatro capas, y cada una caza lo que las otras no pueden. Cada capa existe porque algo se le
@@ -8,7 +7,7 @@ escapó a las de abajo.
 | Capa | Dónde | Qué caza | Coste |
 |---|---|---|---|
 | **Unitaria pura** | `backend/src/test/kotlin/dev/axzy/stock/backend/catalog/CatalogValidationTest.kt` | reglas de validación y **códigos de error** | milisegundos, no toca la base |
-| **Integración con PostgreSQL real** | `backend/src/test/kotlin/dev/axzy/stock/backend/inventory/MotorInventarioTest.kt`, `backend/src/test/kotlin/dev/axzy/stock/backend/inventory/DivergenceMapperTest.kt` | SQL, nombres de columna, funciones PL/pgSQL | segundos, necesita PostgreSQL |
+| **Integración con PostgreSQL real** | `backend/src/test/kotlin/dev/axzy/stock/backend/infrastructure/outbound/persistence/inventory/MotorInventarioTest.kt`, `backend/src/test/kotlin/dev/axzy/stock/backend/infrastructure/outbound/persistence/inventory/DivergenceMapperTest.kt` | SQL, nombres de columna, funciones PL/pgSQL | segundos, necesita PostgreSQL |
 | **E2E de API** | `backend/src/test/kotlin/dev/axzy/stock/backend/ApiE2ETest.kt` | token, RBAC, serialización, contrato HTTP | segundos, base dedicada |
 | **E2E de navegador** | `web/e2e/flow.spec.ts` | que la pantalla pinte de verdad | segundos, backend + web + navegador |
 
@@ -24,7 +23,7 @@ escapó a las de abajo.
 `DivergenceDto` se serializaba con nombres que eran los del `RETURNS TABLE` de una función
 PL/pgSQL. Ningún test leía esa función: con el verificador por defecto, la ruta responde
 `401` **antes** del mapper. Lo cubre ahora
-`backend/src/test/kotlin/dev/axzy/stock/backend/inventory/DivergenceMapperTest.kt`, que
+`backend/src/test/kotlin/dev/axzy/stock/backend/infrastructure/outbound/persistence/inventory/DivergenceMapperTest.kt`, que
 ejercita la función real y su nombre de columna.
 
 **2. La misma falta de token daba `403` en unas rutas y `401` en otras.**

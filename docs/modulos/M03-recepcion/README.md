@@ -1,5 +1,4 @@
 # M03 — Recepción: facturas, captura física y discrepancias
-
 > **Normativo.** Última verificación: 2026-10-09.
 
 | | |
@@ -33,8 +32,8 @@ diferencias con un supervisor y dejar la mercancía ubicada.
 | R2 | Toda diferencia requiere aprobación de un supervisor, sin umbral | [ADR-0008](../../adr/0008-discrepancias-y-merma.md) |
 | R3 | La aprobación es por factura, no por línea | `receiving/ReceivingRoutes.kt` (`POST /v1/invoices/{id}/approve`) |
 | R4 | Quien captura una línea no puede aprobar su discrepancia | `SEGREGATION_OF_DUTIES` en `security/PermissionChecker.kt` |
-| R5 | Una factura no se cierra con líneas en discrepancia | `INVOICE_HAS_PENDING_LINES` en `receiving/ReceivingService.kt` |
-| R6 | Si nada está pendiente de aprobar, responde `NO_PENDING_APPROVAL` (409) | `receiving/ReceivingService.kt` |
+| R5 | Una factura no se cierra con líneas en discrepancia | `INVOICE_HAS_PENDING_LINES` en `application/receiving/ReceivingUseCases.kt` |
+| R6 | Si nada está pendiente de aprobar, responde `NO_PENDING_APPROVAL` (409) | `application/receiving/ReceivingUseCases.kt` |
 | R7 | El listado de facturas rechaza `page` negativa en lugar de recortarla | `receiving/ReceivingRoutes.kt` (`INVALID_PAGINATION`) |
 
 ## 4. Modelo de datos
@@ -46,13 +45,14 @@ diferencias con un supervisor y dejar la mercancía ubicada.
 
 ## 5. API
 
-Contrato en [api/recepcion.md](../../api/recepcion.md). Rutas en `receiving/ReceivingRoutes.kt`.
+Contrato en [api/recepcion.md](../../api/recepcion.md). Rutas en
+`infrastructure/inbound/http/receiving/ReceivingRoutes.kt`.
 
 ## 6. Permisos
 
 `invoice.view`, `invoice.create`, `invoice.capture`, `invoice.approve`, `invoice.reject`,
-`invoice.close`, `invoice.locate`. El operador ubica con alcance `OWN` (decisión R-77 de
-`PLAN_ALMACEN_INTEGRAL.md`, pendiente de archivar). Ver
+`invoice.close`, `invoice.locate`. El operador ubica con alcance `OWN` (decisión R-77, en
+`docs/historico/PLAN_ALMACEN_INTEGRAL.md`). Ver
 [seguridad/roles-permisos.md](../../seguridad/roles-permisos.md).
 
 ## 7. Bitácora

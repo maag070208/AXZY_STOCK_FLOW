@@ -79,7 +79,7 @@ GET /v1/products?page=0&size=50&sort=productCode,asc&q=abra
 Un `page` negativo o un `size` fuera de `1..200` responden `400 INVALID_PAGINATION`;
 un `sort` no admitido, `400 INVALID_SORT`. La validación es una sola en todo el
 backend: `PageRequest.analyze` en
-`backend/src/main/kotlin/dev/axzy/stock/backend/catalog/Pagination.kt` (los módulos
+`backend/src/main/kotlin/dev/axzy/stock/backend/application/shared/Pagination.kt` (los módulos
 que no dependen del catálogo conservan una copia mínima).
 
 **Excepciones deliberadas.** Devuelven **todas** sus filas, sin sobre de
@@ -101,7 +101,7 @@ Además, `GET /v1/invoices/pending-approval` devuelve `{ "items": [...] }` y
 `GET /v1/transfers/in-transit` devuelve un arreglo: son bandejas acotadas, no
 listados paginables.
 
-### El total se CUENTA, no se adivina (regla de `docs/historico/ARQUITECTURA.md` §5.6)
+### El total se cuenta, no se adivina
 
 ```kotlin
 Page(items, page.page, page.size, total)   // total de un SELECT count(*)
@@ -139,7 +139,7 @@ Estado en la implementación:
 
 | Endpoint | Cómo se garantiza |
 |---|---|
-| `POST /v1/inventory/adjustments` | cabecera `Idempotency-Key` (`InventoryRoutes.kt`, `InventoryService.kt`) |
+| `POST /v1/inventory/adjustments` | cabecera `Idempotency-Key` (`InventoryRoutes.kt`, `InventoryUseCases.kt`) |
 | `POST /v1/inventory/locate` | cabecera `Idempotency-Key` |
 | `POST /v1/inventory/move` | cabecera `Idempotency-Key` |
 | `POST /v1/orders/{id}/export` | idempotente por el `orderNumber` convertido, no por cabecera (`OrderService.kt`) |
@@ -164,7 +164,7 @@ revocar dos veces no falla.
 **`X-Client-Channel` no es decorativo**: la auditoría registra el canal, y
 `MOBILE_OFFLINE` dispara el camino de sincronización diferida. El canal se lee en
 `backend/src/main/kotlin/dev/axzy/stock/backend/security/PermissionChecker.kt` y se
-escribe en `backend/src/main/kotlin/dev/axzy/stock/backend/audit/AuditWriter.kt`.
+escribe en `backend/src/main/kotlin/dev/axzy/stock/backend/infrastructure/outbound/persistence/audit/AuditWriter.kt`.
 
 `X-Service-Key` y no `Authorization` para la impresora: así la auditoría distingue
 un trabajo marcado por una máquina (`SERVICE_PRINTER`) de uno hecho por una

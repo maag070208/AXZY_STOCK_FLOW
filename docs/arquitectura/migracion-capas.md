@@ -1,10 +1,12 @@
 # Migración a capas: el plan por fases
-
 > **Plan.** Trabajo propuesto y en curso; no describe el estado actual.
 > Última verificación: 2026-10-09.
 
-**Estado: la partición de `catalog/` está hecha; las capas `domain`/`application`/
-`infrastructure`, no.** El objetivo es la estructura de [api-ktor.md](api-ktor.md) §1.2.
+**Estado: las fases 1 a 3 están hechas.** `catalog/` está partido por recurso, lo compartido
+vive en `application/shared/` y `infrastructure/`, y `inventory/`, `receiving/` y `transfer/`
+ya están en capas. **Faltan las fases 4 a 6:** las features transversales (`identity/`,
+`audit/`, `health/`, `tools/`, `order/`, `label/`, `reports/`), el composition root y la
+guardia de dependencias. El objetivo es la estructura de [api-ktor.md](api-ktor.md) §1.2.
 
 > **Regla que no se negocia: la migración no cambia comportamiento.** Es un movimiento de
 > código: mismas rutas, mismas respuestas, mismos códigos de estado, mismos tests. Si una
@@ -109,17 +111,23 @@ rutas en verde. **Si el contrato y la ruta no coinciden hoy, la migración convi
 discrepancia en un bug importado** y ya no se sabrá de dónde vino. La corrección de las
 columnas de reconciliación con la migración V8 es la lección.
 
-**Fase 1 — Lo compartido sale de `catalog/`. Parcial: `Pagination.kt` ya está en `application/shared/` (`Page`, `PageRequest`); `CatalogTables.kt` y `aResponse` (un mapeo a DTO, que se queda en `catalog/`) siguen pendientes.** Ver el estado al final. `Pagination.kt` y `CatalogTables.kt` salen **los primeros** porque los usa todo el
-backend: `Page`, `PageRequest` y los resultados de consulta van a `application/shared/`, y
-las tablas Exposed a `infrastructure/outbound/persistence/tables/`. **Hoy `identity/`,
-`audit/` e `inventory/` importan `Pagination` del catálogo**, que es acoplamiento accidental
-entre features: un módulo depende de otro por un detalle de paginación.
+**Fase 1 — Lo compartido sale de `catalog/`. Hecha.** `Pagination.kt` está en
+`application/shared/` (`Page`, `PageRequest`) y las tablas Exposed en
+`infrastructure/outbound/persistence/tables/CatalogTables.kt`. Salieron **los primeros**
+porque los usa todo el backend, y ese era el acoplamiento accidental que había que quitar:
+hoy `identity/` y `catalog/` importan `Page` y `PageRequest` de `application.shared`
+(`backend/src/main/kotlin/dev/axzy/stock/backend/identity/IdentityAdminService.kt`,
+`backend/src/main/kotlin/dev/axzy/stock/backend/catalog/product/ProductRepository.kt`).
 
 **Fase 2 — `catalog/`, recurso a recurso. Hecha.** La partición está arriba, y las reglas están en `ProductService` y `LocationService`: las rutas traducen HTTP y nada más. `WarehouseService` no existe a propósito: la bodega solo lista y lee, sin reglas que sostengan un servicio. El `PUT` consulta el recurso antes de leer el cuerpo, para conservar el orden 404 → 400.
 Es lo que llena el hueco de «no hay dónde poner una regla que afecte a más de un recurso».
 
-**Fase 3 — `inventory/` y `receiving/`.** Son los que llevan el motor PL/pgSQL y su propia
-transacción ([api-ktor.md](api-ktor.md) §1.12). **Se mueven tal cual.** El patrón
+**Fase 3 — `inventory/`, `receiving/` y `transfer/`. Hecha.** Son los que llevan el motor
+PL/pgSQL y su propia transacción ([api-ktor.md](api-ktor.md) §1.12). Sus casos de uso y
+puertos están en `application/<feature>/`, y las rutas y los adaptadores JDBC en
+`infrastructure/inbound/http/<feature>/` e `infrastructure/outbound/persistence/<feature>/`
+(`backend/src/main/kotlin/dev/axzy/stock/backend/application/`,
+`backend/src/main/kotlin/dev/axzy/stock/backend/infrastructure/`). **Se movieron tal cual.** El patrón
 `dataSource.connection.use { autoCommit = false; ... commit() }` **no se reescribe al
 migrar**: formalizarlo es otra tarea. Si se «aprovecha» para cambiarlo, **se pierde la
 capacidad de atribuir un fallo** — no se sabrá si lo rompió el movimiento o el cambio.
@@ -127,7 +135,9 @@ capacidad de atribuir un fallo** — no se sabrá si lo rompió el movimiento o 
 **Fase 4 — Transversales.** `identity/`, `audit/`, `docs/`, `health/`, `tools/`, y el
 `domain/` propio del backend (`domain/model/` y `domain/error/DomainFailure`), que **hoy no
 existe**; el catálogo de errores vive en `stock-domain`
-([lo-no-verificado.md](../guia/lo-no-verificado.md)).
+([lo-no-verificado.md](../guia/lo-no-verificado.md)). **`audit/` está a medias:** su escritor
+ya vive en `infrastructure/outbound/persistence/audit/AuditWriter.kt`, pero sus rutas y su
+consulta siguen en `audit/`.
 
 **Fase 5 — `Application.kt` y el composition root.** Se cierra la composición
 ([api-ktor.md](api-ktor.md) §1.8) y se comprueba que **no queda ningún directorio de feature

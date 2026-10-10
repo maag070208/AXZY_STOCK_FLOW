@@ -1,5 +1,4 @@
 # Respaldos
-
 > **Plan.** Estado: **no existe mecanismo de respaldo en el repo.** Última verificación: 2026-10-09.
 
 ## Qué se comprobó

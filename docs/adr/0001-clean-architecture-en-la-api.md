@@ -1,5 +1,4 @@
 # ADR-0001 — Clean Architecture por feature en la API
-
 > **Normativo.** Decisión aceptada. Última verificación: 2026-10-09.
 
 | | |
@@ -50,9 +49,11 @@ de datos y un caso de uso que se puede exponer por otro canal sin arrastrar la r
 HTTP.
 
 Se paga más estructura por feature: más archivos, más imports que mantener y una migración
-que todavía no termina. El árbol objetivo de [api-ktor.md](../arquitectura/api-ktor.md) §1.2 **no existe todavía**:
-hoy el backend sigue siendo `package-by-feature` con `catalog/` partido por recurso
-([api-ktor.md](../arquitectura/api-ktor.md) §1.2 y [lo-no-verificado.md](../guia/lo-no-verificado.md)).
+que todavía no termina. El árbol objetivo de [api-ktor.md](../arquitectura/api-ktor.md) §1.2
+**existe ya para `inventory/`, `receiving/` y `transfer/`**, y `catalog/` está partido por
+recurso con sus servicios; el resto de features sigue `package-by-feature`
+([migracion-capas.md](../arquitectura/migracion-capas.md) y
+[lo-no-verificado.md](../guia/lo-no-verificado.md)).
 
 Reglas operativas que se derivan:
 
@@ -68,10 +69,10 @@ Reglas operativas que se derivan:
 - **Mantener vertical slice en la API.** La localidad es real, pero no hay dirección de
   dependencias escrita y la regla de negocio acaba repartida por los handlers
   ([api-ktor.md](../arquitectura/api-ktor.md) §1.1).
-- **Volver a carpetas globales por capa.** El proyecto ya las tuvo: el servicio en
-  `inventory/InventoryService.kt` y su HTTP en `routes/InventoryRoutes.kt`, en carpetas
-  distintas. Para tocar inventario había que saltar entre dos sitios y `routes/` era un
-  cajón de archivos sin relación entre sí ([api-ktor.md](../arquitectura/api-ktor.md) §1.2).
+- **Volver a carpetas globales por capa.** El servicio en una carpeta y todas las rutas HTTP
+  en otra obliga a saltar entre dos sitios para tocar una feature, y `routes/` acaba siendo un
+  cajón de archivos sin relación entre sí
+  ([api-ktor.md](../arquitectura/api-ktor.md) §1.2).
 - **Migrar todo de una vez con un script.** Se intentó y se revirtió a propósito: el
   refactor rompió imports en masa y lo único verificable que quedó fue el destrozo. Se hace
   por feature y compilando entre fases ([api-ktor.md](../arquitectura/api-ktor.md) §1.2).

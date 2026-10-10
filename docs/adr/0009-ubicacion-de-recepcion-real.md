@@ -1,5 +1,4 @@
 # ADR-0009 — La ubicación de recepción es una ubicación real
-
 > **Normativo.** Decisión aceptada. Última verificación: 2026-10-09.
 
 | | |

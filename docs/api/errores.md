@@ -113,8 +113,8 @@ Errores de conflicto con el estado actual (§409):
 
 La implementación emite los códigos siguientes; se incorporan al catálogo para que
 el cliente pueda contemplarlos. Proceden de las rutas y servicios de cada módulo
-(`receiving/ReceivingService.kt`, `order/OrderService.kt`,
-`transfer/TransferService.kt`, `label/LabelService.kt`,
+(`application/receiving/ReceivingUseCases.kt`, `order/OrderService.kt`,
+`application/transfer/TransferUseCases.kt`, `label/LabelService.kt`,
 `audit/AuditRoutes.kt`) y de los errores de dominio
 (`stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/error/DomainError.kt`).
 
@@ -162,11 +162,10 @@ el cliente pueda contemplarlos. Proceden de las rutas y servicios de cada módul
 | `INTERNAL_ERROR` | 500 | error no controlado; el detalle **no** se filtra al cliente |
 | `RATE_LIMITED` | 429 | demasiados intentos. **Declarado en la lista cerrada; la implementación aún no tiene limitador de tasa** |
 
-## 5.5 Errores: catálogo cerrado (regla de `docs/historico/ARQUITECTURA.md`)
+## 1.3-ter El catálogo es cerrado
 
-> **Normativo (heredado de `docs/historico/ARQUITECTURA.md` §5.5).** Los códigos están en esta
-> lista y **no se inventan**. Un error nuevo se añade al catálogo **antes** de
-> usarlo.
+> **Normativo.** Los códigos están en esta lista y **no se inventan**. Un error nuevo se
+> añade al catálogo **antes** de usarlo.
 
 **Un `500` es una mentira.** Dice «el servidor falló» cuando el servidor está
 bien. Un cliente que reintenta ante un `500` **reintenta para siempre**; ante un

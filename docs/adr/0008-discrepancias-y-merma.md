@@ -1,5 +1,4 @@
 # ADR-0008 — Discrepancias y merma: una sola regla de ajuste, aprobada por factura
-
 > **Normativo.** Decisión aceptada. Última verificación: 2026-10-09.
 
 | | |
@@ -40,9 +39,9 @@ ajuste para todos los orígenes.
 - Un supervisor que aprueba debe ver la factura completa; no puede aprobar por línea
   aunque la API lo permitiría, porque no existe esa ruta.
 - Una factura con una discrepancia no se cierra hasta resolverla
-  (`INVOICE_HAS_PENDING_LINES`, `receiving/ReceivingService.kt`).
+  (`INVOICE_HAS_PENDING_LINES`, `application/receiving/ReceivingUseCases.kt`).
 - Si nada está pendiente de aprobar, la API responde `409 NO_PENDING_APPROVAL`
-  (`receiving/ReceivingService.kt`).
+  (`application/receiving/ReceivingUseCases.kt`).
 - Se paga en tiempo del supervisor: cada discrepancia pasa por una persona. Es el coste
   asumido para no tener un descuadre sin firma.
 

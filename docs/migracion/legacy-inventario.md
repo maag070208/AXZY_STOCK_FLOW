@@ -1,5 +1,4 @@
 # Inventario del legacy (`BASE/`)
-
 > **Referencia.** Qué había en el sistema anterior y qué problemas tenía. Las cifras vienen del
 > análisis de 2026-10-07 ([historico/PLAN_ALMACEN_INTEGRAL.md](../historico/PLAN_ALMACEN_INTEGRAL.md)
 > §0 y §1); el código de `BASE/` no se ha vuelto a contar. Última verificación: 2026-10-09.

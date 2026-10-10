@@ -1,6 +1,8 @@
 # Plantilla de arquitectura — `RESPONSIVA/web` (Puerto Nuevo ERP)
-
-> **Documento de replicación.** Describe, con rutas y extractos reales, las convenciones y la arquitectura del frontend de producción ubicado en `/Users/axzy/DEV/PTNV/RESPONSIVA/web`.
+> **Referencia.** Documento de **otro proyecto** (`/Users/axzy/DEV/PTNV/RESPONSIVA/web`), traído
+> aquí para comparar. **No describe STOCK**: las rutas que cita pertenecen a aquel repo.
+>
+> Describe, con rutas y extractos reales, las convenciones y la arquitectura del frontend de producción ubicado en `/Users/axzy/DEV/PTNV/RESPONSIVA/web`.
 > Todo lo aquí escrito fue **leído del código fuente**; cuando algo es ambiguo o inconsistente se marca explícitamente con ⚠️ **Desviación** o ❓ **No verificable**.
 > **No se inventó nada.** No se instalaron dependencias ni se modificó ningún archivo del repo analizado.
 

@@ -1,5 +1,4 @@
 # Arquitectura general: las cuatro partes del sistema
-
 > **Normativo.** Cómo se organiza cada parte del monorepo, por qué cada una usa una
 > arquitectura distinta y cómo se relacionan. Última verificación: 2026-10-09.
 

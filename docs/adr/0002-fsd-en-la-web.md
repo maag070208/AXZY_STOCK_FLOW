@@ -1,5 +1,4 @@
 # ADR-0002 — FSD en la web
-
 > **Normativo.** Decisión aceptada. Última verificación: 2026-10-09.
 
 | | |

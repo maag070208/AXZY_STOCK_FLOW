@@ -1,5 +1,4 @@
 # Catálogo del Excel inicial
-
 > **Referencia.** Qué trae el inventario real que se importa al sistema nuevo y cómo se
 > importa. Última verificación: 2026-10-09.
 

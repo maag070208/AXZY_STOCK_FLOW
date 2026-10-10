@@ -1,5 +1,4 @@
 # ADR-0013 — Las órdenes surtidas se devuelven al ERP con reintentos e idempotencia
-
 > **Normativo.** Decisión aceptada; envío real pendiente. Última verificación: 2026-10-09.
 
 | | |

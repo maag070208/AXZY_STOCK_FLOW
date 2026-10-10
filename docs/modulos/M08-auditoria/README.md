@@ -1,5 +1,4 @@
 # M08 — Auditoría: bitácora y trazabilidad
-
 > **Normativo.** Última verificación: 2026-10-09.
 
 | | |

@@ -1,5 +1,4 @@
 # ADR-0006 — RBAC + ABAC, denegar por defecto
-
 > **Normativo.** Decisión aceptada. Última verificación: 2026-10-09.
 
 | | |

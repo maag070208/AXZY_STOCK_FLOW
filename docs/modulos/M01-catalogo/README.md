@@ -1,5 +1,4 @@
 # M01 — Catálogo: productos, ubicaciones y bodegas
-
 > **Normativo.** Última verificación: 2026-10-09.
 
 | | |

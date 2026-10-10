@@ -1,5 +1,4 @@
 # Roadmap
-
 > **Plan.** Orden de construcción y estado real, derivado del código. Última verificación: 2026-10-09.
 > El estado de cada módulo se mide en [modulos/README.md](../modulos/README.md); aquí solo el orden.
 

@@ -1,5 +1,4 @@
 # Visión y alcance
-
 > **Normativo.** Qué construye STOCK, para quién y qué queda fuera. Última verificación: 2026-10-09.
 
 ## Problema

@@ -1,5 +1,4 @@
 # Verificación: las reglas que impiden el autoengaño
-
 > **Normativo.** No son recomendaciones. Son la respuesta a errores concretos que ya se
 > cometieron. Última verificación: 2026-10-09.
 

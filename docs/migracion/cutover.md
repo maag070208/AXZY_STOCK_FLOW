@@ -1,5 +1,4 @@
 # Corte al sistema nuevo
-
 > **Plan.** Pasos del corte y de su reversión. Estado: pendiente de ejecutar. Última verificación: 2026-10-09.
 
 ## Prerrequisitos

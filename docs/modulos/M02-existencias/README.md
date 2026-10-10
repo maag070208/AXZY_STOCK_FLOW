@@ -1,5 +1,4 @@
 # M02 — Existencias: stock, kardex, ajustes y reportes
-
 > **Normativo.** Última verificación: 2026-10-09.
 
 | | |
@@ -33,7 +32,7 @@ leen de las mismas existencias y del mismo kardex.
 | R1 | Cada cambio de existencias es un movimiento nuevo en el kardex; nunca se edita el histórico | `V3__inventory_domain.sql` (`kardex` append-only); `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/inventory/` |
 | R2 | Las existencias son una proyección del kardex y del tránsito | `stock_by_location`, `product_stock` en `V3` |
 | R3 | Toda diferencia es un ajuste con motivo obligatorio y origen | [ADR-0008](../../adr/0008-discrepancias-y-merma.md); `AdjustStock` en `stock-domain` |
-| R4 | No se puede sacar más de lo que hay en la ubicación | `INSUFFICIENT_STOCK` en `inventory/InventoryService.kt` y `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/error/DomainError.kt` |
+| R4 | No se puede sacar más de lo que hay en la ubicación | `INSUFFICIENT_STOCK` en `application/inventory/InventoryUseCases.kt` y `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/error/DomainError.kt` |
 | R5 | Origen y destino de un movimiento no pueden ser el mismo | `SAME_SOURCE_AND_DESTINATION` |
 | R6 | Un movimiento de existencias requiere motivo cuando la regla lo exige | `REASON_REQUIRED` |
 | R7 | El total por producto cuadra con la suma de sus ubicaciones y el tránsito | `comprobar_proyecciones()` en las migraciones; reporte `kardex-vs-projection` |

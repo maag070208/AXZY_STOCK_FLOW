@@ -1,5 +1,4 @@
 # Convenciones transversales: idioma, comentarios y estándares
-
 > **Normativo.** Obligatorias en las cuatro partes del monorepo. Última verificación: 2026-10-09.
 
 La decisión sobre el idioma está en

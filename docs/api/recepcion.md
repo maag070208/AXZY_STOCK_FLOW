@@ -4,8 +4,8 @@
 > Última verificación: 2026-10-09.
 
 Implementado en
-`backend/src/main/kotlin/dev/axzy/stock/backend/receiving/ReceivingRoutes.kt` y
-`ReceivingService.kt`, con los mapeos en `ReceivingMappers.kt`. La paginación está
+`backend/src/main/kotlin/dev/axzy/stock/backend/infrastructure/inbound/http/receiving/ReceivingRoutes.kt` y
+`ReceivingUseCases.kt`, con los mapeos en `ReceivingMappers.kt`. La paginación está
 en [convenciones.md](convenciones.md); los códigos, en [errores.md](errores.md).
 La idempotencia va en la cabecera `Idempotency-Key`, según
 [convenciones.md §1.5](convenciones.md).
@@ -216,5 +216,5 @@ de la línea, que sí lleva signo.
 
 | Archivo | Qué cubre |
 |---|---|
-| `backend/src/test/kotlin/dev/axzy/stock/backend/receiving/InvoiceCloseTest.kt` | el cierre y las líneas que lo bloquean |
+| `backend/src/test/kotlin/dev/axzy/stock/backend/application/receiving/InvoiceCloseTest.kt` | el cierre y las líneas que lo bloquean |
 | `backend/src/test/kotlin/dev/axzy/stock/backend/ApiE2ETest.kt` | las rutas de facturas contra la API montada |

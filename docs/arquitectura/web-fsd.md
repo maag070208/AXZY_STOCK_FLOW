@@ -1,5 +1,4 @@
 # Web — Feature-Sliced Design (`web/`)
-
 > **Normativo.** Arquitectura de la web React y sus límites de importación.
 > Última verificación: 2026-10-09.
 
@@ -71,7 +70,7 @@ la interfaz, siempre** (ver [verificacion.md](../pruebas/verificacion.md)).
 **2. El nombre visible de una ubicación lo compone el servidor.** El cliente nunca concatena
 `hall + code + position`. Si cambia el formato de las etiquetas, no hay que tocar el
 backend, la web y el móvil a la vez. La composición está en
-`backend/src/main/kotlin/dev/axzy/stock/backend/inventory/InventoryMappers.kt`
+`backend/src/main/kotlin/dev/axzy/stock/backend/application/shared/LocationDisplayName.kt`
 (`locationDisplayName`).
 
 **3. Los datos de servidor son `string` decimal, no `number`.** `"5193.000"`. Tipar contra el

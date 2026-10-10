@@ -1,5 +1,4 @@
 # Glosario
-
 > **Referencia.** Términos del dominio tal como los usa el código. Última verificación: 2026-10-09.
 
 | Término | Significado | Dónde se define |

@@ -1,5 +1,4 @@
 # Entidad-relación
-
 > **Referencia.** Qué tablas hay, en qué migración nacen y cómo se relacionan. El detalle de
 > columnas está en las propias migraciones: `backend/src/main/resources/db/migration/`.
 > Última verificación: 2026-10-09.

@@ -1,5 +1,4 @@
 # Mapa legacy → sistema nuevo
-
 > **Referencia.** Cada ruta del legacy con su destino en el sistema nuevo, o con el motivo de
 > descarte. Las rutas del legacy vienen de [historico/PLAN_ALMACEN_INTEGRAL.md](../historico/PLAN_ALMACEN_INTEGRAL.md) §1.1;
 > las del sistema nuevo, de `backend/src/main/kotlin/dev/axzy/stock/backend/`. Última verificación: 2026-10-09.

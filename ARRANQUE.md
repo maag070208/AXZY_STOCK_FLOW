@@ -136,8 +136,16 @@ Login por el proxy de la web     → 200
 APK de Android                   → 44 MB generado
 ```
 
-**683 pruebas** en `:backend:test` y `:stock-domain:jvmTest`, con la caché de compilación
-desactivada: 0 fallos, 0 saltadas (ejecutadas de verdad, no servidas desde caché).
+**684 pruebas** en `:backend:test` y `:stock-domain:jvmTest`, con la caché de compilación
+desactivada: 0 fallos, 0 saltadas (ejecutadas de verdad, no servidas desde caché). Para
+volver a medirlo:
+
+```bash
+GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew :backend:test :stock-domain:jvmTest \
+  --no-build-cache --rerun-tasks
+# El recuento real está en los XML, no en «BUILD SUCCESSFUL»:
+#   backend/build/test-results/test/*.xml y stock-domain/build/test-results/jvmTest/*.xml
+```
 
 ### NO verificado
 

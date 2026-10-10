@@ -1,5 +1,4 @@
 # Dominio — KMP puro (`stock-domain/`)
-
 > **Normativo.** Reglas de pureza, contenido y por qué las reglas de negocio viven aquí.
 > Última verificación: 2026-10-09.
 

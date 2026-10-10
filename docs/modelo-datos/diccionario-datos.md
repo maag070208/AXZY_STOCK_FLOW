@@ -1,5 +1,4 @@
 # Diccionario de datos
-
 > **Referencia.** Tabla, migración que la crea y su función. Las columnas son las de cada
 > `CREATE TABLE`; **no se transcriben aquí** para que no se desfasen. Última verificación: 2026-10-09.
 

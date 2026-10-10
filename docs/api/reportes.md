@@ -7,7 +7,7 @@ Implementado en
 `backend/src/main/kotlin/dev/axzy/stock/backend/reports/ReportRoutes.kt` y
 `ReportService.kt`, con los DTO en `ReportDtos.kt` y la exportación a CSV/XLSX en
 `ReportExport.kt`. La reconciliación vive en
-`backend/src/main/kotlin/dev/axzy/stock/backend/inventory/InventoryRoutes.kt`. La
+`backend/src/main/kotlin/dev/axzy/stock/backend/infrastructure/inbound/http/inventory/InventoryRoutes.kt`. La
 paginación está en [convenciones.md](convenciones.md); los códigos, en
 [errores.md](errores.md).
 
@@ -131,5 +131,5 @@ conteo físico.
 |---|---|
 | `backend/src/test/kotlin/dev/axzy/stock/backend/reports/ReportServiceTest.kt` | las consultas de los reportes |
 | `backend/src/test/kotlin/dev/axzy/stock/backend/reports/ReportExportTest.kt` | la exportación a CSV/XLSX |
-| `backend/src/test/kotlin/dev/axzy/stock/backend/inventory/DivergenceMapperTest.kt` | el mapeo de la reconciliación |
+| `backend/src/test/kotlin/dev/axzy/stock/backend/infrastructure/outbound/persistence/inventory/DivergenceMapperTest.kt` | el mapeo de la reconciliación |
 | `backend/src/test/kotlin/dev/axzy/stock/backend/ApiE2ETest.kt` | las rutas de reportes contra la API montada |

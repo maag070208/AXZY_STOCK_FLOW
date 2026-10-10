@@ -1,5 +1,4 @@
 # Módulos de negocio
-
 > **Normativo.** Índice y estado de cada capacidad de STOCK. Última verificación: 2026-10-09.
 > El estado sale del código, no de tablas de progreso antiguas.
 
@@ -25,8 +24,8 @@
 
 ## Cobertura en navegador
 
-`web/e2e/flow.spec.ts` tiene 18 pruebas contra el backend real. No están en CI y no se
-ejecutaron al escribir esto. Por módulo:
+`web/e2e/flow.spec.ts` tiene pruebas contra el backend real, repartidas por módulo en la
+tabla de abajo. No están en CI y no se ejecutaron al escribir esto.
 
 | Módulo | Pruebas | Qué cubren |
 |---|---|---|

@@ -1,5 +1,4 @@
 # API — Clean Architecture por feature (`backend/`)
-
 > **Normativo.** Arquitectura, reglas de dependencia y estándares de la API Ktor. Si el
 > código contradice algo de aquí, uno de los dos está mal. Última verificación: 2026-10-09.
 
@@ -57,26 +56,31 @@ backend/src/main/kotlin/dev/axzy/stock/backend/
 └── config/ error/ security/ health/ tools/ docs/   transversales
 ```
 
-> ⚠️ **Estado real: este árbol es la forma OBJETIVO y no existe todavía.** El backend sigue
-> siendo `package-by-feature`, con una excepción: `catalog/` está partido por recurso **y en
-> subpaquete por recurso** (`catalog/product/`, `catalog/location/`, `catalog/warehouse/`).
-> Las demás features siguen en la raíz del paquete, con sus rutas, servicios y tablas en la
-> misma carpeta. **`domain/`, `application/` e `infrastructure/` como carpetas no existen.**
-> Lo que sí se cumple es la **dirección de dependencias** de §1.3, que es la regla que
-> importa. El plan y las fases están en [migracion-capas.md](migracion-capas.md); lo que
-> falta, en [lo-no-verificado.md](../guia/lo-no-verificado.md).
+> ⚠️ **Estado real: la migración va por la fase 3 y el árbol completo todavía no existe.**
+> `inventory/`, `receiving/` y `transfer/` ya están en capas: sus casos de uso y puertos en
+> `application/<feature>/`, sus rutas y adaptadores en
+> `infrastructure/inbound/http/<feature>/` e
+> `infrastructure/outbound/persistence/<feature>/`. `catalog/` está partido por recurso, con
+> sus servicios (`catalog/product/ProductService.kt`,
+> `catalog/location/LocationService.kt`) y las tablas Exposed fuera. `identity/`, `audit/`,
+> `health/`, `tools/`, `order/`, `label/` y `reports/` siguen agrupadas por feature, con sus
+> rutas y servicios en la misma carpeta. **El `domain/` propio del backend no existe**, y la
+> guardia de dependencias tampoco. Lo que sí se cumple en todo el backend es la **dirección
+> de dependencias** de §1.3, que es la regla que importa. El plan y las fases están en
+> [migracion-capas.md](migracion-capas.md); lo que falta, en
+> [lo-no-verificado.md](../guia/lo-no-verificado.md).
 >
-> **Los bloques de código con rutas `application/...` o `infrastructure/...` muestran la
-> forma OBJETIVO**, no archivos que existan. Cuando un ejemplo es código real, se dice de
-> qué archivo sale. Una arquitectura que solo se puede leer en el código que ya existe no
-> sirve para migrar nada.
+> **Los bloques de código que muestran rutas no citadas como archivo real ilustran la forma
+> OBJETIVO**, no archivos que existan. Cuando un ejemplo es código real, se dice de qué
+> archivo sale. Una arquitectura que solo se puede leer en el código que ya existe no sirve
+> para migrar nada.
 
-**`routes/` no existe, y es deliberado.** Una estructura con `inventory/InventoryService.kt`
-por un lado y `routes/InventoryRoutes.kt` por otro obliga a saltar entre dos sitios para
-tocar una feature, y convierte `routes/` en un cajón de archivos sin relación entre sí: no
-es agrupar por capas ni por features, es lo peor de los dos. En la estructura objetivo el
-HTTP vive **con su feature** (`infrastructure/inbound/http/<feature>/`): cambia la capa,
-no la localidad.
+**`routes/` no existe, y es deliberado.** Volver a carpetas globales por capa —el servicio en
+una carpeta y todas las rutas HTTP en otra— obliga a saltar entre dos sitios para tocar una
+feature, y convierte `routes/` en un cajón de archivos sin relación entre sí: no es agrupar
+por capas ni por features, es lo peor de los dos. En la estructura objetivo el HTTP vive
+**con su feature** (`infrastructure/inbound/http/<feature>/`): cambia la capa, no la
+localidad.
 
 ## 1.3 La regla de dependencias — la única que no se negocia
 
@@ -647,7 +651,7 @@ nada**, porque al mes siguiente nadie sabe si sigue siendo cierta.
 
 | Regla | Estado verificado |
 |---|---|
-| Capas `domain`/`application`/`infrastructure` | **NO** — el backend es `package-by-feature`; `catalog/` ya está partido por recurso **y en subpaquetes**: `catalog/product/`, `catalog/location/`, `catalog/warehouse/` |
+| Capas `domain`/`application`/`infrastructure` | **PARCIAL** — `inventory/`, `receiving/` y `transfer/` están en capas; `catalog/` está partido por recurso y con servicios; el resto sigue `package-by-feature` ([migracion-capas.md](migracion-capas.md)) |
 | `value class` para primitivas | **SÍ** en el dominio (`Id`, `ProductCode`, `LocationCode`, `Quantity`, `BoxQuantity`, `UnitsPerBox` en `value/Values.kt`); **1** en backend (`JsonQuantity`) |
 | `sealed` para jerarquías y errores | **SÍ** (`Either` y `DomainError` son `sealed`; `StockException` es una jerarquía cerrada de facto con `open class`, no `sealed`) |
 | Coroutines | **SÍ** (Ktor es `suspend`) |
@@ -663,4 +667,4 @@ nada**, porque al mes siguiente nadie sabe si sigue siendo cierta.
 | Tests unitarios, de integración y e2e | **SÍ** — niveles, comandos y reglas en [estrategia-pruebas.md](../pruebas/estrategia-pruebas.md) |
 | MockK | **NO** está en el proyecto |
 | Testcontainers | **NO**; se usa PostgreSQL real local |
-| Un mapper leído por nombre de columna tiene test contra la función real | **SÍ** — `backend/src/test/kotlin/dev/axzy/stock/backend/inventory/DivergenceMapperTest.kt`, que cubre el nombre de columna real de la función PL/pgSQL (regla de [verificacion.md](../pruebas/verificacion.md)) |
+| Un mapper leído por nombre de columna tiene test contra la función real | **SÍ** — `backend/src/test/kotlin/dev/axzy/stock/backend/infrastructure/outbound/persistence/inventory/DivergenceMapperTest.kt`, que cubre el nombre de columna real de la función PL/pgSQL (regla de [verificacion.md](../pruebas/verificacion.md)) |

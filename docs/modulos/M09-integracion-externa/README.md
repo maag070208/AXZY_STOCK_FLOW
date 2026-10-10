@@ -1,5 +1,4 @@
 # M09 — Integración externa: ERP y legacy
-
 > **Plan.** Módulo sin construir en la parte de ERP. Última verificación: 2026-10-09.
 
 | | |

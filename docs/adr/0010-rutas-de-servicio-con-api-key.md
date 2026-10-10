@@ -1,5 +1,4 @@
 # ADR-0010 — Rutas de sistema con clave de servicio, no con usuario
-
 > **Normativo.** Decisión aceptada. Última verificación: 2026-10-09.
 
 | | |

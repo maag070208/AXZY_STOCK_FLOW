@@ -1,5 +1,4 @@
 # Lo que no está verificado
-
 > **Referencia.** Lo que no se ha comprobado contra el código, el motor o un dispositivo. Un
 > documento que solo dice lo que va bien no sirve para decidir. Última verificación: 2026-10-09.
 
@@ -31,7 +30,7 @@
 |---|---|
 | **API completa** | El contrato entero, endpoint a endpoint contra `docs/historico/CONTRATO_API.md` |
 | **Web conectada** | Todas las pantallas contra la API real. No queda ninguna maqueta ni placeholder; las altas de orden de surtido y de plantilla de etiqueta están en la interfaz |
-| **Un mapper leído por nombre de columna tiene test contra la función real** | `backend/src/test/kotlin/dev/axzy/stock/backend/inventory/DivergenceMapperTest.kt` ejercita la función PL/pgSQL y su nombre de columna |
+| **Un mapper leído por nombre de columna tiene test contra la función real** | `backend/src/test/kotlin/dev/axzy/stock/backend/infrastructure/outbound/persistence/inventory/DivergenceMapperTest.kt` ejercita la función PL/pgSQL y su nombre de columna |
 | **Un test unitario comprueba que todo código de error emitido está en el catálogo del contrato** | `backend/src/test/kotlin/dev/axzy/stock/backend/docs/OpenApiDocumentationTest.kt` |
 | **Un e2e comprueba que la misma falta de token da el mismo estado en todas las rutas** | `backend/src/test/kotlin/dev/axzy/stock/backend/ApiE2ETest.kt`: sin token, las rutas protegidas dan `401` con `UNAUTHENTICATED`, nunca `403` |
 | **Un e2e de navegador comprueba que recargar conserva la sesión** | `web/e2e/flow.spec.ts`, con un test dedicado a recargar |

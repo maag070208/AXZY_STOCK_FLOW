@@ -1,5 +1,4 @@
 # OWASP y los hallazgos del legacy
-
 > **Referencia.** Qué hallazgo de seguridad tenía el legacy, qué control lo reemplaza en el sistema
 > nuevo y qué está verificado. Lo que no se ha comprobado figura como tal. Última verificación: 2026-10-09.
 

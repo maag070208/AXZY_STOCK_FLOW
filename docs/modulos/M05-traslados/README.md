@@ -1,5 +1,4 @@
 # M05 — Traslados: entre ubicaciones y entre bodegas
-
 > **Normativo.** Última verificación: 2026-10-09.
 
 | | |

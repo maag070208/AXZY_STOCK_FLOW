@@ -1,5 +1,4 @@
 # Entornos y variables
-
 > **Normativo.** Cómo se levanta cada parte y qué variables cambian su comportamiento. Última verificación: 2026-10-09.
 > El arranque paso a paso está en [ARRANQUE.md](../../ARRANQUE.md).
 

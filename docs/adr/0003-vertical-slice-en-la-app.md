@@ -1,5 +1,4 @@
 # ADR-0003 — Vertical slice en la app móvil
-
 > **Normativo.** Decisión aceptada. Última verificación: 2026-10-09.
 
 | | |

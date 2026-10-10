@@ -1,5 +1,4 @@
 # Identidad visual: colores, iconos y animaciones
-
 > **Referencia.** Dónde vive cada recurso visual de STOCK por plataforma y qué está conectado.
 > Última verificación: 2026-10-09.
 

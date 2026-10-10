@@ -1,5 +1,4 @@
 # ADR-0004 — Nombres en inglés, comentarios en español
-
 > **Normativo.** Decisión aceptada. Última verificación: 2026-10-09.
 
 | | |

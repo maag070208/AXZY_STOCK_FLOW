@@ -1,5 +1,4 @@
 # ADR-0007 — Multi-bodega desde el esquema, operando con una
-
 > **Normativo.** Decisión aceptada. Última verificación: 2026-10-09.
 
 | | |
@@ -84,7 +83,7 @@ Reglas operativas que se derivan:
 - `backend/src/main/resources/db/migration/V3__inventory_domain.sql`
 - `backend/src/main/resources/db/migration/V9__transfer_lines.sql`
 - `backend/src/main/kotlin/dev/axzy/stock/backend/catalog/warehouse/WarehouseRoutes.kt`
-- `backend/src/main/kotlin/dev/axzy/stock/backend/transfer/TransferService.kt`
+- `backend/src/main/kotlin/dev/axzy/stock/backend/application/transfer/TransferUseCases.kt`
 - `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/error/DomainError.kt`
 - `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/access/AccessModel.kt`
 - `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/access/RoleDefinitions.kt`

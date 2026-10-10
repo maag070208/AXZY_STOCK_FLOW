@@ -4,8 +4,8 @@
 > Última verificación: 2026-10-09.
 
 Implementado en
-`backend/src/main/kotlin/dev/axzy/stock/backend/inventory/InventoryRoutes.kt`
-(rutas) e `InventoryService.kt` (motor y consultas), con los mapeos en
+`backend/src/main/kotlin/dev/axzy/stock/backend/infrastructure/inbound/http/inventory/InventoryRoutes.kt`
+(rutas) e `InventoryUseCases.kt` (motor y consultas), con los mapeos en
 `InventoryMappers.kt`. La paginación está en [convenciones.md](convenciones.md);
 los códigos, en [errores.md](errores.md). El reporte de reconciliación, que vive
 en el mismo archivo de rutas, está en [reportes.md](reportes.md).
@@ -180,7 +180,7 @@ INSUFFICIENT_STOCK` si no hay existencia en el origen.
 
 | Archivo | Qué cubre |
 |---|---|
-| `backend/src/test/kotlin/dev/axzy/stock/backend/inventory/MotorInventarioTest.kt` | el motor de movimientos |
-| `backend/src/test/kotlin/dev/axzy/stock/backend/inventory/InventoryMappersTest.kt` | los mapeos de existencia y kardex |
-| `backend/src/test/kotlin/dev/axzy/stock/backend/inventory/DivergenceMapperTest.kt` | el mapeo del reporte de reconciliación |
+| `backend/src/test/kotlin/dev/axzy/stock/backend/infrastructure/outbound/persistence/inventory/MotorInventarioTest.kt` | el motor de movimientos |
+| `backend/src/test/kotlin/dev/axzy/stock/backend/infrastructure/outbound/persistence/inventory/InventoryMappersTest.kt` | los mapeos de existencia y kardex |
+| `backend/src/test/kotlin/dev/axzy/stock/backend/infrastructure/outbound/persistence/inventory/DivergenceMapperTest.kt` | el mapeo del reporte de reconciliación |
 | `backend/src/test/kotlin/dev/axzy/stock/backend/RoutesWiringTest.kt` | que las rutas de inventario existen y no devuelven `404` |

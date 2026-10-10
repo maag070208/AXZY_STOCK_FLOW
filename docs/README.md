@@ -1,5 +1,4 @@
 # Documentación de Almacén Integral
-
 > **Normativo.** Este índice y la convención de tipos de abajo mandan sobre cómo se
 > escribe el resto de la documentación. Última verificación: 2026-10-09.
 
@@ -119,6 +118,12 @@ El diccionario lista las tablas y su migración. Las columnas están en las prop
 | M09 | Integración externa: ERP y `kardo` | [M09](modulos/M09-integracion-externa/README.md) |
 
 El estado de cada módulo está en [modulos/README.md](modulos/README.md).
+
+## Plantillas
+
+| Plantilla | Para qué |
+|---|---|
+| [plantilla-modulo.md](plantillas/plantilla-modulo.md) | El esqueleto de un documento de módulo: objetivo, reglas, API, permisos, pantallas, pruebas y criterios de aceptación |
 
 ## Migración
 

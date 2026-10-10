@@ -1,5 +1,4 @@
 # Auditoría
-
 > **Normativo.** Qué se registra, con qué garantías, y qué falta. Última verificación: 2026-10-09.
 
 **Todo cambio de estado registra quién, qué, sobre qué, cuándo, desde dónde y con qué
@@ -9,7 +8,7 @@ hash y disparadores de inmutabilidad
 
 ## Cómo se escribe
 
-El escritor es `backend/src/main/kotlin/dev/axzy/stock/backend/audit/AuditWriter.kt`.
+El escritor es `backend/src/main/kotlin/dev/axzy/stock/backend/infrastructure/outbound/persistence/audit/AuditWriter.kt`.
 `record` recibe **la conexión del llamador** y participa de su transacción.
 
 **Si la auditoría falla, la operación se revierte con ella.** Es deliberado: si el movimiento
