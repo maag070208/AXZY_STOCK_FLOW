@@ -10,7 +10,7 @@ import java.util.UUID
 class HttpContractTest : ApiTest() {
 
     @Test
-    fun `la salud es publica y dice la version del esquema`() {
+    fun `health is public and states the schema version`() {
         val response = get("/v1/health")
 
         assertThat(response.status).isEqualTo(200)
@@ -22,7 +22,7 @@ class HttpContractTest : ApiTest() {
     }
 
     @Test
-    fun `toda respuesta lleva un identificador de peticion - el del cliente si es un UUID`() {
+    fun `every response carries a request identifier - the client's if it is a UUID`() {
         val provided = UUID.randomUUID().toString()
 
         assertThat(get("/v1/health", headers = mapOf("X-Request-Id" to provided)).header("X-Request-Id")).isEqualTo(provided)
@@ -34,7 +34,7 @@ class HttpContractTest : ApiTest() {
     }
 
     @Test
-    fun `una ruta que no existe responde 401 sin identidad y 404 con ella`() {
+    fun `a route that does not exist answers 401 without identity and 404 with it`() {
         val anonymous = get("/v1/no-existe")
         assertThat(anonymous.status).isEqualTo(401)
         assertThat(anonymous.code).isEqualTo("UNAUTHENTICATED")
@@ -45,7 +45,7 @@ class HttpContractTest : ApiTest() {
     }
 
     @Test
-    fun `un cuerpo que no es JSON responde con el contrato de error, no con una traza`() {
+    fun `a body that is not JSON answers with the error contract, not with a trace`() {
         val response = post("/v1/auth/login", "{ esto no es json")
 
         assertThat(response.status).isEqualTo(400)
@@ -55,7 +55,7 @@ class HttpContractTest : ApiTest() {
     }
 
     @Test
-    fun `un metodo no permitido responde 405 con su codigo`() {
+    fun `a method not allowed answers 405 with its code`() {
         val response = send("PUT", "/v1/auth/me", mapOf("x" to 1), accessTokenOf(), emptyMap())
 
         assertThat(response.status).isEqualTo(405)
@@ -63,7 +63,7 @@ class HttpContractTest : ApiTest() {
     }
 
     @Test
-    fun `un canal de cliente desconocido se rechaza, y no se puede declarar un canal de servicio`() {
+    fun `an unknown client channel is rejected, and a service channel cannot be declared`() {
         for (channel in listOf("FAX", "SERVICE_ERP", "SYSTEM")) {
             val response = post(
                 "/v1/auth/login",
@@ -78,7 +78,7 @@ class HttpContractTest : ApiTest() {
     }
 
     @Test
-    fun `la API no abre sesion de servidor ni manda cookies`() {
+    fun `the API opens no server session and sends no cookies`() {
         val response = login()
 
         assertThat(response.headers.allValues("Set-Cookie")).isEmpty()

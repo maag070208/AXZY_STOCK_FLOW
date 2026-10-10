@@ -55,9 +55,9 @@ class CatalogImporterTest : DescribeSpec({
     ) = CatalogRow(rowNumber, externalId, productCode, name, unitMeasure, stock)
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("CUADRE CONTRA EL ARCHIVO REAL — el test que importa") {
+    describe("RECONCILIATION AGAINST THE REAL FILE — the test that matters") {
 
-        it("reproduce las cifras exactas del Excel: 1.398 productos y 10.914.130 unidades") {
+        it("reproduces the exact figures of the Excel: 1,398 products and 10,914,130 units") {
             val content = readRealCatalog()
             val rows = importer.parseCsv(content)
 
@@ -88,7 +88,7 @@ class CatalogImporterTest : DescribeSpec({
             }
         }
 
-        it("el informe identifica los 334 productos con existencia cero") {
+        it("the report identifies the 334 products with zero stock") {
             val report = importer.import(importer.parseCsv(readRealCatalog()))
 
             // Dato conocido del archivo: el 23,9% de los productos está en cero.
@@ -99,7 +99,7 @@ class CatalogImporterTest : DescribeSpec({
             }
         }
 
-        it("todas las filas usan la unidad de medida PZA") {
+        it("all rows use the unit of measure PZA") {
             val report = importer.import(importer.parseCsv(readRealCatalog()))
 
             withClue("El archivo real usa una sola unidad de medida") {
@@ -107,7 +107,7 @@ class CatalogImporterTest : DescribeSpec({
             }
         }
 
-        it("el número de filas leídas coincide con las 1.398 útiles del archivo") {
+        it("the number of rows read matches the 1,398 useful ones in the file") {
             val rows = importer.parseCsv(readRealCatalog())
 
             // El archivo tiene 1.400 líneas: 1 de cabecera y 2 vacías al final.
@@ -119,9 +119,9 @@ class CatalogImporterTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("dry-run: la primera ejecución sobre datos reales es una simulación") {
+    describe("dry-run: the first run over real data is a simulation") {
 
-        it("el informe declara si es una simulación y lo dice al renderizarlo") {
+        it("the report states whether it is a simulation and says so when rendered") {
             val report = importer.import(listOf(row()), dryRun = true)
 
             withClue("El informe debe marcar que es simulación") {
@@ -133,7 +133,7 @@ class CatalogImporterTest : DescribeSpec({
             }
         }
 
-        it("un import real no se marca como simulación") {
+        it("a real import is not marked as a simulation") {
             val report = importer.import(listOf(row()), dryRun = false)
 
             report.isDryRun shouldBe false
@@ -142,9 +142,9 @@ class CatalogImporterTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("reglas estrictas: se rechaza la fila, no se adivina") {
+    describe("strict rules: the row is rejected, not guessed") {
 
-        it("rechaza un código con minúsculas indicando el número de fila") {
+        it("rejects a lowercase code, stating the row number") {
             // El alfabeto real es 0-9 y A-Z. Un importador tolerante normalizaría
             // a mayúsculas; aquí se rechaza, porque una minúscula en el archivo
             // significa que algo cambió en el origen y hay que mirarlo.
@@ -161,14 +161,14 @@ class CatalogImporterTest : DescribeSpec({
             }
         }
 
-        it("rechaza un código con guiones") {
+        it("rejects a code with hyphens") {
             val report = importer.import(listOf(row(productCode = "ABRA-A1B")))
 
             report.rejected.single()
                 .shouldBeInstanceOf<RowRejection.InvalidProductCode>()
         }
 
-        it("rechaza una fila completamente vacía") {
+        it("rejects a completely empty row") {
             val report = importer.import(
                 listOf(CatalogRow(rowNumber = 1399, "", "", "", "", "")),
             )
@@ -176,7 +176,7 @@ class CatalogImporterTest : DescribeSpec({
             report.rejected.single().shouldBeInstanceOf<RowRejection.BlankRow>()
         }
 
-        it("rechaza una unidad de medida desconocida") {
+        it("rejects an unknown unit of measure") {
             // Es la defensa contra el clásico KG / Kg / KGS como tres unidades
             // distintas: si no está en el catálogo, se rechaza.
             val report = importer.import(listOf(row(unitMeasure = "KGS")))
@@ -186,7 +186,7 @@ class CatalogImporterTest : DescribeSpec({
             rejection.unit shouldBe "KGS"
         }
 
-        it("acepta la unidad en minúsculas porque no es ambiguo") {
+        it("accepts the unit in lowercase because it is not ambiguous") {
             // A diferencia del código, la unidad se normaliza: 'pza' es
             // inequívocamente la misma unidad.
             val report = importer.import(listOf(row(unitMeasure = "pza")))
@@ -195,13 +195,13 @@ class CatalogImporterTest : DescribeSpec({
             report.accepted.single().unitMeasure shouldBe "PZA"
         }
 
-        it("rechaza existencias no numéricas") {
+        it("rejects non-numeric stock") {
             val report = importer.import(listOf(row(stock = "N/A")))
 
             report.rejected.single().shouldBeInstanceOf<RowRejection.InvalidStock>()
         }
 
-        it("rechaza existencias negativas: son imposibles en un inventario físico") {
+        it("rejects negative stock: it is impossible in a physical inventory") {
             val report = importer.import(listOf(row(stock = "-50")))
 
             val rejection = report.rejected.single().shouldBeInstanceOf<RowRejection.InvalidStock>()
@@ -210,13 +210,13 @@ class CatalogImporterTest : DescribeSpec({
             }
         }
 
-        it("rechaza un producto sin nombre") {
+        it("rejects a product without a name") {
             val report = importer.import(listOf(row(name = "   ")))
 
             report.rejected.single().shouldBeInstanceOf<RowRejection.BlankName>()
         }
 
-        it("rechaza un código duplicado indicando dónde apareció primero") {
+        it("rejects a duplicate code, stating where it first appeared") {
             val report = importer.import(
                 listOf(
                     row(rowNumber = 2, productCode = "ABRAA1B"),
@@ -234,7 +234,7 @@ class CatalogImporterTest : DescribeSpec({
             }
         }
 
-        it("una fila rechazada no impide procesar las demás") {
+        it("a rejected row does not stop the others from being processed") {
             val report = importer.import(
                 listOf(
                     row(rowNumber = 2, productCode = "ABRAA1B"),
@@ -253,9 +253,9 @@ class CatalogImporterTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("parser CSV: el archivo real trae comillas y comas dentro de campos") {
+    describe("CSV parser: the real file has quotes and commas inside fields") {
 
-        it("maneja las comillas dobles escapadas del archivo real") {
+        it("handles the escaped double quotes of the real file") {
             // 876 nombres del archivo llevan comillas dobles: 'ABRAZADERA 1-5/8"'.
             // Un split ingenuo por comas rompería esas filas.
             val content = listOf(
@@ -272,7 +272,7 @@ class CatalogImporterTest : DescribeSpec({
             rows.single().stock shouldBe "5193"
         }
 
-        it("maneja comas dentro de un campo entrecomillado") {
+        it("handles commas inside a quoted field") {
             val content = listOf(
                 "\$product_id,product_code,name,unit_measure,stock",
                 "9,ADORNR405N,\"ADORNO COLONIAL R405, ARQUITO (#7050)\",PZA,932"
@@ -286,7 +286,7 @@ class CatalogImporterTest : DescribeSpec({
             rows.single().stock shouldBe "932"
         }
 
-        it("la numeración de fila empieza en 2 porque la 1 es la cabecera") {
+        it("the row numbering starts at 2 because 1 is the header") {
             val content = listOf(
                 "\$product_id,product_code,name,unit_measure,stock",
                 "1,ABRAA1B,PRIMERO,PZA,1",
@@ -301,7 +301,7 @@ class CatalogImporterTest : DescribeSpec({
             }
         }
 
-        it("descarta las líneas vacías del final del archivo") {
+        it("discards the empty lines at the end of the file") {
             val content = listOf(
                 "\$product_id,product_code,name,unit_measure,stock",
                 "1,ABRAA1B,PRODUCTO,PZA,10"
@@ -312,9 +312,9 @@ class CatalogImporterTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("el informe de cuadre detecta lo que un import silencioso escondería") {
+    describe("the reconciliation report detects what a silent import would hide") {
 
-        it("detecta que se perdieron productos") {
+        it("detects that products were lost") {
             val report = importer.import(listOf(row()))
 
             val discrepancies = report.matchesExpectations(
@@ -330,7 +330,7 @@ class CatalogImporterTest : DescribeSpec({
             }
         }
 
-        it("el informe renderizado incluye el cuadre y las filas rechazadas") {
+        it("the rendered report includes the reconciliation and the rejected rows") {
             val report = importer.import(
                 listOf(
                     row(productCode = "ABRAA1B", stock = "100"),
@@ -351,7 +351,7 @@ class CatalogImporterTest : DescribeSpec({
             }
         }
 
-        it("los datos que se persisten son los del archivo, sin transformarlos") {
+        it("the persisted data is the file's, untransformed") {
             val report = importer.import(
                 listOf(
                     row(
@@ -373,7 +373,7 @@ class CatalogImporterTest : DescribeSpec({
             }
         }
 
-        it("un externalId en blanco se guarda como nulo, no como cadena vacía") {
+        it("a blank externalId is stored as null, not as an empty string") {
             val report = importer.import(listOf(row(externalId = "   ")))
 
             report.accepted.single().externalId shouldBe null

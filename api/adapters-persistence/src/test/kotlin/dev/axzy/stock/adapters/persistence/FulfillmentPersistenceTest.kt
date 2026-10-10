@@ -36,7 +36,7 @@ class FulfillmentPersistenceTest {
     }
 
     @Test
-    fun `R-P2 - el listado de ordenes son dos sentencias`() {
+    fun `R-P2 - the order list takes two statements`() {
         val statements = db.statements.during {
             orders.page(OrderFilter(null, null), PageRequest.of())
         }
@@ -47,7 +47,7 @@ class FulfillmentPersistenceTest {
     }
 
     @Test
-    fun `S3 - dos confirmaciones simultaneas solo reclaman la orden una vez`() {
+    fun `S3 - two simultaneous confirmations claim the order only once`() {
         val firstClaimed = CountDownLatch(1)
         val executor = Executors.newFixedThreadPool(2)
         try {

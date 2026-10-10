@@ -46,9 +46,9 @@ class AccessEngineTest : DescribeSpec({
     val contextNormal = RequestContext(hour = 10, weekday = 3, deviceType = DeviceType.WEB)
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("A1-A2 — la matriz de roles concede lo que declara") {
+    describe("A1-A2 — the role matrix grants what it declares") {
 
-        it("A3 — el OPERADOR no puede aprobar discrepancias") {
+        it("A3 — the OPERATOR cannot approve discrepancies") {
             // Es lo que hace real la regla B1: si el operador pudiera aprobar,
             // podría firmar su propio error de conteo y el control sería decorativo.
             val decision = onlyRbac().decide(
@@ -61,7 +61,7 @@ class AccessEngineTest : DescribeSpec({
             denied.stage shouldBe DecisionStage.RBAC
         }
 
-        it("A4 — el AUDITOR no puede escribir: comprobado sobre TODOS los permisos de escritura") {
+        it("A4 — the AUDITOR cannot write: checked against ALL write permissions") {
             val auditor = userWith(BaseRole.AUDITOR, warehouseIds = setOf(1L, 2L))
             val engine = onlyRbac()
 
@@ -79,7 +79,7 @@ class AccessEngineTest : DescribeSpec({
             permissionsThatGrant shouldBe emptyList()
         }
 
-        it("A6 — el administrador tiene TODOS los permisos del catálogo") {
+        it("A6 — the administrator has ALL the catalog permissions") {
             val admin = userWith(BaseRole.ADMIN, warehouseIds = setOf(1L, 2L))
             val engine = onlyRbac()
 
@@ -93,7 +93,7 @@ class AccessEngineTest : DescribeSpec({
             withoutGrants shouldBe emptyList()
         }
 
-        it("A6b — ningún rol obtiene acceso por su id numérico, solo por su clave") {
+        it("A6b — no role gets access by its numeric id, only by its key") {
             // Contra el bypass `role === 1` del legacy: no existe forma de que un
             // rol acceda por ser "el primero" o por su id.
             val roleAdmin = RoleDefinitions.byKey.getValue(BaseRole.ADMIN.key)
@@ -104,9 +104,9 @@ class AccessEngineTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("A7 — la identidad se comprueba antes que los permisos") {
+    describe("A7 — identity is checked before permissions") {
 
-        it("un usuario desactivado no tiene acceso aunque su rol lo permita") {
+        it("a deactivated user has no access even if their role allows it") {
             val disabled = userWith(BaseRole.ADMIN, active = false)
 
             val decision = onlyRbac().decide(disabled, "role.manage")
@@ -115,15 +115,15 @@ class AccessEngineTest : DescribeSpec({
             denied.stage shouldBe DecisionStage.IDENTITY
         }
 
-        it("sin usuario no hay acceso") {
+        it("without a user there is no access") {
             onlyRbac().decide(null, "invoice.view").allowed shouldBe false
         }
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("A8-A13 — el alcance (scope)") {
+    describe("A8-A13 — scope") {
 
-        it("A8 — el OPERADOR con alcance OWN no puede ver una factura ajena") {
+        it("A8 — the OPERATOR with OWN scope cannot see someone else's invoice") {
             // OWN significa "solo lo suyo". El recurso no declara autoría, así que
             // se exige el alcance mínimo y OWN lo cubre; lo que se comprueba aquí
             // es que OWN **no** cubre AREA en un recurso de otra bodega.
@@ -137,7 +137,7 @@ class AccessEngineTest : DescribeSpec({
             ).allowed shouldBe false
         }
 
-        it("A9 — el JEFE de bodega 1 no alcanza un recurso de la bodega 3") {
+        it("A9 — the MANAGER of warehouse 1 does not reach a resource of warehouse 3") {
             val manager = userWith(BaseRole.WAREHOUSE_MANAGER, warehouseIds = setOf(1L))
 
             val decision = onlyRbac().decide(
@@ -155,7 +155,7 @@ class AccessEngineTest : DescribeSpec({
             }
         }
 
-        it("A10 — el mismo JEFE sí alcanza un recurso de SU bodega") {
+        it("A10 — the same MANAGER does reach a resource of THEIR warehouse") {
             val manager = userWith(BaseRole.WAREHOUSE_MANAGER, warehouseIds = setOf(1L))
 
             onlyRbac().decide(
@@ -166,7 +166,7 @@ class AccessEngineTest : DescribeSpec({
             ).allowed shouldBe true
         }
 
-        it("A11 — el GERENTE con alcance ALL alcanza cualquier bodega") {
+        it("A11 — the MANAGER with ALL scope reaches any warehouse") {
             val manager = userWith(BaseRole.OPERATIONS_MANAGER, warehouseIds = emptySet())
 
             onlyRbac().decide(
@@ -177,7 +177,7 @@ class AccessEngineTest : DescribeSpec({
             ).allowed shouldBe true
         }
 
-        it("A13 — la escalera de alcances: AREA no concede ALL, y OWN no concede AREA") {
+        it("A13 — the scope ladder: AREA does not grant ALL, and OWN does not grant AREA") {
             listOf(
                 Triple(PermissionScope.ALL, PermissionScope.AREA, true),
                 Triple(PermissionScope.ALL, PermissionScope.OWN, true),
@@ -193,7 +193,7 @@ class AccessEngineTest : DescribeSpec({
             }
         }
 
-        it("A12 — una excepción por persona concede un permiso que el rol no tiene") {
+        it("A12 — a per-person exception grants a permission the role does not have") {
             val operator = userWith(
                 BaseRole.WAREHOUSE_OPERATOR,
                 exceptions = mapOf("invoice.approve" to PermissionScope.OWN),
@@ -204,9 +204,9 @@ class AccessEngineTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("A14-A25 — el motor ABAC") {
+    describe("A14-A25 — the ABAC engine") {
 
-        it("A14 — sin políticas para la acción, RBAC decide y se permite") {
+        it("A14 — without policies for the action, RBAC decides and it is allowed") {
             val engine = AccessEngine(
                 policies = listOf(StockPolicies.byId.getValue(1)), // solo la de aprobar
             )
@@ -217,7 +217,7 @@ class AccessEngineTest : DescribeSpec({
             ).allowed shouldBe true
         }
 
-        it("A15 — una ALLOW que coincide permite") {
+        it("A15 — a matching ALLOW allows") {
             withPolicies().decide(
                 userWith(BaseRole.WAREHOUSE_MANAGER, warehouseIds = setOf(1L)),
                 "invoice.approve",
@@ -226,7 +226,7 @@ class AccessEngineTest : DescribeSpec({
             ).allowed shouldBe true
         }
 
-        it("A16 — DENY gana aunque haya una ALLOW que coincide") {
+        it("A16 — DENY wins even if a matching ALLOW exists") {
             // Regla de oro: no se puede 'comprar' una denegación con prioridad.
             withPolicies().decide(
                 userWith(BaseRole.WAREHOUSE_MANAGER, id = 7L, warehouseIds = setOf(1L)),
@@ -236,7 +236,7 @@ class AccessEngineTest : DescribeSpec({
             ).allowed shouldBe false
         }
 
-        it("A17 — hay políticas aplicables y ninguna ALLOW coincide: POLICY_REQUIRED") {
+        it("A17 — applicable policies exist and no ALLOW matches: POLICY_REQUIRED") {
             // Un operador no tiene ninguna política ALLOW sobre transfer.dispatch,
             // pero si las tuviera mal configuradas, esto es lo que pasaría.
             val engine = AccessEngine(
@@ -269,7 +269,7 @@ class AccessEngineTest : DescribeSpec({
             denied.policyTrace.size shouldBe 1
         }
 
-        it("A18 — las condiciones se combinan con AND: una falsa anula la política") {
+        it("A18 — conditions combine with AND: a false one cancels the policy") {
             val engine = withPolicies()
 
             // PB5 exige hora >= 8 AND hora < 18.
@@ -281,7 +281,7 @@ class AccessEngineTest : DescribeSpec({
             ).allowed shouldBe false
         }
 
-        it("A19 — una política inactiva no se evalúa") {
+        it("A19 — an inactive policy is not evaluated") {
             val inactive = StockPolicies.byId.getValue(5).copy(active = false)
             val engine = AccessEngine(policies = listOf(inactive))
 
@@ -294,7 +294,7 @@ class AccessEngineTest : DescribeSpec({
             ).allowed shouldBe true
         }
 
-        it("A20-A21 — una política sin roles aplica a todos; con roles, solo a esos") {
+        it("A20-A21 — a policy without roles applies to everyone; with roles, only to them") {
             val operator = userWith(BaseRole.WAREHOUSE_OPERATOR)
 
             val forAll = Policy(
@@ -314,7 +314,7 @@ class AccessEngineTest : DescribeSpec({
                 .allowed shouldBe true
         }
 
-        it("A22 — el modo observación registra la decisión pero NO la aplica") {
+        it("A22 — observation mode records the decision but does NOT apply it") {
             val shadow = StockPolicies.byId.getValue(1).copy(shadowMode = true)
             val engine = AccessEngine(policies = listOf(shadow))
 
@@ -341,7 +341,7 @@ class AccessEngineTest : DescribeSpec({
             traces.first().matched shouldBe true
         }
 
-        it("A23 — DENY gana incluso con prioridad MENOR que la ALLOW") {
+        it("A23 — DENY wins even with a LOWER priority than the ALLOW") {
             val allowAlta = Policy(
                 id = 60, name = "Allow prioritaria", description = "Prioridad 999",
                 action = "inventory.move", effect = PolicyEffect.ALLOW, priority = 999,
@@ -356,7 +356,7 @@ class AccessEngineTest : DescribeSpec({
                 .allowed shouldBe false
         }
 
-        it("A24 — una política protected no se puede desactivar sin confirmación explícita") {
+        it("A24 — a protected policy cannot be deactivated without explicit confirmation") {
             // La protección es de la capa de administración; aquí se fija que las
             // políticas críticas están marcadas como tales.
             val segregation = StockPolicies.byId.getValue(1)
@@ -366,7 +366,7 @@ class AccessEngineTest : DescribeSpec({
             theft.protected shouldBe true
         }
 
-        it("A25 — toda política del catálogo tiene descripción (no se puede construir sin ella)") {
+        it("A25 — every policy in the catalog has a description (it cannot be built without one)") {
             StockPolicies.all.forEach { policy ->
                 withClue("La política '${policy.name}' debe tener descripción") {
                     policy.description.isNotBlank() shouldBe true
@@ -385,9 +385,9 @@ class AccessEngineTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("A27-A34 — las políticas concretas del almacén") {
+    describe("A27-A34 — the concrete warehouse policies") {
 
-        it("A27 / R-74 — SEGREGACIÓN DE FUNCIONES: no puede aprobar su propia captura") {
+        it("A27 / R-74 — SEGREGATION OF DUTIES: cannot approve their own count") {
             val supervisor = userWith(BaseRole.WAREHOUSE_MANAGER, id = 7L, warehouseIds = setOf(1L))
 
             val decision = withPolicies().decide(
@@ -403,7 +403,7 @@ class AccessEngineTest : DescribeSpec({
             }
         }
 
-        it("A27b / R-74 — SÍ puede aprobar la captura de otra persona") {
+        it("A27b / R-74 — CAN approve another person's count") {
             val supervisor = userWith(BaseRole.WAREHOUSE_MANAGER, id = 7L, warehouseIds = setOf(1L))
 
             withPolicies().decide(
@@ -414,7 +414,7 @@ class AccessEngineTest : DescribeSpec({
             ).allowed shouldBe true
         }
 
-        it("A28 — el operador NO puede declarar un robo, el gerente sí") {
+        it("A28 — the operator CANNOT declare a theft, the manager can") {
             val contextTheft = ResourceContext(warehouseId = 1L)
 
             withPolicies().decide(
@@ -432,7 +432,7 @@ class AccessEngineTest : DescribeSpec({
             ).allowed shouldBe true
         }
 
-        it("A29 — el jefe de bodega NO ajusta fuera de horario laboral") {
+        it("A29 — the warehouse manager does NOT adjust outside working hours") {
             val manager = userWith(BaseRole.WAREHOUSE_MANAGER, warehouseIds = setOf(1L))
 
             withClue("A las 10:00 sí") {
@@ -449,7 +449,7 @@ class AccessEngineTest : DescribeSpec({
             }
         }
 
-        it("A30 — el domingo el jefe de bodega no ajusta faltantes") {
+        it("A30 — on Sunday the warehouse manager does not adjust shortages") {
             val manager = userWith(BaseRole.WAREHOUSE_MANAGER, warehouseIds = setOf(1L))
 
             withClue("Domingo (weekday 0): la DENY de fin de semana coincide y se deniega") {
@@ -466,7 +466,7 @@ class AccessEngineTest : DescribeSpec({
             }
         }
 
-        it("A30b — en modo observación, la DENY de fin de semana no bloquea pero queda registrada") {
+        it("A30b — in observation mode, the weekend DENY does not block but is recorded") {
             // El modo observación es la red de seguridad para no bloquear el
             // almacén con una política mal escrita. Aquí se comprueba que la
             // decisión se registra pero NO se aplica.
@@ -491,7 +491,7 @@ class AccessEngineTest : DescribeSpec({
             }
         }
 
-        it("A31 — el operador NO mueve producto de alto valor") {
+        it("A31 — the operator does NOT move high-value product") {
             val operator = userWith(BaseRole.WAREHOUSE_OPERATOR)
 
             // El escenario necesita las dos políticas: una ALLOW base (el
@@ -523,7 +523,7 @@ class AccessEngineTest : DescribeSpec({
             }
         }
 
-        it("A32 / R-77 — el operador ubica desde recepción, pero no desde un estante") {
+        it("A32 / R-77 — the operator locates from receiving, but not from a shelf") {
             val operator = userWith(BaseRole.WAREHOUSE_OPERATOR)
 
             withClue("Desde RECEIVING: permitido (su trabajo principal)") {
@@ -540,7 +540,7 @@ class AccessEngineTest : DescribeSpec({
             }
         }
 
-        it("A33 / R-76 — la captura sincronizada desde el móvil sin señal se permite") {
+        it("A33 / R-76 — synchronized capture from the phone without signal is allowed") {
             val operator = userWith(BaseRole.WAREHOUSE_OPERATOR)
 
             withPolicies().decide(
@@ -550,7 +550,7 @@ class AccessEngineTest : DescribeSpec({
             ).allowed shouldBe true
         }
 
-        it("A34 — la importación del ERP solo entra por el canal de servicio") {
+        it("A34 — the ERP import only comes in through the service channel") {
             val admin = userWith(BaseRole.ADMIN)
 
             withClue("Desde el ERP (SERVICE): permitido") {
@@ -571,9 +571,9 @@ class AccessEngineTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("A35 — la propiedad de seguridad más importante: ABAC no escala privilegios") {
+    describe("A35 — the most important security property: ABAC does not escalate privileges") {
 
-        it("ninguna combinación de políticas permite lo que RBAC negó") {
+        it("no combination of policies allows what RBAC denied") {
             // Se prueban TODOS los permisos del catálogo contra los roles que NO
             // los tienen, con un motor cargado de políticas ALLOW para todo. Si
             // alguna combinación concediera acceso, ABAC sería una vía de
@@ -624,9 +624,9 @@ class AccessEngineTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("A44-A46 — paridad y comportamiento del motor") {
+    describe("A44-A46 — parity and behaviour of the engine") {
 
-        it("A44 — el móvil y el backend obtienen la MISMA decisión (es el mismo código)") {
+        it("A44 — the phone and the backend get the SAME decision (it is the same code)") {
             // El motor es puro y vive en el dominio compartido, así que la
             // decisión es idéntica por construcción. Lo que se prueba aquí es que
             // el resultado no depende del orden de las entradas.
@@ -641,7 +641,7 @@ class AccessEngineTest : DescribeSpec({
             first.allowed shouldBe second.allowed
         }
 
-        it("el rol del usuario determina sus permisos de forma auditable") {
+        it("the user's role determines their permissions in an auditable way") {
             val manager = RoleDefinitions.byKey.getValue(BaseRole.WAREHOUSE_MANAGER.key)
 
             manager.scopeOf("invoice.approve") shouldBe PermissionScope.AREA
@@ -649,7 +649,7 @@ class AccessEngineTest : DescribeSpec({
             manager.scopeOf("role.manage") shouldBe PermissionScope.NONE
         }
 
-        it("cada rol base se explica en una frase (si no, está mal cortado)") {
+        it("every base role is explained in one sentence (otherwise it is badly cut)") {
             BaseRole.entries.forEach { role ->
                 withClue("El rol ${role.key.value} debe tener una descripción de una frase") {
                     role.oneLiner.isNotBlank() shouldBe true
@@ -660,9 +660,9 @@ class AccessEngineTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("la traza de decisión: el 'por qué no' es accionable") {
+    describe("the decision trace: the 'why not' is actionable") {
 
-        it("una denegación de política explica QUÉ condición falló y con qué valores") {
+        it("a policy denial explains WHICH condition failed and with what values") {
             val manager = userWith(BaseRole.WAREHOUSE_MANAGER, warehouseIds = setOf(1L))
 
             // Miércoles a las 03:00: coincide la DENY de horario, y la de fin de
@@ -696,7 +696,7 @@ class AccessEngineTest : DescribeSpec({
             }
         }
 
-        it("la decisión lleva la versión de la matriz y de las políticas") {
+        it("the decision carries the version of the matrix and of the policies") {
             val engine = AccessEngine(policies = StockPolicies.all, matrixVersion = 3, policiesVersion = 7)
 
             val decision = engine.decide(
@@ -712,9 +712,9 @@ class AccessEngineTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("el catálogo de permisos") {
+    describe("the permission catalog") {
 
-        it("todas las claves tienen formato 'recurso.accion' en minúsculas") {
+        it("all keys have the format 'resource.action' in lowercase") {
             PermissionCatalog.all.forEach { permission ->
                 withClue("Clave inválida: '${permission.key}'") {
                     permission.key shouldBe permission.key.lowercase()
@@ -723,12 +723,12 @@ class AccessEngineTest : DescribeSpec({
             }
         }
 
-        it("no hay claves duplicadas") {
+        it("there are no duplicate keys") {
             val keys = PermissionCatalog.all.map { it.key }
             keys.size shouldBe keys.toSet().size
         }
 
-        it("los permisos sensibles están marcados y son los esperados") {
+        it("the sensitive permissions are flagged and are the expected ones") {
             val sensitive = PermissionCatalog.sensitive.map { it.key }
 
             sensitive shouldContain "inventory.adjust_theft"
@@ -737,7 +737,7 @@ class AccessEngineTest : DescribeSpec({
             sensitive shouldContain "audit.view"
         }
 
-        it("el alcance NONE nunca se ofrece como concedible") {
+        it("the NONE scope is never offered as grantable") {
             PermissionCatalog.all.forEach { permission ->
                 withClue("El permiso '${permission.key}' no debe listar NONE") {
                     permission.grantableScopes shouldBe permission.grantableScopes

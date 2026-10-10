@@ -20,7 +20,7 @@ class AuthFlowTest : ApiTest() {
     // ── Inicio de sesión ─────────────────────────────────────────────────────
 
     @Test
-    fun `iniciar sesion devuelve los tokens y al usuario con sus permisos`() {
+    fun `signing in returns the tokens and the user with their permissions`() {
         val response = login()
 
         assertThat(response.status).isEqualTo(200)
@@ -36,7 +36,7 @@ class AuthFlowTest : ApiTest() {
     }
 
     @Test
-    fun `el token de acceso no lleva permisos, y el refresh token se guarda hasheado`() {
+    fun `the access token carries no permissions, and the refresh token is stored hashed`() {
         val response = login()
 
         val payload = String(java.util.Base64.getUrlDecoder().decode(response.at<String>("accessToken").split(".")[1]))
@@ -47,7 +47,7 @@ class AuthFlowTest : ApiTest() {
     }
 
     @Test
-    fun `sin usuario o sin contrasena responde FIELD_REQUIRED`() {
+    fun `without username or password answers FIELD_REQUIRED`() {
         for (body in listOf(mapOf("username" to "admin"), mapOf("password" to "x"), mapOf("username" to "  ", "password" to "x"), emptyMap())) {
             val response = post("/v1/auth/login", body)
             assertThat(response.status).isEqualTo(400)
@@ -56,7 +56,7 @@ class AuthFlowTest : ApiTest() {
     }
 
     @Test
-    fun `I1 - usuario inexistente y contrasena incorrecta responden exactamente lo mismo`() {
+    fun `I1 - unknown user and wrong password answer exactly the same`() {
         val unknownUser = login(username = "no-existe", password = "cualquiera-123")
         val wrongPassword = login(username = "admin", password = "cualquiera-123")
 
@@ -67,7 +67,7 @@ class AuthFlowTest : ApiTest() {
     }
 
     @Test
-    fun `I2 - cinco fallos bloquean el nombre de usuario, y el bloqueo es temporal`() {
+    fun `I2 - five failures lock the username, and the lock is temporary`() {
         repeat(5) { assertThat(login(password = "incorrecta-000").code).isEqualTo("INVALID_CREDENTIALS") }
 
         // Bloqueado: ni con la contraseña correcta.
@@ -84,14 +84,14 @@ class AuthFlowTest : ApiTest() {
     }
 
     @Test
-    fun `I2 - un nombre que no existe se bloquea igual, asi que el bloqueo no delata que cuentas son reales`() {
+    fun `I2 - a username that does not exist is locked the same way, so the lock does not reveal which accounts are real`() {
         repeat(5) { assertThat(login(username = "fantasma", password = "incorrecta-000").code).isEqualTo("INVALID_CREDENTIALS") }
 
         assertThat(login(username = "fantasma", password = "incorrecta-000").code).isEqualTo("ACCOUNT_LOCKED")
     }
 
     @Test
-    fun `una cuenta desactivada solo se lo dice a quien acierta la contrasena`() {
+    fun `a deactivated account only tells that to whoever guesses the password`() {
         val userId = createUser("baja", roles = arrayOf(auditor))
         db.sql("UPDATE users SET disabled = TRUE WHERE id = :id").param("id", userId).update()
 
@@ -104,7 +104,7 @@ class AuthFlowTest : ApiTest() {
     // ── El usuario actual ────────────────────────────────────────────────────
 
     @Test
-    fun `me devuelve al usuario del token, releido de la base`() {
+    fun `returns the token's user, re-read from the database`() {
         createUser("ana", roles = arrayOf(auditor))
         val token = accessTokenOf("ana", USER_PASSWORD)
 
@@ -118,7 +118,7 @@ class AuthFlowTest : ApiTest() {
     }
 
     @Test
-    fun `quitar un rol surte efecto en la siguiente peticion, sin esperar a que caduque el token`() {
+    fun `removing a role takes effect on the next request, without waiting for the token to expire`() {
         val userId = createUser("ana", roles = arrayOf(auditor))
         val token = accessTokenOf("ana", USER_PASSWORD)
         assertThat(get("/v1/auth/me", token).at<List<String>>("permissions")).isNotEmpty()
@@ -129,7 +129,7 @@ class AuthFlowTest : ApiTest() {
     }
 
     @Test
-    fun `desactivar una cuenta invalida su token en la siguiente peticion`() {
+    fun `deactivating an account invalidates its token on the next request`() {
         val userId = createUser("ana", roles = arrayOf(auditor))
         val token = accessTokenOf("ana", USER_PASSWORD)
 
@@ -141,7 +141,7 @@ class AuthFlowTest : ApiTest() {
     }
 
     @Test
-    fun `sin token, con un token ilegible o con uno caducado responde 401 UNAUTHENTICATED`() {
+    fun `without a token, with an unreadable token or with an expired one answers 401 UNAUTHENTICATED`() {
         val token = accessTokenOf()
 
         val missing = get("/v1/auth/me")
@@ -159,7 +159,7 @@ class AuthFlowTest : ApiTest() {
     // ── Renovación ───────────────────────────────────────────────────────────
 
     @Test
-    fun `renovar entrega tokens nuevos y marca el anterior como rotado`() {
+    fun `renewing gives new tokens and marks the previous one as rotated`() {
         val session = login()
 
         val renewed = post("/v1/auth/refresh", mapOf("refreshToken" to session.at<String>("refreshToken")))
@@ -173,7 +173,7 @@ class AuthFlowTest : ApiTest() {
     }
 
     @Test
-    fun `un reintento inmediato con el mismo token no cierra la sesion - ventana de gracia`() {
+    fun `an immediate retry with the same token does not close the session - grace window`() {
         val refreshToken = login().at<String>("refreshToken")
         post("/v1/auth/refresh", mapOf("refreshToken" to refreshToken))
 
@@ -185,7 +185,7 @@ class AuthFlowTest : ApiTest() {
     }
 
     @Test
-    fun `I3 - reutilizar un refresh ya rotado revoca la familia entera y queda en la bitacora`() {
+    fun `I3 - reusing an already rotated refresh token revokes the whole family and is recorded in the audit log`() {
         val first = login().at<String>("refreshToken")
         val second = post("/v1/auth/refresh", mapOf("refreshToken" to first)).at<String>("refreshToken")
 
@@ -202,7 +202,7 @@ class AuthFlowTest : ApiTest() {
     }
 
     @Test
-    fun `un refresh desconocido, mal formado o vencido responde INVALID_CREDENTIALS`() {
+    fun `an unknown, malformed or expired refresh answers INVALID_CREDENTIALS`() {
         val refreshToken = login().at<String>("refreshToken")
 
         assertThat(post("/v1/auth/refresh", mapOf("refreshToken" to "x".repeat(43))).code).isEqualTo("INVALID_CREDENTIALS")
@@ -216,7 +216,7 @@ class AuthFlowTest : ApiTest() {
     // ── Cierre de sesión ─────────────────────────────────────────────────────
 
     @Test
-    fun `cerrar sesion revoca el refresh, y nunca responde con error`() {
+    fun `signing out revokes the refresh token and never answers with an error`() {
         val session = login()
         val refreshToken = session.at<String>("refreshToken")
 
@@ -233,7 +233,7 @@ class AuthFlowTest : ApiTest() {
     // ── Cambio de contraseña ─────────────────────────────────────────────────
 
     @Test
-    fun `I4 - cambiar la contrasena cierra todas las sesiones, incluida la actual`() {
+    fun `I4 - changing the password closes all sessions, including the current one`() {
         createUser("ana", roles = arrayOf(auditor))
         val other = login("ana", USER_PASSWORD)
         val current = login("ana", USER_PASSWORD)
@@ -255,7 +255,7 @@ class AuthFlowTest : ApiTest() {
     }
 
     @Test
-    fun `el administrador inicial deja de estar obligado a cambiarla cuando la cambia`() {
+    fun `the initial administrator is no longer required to change it once changed`() {
         val token = accessTokenOf()
 
         post("/v1/auth/change-password", mapOf("currentPassword" to ADMIN_PASSWORD, "newPassword" to "Una-Clave-Nueva-2027"), token)
@@ -264,7 +264,7 @@ class AuthFlowTest : ApiTest() {
     }
 
     @Test
-    fun `una contrasena actual incorrecta, una nueva debil o la misma no cambian nada`() {
+    fun `a wrong current password, a weak new one or the same one change nothing`() {
         createUser("ana", roles = arrayOf(auditor))
         val token = accessTokenOf("ana", USER_PASSWORD)
 
@@ -287,7 +287,7 @@ class AuthFlowTest : ApiTest() {
     }
 
     @Test
-    fun `cambiar la contrasena exige identidad`() {
+    fun `changing the password requires identity`() {
         val response = post("/v1/auth/change-password", mapOf("currentPassword" to "a", "newPassword" to "b"))
 
         assertThat(response.status).isEqualTo(401)

@@ -79,7 +79,7 @@ class ReceivingConcurrencyTest {
     // ── Presupuesto de consultas (listón §4) ────────────────────────────────
 
     @Test
-    fun `listar facturas son dos sentencias y el detalle son dos`() {
+    fun `listing invoices is two statements and the detail is two`() {
         val listado = db.statements.during { invoices.page(InvoiceFilter(null, null), PageRequest.of()) }
         val detalle = db.statements.during { invoices.detail(invoiceId) }
 
@@ -90,7 +90,7 @@ class ReceivingConcurrencyTest {
     }
 
     @Test
-    fun `dos capturas simultaneas solo reclaman la linea una vez`() {
+    fun `two simultaneous captures only claim the line once`() {
         val primeraReclamo = CountDownLatch(1)
         val executor = Executors.newFixedThreadPool(2)
         try {

@@ -43,7 +43,7 @@ class UserAdminFlowTest : ApiTest() {
     // ── Consulta ────────────────────────────────────────────────────────────
 
     @Test
-    fun `el listado pagina, filtra y trae los roles de cada uno`() {
+    fun `the list paginates, filters and brings the roles of each one`() {
         val token = manager()
         create(token, "ana", roles = listOf(almacen))
         create(token, "bruno", roles = listOf(auditor))
@@ -62,7 +62,7 @@ class UserAdminFlowTest : ApiTest() {
     }
 
     @Test
-    fun `el detalle trae los roles y las bodegas del usuario`() {
+    fun `the detail brings the user's roles and warehouses`() {
         val token = manager()
         create(token, "ana", roles = listOf(almacen))
 
@@ -75,7 +75,7 @@ class UserAdminFlowTest : ApiTest() {
     }
 
     @Test
-    fun `el catalogo de roles y permisos se puede leer con su permiso`() {
+    fun `the roles and permissions catalog can be read with its permission`() {
         val token = manager()
 
         val roles = get("/v1/roles", token)
@@ -92,7 +92,7 @@ class UserAdminFlowTest : ApiTest() {
     // ── Alta ────────────────────────────────────────────────────────────────
 
     @Test
-    fun `el alta crea el usuario con sus roles y lo deja obligado a cambiar la contrasena`() {
+    fun `creating a user creates it with its roles and requires a password change`() {
         val token = manager()
 
         val response = create(token, "ana", roles = listOf(almacen))
@@ -107,7 +107,7 @@ class UserAdminFlowTest : ApiTest() {
     }
 
     @Test
-    fun `el alta rechaza una contrasena debil, un nombre repetido y un rol que no existe`() {
+    fun `creating rejects a weak password, a repeated name and a role that does not exist`() {
         val token = manager()
         create(token, "ana")
 
@@ -125,7 +125,7 @@ class UserAdminFlowTest : ApiTest() {
     }
 
     @Test
-    fun `un usuario nuevo puede entrar y tiene que cambiar la contrasena`() {
+    fun `a new user can sign in and has to change the password`() {
         val token = manager()
         create(token, "ana", roles = listOf(almacen))
 
@@ -141,7 +141,7 @@ class UserAdminFlowTest : ApiTest() {
     // ── Edición y asignación de roles ───────────────────────────────────────
 
     @Test
-    fun `asignar roles cambia lo que la persona puede hacer`() {
+    fun `assigning roles changes what the person can do`() {
         val token = manager()
         create(token, "ana", roles = listOf(almacen))
         val ana = userIdOf("ana")
@@ -158,7 +158,7 @@ class UserAdminFlowTest : ApiTest() {
     }
 
     @Test
-    fun `editar deja lo que no se envia y no admite quedarse sin roles`() {
+    fun `editing leaves what is not sent unchanged and does not allow being left without roles`() {
         val token = manager()
         create(token, "ana", roles = listOf(almacen))
         val ana = userIdOf("ana")
@@ -175,7 +175,7 @@ class UserAdminFlowTest : ApiTest() {
     }
 
     @Test
-    fun `desactivar un usuario le quita el acceso`() {
+    fun `deactivating a user removes their access`() {
         val token = manager()
         create(token, "ana", roles = listOf(almacen))
         val ana = userIdOf("ana")
@@ -193,7 +193,7 @@ class UserAdminFlowTest : ApiTest() {
     // ── Restablecer la contraseña ───────────────────────────────────────────
 
     @Test
-    fun `restablecer la contrasena deja fuera la sesion abierta`() {
+    fun `resetting the password drops the open session`() {
         val token = manager()
         create(token, "ana", roles = listOf(almacen))
         val ana = userIdOf("ana")
@@ -233,7 +233,7 @@ class UserAdminFlowTest : ApiTest() {
     }
 
     @Test
-    fun `restablecer exige el permiso y una contrasena que cumpla la politica`() {
+    fun `resetting requires the permission and a password that meets the policy`() {
         val token = manager()
         create(token, "ana", roles = listOf(almacen))
         val ana = userIdOf("ana")
@@ -247,7 +247,7 @@ class UserAdminFlowTest : ApiTest() {
     // ── Permisos por ruta ───────────────────────────────────────────────────
 
     @Test
-    fun `administrar usuarios no es cosa de cualquiera`() {
+    fun `managing users is not for just anyone`() {
         createUser("operador", USER_PASSWORD, BaseRole.WAREHOUSE_OPERATOR.key.value)
         val token = accessTokenOf("operador", USER_PASSWORD)
 
@@ -260,7 +260,7 @@ class UserAdminFlowTest : ApiTest() {
     // ── Revocar las sesiones de otro ────────────────────────────────────────
 
     @Test
-    fun `revocar las sesiones deja a la persona sin poder renovar`() {
+    fun `revoking the sessions leaves the person unable to renew`() {
         val token = manager()
         create(token, "ana", roles = listOf(almacen))
         val ana = userIdOf("ana")
@@ -281,7 +281,7 @@ class UserAdminFlowTest : ApiTest() {
     }
 
     @Test
-    fun `revocar sin sesiones abiertas no inventa nada`() {
+    fun `revoking without open sessions invents nothing`() {
         val token = manager()
         create(token, "ana", roles = listOf(almacen))
 
@@ -293,7 +293,7 @@ class UserAdminFlowTest : ApiTest() {
     }
 
     @Test
-    fun `revocar exige el permiso y un usuario que exista`() {
+    fun `revoking requires the permission and an existing user`() {
         createUser("operador", USER_PASSWORD, BaseRole.WAREHOUSE_OPERATOR.key.value)
         val suToken = accessTokenOf("operador", USER_PASSWORD)
         val token = manager()

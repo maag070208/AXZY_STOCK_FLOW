@@ -57,7 +57,7 @@ class InventoryEngineConcurrencyTest {
         .param("id", productId).query(String::class.java).single()
 
     @Test
-    fun `A4 - dos movimientos simultaneos del mismo producto no pierden el total`() {
+    fun `A4 - two simultaneous movements of the same product do not lose the total`() {
         val firstRecalculated = CountDownLatch(1)
         val executor = Executors.newFixedThreadPool(2)
         try {
@@ -92,7 +92,7 @@ class InventoryEngineConcurrencyTest {
     }
 
     @Test
-    fun `A3 - dos salidas simultaneas no dejan el saldo negativo - una entra y la otra se rechaza`() {
+    fun `A3 - two simultaneous outflows do not leave the balance negative - one goes through and the other is rejected`() {
         val start = CountDownLatch(1)
         val executor = Executors.newFixedThreadPool(2)
         val outcomes = try {
@@ -121,7 +121,7 @@ class InventoryEngineConcurrencyTest {
     }
 
     @Test
-    fun `sacar mas de lo que hay lo rechaza la base`() {
+    fun `withdrawing more than there is is rejected by the database`() {
         // Lo rechaza el CHECK de la tabla, dentro del propio UPDATE. El mensaje de «stock
         // insuficiente» que la función de V6 prometía no llega a ejecutarse en este camino: quien
         // le dice al usuario cuánto había es el caso de uso, que lee el saldo bloqueado antes.
@@ -131,7 +131,7 @@ class InventoryEngineConcurrencyTest {
     }
 
     @Test
-    fun `A9 - un movimiento del kardex no se puede modificar ni borrar, ni siquiera como dueno`() {
+    fun `A9 - a ledger movement cannot be modified or deleted, not even by the owner`() {
         db.jdbc.sql("SELECT record_movement(:product, 1, 'INITIAL', 10, NULL, :shelf, NULL, NULL, NULL, NULL, NULL, NULL, NULL)")
             .param("product", productId).param("shelf", shelfA).query(Long::class.java).single()
 

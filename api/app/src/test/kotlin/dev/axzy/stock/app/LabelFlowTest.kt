@@ -62,7 +62,7 @@ class LabelFlowTest : ApiTest() {
     // ── Plantillas ──────────────────────────────────────────────────────────
 
     @Test
-    fun `el listado no trae el ZPL y el detalle si`() {
+    fun `the list does not bring the ZPL and the detail does`() {
         val token = manager()
         val id = template(token)
 
@@ -77,7 +77,7 @@ class LabelFlowTest : ApiTest() {
     }
 
     @Test
-    fun `un ZPL sin cierre no se guarda`() {
+    fun `a ZPL without a closing is not saved`() {
         val token = manager()
 
         val response = post(
@@ -91,7 +91,7 @@ class LabelFlowTest : ApiTest() {
     }
 
     @Test
-    fun `la edicion es parcial y deja lo que no se envia`() {
+    fun `the edit is partial and leaves what is not sent`() {
         val token = manager()
         val id = template(token)
 
@@ -107,7 +107,7 @@ class LabelFlowTest : ApiTest() {
     // ── Previsualización ────────────────────────────────────────────────────
 
     @Test
-    fun `la previsualizacion resuelve el ZPL y el tamaño lo pone el servidor`() {
+    fun `the preview resolves the ZPL and the server sets the size`() {
         val token = manager()
         val id = template(token, zpl = "^XA^FD{{productCode}}^FS^XZ")
 
@@ -123,7 +123,7 @@ class LabelFlowTest : ApiTest() {
     }
 
     @Test
-    fun `un campo obligatorio que falta no produce una etiqueta a medias`() {
+    fun `a missing required field does not produce a half-made label`() {
         val token = manager()
         val id = template(token)
 
@@ -134,7 +134,7 @@ class LabelFlowTest : ApiTest() {
     }
 
     @Test
-    fun `un caracter de control en el dato no rompe la etiqueta`() {
+    fun `a control character in the data does not break the label`() {
         val token = manager()
         // El ZPL usa `^` para sus comandos: un nombre con `^` cerraría el campo antes
         // de tiempo y el resto se interpretaría como un comando de impresora.
@@ -148,7 +148,7 @@ class LabelFlowTest : ApiTest() {
     // ── L1 y L3: la cola ────────────────────────────────────────────────────
 
     @Test
-    fun `L1 - pedir una etiqueta no la marca como impresa`() {
+    fun `L1 - requesting a label does not mark it as printed`() {
         val token = manager()
         val id = template(token)
 
@@ -165,7 +165,7 @@ class LabelFlowTest : ApiTest() {
     }
 
     @Test
-    fun `L3 - con la impresora apagada el trabajo espera y no se pierde`() {
+    fun `L3 - with the printer off the job waits and is not lost`() {
         val token = manager()
         val id = template(token)
 
@@ -182,7 +182,7 @@ class LabelFlowTest : ApiTest() {
     }
 
     @Test
-    fun `L5 - reimprimir crea un trabajo nuevo enlazado al original`() {
+    fun `L5 - reprinting creates a new job linked to the original`() {
         val token = manager()
         val id = template(token)
         val original = print(token, id).at<List<Int>>("jobIds").single().toLong()
@@ -200,7 +200,7 @@ class LabelFlowTest : ApiTest() {
     }
 
     @Test
-    fun `reimprimir sin motivo se rechaza`() {
+    fun `reprinting without a reason is rejected`() {
         val token = manager()
         val id = template(token)
         val original = print(token, id).at<List<Int>>("jobIds").single().toLong()
@@ -214,7 +214,7 @@ class LabelFlowTest : ApiTest() {
     // ── El encolado, antes de encolar ───────────────────────────────────────
 
     @Test
-    fun `no se encola una etiqueta con datos incompletos`() {
+    fun `a label with incomplete data is not queued`() {
         val token = manager()
         val id = template(token)
 
@@ -227,7 +227,7 @@ class LabelFlowTest : ApiTest() {
     }
 
     @Test
-    fun `una plantilla inactiva no imprime y las copias tienen tope`() {
+    fun `an inactive template does not print and the copies have a cap`() {
         val token = manager()
         val inactiva = template(token, code = "vieja", isActive = false)
         val activa = template(token, code = "nueva")
@@ -240,7 +240,7 @@ class LabelFlowTest : ApiTest() {
     }
 
     @Test
-    fun `una plantilla que no existe responde LABEL_TEMPLATE_NOT_FOUND`() {
+    fun `a template that does not exist answers LABEL_TEMPLATE_NOT_FOUND`() {
         val token = manager()
 
         assertThat(preview(token, 999999).code).isEqualTo("LABEL_TEMPLATE_NOT_FOUND")
@@ -248,7 +248,7 @@ class LabelFlowTest : ApiTest() {
     }
 
     @Test
-    fun `la cola exige su propio permiso`() {
+    fun `the queue requires its own permission`() {
         createUser("operador", USER_PASSWORD, BaseRole.WAREHOUSE_OPERATOR.key.value)
         val token = accessTokenOf("operador", USER_PASSWORD)
 

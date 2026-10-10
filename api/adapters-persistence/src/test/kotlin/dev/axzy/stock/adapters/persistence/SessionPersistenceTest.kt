@@ -40,7 +40,7 @@ class SessionPersistenceTest {
     private fun family() = UUID.randomUUID().toString()
 
     @Test
-    fun `solo cuentan los fallos de credenciales recientes de ese nombre`() {
+    fun `only recent credential failures for that name count`() {
         attempts.record("jperez", null, succeeded = false, failureCode = "INVALID_CREDENTIALS", origin = origin, at = Instant.now())
         attempts.record("jperez", null, succeeded = false, failureCode = "INVALID_CREDENTIALS", origin = origin, at = Instant.now())
         // No cuentan: otro motivo, un acierto y otro usuario.
@@ -53,14 +53,14 @@ class SessionPersistenceTest {
     }
 
     @Test
-    fun `un nombre de usuario desmesurado se registra recortado en lugar de fallar`() {
+    fun `an excessively long username is recorded truncated instead of failing`() {
         attempts.record("x".repeat(500), null, succeeded = false, failureCode = "INVALID_CREDENTIALS", origin = origin, at = Instant.now())
 
         assertThat(attempts.failedSince("x".repeat(500), Instant.now().minusSeconds(60))).isEqualTo(1)
     }
 
     @Test
-    fun `un token se guarda, se encuentra por su hash y conserva de donde se emitio`() {
+    fun `a token is stored, found by its hash and keeps where it was issued from`() {
         val familyId = family()
         tokens.store(hash("a"), userId, familyId, generation = 1, issuedAt = now, expiresAt = now.plusSeconds(3600), origin = origin)
 
@@ -78,7 +78,7 @@ class SessionPersistenceTest {
     }
 
     @Test
-    fun `rotar un token anota por cual se reemplazo, una sola vez`() {
+    fun `rotating a token records which one replaced it, once`() {
         tokens.store(hash("a"), userId, family(), 1, now, now.plusSeconds(3600), origin)
 
         tokens.markRotated(hash("a"), hash("b"), now)
@@ -90,7 +90,7 @@ class SessionPersistenceTest {
     }
 
     @Test
-    fun `revocar una familia cierra sus tokens vivos y deja intactos los ya rotados`() {
+    fun `revoking a family closes its live tokens and leaves the already rotated ones intact`() {
         val familyId = family()
         tokens.store(hash("a"), userId, familyId, 1, now, now.plusSeconds(3600), origin)
         tokens.markRotated(hash("a"), hash("b"), now)
@@ -106,7 +106,7 @@ class SessionPersistenceTest {
     }
 
     @Test
-    fun `cerrar sesion revoca la familia del token presentado, y repetirlo no falla`() {
+    fun `signing out revokes the family of the presented token, and repeating it does not fail`() {
         tokens.store(hash("a"), userId, family(), 1, now, now.plusSeconds(3600), origin)
 
         assertThat(tokens.revokeFamilyOf(hash("a"), RevocationReason.LOGOUT)).isEqualTo(1)
@@ -115,7 +115,7 @@ class SessionPersistenceTest {
     }
 
     @Test
-    fun `revocar todo lo de un usuario cierra cada familia`() {
+    fun `revoking everything of a user closes each family`() {
         tokens.store(hash("a"), userId, family(), 1, now, now.plusSeconds(3600), origin)
         tokens.store(hash("b"), userId, family(), 1, now, now.plusSeconds(3600), origin)
 
@@ -124,7 +124,7 @@ class SessionPersistenceTest {
     }
 
     @Test
-    fun `dos renovaciones simultaneas del mismo token se atienden una tras otra`() {
+    fun `two simultaneous renewals of the same token are served one after the other`() {
         tokens.store(hash("a"), userId, family(), 1, now, now.plusSeconds(3600), origin)
         val firstHasTheRow = CountDownLatch(1)
         val executor = Executors.newFixedThreadPool(2)

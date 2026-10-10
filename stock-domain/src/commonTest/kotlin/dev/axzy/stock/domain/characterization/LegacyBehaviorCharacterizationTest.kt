@@ -147,9 +147,9 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("D-1 · el defecto real: el libro se muta") {
+    describe("D-1 · the real defect: the ledger is mutated") {
 
-        it("el registro de recepción queda en cero tras ubicar") {
+        it("the receiving record is zero after locating") {
             val store = LegacyStore(1000)
             val rows = mutableListOf<LegacyKardexRow>()
 
@@ -185,7 +185,7 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
             }
         }
 
-        it("cada ubicación parcial vuelve a mutar la misma fila") {
+        it("every partial location mutates the same row again") {
             val rows = mutableListOf<LegacyKardexRow>()
             // El tipo de la captura en el legacy: PENDING-TO-LOCATE, candidato a
             // ser mutado por removeUnitsFromKardex.
@@ -207,7 +207,7 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
             }
         }
 
-        it("el modelo nuevo conserva el registro original: es la diferencia central") {
+        it("the new model keeps the original record: that is the central difference") {
             // Contraste directo. En el modelo nuevo, ubicar es un movimiento
             // NUEVO con origen y destino, y el registro de recepción no se toca.
             val unitsReceived = Quantity.of(100)
@@ -223,9 +223,9 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("D-2 · el modelo no puede decir dónde está el inventario") {
+    describe("D-2 · the model cannot say where the inventory is") {
 
-        it("el read model tiene UN número por producto, sin ubicación") {
+        it("the read model has ONE number per product, without location") {
             // Es la limitación que hace la reescritura necesaria tanto como el
             // libro mutable: el legacy cuadra en total y no sabe dónde está nada.
             // La pregunta más frecuente en un almacén no tiene respuesta.
@@ -254,9 +254,9 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("D-3 · el defecto latente: la rama que resta y nadie invoca") {
+    describe("D-3 · the latent defect: the branch that subtracts and nobody invokes") {
 
-        it("ubicar RESTARÍA del total si alguien invocara el read model con LOCATE") {
+        it("locating WOULD SUBTRACT from the total if someone invoked the read model with LOCATE") {
             // El defecto más peligroso para un rewrite, porque está MUERTO: el
             // código contiene la operación incorrecta sin ejecutarla nunca. Quien
             // reescriba puede conectar esa rama creyendo que aprovecha código
@@ -275,7 +275,7 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
             }
         }
 
-        it("el modelo nuevo hace imposible esa rama: el efecto está declarado") {
+        it("the new model makes that branch impossible: the effect is declared") {
             // En el modelo nuevo, ubicar declara su efecto y el `when` lo obliga:
             // `StockEffect.TransferWithinWarehouse` nunca toca el total. No hay
             // ninguna función con un valor por defecto que reste.
@@ -297,9 +297,9 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("la tabla de efectos del legacy, ahora declarada en el código") {
+    describe("the legacy effects table, now declared in the code") {
 
-        it("la lista que SUMA son tres tipos, y ninguno es LOCATE") {
+        it("the list that ADDS up is three types, and none is LOCATE") {
             // En el original esto era un `if` con una lista literal y un `else`
             // por defecto. Aquí es una tabla exhaustiva.
             val sum = MovementType.entries.filter { it.itsEffectInLegacy == LegacyEffect.ADDS }
@@ -313,7 +313,7 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
             }
         }
 
-        it("PENDING_OUT no afecta al stock: el único acierto del legacy") {
+        it("PENDING_OUT does not affect stock: the only correct legacy decision") {
             // Era una intención de salida, no una salida. El modelo nuevo lo
             // conserva y lo formaliza como tránsito, en lugar de dejarlo como un
             // caso especial escondido.
@@ -325,7 +325,7 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
             }
         }
 
-        it("todos los tipos de movimiento tienen efecto declarado (el `when` es exhaustivo)") {
+        it("every movement type has a declared effect (the `when` is exhaustive)") {
             // Si se añade un MovementType sin decidir su efecto en el legacy, esto
             // no compila. Es la misma garantía que en el modelo nuevo.
             MovementType.entries.forEach { type ->
@@ -337,9 +337,9 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("lo que el legacy NO tiene") {
+    describe("what the legacy does NOT have") {
 
-        it("ninguna tabla de auditoría entre sus 13 modelos") {
+        it("no audit table among its 13 models") {
             // Verificado leyendo `prisma/schema.prisma`. Por eso el sistema legacy
             // no puede responder "quién hizo esto" para casi nada.
             val models = listOf(
@@ -358,7 +358,7 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
             }
         }
 
-        it("su única trazabilidad guarda el NOMBRE del usuario, no una referencia") {
+        it("its only traceability stores the user's NAME, not a reference") {
             // `Kardex.user` era un `String` libre: sin integridad referencial, y
             // el histórico se rompe si alguien se renombra.
             val kardexStoredFreeString = true
@@ -370,9 +370,9 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("las contradicciones, fijadas para no copiarlas") {
+    describe("the contradictions, fixed so they are not copied") {
 
-        it("el esquema declara borrado lógico y el servicio borra en físico") {
+        it("the schema declares logical deletion and the service deletes physically") {
             // Hallazgo B-1 / R-57.
             val schemaDeclaresSoftDelete = true
             val serviceDoesHardDelete = true
@@ -383,7 +383,7 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
             }
         }
 
-        it("`difference` existe en el modelo y siempre vale cero") {
+        it("`difference` exists in the model and is always zero") {
             // Hallazgo B-2 / R-58. El sistema nuevo usa una columna generada.
             val declaredInModelDtoMapperAndResponse = 4
             val timesItWasComputed = 0
@@ -394,7 +394,7 @@ class LegacyBehaviorCharacterizationTest : DescribeSpec({
             }
         }
 
-        it("permisos sembrados que no se exigían en ninguna ruta") {
+        it("seeded permissions that no route required") {
             // Hallazgo B-3. El sistema nuevo tiene un test de biyección.
             val seededWithoutRoute = listOf(
                 "user:create", "user:read", "user:update", "user:delete",

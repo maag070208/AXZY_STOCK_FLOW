@@ -8,7 +8,7 @@ import java.io.File
 class SchemaVersionTest {
 
     @Test
-    fun `la version de esquema que exige la API es la ultima migracion del repositorio`() {
+    fun `the schema version the API requires is the latest migration in the repository`() {
         val migrations = File(System.getProperty("stock.db.dir"), "migrations")
         val latest = migrations.listFiles { file -> file.name.matches(Regex("V\\d+__.*\\.sql")) }!!
             .maxOf { it.name.substringAfter('V').substringBefore("__").toInt() }

@@ -112,7 +112,7 @@ class TransferEngineTest {
     // ── T1: despachar saca del origen y pone en tránsito ────────────────────
 
     @Test
-    fun `T1 - despachar saca del origen, deja en transito y no cambia el total`() {
+    fun `T1 - dispatching takes from the origin, leaves it in transit and does not change the total`() {
         transferId = draft(quantity = 40)
         assertThat(total()).isEqualTo(Quantity.of(100))
 
@@ -131,7 +131,7 @@ class TransferEngineTest {
     // ── T2: recibir pone en el destino ──────────────────────────────────────
 
     @Test
-    fun `T2 - recibir pone en el destino, cierra el transito y no cambia el total`() {
+    fun `T2 - receiving puts it in the destination, closes the transit and does not change the total`() {
         transferId = draft(quantity = 40)
         dispatch()
 
@@ -146,7 +146,7 @@ class TransferEngineTest {
     }
 
     @Test
-    fun `el kardex guarda las dos mitades con su tipo`() {
+    fun `the ledger stores the two halves with their type`() {
         transferId = draft(quantity = 40)
         dispatch()
         receive()
@@ -161,7 +161,7 @@ class TransferEngineTest {
     // ── T5: sin existencias no se despacha ──────────────────────────────────
 
     @Test
-    fun `T5 - sin existencias no se despacha y nada queda a medias`() {
+    fun `T5 - without stock nothing is dispatched and nothing is left half done`() {
         transferId = draft(quantity = 500)
 
         assertThatThrownBy { dispatch() }
@@ -178,7 +178,7 @@ class TransferEngineTest {
     }
 
     @Test
-    fun `un traslado con dos lineas mueve las dos o ninguna`() {
+    fun `a transfer with two lines moves both or neither`() {
         transferId = draft(quantity = 30)
         db.asOwner.sql(
             """
@@ -198,7 +198,7 @@ class TransferEngineTest {
     // ── T6: cancelar un despachado devuelve la mercancía ────────────────────
 
     @Test
-    fun `T6 - cancelar un despachado devuelve la mercancia a su origen`() {
+    fun `T6 - cancelling a dispatched transfer returns the goods to their origin`() {
         transferId = draft(quantity = 40)
         dispatch()
 
@@ -212,7 +212,7 @@ class TransferEngineTest {
     }
 
     @Test
-    fun `cancelar un borrador no mueve nada`() {
+    fun `cancelling a draft moves nothing`() {
         transferId = draft(quantity = 40)
 
         assertThat(cancel()).isZero()
@@ -224,7 +224,7 @@ class TransferEngineTest {
     // ── La invariante ───────────────────────────────────────────────────────
 
     @Test
-    fun `la invariante se conserva en cada transicion`() {
+    fun `the invariant holds on every transition`() {
         transferId = draft(quantity = 40)
 
         val inicial = stockAt(origin) + inTransit()
@@ -241,7 +241,7 @@ class TransferEngineTest {
     }
 
     @Test
-    fun `recibir dos veces no mueve la mercancia dos veces`() {
+    fun `receiving twice does not move the goods twice`() {
         transferId = draft(quantity = 40)
         dispatch()
         receive()

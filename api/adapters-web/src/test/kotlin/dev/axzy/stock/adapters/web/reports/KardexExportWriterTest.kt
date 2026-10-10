@@ -58,7 +58,7 @@ class KardexExportWriterTest {
     // ── CSV ─────────────────────────────────────────────────────────────────
 
     @Test
-    fun `el CSV lleva cabecera y una fila por movimiento`() {
+    fun `the CSV has a header and one row per movement`() {
         val csv = csvOf(listOf(line(1), line(2)))
 
         val lines = csv.removePrefix("\uFEFF").trim().lines()
@@ -68,7 +68,7 @@ class KardexExportWriterTest {
     }
 
     @Test
-    fun `un campo con coma o comilla va entrecomillado y la comilla se dobla`() {
+    fun `a field with a comma or quote is quoted and the quote is doubled`() {
         val csv = csvOf(listOf(line(productName = "ABRAZADERA 1-5/8\", CON TUERCA", note = "Caja rota, pasillo 3")))
 
         // El nombre lleva comilla y coma: sin entrecomillar, el archivo tendría una
@@ -78,7 +78,7 @@ class KardexExportWriterTest {
     }
 
     @Test
-    fun `el CSV empieza con marca de orden de bytes para que Excel lea los acentos`() {
+    fun `the CSV starts with a byte order mark so Excel reads the accents`() {
         val bytes = ByteArrayOutputStream().also { KardexExportWriter.write(export(ExportFormat.CSV, listOf(line())), it) }
             .toByteArray()
 
@@ -88,7 +88,7 @@ class KardexExportWriterTest {
     // ── XLSX ────────────────────────────────────────────────────────────────
 
     @Test
-    fun `en XLSX las cantidades son celdas numericas con tres decimales`() {
+    fun `in XLSX the quantities are numeric cells with three decimals`() {
         val out = ByteArrayOutputStream()
         KardexExportWriter.write(export(ExportFormat.XLSX, listOf(line())), out)
 
@@ -116,7 +116,7 @@ class KardexExportWriterTest {
     }
 
     @Test
-    fun `el XLSX se escribe por trozos sin perder filas`() {
+    fun `the XLSX is written in chunks without losing rows`() {
         val rows = (1..7).map { line(id = it.toLong()) }
 
         val out = ByteArrayOutputStream()

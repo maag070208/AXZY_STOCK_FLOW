@@ -47,9 +47,9 @@ class ScanModelTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("M4 · la ventana de escaneo tiene UNA sola definición") {
+    describe("M4 · the scanning window has ONE single definition") {
 
-        it("la máscara visual y la validación leen la MISMA ventana") {
+        it("the visual mask and the validation read the SAME window") {
             // La causa raíz del bug del legacy: había dos definiciones de la
             // misma ventana en dos archivos, y nada las mantenía sincronizadas
             // (máscara 300×100, validación 250×50).
@@ -67,7 +67,7 @@ class ScanModelTest : DescribeSpec({
             }
         }
 
-        it("un código centrado en la ventana se acepta") {
+        it("a code centred in the window is accepted") {
             val centered = centeredInWindow()
 
             withClue("Un código en el centro de la banda visual debe aceptarse") {
@@ -75,7 +75,7 @@ class ScanModelTest : DescribeSpec({
             }
         }
 
-        it("un código FUERA de la ventana se rechaza con un motivo accionable") {
+        it("a code OUTSIDE the window is rejected with an actionable reason") {
             // El legacy descartaba esos escaneos sin decir nada, así que el
             // operador repetía el gesto sin entender por qué.
             val outside = ScanRect(left = 0.02, top = 0.02, width = 0.05, height = 0.05)
@@ -96,7 +96,7 @@ class ScanModelTest : DescribeSpec({
             }
         }
 
-        it("el centro del código decide, no su esquina superior") {
+        it("the centre of the code decides, not its top corner") {
             // El legacy comprobaba el ORIGEN del bounding box (`y < top + 50`),
             // así que un código alto quedaba fuera aunque estuviera visualmente
             // centrado. Es la causa de que pareciera desalineado.
@@ -122,7 +122,7 @@ class ScanModelTest : DescribeSpec({
             }
         }
 
-        it("la tolerancia permite un pulso tembloroso sin repetir el escaneo") {
+        it("the tolerance allows a shaky pulse without repeating the scan") {
             val window = ScanWindow.DEFAULT
             // Justo por debajo del borde de la ventana visual, dentro de la
             // tolerancia.
@@ -141,7 +141,7 @@ class ScanModelTest : DescribeSpec({
             }
         }
 
-        it("una tolerancia fuera de rango no se puede construir") {
+        it("an out-of-range tolerance cannot be built") {
             val invalid = runCatching {
                 ScanWindow(ScanWindow.DEFAULT.window, tolerance = 0.9)
             }
@@ -150,9 +150,9 @@ class ScanModelTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("M3 · la máquina de estados: la rama inalcanzable ya no existe") {
+    describe("M3 · the state machine: the unreachable branch no longer exists") {
 
-        it("el flujo completo de dos pasos funciona en DOS escaneos, no tres") {
+        it("the full two-step flow works in TWO scans, not three") {
             // El bug del legacy: step se incrementaba una vez y el handler
             // comparaba step === 1, así que la rama de la ubicación era
             // inalcanzable hasta que un error devolvía step a 0. El operador
@@ -188,7 +188,7 @@ class ScanModelTest : DescribeSpec({
             }
         }
 
-        it("NO se puede asignar una ubicación sin haber escaneado el producto") {
+        it("a location cannot be assigned without scanning the product first") {
             // Ésta es la transición que el legacy permitía escribir mal. Aquí el
             // estado Idle no lleva producto, así que **no hay forma de
             // expresarla**: no es que la validación la rechace, es que el tipo no
@@ -209,7 +209,7 @@ class ScanModelTest : DescribeSpec({
             }
         }
 
-        it("exige las unidades antes de escanear la ubicación") {
+        it("requires the units before scanning the location") {
             val centered = centeredInWindow()
 
             val stateWithProduct = ScanState.ProductScanned(product, units = null)
@@ -227,7 +227,7 @@ class ScanModelTest : DescribeSpec({
             }
         }
 
-        it("no se puede encadenar un segundo movimiento sin confirmar el primero") {
+        it("a second movement cannot be chained without confirming the first") {
             val centered = centeredInWindow()
 
             val ready = ScanState.ReadyToConfirm(product, units = 50, to = shelf)
@@ -244,7 +244,7 @@ class ScanModelTest : DescribeSpec({
             }
         }
 
-        it("rechaza mover mercancía a la ubicación de recepción") {
+        it("rejects moving goods to the receiving location") {
             val centered = centeredInWindow()
             val status = ScanState.ProductScanned(product, units = 50)
 
@@ -260,7 +260,7 @@ class ScanModelTest : DescribeSpec({
             }
         }
 
-        it("el número de paso es solo para la interfaz, nunca para la lógica") {
+        it("the step number is only for the interface, never for the logic") {
             // El legacy comparaba `step === 1` para decidir qué hacer. Aquí el
             // paso existe para mostrar "paso 2 de 4" y nada más: la decisión la
             // toma el TIPO de estado.
@@ -283,7 +283,7 @@ class ScanModelTest : DescribeSpec({
             }
         }
 
-        it("la instrucción que se muestra corresponde al estado real") {
+        it("the instruction shown matches the real state") {
             // El legacy mostraba la instrucción del paso equivocado por el mismo
             // bug de comparación, así que el operador leía "escanea el producto"
             // cuando debía escanear la ubicación.
@@ -294,9 +294,9 @@ class ScanModelTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("el rectángulo en coordenadas normalizadas") {
+    describe("the rectangle in normalised coordinates") {
 
-        it("rechaza coordenadas fuera del fotograma") {
+        it("rejects coordinates outside the frame") {
             listOf(
                 { ScanRect(-0.1, 0.5, 0.2, 0.2) },
                 { ScanRect(0.5, 1.2, 0.2, 0.2) },
@@ -310,7 +310,7 @@ class ScanModelTest : DescribeSpec({
             }
         }
 
-        it("calcula centro y bordes correctamente") {
+        it("computes the centre and the edges correctly") {
             val r = ScanRect(left = 0.10, top = 0.20, width = 0.40, height = 0.10)
 
             // Se compara con tolerancia: en coma flotante, 0.10 + 0.20 no es
@@ -325,7 +325,7 @@ class ScanModelTest : DescribeSpec({
             }
         }
 
-        it("trabaja en coordenadas normalizadas para ser independiente de la densidad") {
+        it("works in normalised coordinates to be independent of density") {
             // Con píxeles absolutos, como en el legacy, la misma ventana lógica
             // medía cosas distintas en un teléfono y en una tablet. Normalizar
             // elimina esa clase de error.

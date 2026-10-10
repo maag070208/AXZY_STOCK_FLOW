@@ -65,7 +65,7 @@ class ReportPersistenceTest {
     // ── Presupuesto de consultas ────────────────────────────────────────────
 
     @Test
-    fun `R-P2 - el reporte de existencias son tres sentencias - conteo, totales y pagina`() {
+    fun `R-P2 - the stock report takes three statements - count, totals and page`() {
         val filter = InventoryReportFilter(null, null, onlyWithStock = false)
 
         val statements = db.statements.during { reports.inventory(filter, PageRequest.of()) }
@@ -76,7 +76,7 @@ class ReportPersistenceTest {
     }
 
     @Test
-    fun `R-P2 - el resumen de movimientos y la reconciliacion son una sentencia`() {
+    fun `R-P2 - the movement summary and the reconciliation are a single statement`() {
         val summary = db.statements.during {
             reports.movementSummary(MovementSummaryFilter(LocalDate.now(), LocalDate.now(), SummaryGroup.DAY))
         }
@@ -87,7 +87,7 @@ class ReportPersistenceTest {
     }
 
     @Test
-    fun `la exportacion lee por trozos, sin repetir ni perder filas`() {
+    fun `the export reads in chunks, without repeating or losing rows`() {
         repeat(5) { movementAt(units = it + 1, at = "2026-10-05T18:00:00Z") }
 
         val first = reports.kardexChunk(KardexFilter(null, null, null, null), offset = 0, chunkSize = 2)
@@ -107,7 +107,7 @@ class ReportPersistenceTest {
     // ── El día operativo ────────────────────────────────────────────────────
 
     @Test
-    fun `un movimiento de la noche pertenece a su dia operativo y no al dia UTC`() {
+    fun `a night movement belongs to its operating day and not to the UTC day`() {
         // 04:00 UTC del 10 son las 22:00 del 9 en Ciudad de México: en el almacén
         // aquello pasó el día 9.
         movementAt(units = 7, at = "2026-10-10T04:00:00Z")
@@ -125,7 +125,7 @@ class ReportPersistenceTest {
     }
 
     @Test
-    fun `el filtro por fecha incluye el dia operativo entero`() {
+    fun `the date filter includes the whole operating day`() {
         // 05:59 UTC del 10 son las 23:59 del 9; 06:00 UTC del 10 son las 00:00 del 10.
         movementAt(units = 1, at = "2026-10-10T05:59:00Z")
         movementAt(units = 2, at = "2026-10-10T06:00:00Z")
@@ -142,7 +142,7 @@ class ReportPersistenceTest {
     }
 
     @Test
-    fun `el kardex del inventario usa el mismo dia operativo`() {
+    fun `the inventory ledger uses the same operating day`() {
         movementAt(units = 3, at = "2026-10-10T04:00:00Z")
 
         val dia9 = kardexPages.page(

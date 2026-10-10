@@ -9,8 +9,8 @@ import { E2E } from "./support/env";
  * si faltan en lugar de saltarse: una prueba saltada cuenta como aprobada y ya
  * ocultó huecos antes (docs/pruebas/estrategia-pruebas.md).
  */
-test.describe("entrada", () => {
-  test("la API responde antes de empezar", async ({ request }) => {
+test.describe("sign-in", () => {
+  test("the API responds before starting", async ({ request }) => {
     const health = await request.get(`${E2E.apiUrl}/v1/health`);
 
     expect(
@@ -19,7 +19,7 @@ test.describe("entrada", () => {
     ).toBeTruthy();
   });
 
-  test("la marca se sirve y el manifiesto dice el nombre del producto", async ({ request }) => {
+  test("the brand is served and the manifest carries the product name", async ({ request }) => {
     // Los archivos que `index.html` declara tienen que existir de verdad: un
     // favicon que no se sirve no rompe nada y nadie lo nota.
     for (const asset of ["/favicon.svg", "/favicon.ico", "/apple-touch-icon.png", "/icon-192.png", "/site.webmanifest"]) {
@@ -32,7 +32,7 @@ test.describe("entrada", () => {
     expect(manifest.icons.length).toBeGreaterThanOrEqual(4);
   });
 
-  test("la pantalla de entrada se dibuja", async ({ page }) => {
+  test("the sign-in screen renders", async ({ page }) => {
     await page.goto("/");
 
     await expect(page.getByText("Warehouse management")).toBeVisible();
@@ -48,7 +48,7 @@ test.describe("entrada", () => {
     await expect(entrar).toBeEnabled();
   });
 
-  test("con credenciales incorrectas muestra el mensaje de la API", async ({ page }) => {
+  test("wrong credentials show the translated error message", async ({ page }) => {
     await page.goto("/");
 
     /*
@@ -67,7 +67,7 @@ test.describe("entrada", () => {
     await expect(page).toHaveURL(/#\/login$/);
   });
 
-  test("con las credenciales del entorno entra, y la API decide la pantalla", async ({ page }) => {
+  test("the environment credentials sign in, and the API decides the screen", async ({ page }) => {
     expect(
       E2E.adminPassword,
       "Falta ADMIN_BOOTSTRAP_PASSWORD en el .env del repositorio: sin credenciales no se puede probar la entrada.",

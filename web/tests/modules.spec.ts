@@ -60,8 +60,8 @@ function requestTo(page: Page, pathname: string): Promise<Request> {
 
 test.beforeEach(async ({ page }) => mockHomeSummary(page));
 
-test.describe("módulos de lectura (API simulada)", () => {
-  test("Stock pide /inventory/stock y pinta la línea que devuelve", async ({ page }) => {
+test.describe("read modules (simulated API)", () => {
+  test("Stock requests /inventory/stock and renders the line it returns", async ({ page }) => {
     await page.route("**/v1/inventory/stock*", (route) =>
       route.fulfill({
         json: page1([
@@ -87,7 +87,7 @@ test.describe("módulos de lectura (API simulada)", () => {
     await request;
   });
 
-  test("Receiving pide las facturas y la bandeja de aprobación", async ({ page }) => {
+  test("Receiving requests the invoices and the approval queue", async ({ page }) => {
     await page.route("**/v1/invoices?*", (route) =>
       route.fulfill({
         json: page1([
@@ -114,7 +114,7 @@ test.describe("módulos de lectura (API simulada)", () => {
     await request;
   });
 
-  test("Fulfillment pide las órdenes y pinta su estado de exportación", async ({ page }) => {
+  test("Fulfillment requests the orders and renders their export status", async ({ page }) => {
     await page.route("**/v1/orders?*", (route) =>
       route.fulfill({
         json: page1([
@@ -139,7 +139,7 @@ test.describe("módulos de lectura (API simulada)", () => {
     await request;
   });
 
-  test("Transfers muestra los traslados y los que van en camino", async ({ page }) => {
+  test("Transfers shows the transfers and the ones in transit", async ({ page }) => {
     await page.route("**/v1/transfers?*", (route) =>
       route.fulfill({
         json: page1([
@@ -171,7 +171,7 @@ test.describe("módulos de lectura (API simulada)", () => {
     await request;
   });
 
-  test("Labels pide la cola en /v1/labels/jobs, no en las plantillas", async ({ page }) => {
+  test("Labels requests the queue at /v1/labels/jobs, not at the templates", async ({ page }) => {
     // Regresión: la web llamó a /v1/label-templates/jobs y la API respondió 400, porque
     // el {id} del detalle de plantillas absorbía la palabra «jobs».
     await page.route("**/v1/labels/jobs?*", (route) =>
@@ -201,7 +201,7 @@ test.describe("módulos de lectura (API simulada)", () => {
     await request;
   });
 
-  test("Audit pide la bitácora y abre con su título", async ({ page }) => {
+  test("Audit requests the log and opens with its title", async ({ page }) => {
     await page.route("**/v1/audit/log?*", (route) => route.fulfill({ json: page1([]) }));
     await signIn(page);
 

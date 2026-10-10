@@ -45,9 +45,9 @@ class TransferStateMachineTest : DescribeSpec({
         lines = lines,
     )
 
-    describe("las transiciones legales") {
+    describe("the legal transitions") {
 
-        it("DRAFT → despachar deja el traslado DISPATCHED con su responsable") {
+        it("DRAFT → dispatching leaves the transfer DISPATCHED with its owner") {
             val resultado = transfer(TransferStatus.DRAFT).dispatch(userId = 7)
 
             val despachado = resultado.getOrNull()!!
@@ -55,7 +55,7 @@ class TransferStateMachineTest : DescribeSpec({
             despachado.dispatchedBy shouldBe 7
         }
 
-        it("DISPATCHED → recibir deja el traslado RECEIVED con su responsable") {
+        it("DISPATCHED → receiving leaves the transfer RECEIVED with its owner") {
             val resultado = transfer(TransferStatus.DISPATCHED).receive(userId = 9)
 
             val recibido = resultado.getOrNull()!!
@@ -63,7 +63,7 @@ class TransferStateMachineTest : DescribeSpec({
             recibido.receivedBy shouldBe 9
         }
 
-        it("IN_TRANSIT también se puede recibir: es el camino normal") {
+        it("IN_TRANSIT can also be received: it is the normal path") {
             // `DISPATCHED` e `IN_TRANSIT` son dos hechos distintos y los dos
             // permiten recibir. Olvidar el segundo dejaría traslados que viajan
             // legítimamente sin poder cerrarse.
@@ -71,7 +71,7 @@ class TransferStateMachineTest : DescribeSpec({
                 TransferStatus.RECEIVED
         }
 
-        it("cancelar DRAFT y DISPATCHED es legal") {
+        it("cancelling DRAFT and DISPATCHED is legal") {
             transfer(TransferStatus.DRAFT).cancel().getOrNull()!!.status shouldBe
                 TransferStatus.CANCELLED
             transfer(TransferStatus.DISPATCHED).cancel().getOrNull()!!.status shouldBe
@@ -79,9 +79,9 @@ class TransferStateMachineTest : DescribeSpec({
         }
     }
 
-    describe("las transiciones ILEGALES, y el daño que harían") {
+    describe("the ILLEGAL transitions, and the damage they would do") {
 
-        it("recibir un DRAFT se rechaza: llegaría mercancía que nunca salió") {
+        it("receiving a DRAFT is rejected: goods that never left would arrive") {
             val error = transfer(TransferStatus.DRAFT).receive(1).errorOrNull()
 
             // **El daño concreto:** el inventario de destino crecería sin que el
@@ -94,12 +94,12 @@ class TransferStateMachineTest : DescribeSpec({
             error.action shouldBe "recibir"
         }
 
-        it("recibir un traslado YA recibido se rechaza") {
+        it("receiving an ALREADY received transfer is rejected") {
             transfer(TransferStatus.RECEIVED).receive(1).errorOrNull()
                 .shouldBeInstanceOf<DomainError.InvalidTransition>()
         }
 
-        it("cancelar un traslado RECIBIDO se rechaza: lo recibido no se borra") {
+        it("cancelling a RECEIVED transfer is rejected: what was received is not erased") {
             // Si se pudiera, la mercancía quedaría en las ubicaciones de destino
             // con un traslado cancelado: contada en el sitio equivocado y sin
             // rastro. Para deshacerlo se hace un traslado de vuelta.
@@ -109,12 +109,12 @@ class TransferStateMachineTest : DescribeSpec({
             (error as DomainError.InvalidTransition).action shouldBe "cancelar"
         }
 
-        it("cancelar un CANCELLED se rechaza: no se cancela dos veces") {
+        it("cancelling a CANCELLED is rejected: it is not cancelled twice") {
             transfer(TransferStatus.CANCELLED).cancel().errorOrNull()
                 .shouldBeInstanceOf<DomainError.InvalidTransition>()
         }
 
-        it("despachar un traslado ya despachado se rechaza") {
+        it("dispatching an already dispatched transfer is rejected") {
             // Es el que evita el doble descuento: si se despachara dos veces, la
             // mercancía saldría dos veces de las ubicaciones de origen y el total
             // BAJARÍA. Un total que baja de golpe parece una venta, no un error.
@@ -122,7 +122,7 @@ class TransferStateMachineTest : DescribeSpec({
                 .shouldBeInstanceOf<DomainError.InvalidTransition>()
         }
 
-        it("despachar un traslado sin líneas se rechaza") {
+        it("dispatching a transfer without lines is rejected") {
             val error = transfer(TransferStatus.DRAFT, lines = emptyList()).dispatch(1).errorOrNull()
 
             error.shouldBeInstanceOf<DomainError.EmptyTransfer>()
@@ -130,9 +130,9 @@ class TransferStateMachineTest : DescribeSpec({
         }
     }
 
-    describe("las reglas que no dependen del estado") {
+    describe("the rules that do not depend on the state") {
 
-        it("origen y destino iguales se rechaza, y es lo que ningún reporte vería") {
+        it("same origin and destination is rejected, and it is what no report would see") {
             val error = Transfer.validate(
                 fromWarehouseId = 1,
                 toWarehouseId = 1,
@@ -148,19 +148,19 @@ class TransferStateMachineTest : DescribeSpec({
             (error as DomainError.SameWarehouse).code shouldBe "SAME_WAREHOUSE"
         }
 
-        it("sin líneas se rechaza: una deuda en tránsito sin mercancía que la explique") {
+        it("without lines it is rejected: a transit debt with no goods to explain it") {
             Transfer.validate(1, 2, emptyList()).errorOrNull()
                 .shouldBeInstanceOf<DomainError.EmptyTransfer>()
         }
 
-        it("origen distinto con líneas se acepta") {
+        it("a different origin with lines is accepted") {
             Transfer.validate(1, 2, listOf(linea())).isRight shouldBe true
         }
     }
 
-    describe("lo que el traslado calcula de sus líneas") {
+    describe("what the transfer computes from its lines") {
 
-        it("`lineCount` cuenta productos y `totalUnits` suma cantidades") {
+        it("`lineCount` counts products and `totalUnits` adds quantities") {
             val t = transfer(
                 TransferStatus.DRAFT,
                 lines = listOf(linea(1000), linea(500), linea(250)),
@@ -173,14 +173,14 @@ class TransferStateMachineTest : DescribeSpec({
             t.totalUnits shouldBe Quantity.ofScaled(1750)
         }
 
-        it("un traslado sin líneas suma cero, no falla") {
+        it("a transfer without lines adds up to zero, it does not fail") {
             val t = transfer(TransferStatus.DRAFT, lines = emptyList())
 
             t.lineCount shouldBe 0
             t.totalUnits shouldBe Quantity.ZERO
         }
 
-        it("`isInTransit` es cierto solo cuando la mercancía está fuera de las ubicaciones") {
+        it("`isInTransit` is true only when the goods are outside the locations") {
             // Es la consulta que alimenta `GET /v1/transfers/in-transit`. Si
             // incluyera `DRAFT`, el informe enseñaría como «en camino» mercancía
             // que todavía está en su estante.
@@ -191,7 +191,7 @@ class TransferStateMachineTest : DescribeSpec({
             transfer(TransferStatus.CANCELLED).status.isInTransit shouldBe false
         }
 
-        it("solo DRAFT es editable") {
+        it("only DRAFT is editable") {
             // Con la mercancía ya en el camión, cambiar las líneas haría que lo
             // despachado y lo declarado dejaran de coincidir.
             transfer(TransferStatus.DRAFT).status.isEditable shouldBe true

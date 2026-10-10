@@ -69,7 +69,7 @@ class InventoryPersistenceTest {
     }
 
     @Test
-    fun `R-P2 - el listado de existencias son dos sentencias`() {
+    fun `R-P2 - the stock list takes two statements`() {
         val statements = db.statements.during {
             queries.page(StockFilter(null, null, onlyWithStock = false), PageRequest.of())
         }
@@ -81,7 +81,7 @@ class InventoryPersistenceTest {
     }
 
     @Test
-    fun `R-P2 - el kardex son dos sentencias`() {
+    fun `R-P2 - the ledger takes two statements`() {
         val statements = db.statements.during {
             queries.page(KardexFilter(null, null, null, null), PageRequest.of())
         }
@@ -90,7 +90,7 @@ class InventoryPersistenceTest {
     }
 
     @Test
-    fun `el conteo de existencias usa los mismos filtros que el listado`() {
+    fun `the stock count uses the same filters as the list`() {
         val other = db.jdbc.sql(
             "INSERT INTO products (product_code, name, unit_measure_id) VALUES ('OTRO01', 'Otro', 1) RETURNING id",
         ).query(Long::class.java).single()
@@ -106,7 +106,7 @@ class InventoryPersistenceTest {
     }
 
     @Test
-    fun `el saldo se lee bloqueado dentro de la transaccion y el total sale de la proyeccion`() {
+    fun `the balance is read locked inside the transaction and the total comes from the projection`() {
         // El `FOR UPDATE` solo tiene efecto dentro de una transacción. Que el saldo
         // bloqueado impida el negativo se demuestra en `InventoryEngineConcurrencyTest`
         // (A3), con dos transacciones de verdad.
@@ -118,12 +118,12 @@ class InventoryPersistenceTest {
     }
 
     @Test
-    fun `un saldo sin fila es cero, no null`() {
+    fun `a balance without a row is zero, not null`() {
         assertThat(ledger.balanceAt(productId, 9_999L, forUpdate = false)).isEqualTo(Quantity.ZERO)
     }
 
     @Test
-    fun `la clave de idempotencia devuelve el mismo movimiento y no escribe dos`() {
+    fun `the idempotency key returns the same movement and does not write twice`() {
         val key = UUID.randomUUID()
         // Un ajuste **siempre** lleva motivo: lo impone un `CHECK` del esquema y lo
         // exige el flujo. Un `ADJUSTMENT_IN` sin motivo no llega a la tabla.
@@ -149,7 +149,7 @@ class InventoryPersistenceTest {
     }
 
     @Test
-    fun `el kardex guarda el saldo de despues y los nombres visibles`() {
+    fun `the ledger stores the balance after and the visible names`() {
         // Mercancía en la recepción, que es de donde sale un ubicar.
         val receivingId = db.jdbc.sql("SELECT id FROM locations WHERE kind = 'RECEIVING'").query(Long::class.java).single()
         ledger.apply(
@@ -183,7 +183,7 @@ class InventoryPersistenceTest {
     }
 
     @Test
-    fun `el catalogo del inventario resuelve las tres formas de nombre visible`() {
+    fun `the inventory catalog resolves the three forms of visible name`() {
         assertThat(catalog.activeProduct(ProductCode.of("INV001"))!!.id).isEqualTo(productId)
         assertThat(catalog.activeLocation(1, LocationRef.Shelf("04", "B", "C"))!!.id).isEqualTo(shelfId)
         assertThat(catalog.activeLocation(1, LocationRef.Receiving)!!.kind.name).isEqualTo("RECEIVING")
@@ -193,7 +193,7 @@ class InventoryPersistenceTest {
     }
 
     @Test
-    fun `un producto o una ubicacion inactivos no se encuentran`() {
+    fun `an inactive product or location is not found`() {
         db.jdbc.sql("UPDATE products SET active = FALSE WHERE id = :id").param("id", productId).update()
         db.jdbc.sql("UPDATE locations SET active = FALSE WHERE id = :id").param("id", shelfId).update()
 
@@ -202,7 +202,7 @@ class InventoryPersistenceTest {
     }
 
     @Test
-    fun `la bodega predeterminada existe y es la sembrada`() {
+    fun `the default warehouse exists and is the seeded one`() {
         assertThat(catalog.defaultWarehouseId()).isEqualTo(1L)
     }
 }

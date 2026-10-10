@@ -101,8 +101,8 @@ async function mockList(page: Page, lines: unknown[] = []) {
 
 test.beforeEach(async ({ page }) => mockHomeSummary(page));
 
-test.describe("recepción: escrituras (API simulada)", () => {
-  test("registrar una factura envía sus líneas y abre la factura creada", async ({ page }) => {
+test.describe("receiving: writes (simulated API)", () => {
+  test("recording an invoice sends its lines and opens the created invoice", async ({ page }) => {
     await mockList(page);
     await page.route("**/v1/invoices", (route) => {
       if (route.request().method() !== "POST") return route.fallback();
@@ -134,7 +134,7 @@ test.describe("recepción: escrituras (API simulada)", () => {
     await expect(page.getByRole("heading", { name: "Invoice F-2024-0158" })).toBeVisible();
   });
 
-  test("contar una línea envía solo las piezas y muestra la línea ya contada", async ({ page }) => {
+  test("counting a line sends only the pieces and shows the counted line", async ({ page }) => {
     let current = invoice([LINE_PENDING]);
     await mockList(page, current.lines);
     await page.route("**/v1/invoices/15", (route) => route.fulfill({ json: current }));
@@ -159,7 +159,7 @@ test.describe("recepción: escrituras (API simulada)", () => {
     await expect(page.getByText("DISCREPANCY").first()).toBeVisible();
   });
 
-  test("la API rechaza la aprobación de quien capturó, y la web muestra el motivo", async ({ page }) => {
+  test("the API rejects approval by the person who counted, and the web shows the reason", async ({ page }) => {
     const discrepancy = { ...LINE_PENDING, physicalQuantity: "80.000", difference: "-20.000", status: "DISCREPANCY", capturedByName: "Capturista" };
     await mockList(page, [discrepancy]);
     await page.route("**/v1/invoices/15", (route) => route.fulfill({ json: invoice([discrepancy], "IN_PROGRESS") }));
@@ -184,7 +184,7 @@ test.describe("recepción: escrituras (API simulada)", () => {
     await expect(page.getByText("The person who counted a line cannot approve its discrepancy.")).toBeVisible();
   });
 
-  test("asignarse una línea pendiente envía la asignación sin cuerpo y la línea queda a nombre del usuario", async ({ page }) => {
+  test("assigning a pending line to oneself sends the assignment without a body and the line is in the user's name", async ({ page }) => {
     let current = invoice([LINE_PENDING]);
     await mockList(page, current.lines);
     await page.route("**/v1/invoices/15", (route) => route.fulfill({ json: current }));

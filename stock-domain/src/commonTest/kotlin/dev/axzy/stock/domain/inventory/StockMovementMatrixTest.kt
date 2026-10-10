@@ -28,7 +28,7 @@ class StockMovementMatrixTest : DescribeSpec({
     val shelf = LocationCode.of("04BCA")
     val shelfB = LocationCode.of("04BCB")
 
-    describe("efecto declarado por cada tipo de movimiento") {
+    describe("effect declared for each movement type") {
 
         // ── Un caso por cada MovementType. Si se añade uno nuevo, este `when`
         //    deja de compilar y obliga a declarar su efecto.
@@ -56,9 +56,9 @@ class StockMovementMatrixTest : DescribeSpec({
         }
     }
 
-    describe("el total SOLO cambia por entradas y salidas autorizadas") {
+    describe("the total changes ONLY through authorised entries and exits") {
 
-        it("ningún movimiento interno resta del total") {
+        it("no internal movement subtracts from the total") {
             // Este es el test que hace imposible el bug del legacy.
             val movementsInternal = listOf(
                 Locate(Quantity.of(100), receiving, shelf),
@@ -79,7 +79,7 @@ class StockMovementMatrixTest : DescribeSpec({
             }
         }
 
-        it("solo AddToLocation y RemoveFromLocation pueden mover el total") {
+        it("only AddToLocation and RemoveFromLocation can move the total") {
             val allVariants = listOf(
                 StockEffect.AddToLocation(shelf),
                 StockEffect.RemoveFromLocation(shelf),
@@ -103,9 +103,9 @@ class StockMovementMatrixTest : DescribeSpec({
         }
     }
 
-    describe("ubicar: el movimiento del bug del legacy") {
+    describe("locating: the legacy bug's movement") {
 
-        it("mueve la cantidad de la recepción al estante sin tocar el total") {
+        it("moves the quantity from receiving to the shelf without touching the total") {
             val locate = Locate(Quantity.of(100), fromReceiving = receiving, toShelf = shelf)
 
             val deltas = locate.effect.locationDeltas(locate.quantity)
@@ -127,7 +127,7 @@ class StockMovementMatrixTest : DescribeSpec({
             }
         }
 
-        it("el legacy restaba DOS VECES del total: documentado como regresión") {
+        it("the legacy subtracted TWICE from the total: documented as a regression") {
             // Reproducimos la aritmética del legacy para dejar constancia de qué
             // se está corrigiendo. Este test NO valida el comportamiento nuevo:
             // documenta el viejo, para que dentro de un año se entienda la
@@ -163,9 +163,9 @@ class StockMovementMatrixTest : DescribeSpec({
         }
     }
 
-    describe("invariantes estructurales de los efectos") {
+    describe("structural invariants of the effects") {
 
-        it("todo efecto que toca dos ubicaciones suma cero en el total") {
+        it("every effect that touches two locations adds up to zero in the total") {
             val transfers = listOf(
                 StockEffect.TransferWithinWarehouse(shelf, shelfB),
             )
@@ -176,7 +176,7 @@ class StockMovementMatrixTest : DescribeSpec({
             }
         }
 
-        it("las entradas y salidas tocan una sola ubicación") {
+        it("entries and exits touch a single location") {
             val fromLocation = listOf(
                 StockEffect.AddToLocation(shelf) to 1,
                 StockEffect.RemoveFromLocation(shelf) to -1,
@@ -192,7 +192,7 @@ class StockMovementMatrixTest : DescribeSpec({
             }
         }
 
-        it("el tránsito saca de la ubicación pero NO del inventario") {
+        it("transit takes from the location but NOT from the inventory") {
             val outputATransit = TransferOut(Quantity.of(40), shelf, toWarehouseId = 2L)
 
             withClue("Sale de la ubicación física") {
@@ -208,9 +208,9 @@ class StockMovementMatrixTest : DescribeSpec({
         }
     }
 
-    describe("reglas de negocio codificadas en el tipo") {
+    describe("business rules encoded in the type") {
 
-        it("un ajuste sin motivo no se puede construir") {
+        it("an adjustment without a reason cannot be built") {
             // Invariante I6: todo ADJUSTMENT_* tiene motivo.
             // La regla vive en el TIPO, así que un ajuste sin motivo es
             // imposible de construir, no algo que haya que recordar validar.
@@ -224,7 +224,7 @@ class StockMovementMatrixTest : DescribeSpec({
             }
         }
 
-        it("un traslado a la misma ubicación no se puede construir") {
+        it("a transfer to the same location cannot be built") {
             shouldThrow<IllegalArgumentException> {
                 MoveWithinWarehouse(Quantity.of(10), shelf, shelf)
             }
@@ -233,7 +233,7 @@ class StockMovementMatrixTest : DescribeSpec({
             }
         }
 
-        it("el tipo de movimiento NO se puede deducir mal: viene del tipo de la clase") {
+        it("the movement type cannot be deduced wrongly: it comes from the class type") {
             val movement: StockMovement = Locate(Quantity.of(1), receiving, shelf)
             movement.type shouldBe MovementType.LOCATE
             movement.effect.shouldBeInstanceOf<StockEffect.TransferWithinWarehouse>()

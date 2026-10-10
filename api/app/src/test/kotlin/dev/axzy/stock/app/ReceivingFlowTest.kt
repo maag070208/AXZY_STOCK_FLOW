@@ -117,7 +117,7 @@ class ReceivingFlowTest : ApiTest() {
     // ── Alta y consulta ─────────────────────────────────────────────────────
 
     @Test
-    fun `el alta responde 201 con la referencia y el detalle trae las lineas`() {
+    fun `creating answers 201 with the reference and the detail includes the lines`() {
         val token = manager()
         product(token)
 
@@ -132,7 +132,7 @@ class ReceivingFlowTest : ApiTest() {
     }
 
     @Test
-    fun `una factura sin lineas y un numero repetido se rechazan`() {
+    fun `an invoice without lines and a repeated number are rejected`() {
         val token = manager()
         product(token)
 
@@ -161,7 +161,7 @@ class ReceivingFlowTest : ApiTest() {
     }
 
     @Test
-    fun `un producto que no existe y una fecha mal formada se rechazan`() {
+    fun `a product that does not exist and a badly formed date are rejected`() {
         val token = manager()
         product(token)
 
@@ -190,7 +190,7 @@ class ReceivingFlowTest : ApiTest() {
     }
 
     @Test
-    fun `una factura que no existe responde INVOICE_NOT_FOUND y una linea tampoco`() {
+    fun `an invoice that does not exist answers INVOICE_NOT_FOUND, and so does a line`() {
         val token = manager()
         product(token)
         val id = invoice(token)
@@ -205,7 +205,7 @@ class ReceivingFlowTest : ApiTest() {
     // ── R2: toda diferencia pide aprobación, sin umbral ─────────────────────
 
     @Test
-    fun `R2 - una diferencia de una unidad deja la linea en DISCREPANCY`() {
+    fun `R2 - a difference of one unit leaves the line in DISCREPANCY`() {
         val token = manager()
         product(token)
         val id = invoice(token)
@@ -222,7 +222,7 @@ class ReceivingFlowTest : ApiTest() {
     }
 
     @Test
-    fun `una captura exacta deja la linea en CAPTURED y no pide aprobacion`() {
+    fun `an exact count leaves the line in CAPTURED and does not request approval`() {
         val token = manager()
         product(token)
         val id = invoice(token)
@@ -238,7 +238,7 @@ class ReceivingFlowTest : ApiTest() {
     }
 
     @Test
-    fun `un conteo con cajas incoherentes se rechaza`() {
+    fun `a count with inconsistent boxes is rejected`() {
         val token = manager()
         product(token)
         val id = invoice(token)
@@ -254,7 +254,7 @@ class ReceivingFlowTest : ApiTest() {
     // ── R3 y R4: quién aprueba y a quién cubre ──────────────────────────────
 
     @Test
-    fun `R3 - quien capturo no puede aprobar su propia discrepancia`() {
+    fun `R3 - whoever counted cannot approve their own discrepancy`() {
         val token = manager()
         product(token)
         val id = invoice(token)
@@ -272,7 +272,7 @@ class ReceivingFlowTest : ApiTest() {
     }
 
     @Test
-    fun `R4 - una aprobacion cubre todas las discrepancias de la factura`() {
+    fun `R4 - one approval covers all the discrepancies of the invoice`() {
         val token = manager()
         val jefe = supervisor()
         product(token)
@@ -292,7 +292,7 @@ class ReceivingFlowTest : ApiTest() {
     }
 
     @Test
-    fun `rechazar una discrepancia devuelve la linea a captura`() {
+    fun `rejecting a discrepancy returns the line to counting`() {
         val token = manager()
         val jefe = supervisor()
         product(token)
@@ -311,7 +311,7 @@ class ReceivingFlowTest : ApiTest() {
     }
 
     @Test
-    fun `una decision sin motivo responde REASON_REQUIRED`() {
+    fun `a decision without a reason answers REASON_REQUIRED`() {
         val token = manager()
         val jefe = supervisor()
         product(token)
@@ -328,7 +328,7 @@ class ReceivingFlowTest : ApiTest() {
     // ── R5 y R6: cierre y aprobación sin pendientes ─────────────────────────
 
     @Test
-    fun `R5 - no se cierra una factura con lineas sin resolver`() {
+    fun `R5 - an invoice with unresolved lines is not closed`() {
         val token = manager()
         product(token)
         val id = invoice(token)
@@ -343,7 +343,7 @@ class ReceivingFlowTest : ApiTest() {
     }
 
     @Test
-    fun `R5 - se cierra cuando nada bloquea y no se cierra dos veces`() {
+    fun `R5 - it closes when nothing blocks it, and does not close twice`() {
         val token = manager()
         product(token)
         val id = invoice(token)
@@ -360,7 +360,7 @@ class ReceivingFlowTest : ApiTest() {
     }
 
     @Test
-    fun `R6 - aprobar una factura sin discrepancias responde NO_PENDING_APPROVAL`() {
+    fun `R6 - approving an invoice without discrepancies answers NO_PENDING_APPROVAL`() {
         val token = manager()
         val jefe = supervisor()
         product(token)
@@ -377,7 +377,7 @@ class ReceivingFlowTest : ApiTest() {
     // ── La bandeja de pendientes ────────────────────────────────────────────
 
     @Test
-    fun `la bandeja de pendientes trae solo lo que espera decision`() {
+    fun `the pending queue brings only what awaits a decision`() {
         val token = manager()
         product(token)
         val conDiscrepancia = invoice(token, number = "F-DISC")
@@ -398,7 +398,7 @@ class ReceivingFlowTest : ApiTest() {
     }
 
     @Test
-    fun `el listado filtra por estado y rechaza una pagina negativa`() {
+    fun `the list filters by status and rejects a negative page`() {
         val token = manager()
         product(token)
         val id = invoice(token)
@@ -414,7 +414,7 @@ class ReceivingFlowTest : ApiTest() {
     }
 
     @Test
-    fun `un estado que no existe se rechaza con la lista admitida`() {
+    fun `a non-existent status is rejected with the allowed list`() {
         val token = manager()
 
         val response = get("/v1/invoices?status=LO_QUE_SEA", token)
@@ -427,7 +427,7 @@ class ReceivingFlowTest : ApiTest() {
     // ── R1 y R7: ubicar lo que viene de una factura ─────────────────────────
 
     @Test
-    fun `R1 - una linea en discrepancia no se puede ubicar y el inventario no cambia`() {
+    fun `R1 - a discrepant line cannot be located and the inventory does not change`() {
         val token = manager()
         product(token)
         shelf(token)
@@ -448,7 +448,7 @@ class ReceivingFlowTest : ApiTest() {
     }
 
     @Test
-    fun `R7 - ubicar desde la factura deja la linea localizada y el total igual`() {
+    fun `R7 - locating from the invoice leaves the line located and the total the same`() {
         val token = manager()
         product(token)
         shelf(token)
@@ -473,7 +473,7 @@ class ReceivingFlowTest : ApiTest() {
     }
 
     @Test
-    fun `ubicar parcialmente no cierra la linea ni la aprueba`() {
+    fun `locating partially does not close the line nor approve it`() {
         val token = manager()
         product(token)
         shelf(token)
@@ -491,7 +491,7 @@ class ReceivingFlowTest : ApiTest() {
     }
 
     @Test
-    fun `no se puede ubicar una linea sin contar`() {
+    fun `a line cannot be located before it is counted`() {
         val token = manager()
         product(token)
         shelf(token)
@@ -506,7 +506,7 @@ class ReceivingFlowTest : ApiTest() {
     }
 
     @Test
-    fun `ubicar una linea que no existe o de otro producto se rechaza`() {
+    fun `locating a line that does not exist or belongs to another product is rejected`() {
         val token = manager()
         product(token)
         shelf(token)
@@ -536,7 +536,7 @@ class ReceivingFlowTest : ApiTest() {
     // ── Permisos por ruta ───────────────────────────────────────────────────
 
     @Test
-    fun `un operador de almacen no captura ni aprueba facturas`() {
+    fun `a warehouse operator does not capture or approve invoices`() {
         createUser("operador", USER_PASSWORD, BaseRole.WAREHOUSE_OPERATOR.key.value)
         val token = accessTokenOf("operador", USER_PASSWORD)
 
@@ -553,7 +553,7 @@ class ReceivingFlowTest : ApiTest() {
         get("/v1/inventory/kardex?moveType=$moveType", token).at<List<Map<String, Any?>>>("items")
 
     @Test
-    fun `al contar, la mercancia entra en RECEIVING`() {
+    fun `when counting, the goods enter RECEIVING`() {
         val token = manager()
         product(token)
         val factura = invoice(token)
@@ -571,7 +571,7 @@ class ReceivingFlowTest : ApiTest() {
     }
 
     @Test
-    fun `volver a contar no suma dos veces`() {
+    fun `counting again does not add twice`() {
         val token = manager()
         val jefe = supervisor()
         product(token)
@@ -598,7 +598,7 @@ class ReceivingFlowTest : ApiTest() {
     }
 
     @Test
-    fun `contar de mas ingresa la diferencia, no el total`() {
+    fun `counting too many records the difference, not the total`() {
         val token = manager()
         val jefe = supervisor()
         product(token)
@@ -622,7 +622,7 @@ class ReceivingFlowTest : ApiTest() {
     // ── Asignar el conteo a una persona (M03) ───────────────────────────────
 
     @Test
-    fun `asignar una linea deja quien la cuenta y se ve en el detalle`() {
+    fun `assigning a line records who counts it and it is seen in the detail`() {
         val token = manager()
         product(token)
         val factura = invoice(token)
@@ -641,7 +641,7 @@ class ReceivingFlowTest : ApiTest() {
     }
 
     @Test
-    fun `sin userId la asignacion es a quien llama`() {
+    fun `without userId the assignment is to the caller`() {
         val token = manager()
         product(token)
         val factura = invoice(token)
@@ -655,7 +655,7 @@ class ReceivingFlowTest : ApiTest() {
     }
 
     @Test
-    fun `no se reasigna una linea ya contada`() {
+    fun `a line already counted is not reassigned`() {
         val token = manager()
         product(token)
         val factura = invoice(token)
@@ -670,7 +670,7 @@ class ReceivingFlowTest : ApiTest() {
     }
 
     @Test
-    fun `asignar exige el permiso y un usuario que exista`() {
+    fun `assigning requires the permission and an existing user`() {
         val token = manager()
         product(token)
         val factura = invoice(token)

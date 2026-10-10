@@ -49,7 +49,7 @@ class CatalogPersistenceTest {
     // ── Productos ───────────────────────────────────────────────────────────
 
     @Test
-    fun `un producto se crea y se vuelve a leer por id y por codigo`() {
+    fun `a product is created and read back by id and by code`() {
         val created = insertProduct("ABRAA1B", "ABRAZADERA DE ARRANQUE")
 
         assertThat(created.product.id).isPositive()
@@ -61,7 +61,7 @@ class CatalogPersistenceTest {
     }
 
     @Test
-    fun `R-P2 - un listado hace dos sentencias, tenga una fila o cincuenta`() {
+    fun `R-P2 - a list takes two statements, whether it has one row or fifty`() {
         repeat(50) { insertProduct("COD${it.toString().padStart(4, '0')}") }
         insertProduct("UNICO01")
 
@@ -74,7 +74,7 @@ class CatalogPersistenceTest {
     }
 
     @Test
-    fun `el conteo usa los mismos filtros que el listado`() {
+    fun `the count uses the same filters as the list`() {
         repeat(5) { insertProduct("ACT${it.toString().padStart(3, '0')}") }
         val inactive = insertProduct("BAJA001")
         products.update(inactive.product.copy(active = false))
@@ -87,7 +87,7 @@ class CatalogPersistenceTest {
     }
 
     @Test
-    fun `el listado se puede ordenar por nombre en las dos direcciones`() {
+    fun `the list can be sorted by name in both directions`() {
         insertProduct("COD0001", "ZAPATO")
         insertProduct("COD0002", "ABRAZADERA")
 
@@ -99,7 +99,7 @@ class CatalogPersistenceTest {
     }
 
     @Test
-    fun `R-P3 - el saldo sale de la proyeccion, no de sumar el historial`() {
+    fun `R-P3 - the balance comes from the projection, not from summing the history`() {
         val product = insertProduct("CONS001")
         db.asOwner.sql("INSERT INTO product_stock (product_id, quantity) VALUES (:id, 5193.000)")
             .param("id", product.product.id).update()
@@ -108,7 +108,7 @@ class CatalogPersistenceTest {
     }
 
     @Test
-    fun `el saldo viaja en el listado, sin una consulta por producto`() {
+    fun `the balance travels in the list, without a query per product`() {
         val product = insertProduct("CONS002")
         db.asOwner.sql("INSERT INTO product_stock (product_id, quantity) VALUES (:id, 12.500)")
             .param("id", product.product.id).update()
@@ -121,7 +121,7 @@ class CatalogPersistenceTest {
     // ── Importación ─────────────────────────────────────────────────────────
 
     @Test
-    fun `K2 - importar dos veces no duplica y la segunda no cambia nada`() {
+    fun `K2 - importing twice does not duplicate, and the second import changes nothing`() {
         val rows = listOf(
             ValidatedProduct(2, "1", ProductCode.of("AAA001"), "Uno", "PZA", Quantity.of(5)),
             ValidatedProduct(3, "2", ProductCode.of("AAA002"), "Dos", "PZA", Quantity.of(7)),
@@ -139,7 +139,7 @@ class CatalogPersistenceTest {
     }
 
     @Test
-    fun `la importacion actualiza el nombre cuando cambia, y lo cuenta`() {
+    fun `the import updates the name when it changes, and counts it`() {
         products.upsertAll(listOf(ValidatedProduct(2, "1", ProductCode.of("AAA001"), "Uno", "PZA", Quantity.of(5))))
 
         val summary = products.upsertAll(
@@ -155,7 +155,7 @@ class CatalogPersistenceTest {
     }
 
     @Test
-    fun `la importacion guarda el identificador del ERP y no reactiva lo desactivado`() {
+    fun `the import stores the ERP identifier and does not reactivate what was deactivated`() {
         products.upsertAll(listOf(ValidatedProduct(2, "77", ProductCode.of("AAA001"), "Uno", "PZA", Quantity.of(5))))
         val created = products.findByCode(ProductCode.of("AAA001"))!!
         assertThat(created.externalId).isEqualTo(77L)
@@ -169,7 +169,7 @@ class CatalogPersistenceTest {
     // ── Ubicaciones ─────────────────────────────────────────────────────────
 
     @Test
-    fun `una ubicacion se crea, se busca por su identidad natural y se lista`() {
+    fun `a location is created, found by its natural identity and listed`() {
         val created = locations.insert(NewLocation(defaultWarehouse, "04", "B", "C", 3, LocationKind.SHELF))
 
         assertThat(created.location.displayName).isEqualTo("04-B-C")
@@ -182,7 +182,7 @@ class CatalogPersistenceTest {
     }
 
     @Test
-    fun `R-P2 - el listado de ubicaciones tambien son dos sentencias`() {
+    fun `R-P2 - the location list also takes two statements`() {
         repeat(20) { locations.insert(NewLocation(defaultWarehouse, "1$it", "A", "A", 1, LocationKind.SHELF)) }
 
         val filter = LocationFilter(null, defaultWarehouse, null, null)
@@ -197,7 +197,7 @@ class CatalogPersistenceTest {
     }
 
     @Test
-    fun `R-P2 - el listado de bodegas es una sola sentencia`() {
+    fun `R-P2 - the warehouse list is a single statement`() {
         warehouses.insert(NewWarehouse("NORTE", "Bodega norte", null, isDefault = false))
 
         val statements = db.statements.during { warehouses.list(null, null) }
@@ -206,7 +206,7 @@ class CatalogPersistenceTest {
     }
 
     @Test
-    fun `el listado de ubicaciones filtra por bodega y por tipo`() {
+    fun `the location list filters by warehouse and by kind`() {
         locations.insert(NewLocation(defaultWarehouse, "07", "A", "A", 1, LocationKind.SHELF))
 
         val receiving = locations.page(
@@ -219,7 +219,7 @@ class CatalogPersistenceTest {
     }
 
     @Test
-    fun `la ubicacion de recepcion de la bodega es real, con id real`() {
+    fun `the warehouse's receiving location is real, with a real id`() {
         val receiving = locations.receivingOf(defaultWarehouse)!!
 
         assertThat(receiving.location.id).isPositive()
@@ -228,7 +228,7 @@ class CatalogPersistenceTest {
     }
 
     @Test
-    fun `una ubicacion con existencias lo dice`() {
+    fun `a location with stock says so`() {
         val product = insertProduct("STOCK01")
         val created = locations.insert(NewLocation(defaultWarehouse, "08", "A", "A", 1, LocationKind.SHELF))
         db.asOwner.sql(
@@ -246,7 +246,7 @@ class CatalogPersistenceTest {
     // ── Bodegas ─────────────────────────────────────────────────────────────
 
     @Test
-    fun `K6 - solo una bodega queda como predeterminada`() {
+    fun `K6 - only one warehouse remains the default`() {
         // El caso de uso hace las dos cosas en la MISMA transacción; aquí se prueba
         // el efecto en la base, que es donde el índice parcial lo impone: si el
         // `clearDefault` no fuera antes del `insert`, esto fallaría.
@@ -260,7 +260,7 @@ class CatalogPersistenceTest {
     }
 
     @Test
-    fun `el listado de bodegas no se pagina y trae la predeterminada primero`() {
+    fun `the warehouse list is not paginated and brings the default one first`() {
         warehouses.insert(NewWarehouse("NORTE", "Bodega norte", null, isDefault = false))
 
         val list = warehouses.list(null, null)
@@ -271,7 +271,7 @@ class CatalogPersistenceTest {
     }
 
     @Test
-    fun `las unidades de medida son un catalogo cerrado y leible`() {
+    fun `units of measure are a closed and readable catalog`() {
         val all = units.all()
 
         assertThat(all.map { it.code }).containsExactly("PZA")

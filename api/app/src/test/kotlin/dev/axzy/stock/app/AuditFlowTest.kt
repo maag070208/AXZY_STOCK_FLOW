@@ -41,7 +41,7 @@ class AuditFlowTest : ApiTest() {
     // ── U5: la consulta filtra y pagina ─────────────────────────────────────
 
     @Test
-    fun `U5 - la consulta filtra por entidad y el total usa el mismo filtro`() {
+    fun `U5 - the query filters by entity and the total uses the same filter`() {
         val token = manager()
         product(token, "AAA001")
         product(token, "AAA002")
@@ -57,7 +57,7 @@ class AuditFlowTest : ApiTest() {
     }
 
     @Test
-    fun `U5 - la pagina es la pedida y el total no es el de la pagina`() {
+    fun `U5 - the page is the one requested and the total is not the page's`() {
         val token = manager()
         (1..3).forEach { product(token, "AAA00$it") }
 
@@ -74,7 +74,7 @@ class AuditFlowTest : ApiTest() {
     }
 
     @Test
-    fun `la consulta filtra por accion, por actor y por nivel`() {
+    fun `the query filters by action, by actor and by level`() {
         val token = manager()
         val quien = db.sql("SELECT id FROM users WHERE username = 'jefa'").query(Long::class.java).single()
         product(token, "AAA001")
@@ -92,7 +92,7 @@ class AuditFlowTest : ApiTest() {
     }
 
     @Test
-    fun `un registro lleva quien, que, cuando y por que`() {
+    fun `a record holds who, what, when and why`() {
         val token = manager()
         product(token, "AAA001")
 
@@ -109,7 +109,7 @@ class AuditFlowTest : ApiTest() {
     }
 
     @Test
-    fun `un registro critico lleva su permiso y su traza`() {
+    fun `a critical record carries its permission and its trace`() {
         val token = manager()
         val quien = db.sql("SELECT id FROM users WHERE username = 'jefa'").query(Long::class.java).single()
         createUser("supervisor", USER_PASSWORD, jefa)
@@ -139,7 +139,7 @@ class AuditFlowTest : ApiTest() {
     // ── La propia consulta queda registrada ─────────────────────────────────
 
     @Test
-    fun `consultar la bitacora deja su propio registro de acceso`() {
+    fun `querying the audit log leaves its own access record`() {
         val token = manager()
         product(token, "AAA001")
 
@@ -157,7 +157,7 @@ class AuditFlowTest : ApiTest() {
     // ── Errores y permisos ──────────────────────────────────────────────────
 
     @Test
-    fun `un rango invertido y una fecha mal formada se rechazan`() {
+    fun `an inverted range and a badly formed date are rejected`() {
         val token = manager()
 
         val invertido = get("/v1/audit/log?from=2026-10-31&to=2026-10-01", token)
@@ -170,7 +170,7 @@ class AuditFlowTest : ApiTest() {
     }
 
     @Test
-    fun `sin el permiso de auditoria la bitacora no se lee`() {
+    fun `without the audit permission the audit log is not read`() {
         createUser("operador", USER_PASSWORD, BaseRole.WAREHOUSE_OPERATOR.key.value)
         val token = accessTokenOf("operador", USER_PASSWORD)
 
@@ -181,7 +181,7 @@ class AuditFlowTest : ApiTest() {
     }
 
     @Test
-    fun `la bitacora no se puede modificar`() {
+    fun `the audit log cannot be modified`() {
         val token = manager()
         product(token, "AAA001")
         val antes = db.sql("SELECT count(*) FROM audit_log").query(Int::class.java).single()

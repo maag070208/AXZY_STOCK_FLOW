@@ -28,7 +28,7 @@ class ArchitectureTest {
     )
 
     @Test
-    fun `el dominio no depende de ningun framework ni de las capas de fuera`() {
+    fun `the domain depends on no framework nor on the outer layers`() {
         noClasses().that().resideInAPackage("dev.axzy.stock.domain..")
             .should().dependOnClassesThat().resideInAnyPackage(
                 *frameworks, "dev.axzy.stock.application..", "dev.axzy.stock.adapters..", "dev.axzy.stock.app..",
@@ -37,14 +37,14 @@ class ArchitectureTest {
     }
 
     @Test
-    fun `la aplicacion depende solo del dominio - ni Spring, ni JDBC, ni JSON, ni adaptadores`() {
+    fun `the application depends only on the domain - neither Spring, nor JDBC, nor JSON, nor adapters`() {
         noClasses().that().resideInAPackage("dev.axzy.stock.application..")
             .should().dependOnClassesThat().resideInAnyPackage(*frameworks, "dev.axzy.stock.adapters..", "dev.axzy.stock.app..")
             .check(classes)
     }
 
     @Test
-    fun `los adaptadores no se conocen entre si`() {
+    fun `the adapters do not know each other`() {
         val adapters = listOf("web", "persistence", "security")
         for (adapter in adapters) {
             val others = adapters.filter { it != adapter }.map { "dev.axzy.stock.adapters.$it.." }.toTypedArray()
@@ -56,14 +56,14 @@ class ArchitectureTest {
     }
 
     @Test
-    fun `nadie depende del modulo de arranque`() {
+    fun `nobody depends on the bootstrap module`() {
         noClasses().that().resideOutsideOfPackage("dev.axzy.stock.app..")
             .should().dependOnClassesThat().resideInAPackage("dev.axzy.stock.app..")
             .check(classes)
     }
 
     @Test
-    fun `los objetos se crean en un solo lugar - solo app declara configuracion y beans`() {
+    fun `objects are created in a single place - only app declares configuration and beans`() {
         noClasses().that().resideOutsideOfPackage("dev.axzy.stock.app..")
             .should().beAnnotatedWith(Configuration::class.java)
             .check(classes)
@@ -73,14 +73,14 @@ class ArchitectureTest {
     }
 
     @Test
-    fun `solo la persistencia habla con la base de datos`() {
+    fun `only persistence talks to the database`() {
         noClasses().that().resideInAnyPackage("dev.axzy.stock.adapters.web..", "dev.axzy.stock.adapters.security..")
             .should().dependOnClassesThat().resideInAnyPackage("org.springframework.jdbc..", "java.sql..", "javax.sql..")
             .check(classes)
     }
 
     @Test
-    fun `solo el adaptador web conoce HTTP`() {
+    fun `only the web adapter knows HTTP`() {
         noClasses().that().resideInAnyPackage("dev.axzy.stock.adapters.persistence..", "dev.axzy.stock.adapters.security..")
             .should().dependOnClassesThat().resideInAnyPackage("org.springframework.web..", "org.springframework.http..", "jakarta.servlet..")
             .check(classes)

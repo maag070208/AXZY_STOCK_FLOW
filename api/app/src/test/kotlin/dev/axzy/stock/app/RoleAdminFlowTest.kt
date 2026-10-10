@@ -44,7 +44,7 @@ class RoleAdminFlowTest : ApiTest() {
     // ── La matriz surte efecto ──────────────────────────────────────────────
 
     @Test
-    fun `un rol nuevo concede lo que dice su matriz y nada mas`() {
+    fun `a new role grants what its matrix says and nothing else`() {
         val token = manager()
         role(token, "CONSULTA", permissions = listOf(grant("inventory.view"), grant("kardex.view")))
         createUser("ana", USER_PASSWORD, "CONSULTA")
@@ -69,7 +69,7 @@ class RoleAdminFlowTest : ApiTest() {
     }
 
     @Test
-    fun `quitar una celda quita el acceso de verdad`() {
+    fun `removing a cell really removes the access`() {
         val token = manager()
         role(token, "CONSULTA", permissions = listOf(grant("inventory.view")))
         createUser("ana", USER_PASSWORD, "CONSULTA")
@@ -83,7 +83,7 @@ class RoleAdminFlowTest : ApiTest() {
     }
 
     @Test
-    fun `desactivar un rol le quita los permisos a quien lo tiene`() {
+    fun `deactivating a role removes its permissions from whoever holds it`() {
         val token = manager()
         role(token, "CONSULTA", permissions = listOf(grant("inventory.view")))
         createUser("ana", USER_PASSWORD, "CONSULTA")
@@ -95,7 +95,7 @@ class RoleAdminFlowTest : ApiTest() {
     }
 
     @Test
-    fun `el detalle trae la matriz y cuanta gente la tiene`() {
+    fun `the detail brings the matrix and counts how many people hold it`() {
         val token = manager()
         role(token, "CONSULTA", permissions = listOf(grant("inventory.view"), grant("kardex.view")))
         createUser("ana", USER_PASSWORD, "CONSULTA")
@@ -112,7 +112,7 @@ class RoleAdminFlowTest : ApiTest() {
     // ── Validación de la matriz ─────────────────────────────────────────────
 
     @Test
-    fun `una matriz no puede inventar permisos ni alcances`() {
+    fun `a matrix cannot invent permissions or scopes`() {
         val token = manager()
 
         val inventado = role(token, "RARA", permissions = listOf(grant("inventory.volar")))
@@ -131,7 +131,7 @@ class RoleAdminFlowTest : ApiTest() {
     }
 
     @Test
-    fun `la clave del rol tiene forma y no se repite`() {
+    fun `the role key has a shape and is not repeated`() {
         val token = manager()
         role(token, "CONSULTA")
 
@@ -148,7 +148,7 @@ class RoleAdminFlowTest : ApiTest() {
     }
 
     @Test
-    fun `administrar roles no es cosa de cualquiera`() {
+    fun `managing roles is not for just anyone`() {
         createUser("operador", USER_PASSWORD, BaseRole.WAREHOUSE_OPERATOR.key.value)
         val token = tokenOf("operador")
 
@@ -160,7 +160,7 @@ class RoleAdminFlowTest : ApiTest() {
     }
 
     @Test
-    fun `un rol que no existe responde ROLE_NOT_FOUND`() {
+    fun `a role that does not exist answers ROLE_NOT_FOUND`() {
         val token = manager()
 
         assertThat(get("/v1/roles/NO_EXISTE", token).code).isEqualTo("ROLE_NOT_FOUND")

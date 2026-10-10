@@ -41,12 +41,12 @@ class RoutePermissionTest {
     )
 
     @Test
-    fun `no hay controladores sin rutas - la lista no puede quedar vacia por accidente`() {
+    fun `there are no controllers without routes - the list cannot end up empty by accident`() {
         assertThat(classes.map { it.name }).isNotEmpty()
     }
 
     @Test
-    fun `toda ruta declara permiso, solo identidad o que es publica`() {
+    fun `every route declares a permission, only identity, or that it is public`() {
         val undeclared = mutableListOf<String>()
 
         for (controller in classes) {
@@ -70,7 +70,7 @@ class RoutePermissionTest {
     }
 
     @Test
-    fun `cada permiso declarado existe en el catalogo del dominio`() {
+    fun `every declared permission exists in the domain catalog`() {
         val declared = mutableListOf<String>()
 
         for (controller in classes) {

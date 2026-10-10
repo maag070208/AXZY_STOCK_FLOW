@@ -29,7 +29,7 @@ class InventoryWriteGuardTest {
     private val persistenceRoot = File("src/main/kotlin/dev/axzy/stock/adapters/persistence")
 
     @Test
-    fun `ningun adaptador escribe a mano las tablas que mueve el motor`() {
+    fun `no adapter writes by hand the tables the engine moves`() {
         val offenders = mutableListOf<String>()
 
         persistenceRoot.walkTopDown().filter { it.extension == "kt" }.forEach { file ->
@@ -57,7 +57,7 @@ class InventoryWriteGuardTest {
     }
 
     @Test
-    fun `el unico que aplica movimientos es el libro, y lo hace por la funcion del motor`() {
+    fun `the only one that applies movements is the ledger, and it does so through the engine function`() {
         val ledger = File(persistenceRoot, "inventory/JdbcStockLedger.kt").readText().lowercase()
 
         assertThat(ledger).contains("record_movement")

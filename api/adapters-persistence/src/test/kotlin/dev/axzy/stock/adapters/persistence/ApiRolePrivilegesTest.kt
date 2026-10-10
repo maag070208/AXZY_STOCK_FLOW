@@ -24,14 +24,14 @@ class ApiRolePrivilegesTest {
     fun clean() = TestDatabase.reset()
 
     @Test
-    fun `no puede crear, alterar ni borrar tablas`() {
+    fun `cannot create, alter or delete tables`() {
         assertRejected("permission denied for schema public") { db.jdbc.sql("CREATE TABLE intruso (x int)").update() }
         assertRejected("must be owner of table products") { db.jdbc.sql("ALTER TABLE products ADD COLUMN intruso int").update() }
         assertRejected("must be owner of table products") { db.jdbc.sql("DROP TABLE products").update() }
     }
 
     @Test
-    fun `no puede modificar ni borrar el kardex ni la bitacora`() {
+    fun `cannot modify or delete the ledger or the audit log`() {
         for (table in listOf("kardex", "audit_log")) {
             assertRejected("permission denied for table $table") { db.jdbc.sql("UPDATE $table SET note = 'x'").update() }
             assertRejected("permission denied for table $table") { db.jdbc.sql("DELETE FROM $table").update() }
@@ -39,7 +39,7 @@ class ApiRolePrivilegesTest {
     }
 
     @Test
-    fun `lee el historial de migraciones pero no lo escribe`() {
+    fun `reads the migration history but does not write it`() {
         val version = db.jdbc.sql("SELECT max(version::int) FROM flyway_schema_history").query(Int::class.java).single()
         assertThat(version).isGreaterThanOrEqualTo(12)
 
@@ -47,7 +47,7 @@ class ApiRolePrivilegesTest {
     }
 
     @Test
-    fun `puede asegurar una particion de la bitacora, que nace protegida`() {
+    fun `can ensure an audit log partition, which is born protected`() {
         db.jdbc.sql("SELECT audit_log_ensure_partition(DATE '2031-05-10')").query(String::class.java).single()
 
         assertRejected("permission denied for table audit_log_2031_05") { db.jdbc.sql("UPDATE audit_log_2031_05 SET note = 'x'").update() }
@@ -56,7 +56,7 @@ class ApiRolePrivilegesTest {
     }
 
     @Test
-    fun `el indice de la cadena de hash existe en la tabla y en sus particiones`() {
+    fun `the hash chain index exists in the table and in its partitions`() {
         val indexes = db.asOwner
             .sql("SELECT count(*) FROM pg_indexes WHERE indexname LIKE 'audit_log%sequence_no_idx'")
             .query(Int::class.java).single()

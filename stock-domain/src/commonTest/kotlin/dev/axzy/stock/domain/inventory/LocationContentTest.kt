@@ -26,14 +26,14 @@ class LocationContentTest : DescribeSpec({
     val shelfB = LocationCode.of("04BCB")
     val product = "ABRAA1B"
 
-    describe("el método directo: el contenido es el saldo, no un cálculo") {
+    describe("the direct method: the content is the balance, not a calculation") {
 
-        it("una ubicación sin movimientos tiene contenido cero") {
+        it("a location without movements has zero content") {
             val ledger = InventoryLedger()
             LocationContent.direct(ledger, product, shelf) shouldBe Quantity.ZERO
         }
 
-        it("recibir y ubicar deja el contenido en el estante") {
+        it("receiving and locating leaves the content on the shelf") {
             val ledger = InventoryLedger()
             ledger.receipt(product, receiving, Quantity.of(100))
             ledger.locate(product, receiving, shelf, Quantity.of(100))
@@ -45,7 +45,7 @@ class LocationContentTest : DescribeSpec({
             }
         }
 
-        it("trasladar entre estantes mueve el contenido sin duplicarlo") {
+        it("moving between shelves moves the content without duplicating it") {
             val ledger = InventoryLedger()
             ledger.initialLoad(product, shelf, Quantity.of(100))
             ledger.moveWithinWarehouse(product, shelf, shelfB, Quantity.of(40))
@@ -60,7 +60,7 @@ class LocationContentTest : DescribeSpec({
             }
         }
 
-        it("el método directo coincide siempre con el saldo del libro") {
+        it("the direct method always matches the ledger balance") {
             val ledger = InventoryLedger()
             ledger.initialLoad(product, shelf, Quantity.of(500))
             ledger.moveWithinWarehouse(product, shelf, shelfB, Quantity.of(120))
@@ -72,9 +72,9 @@ class LocationContentTest : DescribeSpec({
         }
     }
 
-    describe("el algoritmo del legacy: caracterizado y contenido") {
+    describe("the legacy algorithm: characterised and contained") {
 
-        it("reproduce la regla del ajuste: si el último movimiento es un ajuste, el total es ese ajuste") {
+        it("reproduces the adjustment rule: if the last movement is an adjustment, the total is that adjustment") {
             val ledger = InventoryLedger()
             ledger.initialLoad(product, shelf, Quantity.of(1000))
             // Un ajuste deja el saldo en 1000 - 950 = 50.
@@ -106,12 +106,12 @@ class LocationContentTest : DescribeSpec({
             divergence.explainedByKnownBug shouldBe true
         }
 
-        it("sin movimientos devuelve cero, igual que el método directo") {
+        it("without movements returns zero, just like the direct method") {
             val ledger = InventoryLedger()
             LocationContent.legacyAlgorithm(ledger, product, shelf) shouldBe Quantity.ZERO
         }
 
-        it("nunca devuelve un valor negativo (descarta totales <= 0)") {
+        it("never returns a negative value (discards totals <= 0)") {
             val ledger = InventoryLedger()
             ledger.initialLoad(product, shelf, Quantity.of(100))
             ledger.adjustmentOut(product, shelf, Quantity.of(100), "merma total")
@@ -129,9 +129,9 @@ class LocationContentTest : DescribeSpec({
         }
     }
 
-    describe("la comparación: el insumo de la decisión R-67") {
+    describe("the comparison: the input of decision R-67") {
 
-        it("sin operaciones no hay divergencias") {
+        it("without operations there are no divergences") {
             val ledger = InventoryLedger()
             ledger.initialLoad(product, shelf, Quantity.of(100))
 
@@ -144,7 +144,7 @@ class LocationContentTest : DescribeSpec({
             divergences.size shouldBe 0
         }
 
-        it("el informe es legible y explica las divergencias encontradas") {
+        it("the report is readable and explains the differences found") {
             val ledger = InventoryLedger()
             ledger.receipt(product, receiving, Quantity.of(100))
             ledger.locate(product, receiving, shelf, Quantity.of(100))
@@ -157,7 +157,7 @@ class LocationContentTest : DescribeSpec({
             report shouldContain "Locations with discrepancy"
         }
 
-        it("toda divergencia se clasifica como explicada o como pendiente de revisión") {
+        it("every divergence is classified as explained or pending review") {
             val ledger = InventoryLedger()
             ledger.initialLoad(product, shelf, Quantity.of(200))
             ledger.receipt(product, receiving, Quantity.of(50))
@@ -176,7 +176,7 @@ class LocationContentTest : DescribeSpec({
             }
         }
 
-        it("una divergencia donde el modelo ve MENOS NO se explica por el bug conocido") {
+        it("a divergence where the model sees LESS is NOT explained by the known bug") {
             // El bug del legacy hacía que el total bajara, así que el sistema
             // viejo reportaba MENOS. Una divergencia al revés (el modelo ve
             // menos) apunta a otra causa y hay que investigarla.
@@ -198,7 +198,7 @@ class LocationContentTest : DescribeSpec({
             }
         }
 
-        it("una divergencia donde el modelo ve MÁS sí se explica: es el descuadre acumulado") {
+        it("a divergence where the model sees MORE is explained: it is the accumulated mismatch") {
             val divergence = ContentDivergence(
                 productCode = product,
                 location = shelf,
@@ -211,9 +211,9 @@ class LocationContentTest : DescribeSpec({
         }
     }
 
-    describe("el contraste con el bug del legacy, sobre una recepción completa") {
+    describe("the contrast with the legacy bug, over a full receiving") {
 
-        it("tras recibir y ubicar, el sistema nuevo conserva el total y el legacy lo habría perdido") {
+        it("after receiving and locating, the new system keeps the total and the legacy would have lost it") {
             val ledger = InventoryLedger()
 
             // Secuencia completa de una recepción real.

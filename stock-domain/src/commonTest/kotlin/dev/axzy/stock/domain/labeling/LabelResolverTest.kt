@@ -46,9 +46,9 @@ class LabelResolverTest : DescribeSpec({
         fields = fields,
     )
 
-    describe("la sustitución") {
+    describe("the substitution") {
 
-        it("sustituye los marcadores por sus datos") {
+        it("replaces the markers with their data") {
             val resuelto = template("^XA^FD{{productCode}}^FS^FD{{name}}^FS^XZ")
                 .resolve(mapOf("productCode" to "ABRAA1B", "name" to "ABRAZADERA"))
                 .getOrNull()!!
@@ -58,7 +58,7 @@ class LabelResolverTest : DescribeSpec({
             resuelto shouldNotContain "{{"
         }
 
-        it("tolera espacios dentro del marcador: `{{ name }}` es el mismo campo") {
+        it("tolerates spaces inside the marker: `{{ name }}` is the same field") {
             // Una plantilla escrita a mano lleva espacios. Rechazarlos obligaría a
             // editar la plantilla para que el sistema la aceptara, y el error
             // aparecería al imprimir, no al guardarla.
@@ -69,7 +69,7 @@ class LabelResolverTest : DescribeSpec({
             resuelto shouldContain "TORNILLO"
         }
 
-        it("recorta los espacios del valor: no se imprimen bordes en blanco") {
+        it("trims the spaces of the value: no blank edges are printed") {
             val resuelto = template("^XA^FD{{name}}^FS^XZ")
                 .resolve(mapOf("productCode" to "X", "name" to "  TORNILLO  "))
                 .getOrNull()!!
@@ -78,7 +78,7 @@ class LabelResolverTest : DescribeSpec({
             resuelto shouldNotContain "  TORNILLO"
         }
 
-        it("un campo numérico va SIN comillas y un texto CON ellas") {
+        it("a numeric field goes WITHOUT quotes and a text one WITH them") {
             // En ZPL el valor va entre `^FD` y `^FS`, y las comillas son parte del
             // contenido: ponerlas de más **las imprime en la etiqueta**.
             val resuelto = template("^XA^FD{{quantity}}^FS^XZ")
@@ -90,9 +90,9 @@ class LabelResolverTest : DescribeSpec({
         }
     }
 
-    describe("la regla que importa: NO se imprime una etiqueta incompleta") {
+    describe("the rule that matters: an incomplete label is NOT printed") {
 
-        it("un campo obligatorio que falta devuelve un fallo, no una etiqueta a medias") {
+        it("a missing required field returns a failure, not a half-made label") {
             val error = template()
                 .resolve(mapOf("productCode" to "ABRAA1B"))
                 .errorOrNull()
@@ -102,7 +102,7 @@ class LabelResolverTest : DescribeSpec({
             error.fields shouldBe listOf("name")
         }
 
-        it("un marcador USADO pero no declarado también se rechaza") {
+        it("a marker USED but not declared is also rejected") {
             // **Este es el caso que la comprobación de campos declarados no vería.**
             // La plantilla usa `{{lote}}` y no lo declaró en su `fieldSchema`. Si
             // solo se miraran los declarados, `{{lote}}` se imprimiría literal en
@@ -118,7 +118,7 @@ class LabelResolverTest : DescribeSpec({
             (error as DomainError.MissingLabelField).fields shouldBe listOf("lote")
         }
 
-        it("un valor en blanco cuenta como ausente, no como cadena vacía") {
+        it("a blank value counts as absent, not as an empty string") {
             // Un campo con `"   "` es un campo sin rellenar. Sustituirlo dejaría un
             // hueco en la etiqueta que parece una plantilla mal hecha.
             val error = template()
@@ -128,7 +128,7 @@ class LabelResolverTest : DescribeSpec({
             error.shouldBeInstanceOf<DomainError.MissingLabelField>()
         }
 
-        it("el mensaje NOMBRA los campos que faltan") {
+        it("the message NAMES the missing fields") {
             // Sin los nombres, el usuario ve «faltan datos» y tiene que adivinar
             // cuáles de los ocho campos de la plantilla.
             val error = template()
@@ -138,16 +138,16 @@ class LabelResolverTest : DescribeSpec({
             error.message shouldContain "name"
         }
 
-        it("con TODOS los datos resuelve sin quejarse") {
+        it("with ALL the data it resolves without complaint") {
             template()
                 .resolve(mapOf("productCode" to "ABRAA1B", "name" to "ABRAZADERA"))
                 .isRight shouldBe true
         }
     }
 
-    describe("el escapado del ZPL, que puede estropear la impresora") {
+    describe("the escaping of the ZPL, which can damage the printer") {
 
-        it("un `^` en el nombre no cierra el campo antes de tiempo") {
+        it("a `^` in the name does not close the field early") {
             // En ZPL, `^FS` cierra el campo y `^` abre CUALQUIER comando. Un nombre
             // con `^` sin escapar permite que el texto se interprete como
             // instrucciones: la etiqueta puede salir en blanco o la impresora
@@ -162,7 +162,7 @@ class LabelResolverTest : DescribeSpec({
             resuelto.split("^FS").size shouldBe 2
         }
 
-        it("la `~` también se escapa: en ZPL abre comandos de impresora") {
+        it("the `~` is also escaped: in ZPL it opens printer commands") {
             val resuelto = template("^XA^FD{{name}}^FS^XZ")
                 .resolve(mapOf("productCode" to "X", "name" to "~JR"))
                 .getOrNull()!!
@@ -170,7 +170,7 @@ class LabelResolverTest : DescribeSpec({
             resuelto shouldContain """\~JR"""
         }
 
-        it("la barra invertida se escapa primero, para no duplicar escapes") {
+        it("the backslash is escaped first, so as not to duplicate escapes") {
             // El orden importa: si se escapara `^` antes que `\`, el escape que se
             // acaba de añadir se escaparía a su vez y la etiqueta mostraría barras.
             val resuelto = template("^XA^FD{{name}}^FS^XZ")
@@ -180,7 +180,7 @@ class LabelResolverTest : DescribeSpec({
             resuelto shouldContain """A\\B"""
         }
 
-        it("un nombre normal no se toca") {
+        it("a normal name is not touched") {
             val resuelto = template("^XA^FD{{name}}^FS^XZ")
                 .resolve(mapOf("productCode" to "X", "name" to "ABRAZADERA 1-5/8"))
                 .getOrNull()!!
@@ -190,22 +190,22 @@ class LabelResolverTest : DescribeSpec({
         }
     }
 
-    describe("los marcadores que la plantilla usa") {
+    describe("the markers the template uses") {
 
-        it("`usedPlaceholders` los lista sin repetir") {
+        it("`usedPlaceholders` lists them without repetition") {
             val t = template("^XA^FD{{a}}^FS^FD{{b}}^FS^FD{{a}}^FS^XZ")
 
             t.usedPlaceholders shouldBe listOf("a", "b")
         }
 
-        it("una plantilla sin marcadores no usa ninguno") {
+        it("a template without markers uses none") {
             template("^XA^FDETIQUETA FIJA^FS^XZ").usedPlaceholders shouldBe emptyList()
         }
     }
 
-    describe("el tamaño de la etiqueta") {
+    describe("the size of the label") {
 
-        it("`4x6` son 101,6 × 152,4 mm, como dice el ejemplo del contrato") {
+        it("`4x6` is 101.6 × 152.4 mm, as the contract example says") {
             // Los números están en el propio contrato, así que son verificables.
             val tamano = LabelSize.parse("4x6")
 
@@ -218,11 +218,11 @@ class LabelResolverTest : DescribeSpec({
             redondear(tamano.heightMm) shouldBe 152.4
         }
 
-        it("tolera espacios y mayúsculas: ` 4 X 6 `") {
+        it("tolerates spaces and uppercase: ` 4 X 6 `") {
             redondear(LabelSize.parse(" 4 X 6 ").widthMm) shouldBe 101.6
         }
 
-        it("un tamaño ilegible cae al valor por defecto en vez de fallar") {
+        it("an unreadable size falls back to the default instead of failing") {
             // **Decisión deliberada.** Un tamaño mal escrito en la base no debe
             // impedir imprimir: el ZPL no depende de él, solo la previsualización.
             // Fallar aquí cambiaría un problema cosmético por uno operativo.

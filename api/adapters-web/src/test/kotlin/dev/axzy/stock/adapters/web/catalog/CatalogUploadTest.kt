@@ -29,7 +29,7 @@ class CatalogUploadTest {
         (upload.read(file(content, name)) as? Either.Left)?.error?.code
 
     @Test
-    fun `un CSV se lee por columnas y la cabecera no se convierte en producto`() {
+    fun `a CSV is read by columns and the header is not turned into a product`() {
         val parsed = rows("externalId,productCode,name,unitMeasure,stock\n1,ABRAA1B,ABRAZADERA,PZA,10")
 
         assertThat(parsed).hasSize(1)
@@ -40,7 +40,7 @@ class CatalogUploadTest {
     }
 
     @Test
-    fun `un TSV se lee por tabuladores, que es como viaja el archivo de la migracion`() {
+    fun `a TSV is read by tabs, which is how the migration file travels`() {
         val parsed = rows("externalId\tproductCode\tname\tunitMeasure\tstock\n1\tABRAA1B\tABRAZADERA\tPZA\t10")
 
         assertThat(parsed.single().productCode).isEqualTo("ABRAA1B")
@@ -48,25 +48,25 @@ class CatalogUploadTest {
     }
 
     @Test
-    fun `el BOM de Excel no se cuela en la primera columna`() {
+    fun `Excel's BOM does not leak into the first column`() {
         val parsed = rows("\uFEFFexternalId,productCode,name,unitMeasure,stock\n1,ABRAA1B,ABRAZADERA,PZA,10")
 
         assertThat(parsed.single().externalId).isEqualTo("1")
     }
 
     @Test
-    fun `un archivo vacio o solo con cabecera responde EMPTY_FILE`() {
+    fun `an empty file or one with only a header answers EMPTY_FILE`() {
         assertThat(errorCode("")).isEqualTo("EMPTY_FILE")
         assertThat(errorCode("externalId,productCode,name,unitMeasure,stock")).isEqualTo("EMPTY_FILE")
     }
 
     @Test
-    fun `sin archivo responde FILE_REQUIRED`() {
+    fun `without a file answers FILE_REQUIRED`() {
         assertThat((upload.read(null) as Either.Left).error.code).isEqualTo("FILE_REQUIRED")
     }
 
     @Test
-    fun `un Excel que no se puede leer responde IMPORT_FILE_FORMAT y no un 500`() {
+    fun `an Excel that cannot be read answers IMPORT_FILE_FORMAT and not a 500`() {
         // Antes esta prueba comprobaba que el XLSX se **rechazaba** diciendo que llegaría
         // con la migración. Ya llega: ahora se lee, y lo que se comprueba es que un libro
         // corrupto es un error del archivo y no del servidor.
@@ -74,12 +74,12 @@ class CatalogUploadTest {
     }
 
     @Test
-    fun `un formato que no es de texto se rechaza antes de intentar leerlo`() {
+    fun `a format that is not text is rejected before trying to read it`() {
         assertThat(errorCode("lo que sea", name = "catalogo.pdf")).isEqualTo("IMPORT_FILE_FORMAT")
     }
 
     @Test
-    fun `un archivo demasiado grande responde FILE_TOO_LARGE y no un 500`() {
+    fun `a file that is too large answers FILE_TOO_LARGE and not a 500`() {
         val response = GlobalErrorHandler()
             .fileTooLarge()
 
@@ -137,7 +137,7 @@ class CatalogUploadTest {
 
 
     @Test
-    fun `el Excel y el CSV producen las mismas filas`() {
+    fun `Excel and CSV produce the same rows`() {
         val datos = listOf(
             listOf("1", "ABRAA1B", "ABRAZADERA DE ARRANQUE", "PZA", "1500"),
             listOf("2", "TORNILLO^M6", "TORNILLO CON TUERCA, GRANDE", "PZA", "0"),
@@ -154,7 +154,7 @@ class CatalogUploadTest {
     }
 
     @Test
-    fun `un numero del Excel no sale en notacion cientifica`() {
+    fun `a number in the Excel does not come out in scientific notation`() {
         // Un `double` imprimiría `1.091413E7` y el parseo del stock fallaría.
         val bytes = xlsx(listOf(headers, listOf("1", "ABRAA1B", "ABRAZADERA", "PZA", "10914130")))
 
@@ -164,7 +164,7 @@ class CatalogUploadTest {
     }
 
     @Test
-    fun `el delimitador se decide por la cabecera y no por la extension`() {
+    fun `the delimiter is decided by the header and not by the extension`() {
         val tsv = (listOf(headers) + listOf(listOf("1", "ABRAA1B", "ABRAZADERA", "PZA", "10")))
             .joinToString("\n") { it.joinToString("\t") }
 
@@ -176,7 +176,7 @@ class CatalogUploadTest {
     }
 
     @Test
-    fun `un archivo de otro formato se rechaza diciendo cual se acepta`() {
+    fun `a file of another format is rejected saying which one is accepted`() {
         val mensaje = (upload.read(file("lo que sea", "catalogo.pdf")) as Either.Left).error.message
 
         assertThat(mensaje).contains("CSV, TSV or XLSX")

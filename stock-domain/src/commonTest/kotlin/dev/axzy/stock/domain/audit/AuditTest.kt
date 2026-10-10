@@ -49,7 +49,7 @@ class AuditTest : DescribeSpec({
     )
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("el registro de casos de uso auditables") {
+    describe("the registry of auditable use cases") {
 
         // El registro es documentación **ejecutable**: dice de cada caso de uso qué escribe, con
         // qué nivel y bajo qué permiso. Nada lo ataba al catálogo, así que un permiso mal escrito
@@ -57,7 +57,7 @@ class AuditTest : DescribeSpec({
         // transacción, donde el fallo se lleva por delante la operación legítima que se estaba
         // auditando. Estas tres reglas lo atan.
 
-        it("cada permiso declarado existe en el catálogo") {
+        it("every declared permission exists in the catalog") {
             val desconocidos = CriticalUseCases.all
                 .map { it.permission }
                 .distinct()
@@ -66,7 +66,7 @@ class AuditTest : DescribeSpec({
             desconocidos shouldBe emptyList()
         }
 
-        it("cada caso de uso y cada acción se declaran una sola vez") {
+        it("every use case and every action is declared only once") {
             // Dos casos de uso con la misma acción harían ambigua la bitácora: no se podría
             // responder quién hizo qué.
             CriticalUseCases.all.map { it.useCase }.distinct() shouldBe CriticalUseCases.all.map { it.useCase }
@@ -74,9 +74,9 @@ class AuditTest : DescribeSpec({
         }
     }
 
-    describe("U1 — COBERTURA ESTRUCTURAL: el test que evita que la auditoría se degrade") {
+    describe("U1 — STRUCTURAL COVERAGE: the test that prevents the audit from degrading") {
 
-        it("toda acción declarada tiene permiso, entidad, nivel y categoría") {
+        it("every declared action has a permission, entity, level and category") {
             // Un caso de uso auditable SIN permiso no puede responder "con qué
             // permiso se hizo", que es el requisito central.
             CriticalUseCases.all.forEach { declaration ->
@@ -88,21 +88,21 @@ class AuditTest : DescribeSpec({
             }
         }
 
-        it("todas las acciones declaradas son únicas") {
+        it("all declared actions are unique") {
             val actions = CriticalUseCases.all.map { it.action }
             withClue("Acciones duplicadas: ${actions.groupBy { it }.filter { it.value.size > 1 }.keys}") {
                 actions.size shouldBe actions.toSet().size
             }
         }
 
-        it("todos los casos de uso declarados son únicos") {
+        it("all declared use cases are unique") {
             val cases = CriticalUseCases.all.map { it.useCase }
             withClue("Casos duplicados: ${cases.groupBy { it }.filter { it.value.size > 1 }.keys}") {
                 cases.size shouldBe cases.toSet().size
             }
         }
 
-        it("BIYECCIÓN: todo permiso declarado existe en el catálogo") {
+        it("BIJECTION: every declared permission exists in the catalog") {
             // Si una declaración de auditoría referencia un permiso que no
             // existe, el evento no se puede auditar correctamente. Es el análogo
             // del test de biyección permisos ↔ rutas del plan.
@@ -118,7 +118,7 @@ class AuditTest : DescribeSpec({
             }
         }
 
-        it("toda operación que MUEVE INVENTARIO está declarada como crítica") {
+        it("every operation that MOVES INVENTORY is declared as critical") {
             // La propiedad que de verdad importa: ningún cambio de inventario
             // puede quedar sin auditoría.
             val inventoryOperations = listOf(
@@ -152,7 +152,7 @@ class AuditTest : DescribeSpec({
             }
         }
 
-        it("todo ajuste de inventario exige motivo") {
+        it("every inventory adjustment requires a reason") {
             // Invariante I6: un ajuste sin motivo es un agujero de auditoría.
             val adjustments = CriticalUseCases.all.filter { it.useCase.startsWith("adjustInventory") }
 
@@ -164,7 +164,7 @@ class AuditTest : DescribeSpec({
             }
         }
 
-        it("todos los cambios de control de acceso se auditan") {
+        it("every change to access control is audited") {
             val accessControlCases = CriticalUseCases.byCategory(AuditCategory.ACCESS_CONTROL)
             val expected = listOf(
                 "createRole", "updateRole", "deleteRole", "updateRolePermissions",
@@ -180,7 +180,7 @@ class AuditTest : DescribeSpec({
             }
         }
 
-        it("los cambios de control de acceso y las políticas exigen motivo") {
+        it("changes to access control and policies require a reason") {
             val requiresReason = listOf(
                 "deleteRole", "createPolicy", "updatePolicy", "deletePolicy",
                 "setPermissionException", "removePermissionException",
@@ -193,7 +193,7 @@ class AuditTest : DescribeSpec({
             }
         }
 
-        it("la declaración produce una anotación coherente consigo misma") {
+        it("the declaration produces an annotation consistent with itself") {
             CriticalUseCases.all.forEach { declaration ->
                 val annotationInfo = declaration.toAnnotation()
                 withClue("La anotación de '${declaration.useCase}' no coincide con su declaración") {
@@ -205,7 +205,7 @@ class AuditTest : DescribeSpec({
             }
         }
 
-        it("construir una declaración sin permiso es imposible") {
+        it("building a declaration without a permission is impossible") {
             // El tipo impide el error, no un validador que hay que recordar llamar.
             val withoutPermission = runCatching {
                 AuditDeclaration(
@@ -216,7 +216,7 @@ class AuditTest : DescribeSpec({
             withoutPermission.isFailure shouldBe true
         }
 
-        it("construir una declaración con entidad en mayúsculas es imposible") {
+        it("building a declaration with an uppercase entity is impossible") {
             val uppercase = runCatching {
                 AuditDeclaration(
                     useCase = "prueba", action = "PRUEBA", level = AuditLevel.CRITICAL,
@@ -228,9 +228,9 @@ class AuditTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("U7-U15 — las seis dimensiones del evento") {
+    describe("U7-U15 — the six dimensions of the event") {
 
-        it("U7 — un evento completo tiene las seis dimensiones") {
+        it("U7 — a complete event has the six dimensions") {
             val complete = event()
 
             withClue("Un evento crítico debe estar completo en sus seis dimensiones") {
@@ -238,14 +238,14 @@ class AuditTest : DescribeSpec({
             }
         }
 
-        it("un evento crítico SIN permiso está incompleto") {
+        it("a critical event WITHOUT a permission is incomplete") {
             // Sin permiso no se puede responder "con qué permiso se hizo".
             val withoutPermission = event(permissionKey = null)
 
             withoutPermission.hasAllDimensions shouldBe false
         }
 
-        it("U14 — un movimiento offline guarda las dos horas y la diferencia de reloj") {
+        it("U14 — an offline movement keeps both times and the clock difference") {
             val offline = AuditEvent(
                 timing = AuditTiming(
                     occurredAt = 1_700_000_000_000,
@@ -275,7 +275,7 @@ class AuditTest : DescribeSpec({
             }
         }
 
-        it("U15 — un movimiento del ERP se distingue de uno hecho por una persona") {
+        it("U15 — an ERP movement is distinguished from one made by a person") {
             val fromErp = event(
                 channel = AuditChannel.SERVICE_ERP,
                 actorId = null,
@@ -293,7 +293,7 @@ class AuditTest : DescribeSpec({
             }
         }
 
-        it("un evento HUMANO sin usuario identificado está incompleto") {
+        it("a HUMAN event without an identified user is incomplete") {
             val anonymous = event(channel = AuditChannel.MOBILE, actorId = null)
 
             withClue("Si lo hizo una persona, tiene que estar identificada") {
@@ -301,7 +301,7 @@ class AuditTest : DescribeSpec({
             }
         }
 
-        it("U13 — el actor conserva un snapshot de nombre y roles, no solo el id") {
+        it("U13 — the actor keeps a snapshot of name and roles, not only the id") {
             // Si el usuario se renombra o se borra, un FK solo deja el histórico
             // ilegible. El snapshot es lo que hace que la auditoría siga siendo
             // útil dentro de dos años.
@@ -320,7 +320,7 @@ class AuditTest : DescribeSpec({
             }
         }
 
-        it("U11 — el diff se calcula y detecta los campos que cambiaron") {
+        it("U11 — the diff is computed and detects the fields that changed") {
             val withDiff = event(
                 newState = mapOf("status" to "APPROVED", "quantity" to 80),
             ).copy(
@@ -336,9 +336,9 @@ class AuditTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("U16-U20 — la cadena de hashes y la inmutabilidad") {
+    describe("U16-U20 — the hash chain and immutability") {
 
-        it("U18 — alterar un evento del medio rompe la cadena y se detecta") {
+        it("U18 — altering an event in the middle breaks the chain and is detected") {
             // La cadena no impide la alteración: la HACE DETECTABLE. Es el máximo
             // que se puede lograr sin hardware especializado.
             val string = DefaultAuditHashChain
@@ -367,7 +367,7 @@ class AuditTest : DescribeSpec({
             }
         }
 
-        it("borrar un evento del medio también rompe la cadena") {
+        it("deleting an event in the middle also breaks the chain") {
             val string = DefaultAuditHashChain
             var previous: String? = null
             val events = (1..5).map { index ->
@@ -384,7 +384,7 @@ class AuditTest : DescribeSpec({
             }
         }
 
-        it("el hash es determinista y estable") {
+        it("the hash is deterministic and stable") {
             val string = DefaultAuditHashChain
             val firstEvent = event()
 
@@ -407,7 +407,7 @@ class AuditTest : DescribeSpec({
             }
         }
 
-        it("U20 — la cadena verifica correctamente sobre un volumen alto") {
+        it("U20 — the chain verifies correctly over a high volume") {
             val string = DefaultAuditHashChain
             var previous: String? = null
 
@@ -425,7 +425,7 @@ class AuditTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("U8-U10 — la traza de la decisión: auditar la AUTORIZACIÓN") {
+    describe("U8-U10 — the decision trace: auditing the AUTHORIZATION") {
 
         fun traceAllowed() = AccessDecisionTrace(
             permissionKey = "invoice.approve",
@@ -461,7 +461,7 @@ class AuditTest : DescribeSpec({
             snapshot = ConfigSnapshot(matrixVersion = 3, policiesVersion = 7),
         )
 
-        it("U8 — la traza guarda el estado DEL MOMENTO, no el actual") {
+        it("U8 — the trace stores the state AT THE TIME, not the current one") {
             val trace = traceAllowed()
 
             withClue("Los roles vigentes entonces deben quedar registrados") {
@@ -472,7 +472,7 @@ class AuditTest : DescribeSpec({
             }
         }
 
-        it("U9 — la instantánea permite reproducir la decisión histórica") {
+        it("U9 — the snapshot allows reproducing the historical decision") {
             val trace = traceAllowed()
 
             // Sin estos números, dentro de seis meses no se puede reconstruir por
@@ -485,7 +485,7 @@ class AuditTest : DescribeSpec({
             }
         }
 
-        it("U10 — una denegación explica QUÉ condición falló y con qué valor real") {
+        it("U10 — a denial explains WHICH condition failed and with what real value") {
             val traceDenied = traceAllowed().copy(
                 decision = "DENIED",
                 decisionCode = "POLICY_DENIED",
@@ -527,7 +527,7 @@ class AuditTest : DescribeSpec({
             }
         }
 
-        it("la explicación de una denegación por alcance dice a qué bodega no alcanza") {
+        it("the explanation of a scope denial says which warehouse is not reached") {
             val byScope = traceAllowed().copy(
                 decision = "DENIED",
                 decisionCode = "SCOPE_INSUFFICIENT",
@@ -543,9 +543,9 @@ class AuditTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("el requisito del legacy: no existe ninguna auditoría") {
+    describe("the legacy requirement: there is no audit at all") {
 
-        it("el sistema nuevo declara cobertura sobre TODOS los flujos críticos") {
+        it("the new system declares coverage over ALL the critical flows") {
             val flows = listOf(
                 AuditCategory.RECEIVING,
                 AuditCategory.FULFILLMENT,
@@ -566,7 +566,7 @@ class AuditTest : DescribeSpec({
             }
         }
 
-        it("el resumen de cobertura es suficiente para un informe") {
+        it("the coverage summary is enough for a report") {
             val critical = CriticalUseCases.byLevel(AuditLevel.CRITICAL)
             val relevant = CriticalUseCases.byLevel(AuditLevel.RELEVANT)
 
@@ -585,16 +585,16 @@ class AuditTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("el nivel determina el tratamiento") {
+    describe("the level determines the treatment") {
 
-        it("los cuatro niveles tienen la semántica documentada") {
+        it("the four levels have their documented meaning") {
             AuditLevel.CRITICAL.numeric shouldBe 1
             AuditLevel.RELEVANT.numeric shouldBe 2
             AuditLevel.ACCESS.numeric shouldBe 3
             AuditLevel.TECHNICAL.numeric shouldBe 4
         }
 
-        it("todo evento crítico declarado es de nivel CRITICAL o superior") {
+        it("every declared critical event is CRITICAL level or higher") {
             CriticalUseCases.all
                 .filter { it.useCase.startsWith("adjust") || it.useCase.startsWith("locate") }
                 .forEach { declaration ->

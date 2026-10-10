@@ -36,7 +36,7 @@ class IdentityPersistenceTest {
     fun clean() = TestDatabase.reset()
 
     @Test
-    fun `el primer arranque siembra el catalogo, los roles base y el administrador`() {
+    fun `the first startup seeds the catalog, the base roles and the administrator`() {
         val result = bootstrap().execute()
 
         assertThat(result.permissionsSynced).isEqualTo(PermissionCatalog.all.size)
@@ -52,7 +52,7 @@ class IdentityPersistenceTest {
     }
 
     @Test
-    fun `arrancar otra vez no cambia nada - el sembrado es idempotente`() {
+    fun `restarting does nothing - the seeding is idempotent`() {
         bootstrap().execute()
 
         val second = bootstrap().execute()
@@ -66,7 +66,7 @@ class IdentityPersistenceTest {
     }
 
     @Test
-    fun `todo el sembrado son sentencias por conjunto, no una por permiso`() {
+    fun `the whole seeding is set-based statements, not one per permission`() {
         val statements = db.statements.during { bootstrap().execute() }
 
         // 3 sincronizaciones + matriz actual + 2 versiones (lectura y escritura cada una) + usuarios.
@@ -74,7 +74,7 @@ class IdentityPersistenceTest {
     }
 
     @Test
-    fun `una celda que cambio un administrador no se pisa, y la matriz gana una version`() {
+    fun `a cell an administrator changed is not overwritten, and the matrix gains a version`() {
         bootstrap().execute()
         db.asOwner.sql(
             """
@@ -99,7 +99,7 @@ class IdentityPersistenceTest {
     }
 
     @Test
-    fun `sin usuarios y sin contrasena inicial, el arranque falla diciendo que falta`() {
+    fun `without users and without an initial password, startup fails saying what is missing`() {
         assertThatThrownBy { bootstrap(password = null).execute() }
             .isInstanceOf(MissingBootstrapPassword::class.java)
             .hasMessageContaining("ADMIN_BOOTSTRAP_PASSWORD")
@@ -107,14 +107,14 @@ class IdentityPersistenceTest {
     }
 
     @Test
-    fun `una contrasena inicial debil no crea al administrador`() {
+    fun `a weak initial password does not create the administrator`() {
         assertThatThrownBy { bootstrap(password = "admin123").execute() }
             .isInstanceOf(MissingBootstrapPassword::class.java)
         assertThat(store.countUsers()).isZero()
     }
 
     @Test
-    fun `el actor trae sus roles, el alcance de cada permiso y sus bodegas`() {
+    fun `the actor carries its roles, the scope of each permission and its warehouses`() {
         bootstrap().execute()
         val userId = store.createUser("jperez", "Juan Pérez", "x", mustChangePassword = false, roleKeys = listOf(manager))
         db.jdbc.sql("INSERT INTO user_warehouse_scopes (user_id, warehouse_id) VALUES (:id, 1)").param("id", userId).update()
@@ -132,7 +132,7 @@ class IdentityPersistenceTest {
     }
 
     @Test
-    fun `R-P1 - cargar al actor son dos consultas, tenga un rol o tres`() {
+    fun `R-P1 - loading the actor takes two queries, whether it has one role or three`() {
         bootstrap().execute()
         val oneRole = store.createUser("uno", "Uno", "x", false, listOf(auditor))
         val threeRoles = store.createUser("tres", "Tres", "x", false, listOf(auditor, manager, operations))
@@ -146,7 +146,7 @@ class IdentityPersistenceTest {
     }
 
     @Test
-    fun `una cuenta desactivada se carga como inactiva`() {
+    fun `a deactivated account is loaded as inactive`() {
         bootstrap().execute()
         val userId = store.createUser("baja", "De Baja", "x", false, listOf(auditor))
         db.jdbc.sql("UPDATE users SET disabled = TRUE WHERE id = :id").param("id", userId).update()
@@ -155,7 +155,7 @@ class IdentityPersistenceTest {
     }
 
     @Test
-    fun `cambiar la contrasena deja de exigir el cambio y anota cuando`() {
+    fun `changing the password stops requiring the change and records when`() {
         bootstrap().execute()
         val admin = users.findByUsername("admin")!!
         val at = Instant.parse("2026-11-01T10:00:00Z")
@@ -169,7 +169,7 @@ class IdentityPersistenceTest {
     }
 
     @Test
-    fun `un permiso que el rol tiene inactivo no llega al actor`() {
+    fun `a permission the role has inactive does not reach the actor`() {
         bootstrap().execute()
         val userId = store.createUser("ana", "Ana", "x", false, listOf(auditor))
         db.asOwner.sql("UPDATE permissions SET active = FALSE WHERE key = 'audit.view'").update()

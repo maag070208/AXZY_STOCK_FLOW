@@ -70,38 +70,38 @@ class InvoiceLineStateMachineTest : DescribeSpec({
             .getOrThrow()
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("R-58 / B-2: `difference` se calcula, no se almacena") {
+    describe("R-58 / B-2: `difference` is computed, not stored") {
 
-        it("la diferencia es cero cuando la cantidad coincide") {
+        it("the difference is zero when the quantity matches") {
             val line = lineCaptured(100)
             withClue("El legacy siempre devolvía 0 en este campo (hallazgo L1)") {
                 line.difference shouldBe Quantity.ZERO
             }
         }
 
-        it("la diferencia es negativa cuando llega MENOS de lo facturado") {
+        it("the difference is negative when LESS than invoiced arrives") {
             val line = lineCaptured(80)
             withClue("Faltan 20 piezas: la diferencia debe reflejarlo") {
                 line.difference shouldBe Quantity.of(-20)
             }
         }
 
-        it("la diferencia es positiva cuando llega MÁS de lo facturado") {
+        it("the difference is positive when MORE than invoiced arrives") {
             val line = lineCaptured(120)
             withClue("Sobran 20 piezas: la diferencia debe reflejarlo") {
                 line.difference shouldBe Quantity.of(20)
             }
         }
 
-        it("sin captura no hay diferencia calculable") {
+        it("without a count there is no computable difference") {
             lineNew().difference shouldBe null
         }
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("B1 / R-75: toda discrepancia bloquea la ubicación (sin umbral)") {
+    describe("B1 / R-75: every discrepancy blocks the location (no threshold)") {
 
-        it("una diferencia de UNA sola pieza ya bloquea la ubicación") {
+        it("a difference of ONE single piece already blocks the location") {
             // Decisión R-75: sin umbral. No hay diferencia "pequeña" que pase.
             val line = lineCaptured(99)
             line.status shouldBe InvoiceLineStatus.DISCREPANCY
@@ -114,7 +114,7 @@ class InvoiceLineStateMachineTest : DescribeSpec({
             }
         }
 
-        it("ubicar una línea en discrepancia NO modifica la línea") {
+        it("locating a discrepant line does NOT modify the line") {
             val line = lineCaptured(99)
             val result = line.locate(Quantity.of(99), shelf)
 
@@ -125,7 +125,7 @@ class InvoiceLineStateMachineTest : DescribeSpec({
             result.isLeft shouldBe true
         }
 
-        it("una línea CAPTURADA sin diferencia sí se puede ubicar") {
+        it("a CAPTURED line without a difference can be located") {
             val line = lineCaptured(100)
             line.status shouldBe InvoiceLineStatus.CAPTURED
 
@@ -136,7 +136,7 @@ class InvoiceLineStateMachineTest : DescribeSpec({
             located.location shouldBe shelf
         }
 
-        it("ubicar parcialmente deja la línea pendiente del resto") {
+        it("locating partially leaves the line pending for the rest") {
             val line = lineCaptured(100)
             val partial = line.locate(Quantity.of(40), shelf).getOrThrow()
 
@@ -153,7 +153,7 @@ class InvoiceLineStateMachineTest : DescribeSpec({
             }
         }
 
-        it("ubicar parcialmente una línea aprobada la deja aprobada") {
+        it("locating partially an approved line leaves it approved") {
             // 90 contadas de 100 facturadas: discrepancia aprobada por el supervisor.
             val line = lineApproved(90)
             val partial = line.locate(Quantity.of(30), shelf).getOrThrow()
@@ -164,7 +164,7 @@ class InvoiceLineStateMachineTest : DescribeSpec({
             }
         }
 
-        it("no se puede ubicar más de lo pendiente") {
+        it("cannot locate more than what is pending") {
             val line = lineCaptured(100)
             val result = line.locate(Quantity.of(150), shelf)
 
@@ -174,9 +174,9 @@ class InvoiceLineStateMachineTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("R-74: segregación de funciones al aprobar discrepancias") {
+    describe("R-74: segregation of duties when approving discrepancies") {
 
-        it("quien capturó NO puede aprobar su propia discrepancia") {
+        it("whoever counted CANNOT approve their own discrepancy") {
             val line = lineCaptured(80)
             line.capturedBy shouldBe operator
 
@@ -191,7 +191,7 @@ class InvoiceLineStateMachineTest : DescribeSpec({
             }
         }
 
-        it("el intento de autoaprobación NO deja rastro de aprobación en la línea") {
+        it("the self-approval attempt leaves NO approval trace on the line") {
             val line = lineCaptured(80)
             line.approveDiscrepancy(approvedBy = operator, reason = "error de conteo")
 
@@ -201,7 +201,7 @@ class InvoiceLineStateMachineTest : DescribeSpec({
             }
         }
 
-        it("OTRA persona sí puede aprobar la discrepancia") {
+        it("ANOTHER person can approve the discrepancy") {
             val line = lineCaptured(80)
 
             val approved = line.approveDiscrepancy(
@@ -219,7 +219,7 @@ class InvoiceLineStateMachineTest : DescribeSpec({
             }
         }
 
-        it("una línea aprobada YA se puede ubicar") {
+        it("an approved line CAN already be located") {
             val approved = lineCaptured(80)
                 .approveDiscrepancy(approvedBy = supervisor, reason = "faltante")
                 .getOrThrow()
@@ -228,7 +228,7 @@ class InvoiceLineStateMachineTest : DescribeSpec({
             located.status shouldBe InvoiceLineStatus.LOCATED
         }
 
-        it("aprobar exige motivo (invariante I6)") {
+        it("approving requires a reason (invariant I6)") {
             val line = lineCaptured(80)
 
             listOf("", "   ").forEach { reasonEmpty ->
@@ -240,7 +240,7 @@ class InvoiceLineStateMachineTest : DescribeSpec({
             }
         }
 
-        it("rechazar la discrepancia la devuelve a captura y limpia el conteo") {
+        it("rejecting the discrepancy returns it to counting and clears the count") {
             val line = lineCaptured(80)
 
             val rejected = line.rejectDiscrepancy("el conteo no es fiable, hay que repetirlo")
@@ -253,7 +253,7 @@ class InvoiceLineStateMachineTest : DescribeSpec({
             }
         }
 
-        it("no se puede aprobar una línea que no está en discrepancia") {
+        it("a line that is not in discrepancy cannot be approved") {
             val result = lineCaptured(100).approveDiscrepancy(supervisor, "motivo")
             val error = result.shouldBeInstanceOf<dev.axzy.stock.domain.common.Either.Left<*>>()
             error.error.shouldBeInstanceOf<DomainError.NotPendingApproval>()
@@ -261,9 +261,9 @@ class InvoiceLineStateMachineTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("R-80: coherencia del empaque y del conteo de cajas") {
+    describe("R-80: consistency of packing and of the box count") {
 
-        it("una factura de 100 piezas con cajas de 30 se RECHAZA: dato imposible") {
+        it("an invoice of 100 pieces with boxes of 30 is REJECTED: an impossible figure") {
             // Nadie empaca 3 cajas y 10 sueltas cuando la especificación dice
             // que las cajas son de 30. Es un error de captura de la factura.
             val result = InvoiceLine.validatePackingSpecification(
@@ -279,14 +279,14 @@ class InvoiceLineStateMachineTest : DescribeSpec({
             }
         }
 
-        it("una factura de 90 piezas con cajas de 30 SE ACEPTA: 3 cajas exactas") {
+        it("an invoice of 90 pieces with boxes of 30 IS ACCEPTED: exactly 3 boxes") {
             InvoiceLine.validatePackingSpecification(
                 invoicedQuantity = Quantity.of(90),
                 unitsPerBox = UnitsPerBox.of(30),
             ).isRight shouldBe true
         }
 
-        it("una factura de 20 piezas con cajas de 30 SE ACEPTA: es mercancía suelta") {
+        it("an invoice of 20 pieces with boxes of 30 IS ACCEPTED: they are loose goods") {
             withClue("Menos de una caja no tiene remanente que cuadrar") {
                 InvoiceLine.validatePackingSpecification(
                     invoicedQuantity = Quantity.of(20),
@@ -295,7 +295,7 @@ class InvoiceLineStateMachineTest : DescribeSpec({
             }
         }
 
-        it("CONTAR 80 de una factura de 100 con cajas de 50 SÍ se acepta: es un faltante") {
+        it("COUNTING 80 of a 100-unit invoice with boxes of 50 IS accepted: it is a shortage") {
             // Éste es el caso que una validación ingenua bloquearía. Contar 80
             // con cajas de 50 es 1 caja y 30 sueltas: un faltante real, que es
             // exactamente lo que el flujo de discrepancia existe para capturar.
@@ -307,12 +307,12 @@ class InvoiceLineStateMachineTest : DescribeSpec({
             }
         }
 
-        it("contar 99 o 120 tampoco falla: son diferencias, no errores de dato") {
+        it("counting 99 or 120 does not fail either: they are differences, not data errors") {
             lineCaptured(99).status shouldBe InvoiceLineStatus.DISCREPANCY
             lineCaptured(120).status shouldBe InvoiceLineStatus.DISCREPANCY
         }
 
-        it("declarar más cajas de las que caben en el conteo SÍ se rechaza") {
+        it("declaring more boxes than fit in the count IS rejected") {
             // 80 piezas no pueden ser 2 cajas de 50: serían 100.
             val result = lineNew().capture(
                 physicalQuantity = Quantity.of(80),
@@ -324,7 +324,7 @@ class InvoiceLineStateMachineTest : DescribeSpec({
             error.error.shouldBeInstanceOf<DomainError.InconsistentBoxCount>()
         }
 
-        it("declarar menos cajas de las que caben se acepta: el operador cuenta sueltas") {
+        it("declaring fewer boxes than fit is accepted: the operator counts loose pieces") {
             // 100 piezas con 50 por caja declaradas como 1 caja: quedan 50
             // sueltas contadas. Es una descripción válida del conteo.
             val result = lineNew().capture(
@@ -335,7 +335,7 @@ class InvoiceLineStateMachineTest : DescribeSpec({
             result.isRight shouldBe true
         }
 
-        it("cantidad cero o negativa se rechaza") {
+        it("a zero or negative quantity is rejected") {
             val result = lineNew().capture(
                 physicalQuantity = Quantity.ZERO,
                 physicalBoxQuantity = BoxQuantity.ZERO,
@@ -346,9 +346,9 @@ class InvoiceLineStateMachineTest : DescribeSpec({
         }
     }
 
-    describe("transiciones inválidas: el legacy permitía saltos ilegales") {
+    describe("invalid transitions: the legacy allowed illegal jumps") {
 
-        it("no se puede ubicar una línea sin capturar") {
+        it("a line cannot be located without being counted") {
             val result = lineNew().locate(Quantity.of(10), shelf)
             val error = result.shouldBeInstanceOf<dev.axzy.stock.domain.common.Either.Left<*>>()
             val transition = error.error.shouldBeInstanceOf<DomainError.InvalidTransition>()
@@ -357,7 +357,7 @@ class InvoiceLineStateMachineTest : DescribeSpec({
             }
         }
 
-        it("no se puede capturar una línea ya ubicada") {
+        it("a line already located cannot be counted") {
             val located = lineCaptured(100).locate(Quantity.of(100), shelf).getOrThrow()
             val result = located.capture(Quantity.of(100), BoxQuantity.of(2), operator)
 
@@ -365,7 +365,7 @@ class InvoiceLineStateMachineTest : DescribeSpec({
             error.error.shouldBeInstanceOf<DomainError.InvalidTransition>()
         }
 
-        it("no se puede anular una línea con mercancía ubicada (R-57/R-68)") {
+        it("a line with located goods cannot be voided (R-57/R-68)") {
             val located = lineCaptured(100).locate(Quantity.of(100), shelf).getOrThrow()
             val result = located.cancel("ya no se necesita")
 
@@ -375,7 +375,7 @@ class InvoiceLineStateMachineTest : DescribeSpec({
             }
         }
 
-        it("solo se puede asignar una línea pendiente") {
+        it("only a pending line can be assigned") {
             lineNew().assign(userId = 7).isRight shouldBe true
             val result = lineCaptured(100).assign(userId = 7)
             result.isLeft shouldBe true
@@ -383,27 +383,27 @@ class InvoiceLineStateMachineTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("estados: consultas derivadas en lugar de comparaciones de strings") {
+    describe("states: derived queries instead of string comparisons") {
 
-        it("DISCREPANCY no permite ubicar y bloquea el cierre") {
+        it("DISCREPANCY does not allow locating and blocks closing") {
             val status = InvoiceLineStatus.DISCREPANCY
             status.allowsLocating shouldBe false
             status.blocksInvoiceClosing shouldBe true
         }
 
-        it("LOCATED permite ubicar más pero no bloquea el cierre") {
+        it("LOCATED allows locating more but does not block closing") {
             val status = InvoiceLineStatus.LOCATED
             status.allowsLocating shouldBe true
             status.blocksInvoiceClosing shouldBe false
         }
 
-        it("CANCELLED no permite nada") {
+        it("CANCELLED allows nothing") {
             val status = InvoiceLineStatus.CANCELLED
             status.allowsLocating shouldBe false
             status.blocksInvoiceClosing shouldBe false
         }
 
-        it("todo estado tiene una respuesta definida (el `when` es exhaustivo)") {
+        it("every state has a defined response (the `when` is exhaustive)") {
             InvoiceLineStatus.entries.forEach { status ->
                 withClue("El estado ${status.name} debe tener ambas consultas definidas") {
                     // Si falta un caso en los `when` de arriba, esto no compila.

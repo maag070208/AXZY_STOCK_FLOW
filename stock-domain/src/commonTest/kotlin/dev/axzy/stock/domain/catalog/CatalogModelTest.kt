@@ -27,9 +27,9 @@ class CatalogModelTest : DescribeSpec({
         active = active,
     )
 
-    describe("el código de producto no se cambia") {
+    describe("the product code is not changed") {
 
-        it("un PUT que devuelve el mismo código se acepta: es el ida y vuelta del cliente") {
+        it("a PUT that returns the same code is accepted: it is the client's round trip") {
             val updated = product().withUpdated(
                 code = code,
                 name = "OTRO NOMBRE",
@@ -42,7 +42,7 @@ class CatalogModelTest : DescribeSpec({
             updated.getOrNull()!!.name shouldBe "OTRO NOMBRE"
         }
 
-        it("cambiar el código se rechaza aunque el resto sea válido") {
+        it("changing the code is rejected even if the rest is valid") {
             val result = product().withUpdated(
                 code = ProductCode.of("ABRAA1C"),
                 name = "ABRAZADERA DE ARRANQUE",
@@ -57,31 +57,31 @@ class CatalogModelTest : DescribeSpec({
         }
     }
 
-    describe("la baja lógica de un producto") {
+    describe("the logical deletion of a product") {
 
-        it("desactivar un producto activo funciona y conserva su historial") {
+        it("deactivating an active product works and keeps its history") {
             product().deactivate().getOrNull()!!.active shouldBe false
         }
 
-        it("desactivar dos veces se rechaza: borraría el motivo del primer borrado") {
+        it("deactivating twice is rejected: it would erase the reason of the first deactivation") {
             product(active = false).deactivate().errorOrNull()
                 .shouldBeInstanceOf<DomainError.ProductAlreadyInactive>()
         }
     }
 
-    describe("la ubicación de recepción está protegida") {
+    describe("the receiving location is protected") {
 
         val receiving = Location(
             id = 2, warehouseId = 1, hall = "RECEIVING", code = "RECEIVING", position = "RECEIVING",
             kind = LocationKind.RECEIVING,
         )
 
-        it("no se puede desactivar") {
+        it("cannot be deactivated") {
             receiving.deactivate().errorOrNull()
                 .shouldBeInstanceOf<DomainError.ReceivingLocationProtected>()
         }
 
-        it("tampoco por un PUT que la deje inactiva") {
+        it("nor by a PUT that leaves it inactive") {
             val result = receiving.withUpdated(
                 hall = LocationPart.of("RECEIVING", "hall").getOrNull()!!,
                 code = LocationPart.of("RECEIVING", "code").getOrNull()!!,
@@ -93,53 +93,53 @@ class CatalogModelTest : DescribeSpec({
             result.errorOrNull().shouldBeInstanceOf<DomainError.ReceivingLocationProtected>()
         }
 
-        it("un estante sí se desactiva") {
+        it("a shelf can be deactivated") {
             val shelf = receiving.copy(id = 3, hall = "04", code = "B", position = "C", kind = LocationKind.SHELF)
             shelf.deactivate().getOrNull()!!.active shouldBe false
         }
     }
 
-    describe("el nombre visible lo compone el servidor") {
+    describe("the visible name is composed by the server") {
 
-        it("un estante se muestra como pasillo-localidad-posición") {
+        it("a shelf is shown as hall-code-position") {
             Location(3, 1, "04", "B", "C").displayName shouldBe "04-B-C"
         }
 
-        it("la recepción se muestra con su código, no repetida tres veces") {
+        it("receiving is shown with its code, not repeated three times") {
             Location(2, 1, "RECEIVING", "RECEIVING", "RECEIVING", kind = LocationKind.RECEIVING)
                 .displayName shouldBe "RECEIVING"
         }
 
-        it("el saldo heredado se muestra como UNASSIGNED") {
+        it("the inherited balance is shown as UNASSIGNED") {
             Location(4, 1, "SIN", "UBICAR", "X", kind = LocationKind.UNASSIGNED)
                 .displayName shouldBe "UNASSIGNED"
         }
     }
 
-    describe("las partes de una ubicación se normalizan") {
+    describe("the parts of a location are normalised") {
 
-        it("se escriben en mayúsculas, que es como están impresas en los estantes") {
+        it("they are written in uppercase, which is how they are printed on the shelves") {
             LocationPart.of("b", "code").getOrNull()!!.value shouldBe "B"
         }
 
-        it("un carácter que no está en el alfabeto se rechaza") {
+        it("a character that is not in the alphabet is rejected") {
             LocationPart.of("B-1", "code").errorOrNull()
                 .shouldBeInstanceOf<DomainError.InvalidLocationPart>()
         }
 
-        it("una parte vacía se rechaza") {
+        it("an empty part is rejected") {
             LocationPart.of("   ", "hall").errorOrNull()
                 .shouldBeInstanceOf<DomainError.InvalidLocationPart>()
         }
 
-        it("UNASSIGNED no se puede declarar por API: nace de la migración") {
+        it("UNASSIGNED cannot be declared through the API: it comes from the migration") {
             LocationKind.parse("UNASSIGNED").isFailure shouldBe true
         }
     }
 
-    describe("solo una bodega predeterminada") {
+    describe("only one default warehouse") {
 
-        it("marcar otra deja a la anterior sin la marca") {
+        it("marking another leaves the previous one without the mark") {
             val first = Warehouse(1, "MAIN", "Bodega principal", isDefault = true)
             val second = Warehouse(2, "NORTE", "Bodega norte")
 

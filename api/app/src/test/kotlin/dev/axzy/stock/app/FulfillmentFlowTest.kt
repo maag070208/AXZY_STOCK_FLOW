@@ -81,7 +81,7 @@ class FulfillmentFlowTest : ApiTest() {
     // ── Alta y consulta ─────────────────────────────────────────────────────
 
     @Test
-    fun `el alta genera el numero y devuelve la orden con sus lineas`() {
+    fun `creating an order generates the number and returns the order with its lines`() {
         val token = manager()
         product(token)
 
@@ -101,7 +101,7 @@ class FulfillmentFlowTest : ApiTest() {
     }
 
     @Test
-    fun `una orden sin lineas se rechaza y una que no existe responde ORDER_NOT_FOUND`() {
+    fun `an order without lines is rejected, and one that does not exist answers ORDER_NOT_FOUND`() {
         val token = manager()
         product(token)
 
@@ -114,7 +114,7 @@ class FulfillmentFlowTest : ApiTest() {
     // ── S1: empacar descuenta exactamente lo empacado ───────────────────────
 
     @Test
-    fun `S1 - empacar descuenta exactamente lo empacado`() {
+    fun `S1 - packing deducts exactly what was packed`() {
         val token = manager()
         val who = approver()
         product(token)
@@ -133,7 +133,7 @@ class FulfillmentFlowTest : ApiTest() {
     }
 
     @Test
-    fun `empacar mas de lo pendiente se rechaza con cuanto queda`() {
+    fun `packing more than what is pending is rejected with what remains`() {
         val token = manager()
         val who = approver()
         product(token)
@@ -152,7 +152,7 @@ class FulfillmentFlowTest : ApiTest() {
     }
 
     @Test
-    fun `empacar sin saldo se rechaza con lo que hay y sin mover nada`() {
+    fun `packing without balance is rejected with what there is and moves nothing`() {
         val token = manager()
         val who = approver()
         product(token)
@@ -171,7 +171,7 @@ class FulfillmentFlowTest : ApiTest() {
     }
 
     @Test
-    fun `una linea sin ubicacion no se puede empacar`() {
+    fun `a line without a location cannot be packed`() {
         val token = manager()
         product(token)
         val id = order(token)
@@ -186,7 +186,7 @@ class FulfillmentFlowTest : ApiTest() {
     // ── S2, S3 y S4: confirmar ──────────────────────────────────────────────
 
     @Test
-    fun `S2 - confirmar descuenta solo lo que falta`() {
+    fun `S2 - confirming deducts only what is missing`() {
         val token = manager()
         val who = approver()
         product(token)
@@ -208,7 +208,7 @@ class FulfillmentFlowTest : ApiTest() {
     }
 
     @Test
-    fun `S3 - confirmar dos veces no descuenta dos veces`() {
+    fun `S3 - confirming twice does not deduct twice`() {
         val token = manager()
         val who = approver()
         product(token)
@@ -229,7 +229,7 @@ class FulfillmentFlowTest : ApiTest() {
     }
 
     @Test
-    fun `S4 - confirmar sin existencias no deja nada a medias`() {
+    fun `S4 - confirming without stock leaves nothing half done`() {
         val token = manager()
         val who = approver()
         product(token)
@@ -261,7 +261,7 @@ class FulfillmentFlowTest : ApiTest() {
     // ── S5, S6 y S7: la exportación al ERP ──────────────────────────────────
 
     @Test
-    fun `S5 - sin ERP la exportacion falla con motivo y el inventario si salio`() {
+    fun `S5 - without an ERP the export fails with a reason, and the inventory did leave`() {
         val token = manager()
         val who = approver()
         product(token)
@@ -285,7 +285,7 @@ class FulfillmentFlowTest : ApiTest() {
     }
 
     @Test
-    fun `S6 - el reintento manual vuelve a fallar con el mismo motivo y cuenta el intento`() {
+    fun `S6 - the manual retry fails again with the same reason and counts the attempt`() {
         val token = manager()
         val who = approver()
         product(token)
@@ -307,7 +307,7 @@ class FulfillmentFlowTest : ApiTest() {
     }
 
     @Test
-    fun `S7 - no se exporta una orden sin confirmar`() {
+    fun `S7 - an unconfirmed order is not exported`() {
         val token = manager()
         product(token)
         val id = order(token)
@@ -321,7 +321,7 @@ class FulfillmentFlowTest : ApiTest() {
     // ── S8: el faltante sigue las reglas de ajuste ──────────────────────────
 
     @Test
-    fun `S8 - un faltante sin motivo no descuenta nada`() {
+    fun `S8 - a shortage without a reason deducts nothing`() {
         val token = manager()
         val who = approver()
         product(token)
@@ -343,7 +343,7 @@ class FulfillmentFlowTest : ApiTest() {
     }
 
     @Test
-    fun `S8 - un faltante con motivo descuenta por la regla de ajuste`() {
+    fun `S8 - a shortage with a reason deducts through the adjustment rule`() {
         val token = manager()
         val who = approver()
         product(token)
@@ -371,7 +371,7 @@ class FulfillmentFlowTest : ApiTest() {
     }
 
     @Test
-    fun `S8 - sin permiso de ajuste el faltante se rechaza`() {
+    fun `S8 - without the adjustment permission the shortage is rejected`() {
         val jefe = manager()
         val who = approver()
         product(jefe)
@@ -406,7 +406,7 @@ class FulfillmentFlowTest : ApiTest() {
     // ── Permisos por ruta ───────────────────────────────────────────────────
 
     @Test
-    fun `un operador de almacen no confirma ni exporta ordenes`() {
+    fun `a warehouse operator does not confirm or export orders`() {
         createUser("operador2", USER_PASSWORD, BaseRole.WAREHOUSE_OPERATOR.key.value)
         val token = accessTokenOf("operador2", USER_PASSWORD)
 
@@ -418,7 +418,7 @@ class FulfillmentFlowTest : ApiTest() {
     // ── Asignación de la línea (M04) ────────────────────────────────────────
 
     @Test
-    fun `asignar una linea la deja a cargo de alguien y con su estanteria`() {
+    fun `assigning a line puts it in someone's charge and on their shelf`() {
         val token = manager()
         product(token)
         val estante = shelf(token)
@@ -444,7 +444,7 @@ class FulfillmentFlowTest : ApiTest() {
     }
 
     @Test
-    fun `sin userId la asignacion es a quien llama`() {
+    fun `without userId the assignment is to the caller`() {
         val token = manager()
         product(token)
         val pedido = order(token)
@@ -458,7 +458,7 @@ class FulfillmentFlowTest : ApiTest() {
     }
 
     @Test
-    fun `no se asigna una linea ya surtida`() {
+    fun `a line already packed is not assigned`() {
         val token = manager()
         val quien = approver() as Long
         product(token)
@@ -477,7 +477,7 @@ class FulfillmentFlowTest : ApiTest() {
     }
 
     @Test
-    fun `asignar exige el permiso y un usuario y una ubicacion que existan`() {
+    fun `assigning requires the permission and an existing user and location`() {
         val token = manager()
         product(token)
         val pedido = order(token)

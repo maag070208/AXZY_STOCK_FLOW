@@ -51,7 +51,7 @@ class ReportFlowTest : ApiTest() {
     // ── Existencias ─────────────────────────────────────────────────────────
 
     @Test
-    fun `el reporte de existencias trae los totales del filtro entero y no de la pagina`() {
+    fun `the stock report brings the totals for the whole filter and not for the page`() {
         val token = manager()
         val who = approver()
         createProduct(token, "AAA001")
@@ -72,7 +72,7 @@ class ReportFlowTest : ApiTest() {
     }
 
     @Test
-    fun `un producto en tres estantes es un producto distinto, no tres`() {
+    fun `a product on three shelves is one product, not three`() {
         val token = manager()
         val who = approver()
         createProduct(token, "AAA001")
@@ -90,7 +90,7 @@ class ReportFlowTest : ApiTest() {
     }
 
     @Test
-    fun `el reporte filtra por bodega`() {
+    fun `the report filters by warehouse`() {
         val token = manager()
         val who = approver()
         createProduct(token, "AAA001")
@@ -106,7 +106,7 @@ class ReportFlowTest : ApiTest() {
     // ── Resumen de movimientos ──────────────────────────────────────────────
 
     @Test
-    fun `el resumen agrupa por dia y no cuenta ubicar como entrada ni como salida`() {
+    fun `the summary groups by day and does not count locating as inbound or outbound`() {
         val token = manager()
         val who = approver()
         createProduct(token, "AAA001")
@@ -145,7 +145,7 @@ class ReportFlowTest : ApiTest() {
     }
 
     @Test
-    fun `el resumen agrupa por producto y por ubicacion`() {
+    fun `the summary groups by product and by location`() {
         val token = manager()
         val who = approver()
         createProduct(token, "AAA001")
@@ -165,7 +165,7 @@ class ReportFlowTest : ApiTest() {
     }
 
     @Test
-    fun `el resumen exige las dos fechas y un groupBy conocido`() {
+    fun `the summary requires both dates and a known groupBy`() {
         val token = manager()
 
         assertThat(get("/v1/reports/movements-summary?to=${today()}", token).code).isEqualTo("FIELD_REQUIRED")
@@ -183,7 +183,7 @@ class ReportFlowTest : ApiTest() {
     // ── Reconciliación ──────────────────────────────────────────────────────
 
     @Test
-    fun `la reconciliacion dice sano cuando las proyecciones cuadran`() {
+    fun `the reconciliation says healthy when the projections match`() {
         val token = manager()
         val who = approver()
         createProduct(token, "AAA001")
@@ -198,7 +198,7 @@ class ReportFlowTest : ApiTest() {
     }
 
     @Test
-    fun `la reconciliacion encuentra el descuadre y lo dice con su signo`() {
+    fun `the reconciliation finds the mismatch and states it with its sign`() {
         val token = manager()
         val who = approver()
         createProduct(token, "AAA001")
@@ -222,7 +222,7 @@ class ReportFlowTest : ApiTest() {
     // ── Exportación ─────────────────────────────────────────────────────────
 
     @Test
-    fun `la exportacion a CSV trae las mismas filas que el listado y con sus filtros`() {
+    fun `the CSV export brings the same rows as the list and with its filters`() {
         val token = manager()
         val who = approver()
         createProduct(token, "AAA001")
@@ -246,7 +246,7 @@ class ReportFlowTest : ApiTest() {
     }
 
     @Test
-    fun `la exportacion a XLSX es un archivo de hoja de calculo`() {
+    fun `the XLSX export is a spreadsheet file`() {
         val token = manager()
         val who = approver()
         createProduct(token, "AAA001")
@@ -263,7 +263,7 @@ class ReportFlowTest : ApiTest() {
     }
 
     @Test
-    fun `la exportacion exige un formato admitido`() {
+    fun `the export requires a supported format`() {
         val token = manager()
 
         val sinFormato = get("/v1/reports/kardex/export", token)
@@ -276,7 +276,7 @@ class ReportFlowTest : ApiTest() {
     }
 
     @Test
-    fun `los reportes exigen sus permisos y no los del inventario`() {
+    fun `reports require their own permissions and not the inventory ones`() {
         // `inventory.view` no basta para un reporte: la pantalla y su guard comparten
         // permiso, y dar otro haría que el usuario entrara y recibiera 403 al cargar.
         createUser("operador", USER_PASSWORD, BaseRole.WAREHOUSE_OPERATOR.key.value)

@@ -54,7 +54,7 @@ class TransferAndLabelBudgetTest {
     }
 
     @Test
-    fun `listar traslados son dos sentencias y el detalle otras dos`() {
+    fun `listing transfers is two statements and the detail another two`() {
         val listado = db.statements.during { transfers.page(TransferFilter(null, null), PageRequest.of()) }
         val detalle = db.statements.during { transfers.detail(transferId) }
 
@@ -64,7 +64,7 @@ class TransferAndLabelBudgetTest {
     }
 
     @Test
-    fun `listar trabajos de impresion son dos sentencias`() {
+    fun `listing print jobs is two statements`() {
         val listado = db.statements.during { labels.page(null, PageRequest.of()) }
         val trabajos = labels.page(null, PageRequest.of())
 

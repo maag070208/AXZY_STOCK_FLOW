@@ -37,7 +37,7 @@ class CatalogFlowTest : ApiTest() {
     // ── K1: una fila inválida rechaza el archivo entero ─────────────────────
 
     @Test
-    fun `K1 - una fila invalida rechaza el archivo entero y no escribe nada`() {
+    fun `K1 - an invalid row rejects the whole file and writes nothing`() {
         val token = manager()
         val file = csv(
             "1,ABRAA1B,ABRAZADERA DE ARRANQUE,PZA,10",
@@ -54,7 +54,7 @@ class CatalogFlowTest : ApiTest() {
     }
 
     @Test
-    fun `una simulacion con filas invalidas tampoco produce informe`() {
+    fun `a simulation with invalid rows does not produce a report either`() {
         val token = manager()
         val file = csv(
             "1,ABRAA1B,ABRAZADERA,PZA,10",
@@ -73,7 +73,7 @@ class CatalogFlowTest : ApiTest() {
     // ── K2: la importación es idempotente ───────────────────────────────────
 
     @Test
-    fun `K2 - importar dos veces no duplica productos ni vuelve a crearlos`() {
+    fun `K2 - importing twice does not duplicate or recreate products`() {
         val token = manager()
 
         val first = postFile("/v1/products/import", validFile, token = token, query = "?dryRun=false")
@@ -89,7 +89,7 @@ class CatalogFlowTest : ApiTest() {
     }
 
     @Test
-    fun `la simulacion no escribe nada y dice lo que se crearia`() {
+    fun `the simulation writes nothing and says what would be created`() {
         val token = manager()
 
         // `dryRun` omitido: el valor por defecto es simular, porque el olvido inverso
@@ -105,7 +105,7 @@ class CatalogFlowTest : ApiTest() {
     }
 
     @Test
-    fun `el Excel todavia no se lee, y se dice por que`() {
+    fun `Excel is not read yet, and it says why`() {
         val token = manager()
 
         val response = postFile("/v1/products/import", validFile, filename = "catalogo.xlsx", token = token)
@@ -115,7 +115,7 @@ class CatalogFlowTest : ApiTest() {
     }
 
     @Test
-    fun `un archivo vacio responde EMPTY_FILE`() {
+    fun `an empty file answers EMPTY_FILE`() {
         val token = manager()
 
         val response = postFile("/v1/products/import", "externalId,productCode,name,unitMeasure,stock", token = token)
@@ -126,7 +126,7 @@ class CatalogFlowTest : ApiTest() {
     // ── K3: el código de producto no se cambia ──────────────────────────────
 
     @Test
-    fun `K3 - cambiar el codigo de un producto responde PRODUCT_CODE_IMMUTABLE`() {
+    fun `K3 - changing a product's code answers PRODUCT_CODE_IMMUTABLE`() {
         val token = manager()
         val created = post(
             "/v1/products",
@@ -146,7 +146,7 @@ class CatalogFlowTest : ApiTest() {
     }
 
     @Test
-    fun `crear un producto escribe en la bitacora dentro de la misma transaccion`() {
+    fun `creating a product writes to the audit log within the same transaction`() {
         val token = manager()
 
         post("/v1/products", mapOf("productCode" to "ABRAA1B", "name" to "ABRAZADERA", "unitMeasure" to "PZA"), token)
@@ -157,7 +157,7 @@ class CatalogFlowTest : ApiTest() {
     }
 
     @Test
-    fun `un codigo de producto repetido responde DUPLICATE_PRODUCT_CODE`() {
+    fun `a repeated product code answers DUPLICATE_PRODUCT_CODE`() {
         val token = manager()
         val body = mapOf("productCode" to "ABRAA1B", "name" to "ABRAZADERA", "unitMeasure" to "PZA")
         post("/v1/products", body, token)
@@ -169,7 +169,7 @@ class CatalogFlowTest : ApiTest() {
     }
 
     @Test
-    fun `una unidad que no esta en el catalogo responde UNKNOWN_UNIT_MEASURE`() {
+    fun `a unit that is not in the catalog answers UNKNOWN_UNIT_MEASURE`() {
         val token = manager()
 
         val response = post(
@@ -185,7 +185,7 @@ class CatalogFlowTest : ApiTest() {
     // ── K4: la recepción no se desactiva ────────────────────────────────────
 
     @Test
-    fun `K4 - desactivar la ubicacion de recepcion responde RECEIVING_LOCATION_PROTECTED`() {
+    fun `K4 - deactivating the receiving location answers RECEIVING_LOCATION_PROTECTED`() {
         val token = manager()
         val list = get("/v1/locations?kind=RECEIVING", token)
         val id = list.at<List<Map<String, Any?>>>("items").single()["id"]
@@ -197,7 +197,7 @@ class CatalogFlowTest : ApiTest() {
     }
 
     @Test
-    fun `una ubicacion nueva se lista con su nombre visible compuesto por el servidor`() {
+    fun `a new location is listed with its visible name composed by the server`() {
         val token = manager()
 
         val created = post(
@@ -214,7 +214,7 @@ class CatalogFlowTest : ApiTest() {
     }
 
     @Test
-    fun `mover una ubicacion de bodega responde WAREHOUSE_IMMUTABLE`() {
+    fun `moving a warehouse location answers WAREHOUSE_IMMUTABLE`() {
         val token = manager()
         val created = post(
             "/v1/locations",
@@ -236,7 +236,7 @@ class CatalogFlowTest : ApiTest() {
     // ── K5: un producto inactivo no recibe movimientos ──────────────────────
 
     @Test
-    fun `K5 - un producto inactivo deja de encontrarse`() {
+    fun `K5 - an inactive product stops being found`() {
         val token = manager()
         val created = post(
             "/v1/products",
@@ -258,7 +258,7 @@ class CatalogFlowTest : ApiTest() {
     }
 
     @Test
-    fun `desactivar un producto exige motivo`() {
+    fun `deactivating a product requires a reason`() {
         val token = manager()
         val created = post(
             "/v1/products",
@@ -275,7 +275,7 @@ class CatalogFlowTest : ApiTest() {
     // ── K6: solo una bodega predeterminada ──────────────────────────────────
 
     @Test
-    fun `K6 - marcar otra bodega como predeterminada deja a la anterior sin la marca`() {
+    fun `K6 - marking another warehouse as default leaves the previous one without the mark`() {
         val token = manager()
 
         val created = post(
@@ -297,7 +297,7 @@ class CatalogFlowTest : ApiTest() {
     // ── Permisos y autorización ─────────────────────────────────────────────
 
     @Test
-    fun `I5 - una ruta protegida deniega por defecto a quien no tiene el permiso`() {
+    fun `I5 - a protected route denies by default someone without the permission`() {
         createUser("auditor", USER_PASSWORD, BaseRole.AUDITOR.key.value)
         val token = accessTokenOf("auditor", USER_PASSWORD)
 
@@ -313,7 +313,7 @@ class CatalogFlowTest : ApiTest() {
     }
 
     @Test
-    fun `I5 - sin token, el catalogo responde 401 y no 403`() {
+    fun `I5 - without a token, the catalog answers 401 and not 403`() {
         val response = get("/v1/products")
 
         assertThat(response.status).isEqualTo(401)
@@ -321,7 +321,7 @@ class CatalogFlowTest : ApiTest() {
     }
 
     @Test
-    fun `I8 - una cuenta con el cambio de contrasena pendiente no usa el catalogo`() {
+    fun `I8 - an account with a pending password change does not use the catalog`() {
         createPendingUser("nueva", USER_PASSWORD, jefa)
         val token = accessTokenOf("nueva", USER_PASSWORD)
 
@@ -332,7 +332,7 @@ class CatalogFlowTest : ApiTest() {
     }
 
     @Test
-    fun `I8 - la cuenta con el cambio pendiente si puede ver quien es`() {
+    fun `I8 - the account with a pending password change can see who it is`() {
         createPendingUser("nueva", USER_PASSWORD, jefa)
         val token = accessTokenOf("nueva", USER_PASSWORD)
 
@@ -342,7 +342,7 @@ class CatalogFlowTest : ApiTest() {
     // ── Paginación y listados ───────────────────────────────────────────────
 
     @Test
-    fun `un size mayor de 200 se rechaza en lugar de recortarse`() {
+    fun `a size greater than 200 is rejected instead of being truncated`() {
         val token = manager()
 
         val response = get("/v1/products?size=201", token)
@@ -352,7 +352,7 @@ class CatalogFlowTest : ApiTest() {
     }
 
     @Test
-    fun `un orden que no se admite responde INVALID_SORT`() {
+    fun `an order that is not allowed answers INVALID_SORT`() {
         val token = manager()
 
         val response = get("/v1/products?sort=password,asc", token)
@@ -362,7 +362,7 @@ class CatalogFlowTest : ApiTest() {
     }
 
     @Test
-    fun `el sobre de paginacion trae el total contado y no el tamano de la pagina`() {
+    fun `the pagination envelope brings the counted total and not the page size`() {
         val token = manager()
         repeat(3) { index ->
             post(
@@ -380,7 +380,7 @@ class CatalogFlowTest : ApiTest() {
     }
 
     @Test
-    fun `el listado de bodegas no se pagina y trae la predeterminada`() {
+    fun `the warehouse list is not paginated and brings the default one`() {
         val token = manager()
 
         val items = get("/v1/warehouses", token).at<List<Map<String, Any?>>>("items")
@@ -409,7 +409,7 @@ class CatalogFlowTest : ApiTest() {
         ).query(String::class.java).list().filterNotNull()
 
     @Test
-    fun `M10 - el stock del archivo se carga en UNASSIGNED con un movimiento INITIAL`() {
+    fun `M10 - the file's stock is loaded into UNASSIGNED with an INITIAL movement`() {
         val token = manager()
 
         val response = postFile("/v1/products/import", validFile, token = token, query = "?dryRun=false")
@@ -427,7 +427,7 @@ class CatalogFlowTest : ApiTest() {
     }
 
     @Test
-    fun `M10 - reimportar no duplica el stock`() {
+    fun `M10 - reimporting does not duplicate stock`() {
         val token = manager()
         postFile("/v1/products/import", validFile, token = token, query = "?dryRun=false")
 
@@ -444,7 +444,7 @@ class CatalogFlowTest : ApiTest() {
     }
 
     @Test
-    fun `M10 - la simulacion no carga existencias`() {
+    fun `M10 - the simulation loads no stock`() {
         val token = manager()
 
         val response = postFile("/v1/products/import", validFile, token = token)

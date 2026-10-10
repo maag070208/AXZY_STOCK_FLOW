@@ -98,8 +98,8 @@ async function openOrder(page: Page) {
 
 test.beforeEach(async ({ page }) => mockHomeSummary(page));
 
-test.describe("surtido: acciones (API simulada)", () => {
-  test("empacar envía la cantidad de esta vez y muestra la orden que devuelve el servidor", async ({ page }) => {
+test.describe("fulfillment: actions (simulated API)", () => {
+  test("packing sends this time's quantity and shows the order the server returns", async ({ page }) => {
     const state = await mockOrder(page, order());
     await page.route("**/v1/orders/30/lines/88/package", (route) => {
       const packed = order({ packagedLines: 0 }, [{ ...LINE, suppliedQuantity: "7.000" }]);
@@ -120,7 +120,7 @@ test.describe("surtido: acciones (API simulada)", () => {
     await expect(page.getByRole("button", { name: "Pack" })).toBeVisible();
   });
 
-  test("un faltante sin motivo no se envía: la web lo pide antes", async ({ page }) => {
+  test("a shortage without a reason is not sent: the web asks for it first", async ({ page }) => {
     await mockOrder(page, order());
     let sent = 0;
     await page.route("**/v1/orders/30/shortage", (route) => {
@@ -138,7 +138,7 @@ test.describe("surtido: acciones (API simulada)", () => {
     expect(sent, "sin motivo no debe salir ninguna petición").toBe(0);
   });
 
-  test("un faltante con motivo envía la línea, la cantidad y el motivo", async ({ page }) => {
+  test("a shortage with a reason sends the line, the quantity and the reason", async ({ page }) => {
     const state = await mockOrder(page, order());
     await page.route("**/v1/orders/30/shortage", (route) => {
       state.set(order({}, [{ ...LINE, suppliedQuantity: "7.000" }]));
@@ -156,7 +156,7 @@ test.describe("surtido: acciones (API simulada)", () => {
     expect((await request).postDataJSON()).toEqual({ lineId: 88, quantity: 3, reason: "SHORTAGE" });
   });
 
-  test("exportar con el ERP caído muestra el motivo del fallo, no una exportación hecha", async ({ page }) => {
+  test("exporting with the ERP down shows the failure reason, not a fake export", async ({ page }) => {
     const confirmed = order({ status: "CONFIRMED", converted: true, convertedAt: "2026-10-09T15:00:00Z" }, [{ ...LINE, supplied: true, suppliedQuantity: "10.000", status: "LOCATED" }]);
     const state = await mockOrder(page, confirmed);
     const failure = "ERP_NOT_CONNECTED: no hay adaptador del ERP configurado";

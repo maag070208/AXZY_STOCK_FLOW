@@ -69,7 +69,7 @@ class InventoryFlowTest : ApiTest() {
     // ── A1: ubicar no cambia el total ───────────────────────────────────────
 
     @Test
-    fun `A1 - ubicar mueve sin cambiar el total y deja un movimiento LOCATE`() {
+    fun `A1 - locating moves stock without changing the total and records a LOCATE movement`() {
         val token = manager()
         val who = approver()
         createProduct(token)
@@ -104,7 +104,7 @@ class InventoryFlowTest : ApiTest() {
     // ── A2: no se saca más de lo que hay ────────────────────────────────────
 
     @Test
-    fun `A2 - una merma mayor que el saldo responde INSUFFICIENT_STOCK con lo que hay`() {
+    fun `A2 - a shrinkage larger than the balance answers INSUFFICIENT_STOCK with what is available`() {
         val token = manager()
         val who = approver()
         createProduct(token)
@@ -134,7 +134,7 @@ class InventoryFlowTest : ApiTest() {
     // ── A5: una merma exige su motivo ───────────────────────────────────────
 
     @Test
-    fun `A5 - un ajuste sin motivo responde REASON_REQUIRED y no escribe nada`() {
+    fun `A5 - an adjustment without a reason answers REASON_REQUIRED and writes nothing`() {
         val token = manager()
         val who = approver()
         createProduct(token)
@@ -157,7 +157,7 @@ class InventoryFlowTest : ApiTest() {
     }
 
     @Test
-    fun `un motivo que no existe responde INVALID_PARAMETER con la lista admitida`() {
+    fun `a reason that does not exist answers INVALID_PARAMETER with the allowed list`() {
         val token = manager()
         val who = approver()
         createProduct(token)
@@ -183,7 +183,7 @@ class InventoryFlowTest : ApiTest() {
     // ── A6: el permiso depende del motivo ───────────────────────────────────
 
     @Test
-    fun `A6 - el permiso de un ajuste depende de su motivo`() {
+    fun `A6 - the permission for an adjustment depends on its reason`() {
         val token = manager()
         val who = approver()
         createProduct(token)
@@ -233,7 +233,7 @@ class InventoryFlowTest : ApiTest() {
     // ── A7: origen y destino distintos ──────────────────────────────────────
 
     @Test
-    fun `A7 - ubicar al mismo estante responde SAME_SOURCE_AND_DESTINATION`() {
+    fun `A7 - locating to the same shelf answers SAME_SOURCE_AND_DESTINATION`() {
         val token = manager()
         createProduct(token)
 
@@ -253,7 +253,7 @@ class InventoryFlowTest : ApiTest() {
     }
 
     @Test
-    fun `ubicar desde un estante se rechaza - para eso esta mover`() {
+    fun `locating from a shelf is rejected - that is what moving is for`() {
         val token = manager()
         val who = approver()
         createProduct(token)
@@ -279,7 +279,7 @@ class InventoryFlowTest : ApiTest() {
     // ── A8: idempotencia ────────────────────────────────────────────────────
 
     @Test
-    fun `A8 - reenviar con la misma clave no duplica el movimiento`() {
+    fun `A8 - resending with the same key does not duplicate the movement`() {
         val token = manager()
         val who = approver()
         createProduct(token)
@@ -306,7 +306,7 @@ class InventoryFlowTest : ApiTest() {
     }
 
     @Test
-    fun `una clave de idempotencia que no es UUID responde INVALID_IDEMPOTENCY_KEY`() {
+    fun `an idempotency key that is not a UUID answers INVALID_IDEMPOTENCY_KEY`() {
         val token = manager()
         createProduct(token)
 
@@ -331,7 +331,7 @@ class InventoryFlowTest : ApiTest() {
     // ── A10: el conteo usa el mismo filtro que el listado ───────────────────
 
     @Test
-    fun `A10 - un rango sin movimientos da items vacio y totalItems cero`() {
+    fun `A10 - a range with no movements returns empty items and zero totalItems`() {
         val token = manager()
         val who = approver()
         createProduct(token)
@@ -344,7 +344,7 @@ class InventoryFlowTest : ApiTest() {
     }
 
     @Test
-    fun `un rango invertido se rechaza en lugar de devolver nada`() {
+    fun `an inverted range is rejected instead of returning nothing`() {
         val token = manager()
 
         val response = get("/v1/inventory/kardex?from=2026-10-31&to=2026-10-01", token)
@@ -356,7 +356,7 @@ class InventoryFlowTest : ApiTest() {
     // ── Aprobación y bitácora ───────────────────────────────────────────────
 
     @Test
-    fun `un aumento sin aprobador queda pendiente y no toca el inventario`() {
+    fun `an increase without an approver stays pending and does not touch the inventory`() {
         val token = manager()
         createProduct(token)
 
@@ -380,7 +380,7 @@ class InventoryFlowTest : ApiTest() {
     }
 
     @Test
-    fun `quien solicita un aumento no puede aprobarlo el mismo`() {
+    fun `whoever requests an increase cannot approve it themselves`() {
         val token = manager()
         val me = db.sql("SELECT id FROM users WHERE username = 'jefa'").query(Long::class.java).single()
         createProduct(token)
@@ -406,7 +406,7 @@ class InventoryFlowTest : ApiTest() {
     }
 
     @Test
-    fun `cada movimiento escribe en la bitacora dentro de la misma transaccion`() {
+    fun `every movement writes to the audit log within the same transaction`() {
         val token = manager()
         val who = approver()
         createProduct(token)
@@ -425,7 +425,7 @@ class InventoryFlowTest : ApiTest() {
     // ── El listado de existencias ───────────────────────────────────────────
 
     @Test
-    fun `el listado de existencias filtra por producto y por ubicacion`() {
+    fun `the stock list filters by product and by location`() {
         val token = manager()
         val who = approver()
         createProduct(token)
@@ -444,7 +444,7 @@ class InventoryFlowTest : ApiTest() {
     }
 
     @Test
-    fun `el saldo sin ubicar se encuentra por su nombre visible`() {
+    fun `the unassigned balance is found by its visible name`() {
         val token = manager()
         val who = approver()
         createProduct(token)
@@ -481,7 +481,7 @@ class InventoryFlowTest : ApiTest() {
     }
 
     @Test
-    fun `un aprobador sin el permiso de aprobar no aprueba nada`() {
+    fun `an approver without the approval permission approves nothing`() {
         val token = manager()
         createProduct(token)
         ajustador(token, "AJUSTADOR", "operador")
@@ -516,7 +516,7 @@ class InventoryFlowTest : ApiTest() {
     }
 
     @Test
-    fun `con un aprobador que si puede, el ajuste se aplica`() {
+    fun `with an approver who can, the adjustment is applied`() {
         val token = manager()
         val supervisora = approver()
         createProduct(token)

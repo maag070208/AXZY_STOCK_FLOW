@@ -163,9 +163,9 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
     // I1 — CONSERVACIÓN TOTAL
     // ═════════════════════════════════════════════════════════════════════════
 
-    describe("I1 — conservación total") {
+    describe("I1 — total conservation") {
 
-        it("el total es siempre igual al neto del ledger, tras cualquier secuencia") {
+        it("the total always equals the net of the ledger, after any sequence") {
             checkAll(PropTestConfig(iterations = 200), Arb.int(1..60)) { steps ->
                 val ledger = InventoryLedger()
                 // Carga inicial para tener stock con el que operar.
@@ -190,7 +190,7 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
             }
         }
 
-        it("el total es la suma de ubicaciones más el tránsito, siempre") {
+        it("the total is always the sum of locations plus transit") {
             checkAll(PropTestConfig(iterations = 200), Arb.int(1..60)) { steps ->
                 val ledger = InventoryLedger()
                 products.forEach { p -> ledger.initialLoad(p, receiving, Quantity.of(500)) }
@@ -217,9 +217,9 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
     // I2 — NO NEGATIVIDAD
     // ═════════════════════════════════════════════════════════════════════════
 
-    describe("I2 — ninguna ubicación puede tener stock negativo") {
+    describe("I2 — no location can have negative stock") {
 
-        it("tras cualquier secuencia, todos los saldos son >= 0") {
+        it("after any sequence, all balances are >= 0") {
             checkAll(PropTestConfig(iterations = 300), Arb.int(1..80)) { steps ->
                 val ledger = InventoryLedger()
                 products.forEach { p -> ledger.initialLoad(p, receiving, Quantity.of(800)) }
@@ -243,9 +243,9 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
     // I3 — APPEND-ONLY
     // ═════════════════════════════════════════════════════════════════════════
 
-    describe("I3 — el ledger es append-only") {
+    describe("I3 — the ledger is append-only") {
 
-        it("el número de entradas solo crece y cada una conserva sus datos") {
+        it("the number of entries only grows and each one keeps its data") {
             val ledger = InventoryLedger()
             ledger.initialLoad(productA, receiving, Quantity.of(100))
 
@@ -272,7 +272,7 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
             }
         }
 
-        it("la secuencia es estrictamente creciente y sin huecos") {
+        it("the sequence is strictly increasing and has no gaps") {
             checkAll(PropTestConfig(iterations = 100), Arb.int(1..40)) { steps ->
                 val ledger = InventoryLedger()
                 products.forEach { p -> ledger.initialLoad(p, receiving, Quantity.of(300)) }
@@ -294,9 +294,9 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
     // I4 — AUTO-AUDITORÍA
     // ═════════════════════════════════════════════════════════════════════════
 
-    describe("I4 — quantityAfter permite reconstruir el total") {
+    describe("I4 — quantityAfter allows rebuilding the total") {
 
-        it("el quantityAfter de la última entrada coincide con el total actual") {
+        it("the quantityAfter of the last entry matches the current total") {
             checkAll(PropTestConfig(iterations = 200), Arb.int(1..60)) { steps ->
                 val ledger = InventoryLedger()
                 products.forEach { p -> ledger.initialLoad(p, receiving, Quantity.of(400)) }
@@ -317,7 +317,7 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
             }
         }
 
-        it("recorrer el ledger en orden reproduce el total final") {
+        it("walking the ledger in order reproduces the final total") {
             checkAll(PropTestConfig(iterations = 150), Arb.int(1..50)) { steps ->
                 val ledger = InventoryLedger()
                 products.forEach { p -> ledger.initialLoad(p, receiving, Quantity.of(300)) }
@@ -355,9 +355,9 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
     // I5 — CONCILIACIÓN
     // ═════════════════════════════════════════════════════════════════════════
 
-    describe("I5 — los saldos concuerdan con el ledger") {
+    describe("I5 — balances match the ledger") {
 
-        it("recalcular los saldos desde el ledger da lo mismo que la proyección") {
+        it("recalculating the balances from the ledger gives the same as the projection") {
             checkAll(PropTestConfig(iterations = 150), Arb.int(1..60)) { steps ->
                 val ledger = InventoryLedger()
                 products.forEach { p -> ledger.initialLoad(p, receiving, Quantity.of(600)) }
@@ -414,9 +414,9 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
     // I6 — AJUSTE CON MOTIVO
     // ═════════════════════════════════════════════════════════════════════════
 
-    describe("I6 — ningún ajuste sin motivo") {
+    describe("I6 — no adjustment without a reason") {
 
-        it("todos los ajustes del ledger tienen motivo no vacío") {
+        it("all the ledger's adjustments have a non-empty reason") {
             checkAll(PropTestConfig(iterations = 200), Arb.int(1..60)) { steps ->
                 val ledger = InventoryLedger()
                 products.forEach { p -> ledger.initialLoad(p, receiving, Quantity.of(400)) }
@@ -438,7 +438,7 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
             }
         }
 
-        it("un ajuste con motivo en blanco es rechazado") {
+        it("an adjustment with a blank reason is rejected") {
             val ledger = InventoryLedger()
             ledger.initialLoad(productA, receiving, Quantity.of(100))
 
@@ -455,9 +455,9 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
     // I8 — IDEMPOTENCIA
     // ═════════════════════════════════════════════════════════════════════════
 
-    describe("I8 — idempotencia del móvil offline") {
+    describe("I8 — offline phone idempotency") {
 
-        it("repetir el mismo clientUuid no duplica el movimiento") {
+        it("repeating the same clientUuid does not duplicate the movement") {
             val ledger = InventoryLedger()
             val uuid = "captura-movil-001"
 
@@ -477,7 +477,7 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
             ledger.totalOf(productA) shouldBe Quantity.of(100)
         }
 
-        it("un clientUuid distinto sí registra un movimiento nuevo") {
+        it("a different clientUuid does record a new movement") {
             val ledger = InventoryLedger()
             ledger.receipt(productA, receiving, Quantity.of(100), clientUuid = "uuid-1")
             ledger.receipt(productA, receiving, Quantity.of(100), clientUuid = "uuid-2")
@@ -490,9 +490,9 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
     // I9 — ATOMICIDAD
     // ═════════════════════════════════════════════════════════════════════════
 
-    describe("I9 — una operación rechazada no deja rastro") {
+    describe("I9 — a rejected operation leaves no trace") {
 
-        it("una operación sin stock suficiente no modifica el ledger ni el total") {
+        it("an operation without enough stock does not modify the ledger or the total") {
             checkAll(PropTestConfig(iterations = 200), Arb.int(1..60)) { steps ->
                 val ledger = InventoryLedger()
                 products.forEach { p -> ledger.initialLoad(p, receiving, Quantity.of(500)) }
@@ -532,9 +532,9 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
     // I10 — TRASLADO ENTRE BODEGAS
     // ═════════════════════════════════════════════════════════════════════════
 
-    describe("I10 — el traslado entre bodegas conserva el total") {
+    describe("I10 — the transfer between warehouses keeps the total") {
 
-        it("despachar resta de la ubicación pero NO del total: entra en tránsito") {
+        it("dispatching deducts from the location but NOT from the total: it goes into transit") {
             val ledger = InventoryLedger()
             ledger.initialLoad(productA, shelfNorth, Quantity.of(100))
 
@@ -555,7 +555,7 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
             }
         }
 
-        it("recibir libera el tránsito y suma al destino, conservando el total") {
+        it("receiving releases the transit and adds to the destination, keeping the total") {
             val ledger = InventoryLedger()
             ledger.initialLoad(productA, shelfNorth, Quantity.of(100))
             val totalBefore = ledger.totalOf(productA)
@@ -570,7 +570,7 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
             }
         }
 
-        it("un traslado a medio camino deja el tránsito visible, no perdido") {
+        it("a transfer halfway leaves the transit visible, not lost") {
             checkAll(PropTestConfig(iterations = 100), Arb.int(1..40)) { steps ->
                 val ledger = InventoryLedger()
                 ledger.initialLoad(productA, shelfNorth, Quantity.of(1000))
@@ -593,9 +593,9 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
     // EL BUG DEL LEGACY, COMO PROPIEDAD
     // ═════════════════════════════════════════════════════════════════════════
 
-    describe("el bug de doble descuento al ubicar no puede reproducirse") {
+    describe("the double-deduction bug on locating cannot be reproduced") {
 
-        it("ubicar N unidades nunca cambia el total, para cualquier N") {
+        it("locating N units never changes the total, for any N") {
             checkAll(PropTestConfig(iterations = 300), Arb.int(1..500)) { quantity ->
                 val ledger = InventoryLedger()
                 ledger.initialLoad(productA, receiving, Quantity.of(1000))
@@ -619,7 +619,7 @@ class InventoryInvariantsPropertyTest : DescribeSpec({
             }
         }
 
-        it("recibir y luego ubicar deja el total igual a lo recibido") {
+        it("receiving and then locating leaves the total equal to what was received") {
             // La secuencia exacta que en el legacy dejaba el stock 100 unidades
             // por debajo del real.
             val ledger = InventoryLedger()

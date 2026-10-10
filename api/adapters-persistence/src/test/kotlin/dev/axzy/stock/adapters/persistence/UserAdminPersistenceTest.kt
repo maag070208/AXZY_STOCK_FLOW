@@ -34,7 +34,7 @@ class UserAdminPersistenceTest {
     }
 
     @Test
-    fun `listar usuarios son dos sentencias, con veinticinco filas o con una`() {
+    fun `listing users is two statements, with twenty-five rows or with one`() {
         val statements = db.statements.during {
             store.page(UserFilter(null, null, null), PageRequest.of(size = 25))
         }
@@ -46,7 +46,7 @@ class UserAdminPersistenceTest {
     }
 
     @Test
-    fun `el detalle de un usuario son dos sentencias`() {
+    fun `a user's detail is two statements`() {
         val id = db.asOwner.sql("SELECT id FROM users WHERE username = 'usuario1'").query(Long::class.java).single()
 
         val statements = db.statements.during { store.find(id) }
@@ -56,7 +56,7 @@ class UserAdminPersistenceTest {
     }
 
     @Test
-    fun `filtrar por rol sigue siendo dos sentencias`() {
+    fun `filtering by role is still two statements`() {
         // El filtro es un `EXISTS` dentro de la misma consulta: si se hubiera escrito
         // resolviendo los usuarios del rol primero, serían tres y crecería con la página.
         val statements = db.statements.during {
@@ -67,7 +67,7 @@ class UserAdminPersistenceTest {
     }
 
     @Test
-    fun `el listado de roles es una sentencia`() {
+    fun `the role list is a single statement`() {
         val statements = db.statements.during { store.roles() }
 
         assertThat(statements).isEqualTo(1)

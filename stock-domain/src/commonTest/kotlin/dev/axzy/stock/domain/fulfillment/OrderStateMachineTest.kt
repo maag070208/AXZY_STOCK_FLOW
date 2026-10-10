@@ -53,9 +53,9 @@ class OrderStateMachineTest : DescribeSpec({
         exportAttempts = attempts,
     )
 
-    describe("la regla del descuento: `suppliedQuantity` es lo YA descontado") {
+    describe("the deduction rule: `suppliedQuantity` is what is ALREADY deducted") {
 
-        it("una línea sin empacar tiene 10 pendientes de 10") {
+        it("an unpacked line has 10 pending out of 10") {
             val l = line(quantity = 10_000)
 
             l.suppliedQuantity shouldBe Quantity.ZERO
@@ -63,7 +63,7 @@ class OrderStateMachineTest : DescribeSpec({
             l.isComplete shouldBe false
         }
 
-        it("empacar 7 deja 3 pendientes — y son 3 los que confirmará") {
+        it("packing 7 leaves 3 pending — and those 3 are what will be confirmed") {
             val empacada = line(quantity = 10_000).packageQuantity(Quantity.ofScaled(7_000))
                 .getOrNull()!!
 
@@ -75,7 +75,7 @@ class OrderStateMachineTest : DescribeSpec({
             empacada.isComplete shouldBe false
         }
 
-        it("empacar 7 y luego 3 completa la línea y deja 0 pendiente") {
+        it("packing 7 and then 3 completes the line and leaves 0 pending") {
             val empacada = line(quantity = 10_000)
                 .packageQuantity(Quantity.ofScaled(7_000)).getOrNull()!!
                 .packageQuantity(Quantity.ofScaled(3_000)).getOrNull()!!
@@ -88,7 +88,7 @@ class OrderStateMachineTest : DescribeSpec({
             empacada.status shouldBe OrderLineStatus.SUPPLIED
         }
 
-        it("empacar una línea completa la deja SUPPLIED; a medias, ASSIGNED") {
+        it("packing a line completely leaves it SUPPLIED; half done, ASSIGNED") {
             line().packageQuantity(Quantity.ofScaled(10_000)).getOrNull()!!.status shouldBe
                 OrderLineStatus.SUPPLIED
             line().packageQuantity(Quantity.ofScaled(1_000)).getOrNull()!!.status shouldBe
@@ -96,9 +96,9 @@ class OrderStateMachineTest : DescribeSpec({
         }
     }
 
-    describe("lo que el surtido RECHAZA") {
+    describe("what fulfillment REJECTS") {
 
-        it("empacar más de lo pendiente se rechaza, y dice cuánto queda") {
+        it("packing more than what is pending is rejected, and says how much remains") {
             val error = line(quantity = 10_000, supplied = 7_000)
                 .packageQuantity(Quantity.ofScaled(5_000)).errorOrNull()
 
@@ -112,21 +112,21 @@ class OrderStateMachineTest : DescribeSpec({
             exceso.message.contains("3000") shouldBe true
         }
 
-        it("empacar cero o negativo se rechaza") {
+        it("packing zero or a negative is rejected") {
             line().packageQuantity(Quantity.ZERO).errorOrNull()
                 .shouldBeInstanceOf<DomainError.InvalidQuantity>()
             line().packageQuantity(Quantity.ofScaled(-1)).errorOrNull()
                 .shouldBeInstanceOf<DomainError.InvalidQuantity>()
         }
 
-        it("empacar una línea ANULADA se rechaza") {
+        it("packing a VOIDED line is rejected") {
             val error = line(status = OrderLineStatus.CANCELLED)
                 .packageQuantity(Quantity.ofScaled(1_000)).errorOrNull()
 
             error.shouldBeInstanceOf<DomainError.InvalidTransition>()
         }
 
-        it("confirmar una orden ya confirmada se rechaza: descontaría dos veces") {
+        it("confirming an already confirmed order is rejected: it would deduct twice") {
             val error = order(status = OrderStatus.PENDING_TO_OUT, converted = true)
                 .confirm().errorOrNull()
 
@@ -135,14 +135,14 @@ class OrderStateMachineTest : DescribeSpec({
             (error as DomainError.OrderAlreadyConfirmed).code shouldBe "ORDER_ALREADY_CONFIRMED"
         }
 
-        it("anular una orden ya exportada se rechaza: el ERP tiene una salida que el sistema no reconocería") {
+        it("voiding an already exported order is rejected: the ERP has an output the system would not recognise") {
             val error = order(status = OrderStatus.COMPLETED, converted = true).cancel().errorOrNull()
 
             error.shouldBeInstanceOf<DomainError.InvalidTransition>()
             (error as DomainError.InvalidTransition).action shouldBe "anular"
         }
 
-        it("exportar una orden sin confirmar se rechaza") {
+        it("exporting an unconfirmed order is rejected") {
             val error = order(status = OrderStatus.PENDING).recordExportAttempt(success = true)
                 .errorOrNull()
 
@@ -151,9 +151,9 @@ class OrderStateMachineTest : DescribeSpec({
         }
     }
 
-    describe("asignar la línea") {
+    describe("assign the line") {
 
-        it("deja la línea a cargo y permite reasignar mientras está en curso") {
+        it("leaves the line assigned and allows reassignment while it is in progress") {
             val pendiente = line()
 
             val primera = pendiente.assign(userId = 7, locationId = 3).shouldBeInstanceOf<Either.Right<OrderLine>>().value
@@ -168,7 +168,7 @@ class OrderStateMachineTest : DescribeSpec({
             segunda.locationId shouldBe 3L
         }
 
-        it("no se asigna una línea ya surtida ni una anulada") {
+        it("a line already fulfilled or voided is not assigned") {
             val surtida = line(quantity = 10_000)
                 .packageQuantity(Quantity.of(10))
                 .shouldBeInstanceOf<Either.Right<OrderLine>>().value
@@ -183,15 +183,15 @@ class OrderStateMachineTest : DescribeSpec({
 
     describe("confirmar") {
 
-        it("deja la orden PENDING_TO_OUT") {
+        it("leaves the order PENDING_TO_OUT") {
             order(status = OrderStatus.PACKAGED).confirm().getOrNull()!!.status shouldBe
                 OrderStatus.PENDING_TO_OUT
         }
     }
 
-    describe("la exportación al ERP") {
+    describe("the export to the ERP") {
 
-        it("un intento fallido lleva el contador y guarda el motivo") {
+        it("a failed attempt carries the counter and stores the reason") {
             val fallida = order(status = OrderStatus.PENDING_TO_OUT)
                 .recordExportAttempt(success = false, error = "El ERP no responde")
                 .getOrNull()!!
@@ -205,7 +205,7 @@ class OrderStateMachineTest : DescribeSpec({
             fallida.status shouldBe OrderStatus.PENDING_TO_OUT
         }
 
-        it("un intento correcto completa la orden y limpia el error anterior") {
+        it("a successful attempt completes the order and clears the previous error") {
             val exitosa = order(status = OrderStatus.PENDING_TO_OUT, attempts = 2)
                 .recordExportAttempt(success = true)
                 .getOrNull()!!
@@ -219,7 +219,7 @@ class OrderStateMachineTest : DescribeSpec({
             exitosa.status shouldBe OrderStatus.COMPLETED
         }
 
-        it("reintentar tras un éxito es idempotente: no vuelve a contar como conversión nueva") {
+        it("retrying after a success is idempotent: it does not count as a new conversion") {
             val primera = order(status = OrderStatus.PENDING_TO_OUT)
                 .recordExportAttempt(success = true).getOrNull()!!
             val segunda = primera.recordExportAttempt(success = true).getOrNull()!!
@@ -231,19 +231,19 @@ class OrderStateMachineTest : DescribeSpec({
         }
     }
 
-    describe("el estado de la CABECERA se DERIVA de las líneas") {
+    describe("the state of the HEADER is DERIVED from the lines") {
 
-        it("sin líneas empacadas la orden es PENDING") {
+        it("without packed lines the order is PENDING") {
             order(status = OrderStatus.PENDING).recalculatedStatus().status shouldBe OrderStatus.PENDING
         }
 
-        it("con una línea a medias pasa a IN_PROGRESS") {
+        it("with one line half done it moves to IN_PROGRESS") {
             val o = order(lines = listOf(line(supplied = 3_000, status = OrderLineStatus.ASSIGNED)))
 
             o.recalculatedStatus().status shouldBe OrderStatus.IN_PROGRESS
         }
 
-        it("con todas las líneas completas pasa a PACKAGED") {
+        it("with all lines complete it moves to PACKAGED") {
             val o = order(
                 lines = listOf(
                     line(id = 1, supplied = 10_000, status = OrderLineStatus.SUPPLIED),
@@ -254,7 +254,7 @@ class OrderStateMachineTest : DescribeSpec({
             o.recalculatedStatus().status shouldBe OrderStatus.PACKAGED
         }
 
-        it("una línea anulada no impide que la orden esté PACKAGED") {
+        it("a voided line does not stop the order from being PACKAGED") {
             // Anular una línea es una decisión explícita: el resto del pedido puede
             // cerrarse. Si la anulada bloqueara el cierre, **una orden con una línea
             // anulada nunca se podría completar** y quedaría abierta para siempre.
@@ -269,7 +269,7 @@ class OrderStateMachineTest : DescribeSpec({
             o.recalculatedStatus().status shouldBe OrderStatus.PACKAGED
         }
 
-        it("NO pisa un estado final: una orden completada sigue completada") {
+        it("does NOT overwrite a final state: a completed order stays completed") {
             val o = order(status = OrderStatus.COMPLETED, converted = true)
 
             // Recalcular es derivar el estado de TRABAJO, no reescribir el
@@ -278,15 +278,15 @@ class OrderStateMachineTest : DescribeSpec({
             o.recalculatedStatus().status shouldBe OrderStatus.COMPLETED
         }
 
-        it("NO pisa CANCELLED") {
+        it("does NOT overwrite CANCELLED") {
             order(status = OrderStatus.CANCELLED).recalculatedStatus().status shouldBe
                 OrderStatus.CANCELLED
         }
     }
 
-    describe("los contadores que el contrato publica") {
+    describe("the counters the contract publishes") {
 
-        it("`totalLines` y `packagedLines` cuentan sobre las líneas") {
+        it("`totalLines` and `packagedLines` count over the lines") {
             val o = order(
                 lines = listOf(
                     line(id = 1, supplied = 10_000, status = OrderLineStatus.SUPPLIED),

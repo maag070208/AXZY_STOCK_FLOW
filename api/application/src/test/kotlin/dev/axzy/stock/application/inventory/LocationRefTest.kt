@@ -26,13 +26,13 @@ class LocationRefTest {
     }
 
     @Test
-    fun `el nombre visible de un estante vuelve a ser la misma referencia`() {
+    fun `a shelf's visible name is the same reference again`() {
         assertRoundTrip("04", "B", "C", LocationKind.SHELF)
         assertThat(LocationRef.parse("04-B-C")).isEqualTo(LocationRef.Shelf("04", "B", "C"))
     }
 
     @Test
-    fun `la recepcion y el saldo sin ubicar vuelven a ser su referencia`() {
+    fun `the receiving and the unassigned balance are their reference again`() {
         assertRoundTrip("RECEIVING", "RECEIVING", "RECEIVING", LocationKind.RECEIVING)
         assertRoundTrip("UNASSIGNED", "UNASSIGNED", "UNASSIGNED", LocationKind.UNASSIGNED)
 
@@ -43,13 +43,13 @@ class LocationRefTest {
     }
 
     @Test
-    fun `se acepta en minusculas porque el cliente escribe como quiere`() {
+    fun `lowercase is accepted because the client writes as it wants`() {
         assertThat(LocationRef.parse(" 04-b-c ")).isEqualTo(LocationRef.Shelf("04", "B", "C"))
         assertThat(LocationRef.parse("receiving")).isEqualTo(LocationRef.Receiving)
     }
 
     @Test
-    fun `una cadena que no puede ser una ubicacion se rechaza en lugar de adivinar`() {
+    fun `a string that cannot be a location is rejected instead of guessed`() {
         // El alfabeto de cada parte excluye el guion: con dos o cuatro partes no hay
         // fila que pueda corresponder, y devolver una cualquiera movería stock en el
         // estante equivocado.

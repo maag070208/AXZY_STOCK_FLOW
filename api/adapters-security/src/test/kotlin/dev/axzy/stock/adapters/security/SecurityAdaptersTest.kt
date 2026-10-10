@@ -13,7 +13,7 @@ class Argon2idPasswordHasherTest {
     private val hasher = Argon2idPasswordHasher()
 
     @Test
-    fun `el hash es Argon2id con los parametros configurados y verifica su contrasena`() {
+    fun `the hash is Argon2id with the configured parameters and verifies its password`() {
         val hash = hasher.hash("Almacen-Seguro-2026")
 
         assertThat(hash).startsWith("\$argon2id\$v=19\$m=19456,t=2,p=1\$")
@@ -23,12 +23,12 @@ class Argon2idPasswordHasherTest {
     }
 
     @Test
-    fun `la misma contrasena da hashes distintos - cada uno lleva su sal`() {
+    fun `the same password gives different hashes - each carries its salt`() {
         assertThat(hasher.hash("Almacen-Seguro-2026")).isNotEqualTo(hasher.hash("Almacen-Seguro-2026"))
     }
 
     @Test
-    fun `un hash con parametros mas debiles sigue verificando, y se marca para regenerar`() {
+    fun `a hash with weaker parameters still verifies, and is marked for regeneration`() {
         // Generado con m=4096: válido, pero por debajo del coste actual.
         val weak = org.springframework.security.crypto.argon2.Argon2PasswordEncoder(16, 32, 1, 4096, 2).encode("Almacen-Seguro-2026")!!
 
@@ -37,7 +37,7 @@ class Argon2idPasswordHasherTest {
     }
 
     @Test
-    fun `una cadena que no es un hash no verifica nada, y no lanza`() {
+    fun `a string that is not a hash verifies nothing, and does not throw`() {
         assertThat(hasher.verify("x", "no-es-un-hash")).isFalse()
         assertThat(hasher.verify("x", "")).isFalse()
     }
@@ -50,7 +50,7 @@ class JwtAccessTokensTest {
     private val now: Instant = Instant.now().truncatedTo(ChronoUnit.SECONDS)
 
     @Test
-    fun `un token emitido se verifica y solo lleva identidad - ni roles ni permisos`() {
+    fun `an issued token is verified and carries only identity - neither roles nor permissions`() {
         val issued = tokens.issue(userId = 7, familyId = "fam-1", credentialsStamp = 1_760_000_000_123, issuedAt = now, expiresAt = now.plusSeconds(900))
 
         val jwt = tokens.decoder.decode(issued.token)
@@ -67,14 +67,14 @@ class JwtAccessTokensTest {
     }
 
     @Test
-    fun `un token vencido se rechaza`() {
+    fun `an expired token is rejected`() {
         val expired = tokens.issue(7, "fam-1", 0, issuedAt = now.minusSeconds(3600), expiresAt = now.minusSeconds(1800))
 
         assertThatThrownBy { tokens.decoder.decode(expired.token) }.isInstanceOf(JwtException::class.java)
     }
 
     @Test
-    fun `un token alterado se rechaza`() {
+    fun `a tampered token is rejected`() {
         val token = tokens.issue(7, "fam-1", 0, now, now.plusSeconds(900)).token
         val (header, payload, signature) = token.split(".")
         val forgedPayload = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(
@@ -85,7 +85,7 @@ class JwtAccessTokensTest {
     }
 
     @Test
-    fun `un token firmado con otra clave, de otro emisor o para otra audiencia se rechaza`() {
+    fun `a token signed with another key, from another issuer or for another audience is rejected`() {
         val otherKey = JwtAccessTokens("otro-secreto-distinto-de-al-menos-32-bytes!!", "stock-api", "stock-clients")
         val otherIssuer = JwtAccessTokens(secret, "otro-emisor", "stock-clients")
         val otherAudience = JwtAccessTokens(secret, "stock-api", "otra-audiencia")
@@ -97,7 +97,7 @@ class JwtAccessTokensTest {
     }
 
     @Test
-    fun `un secreto corto no se acepta`() {
+    fun `a short secret is not accepted`() {
         assertThatThrownBy { JwtAccessTokens("corto", "stock-api", "stock-clients") }
             .isInstanceOf(IllegalArgumentException::class.java)
             .hasMessageContaining("32 bytes")
@@ -109,7 +109,7 @@ class OpaqueRefreshTokenCodecTest {
     private val codec = OpaqueRefreshTokenCodec()
 
     @Test
-    fun `cada token es distinto y tiene el formato que el dominio acepta`() {
+    fun `every token is different and has the format the domain accepts`() {
         val generated = (1..200).map { codec.generate() }
 
         assertThat(generated.toSet()).hasSize(200)
@@ -117,7 +117,7 @@ class OpaqueRefreshTokenCodecTest {
     }
 
     @Test
-    fun `el hash es SHA-256 en hexadecimal y es estable`() {
+    fun `the hash is SHA-256 in hexadecimal and is stable`() {
         val token = codec.generate()
 
         assertThat(codec.hash(token)).hasSize(64).matches("[0-9a-f]{64}")

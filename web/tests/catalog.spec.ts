@@ -98,8 +98,8 @@ async function signIn(page: Page) {
 
 test.beforeEach(async ({ page }) => mockHomeSummary(page));
 
-test.describe("catálogo (API simulada)", () => {
-  test("el menú lateral se ve a 1280 px y lleva a Products", async ({ page }) => {
+test.describe("catalog (simulated API)", () => {
+  test("the sidebar menu is visible at 1280 px and leads to Products", async ({ page }) => {
     await signIn(page);
 
     // La prueba del §5 de web-react.md: el menú tiene que VERSE, no solo existir.
@@ -110,7 +110,7 @@ test.describe("catálogo (API simulada)", () => {
     expect((await menuItem.boundingBox())?.width ?? 0).toBeGreaterThan(0);
   });
 
-  test("la tabla traduce la paginación y pinta la página que devuelve la API", async ({ page }) => {
+  test("the table translates pagination and renders the page the API returns", async ({ page }) => {
     await page.route("**/v1/warehouses*", (route) => route.fulfill({ json: { items: [] } }));
 
     // Se captura la consulta exacta: es donde vive el error de la página ±1.
@@ -135,7 +135,7 @@ test.describe("catálogo (API simulada)", () => {
     expect(productsQuery).not.toContain("page=1");
   });
 
-  test("el alta de producto abre el formulario con el código editable", async ({ page }) => {
+  test("creating a product opens the form with an editable code", async ({ page }) => {
     await page.route("**/v1/warehouses*", (route) => route.fulfill({ json: { items: [] } }));
     await page.route("**/v1/products?*", (route) => route.fulfill({ json: PRODUCTS_PAGE }));
 
@@ -148,7 +148,7 @@ test.describe("catálogo (API simulada)", () => {
     await expect(page.locator('input[name="unitMeasure"]')).toHaveValue("PZA");
   });
 
-  test("el listado de bodegas se dibuja sin paginar", async ({ page }) => {
+  test("the warehouse list renders without pagination", async ({ page }) => {
     await page.route("**/v1/warehouses*", (route) =>
       route.fulfill({
         json: {
@@ -167,7 +167,7 @@ test.describe("catálogo (API simulada)", () => {
     await expect(page.getByText("Warehouse norte", { exact: true })).toBeVisible();
   });
 
-  test("la importación muestra el loader de marca mientras la API trabaja", async ({ page }) => {
+  test("the import shows the brand loader while the API works", async ({ page }) => {
     await page.route("**/v1/warehouses*", (route) => route.fulfill({ json: { items: [] } }));
     await page.route("**/v1/products?*", (route) => route.fulfill({ json: PRODUCTS_PAGE }));
 
@@ -198,7 +198,7 @@ test.describe("catálogo (API simulada)", () => {
     await expect(page.getByText("Dry run: nothing was written")).toBeVisible();
   });
 
-  test("una cuenta sin permisos de catálogo no ve el menú de productos", async ({ page }) => {
+  test("an account without catalog permissions does not see the products menu", async ({ page }) => {
     await page.route("**/v1/auth/login", (route) =>
       route.fulfill({ json: { ...SESSION, user: { ...USER, permissions: ["inventory.view"] } } }),
     );

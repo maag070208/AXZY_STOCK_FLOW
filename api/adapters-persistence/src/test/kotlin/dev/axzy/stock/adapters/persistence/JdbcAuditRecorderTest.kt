@@ -55,7 +55,7 @@ class JdbcAuditRecorderTest {
     private fun auditRows(): Int = db.jdbc.sql("SELECT count(*) FROM audit_log").query(Int::class.java).single()
 
     @Test
-    fun `guarda las dimensiones del registro y calcula que campos cambiaron`() {
+    fun `stores the record's dimensions and computes which fields changed`() {
         val id = recorder.record(event())
 
         val row = db.jdbc.sql(
@@ -84,7 +84,7 @@ class JdbcAuditRecorderTest {
     }
 
     @Test
-    fun `cada registro se encadena con el anterior y la cadena verifica integra`() {
+    fun `every record is chained to the previous one and the chain verifies intact`() {
         repeat(5) { recorder.record(event()) }
 
         val linked = db.jdbc.sql(
@@ -101,7 +101,7 @@ class JdbcAuditRecorderTest {
     }
 
     @Test
-    fun `U1 - si el caso de uso falla, su registro de bitacora tampoco queda`() {
+    fun `U1 - if the use case fails, its audit record is not kept either`() {
         val outcome = db.tx.inTransaction {
             recorder.record(event())
             failure(FailureKind.RULE_VIOLATION, "INSUFFICIENT_STOCK", "No hay existencias.")
@@ -112,21 +112,21 @@ class JdbcAuditRecorderTest {
     }
 
     @Test
-    fun `si el caso de uso termina bien, el registro queda`() {
+    fun `if the use case ends well, the record is kept`() {
         db.tx.inTransaction { recorder.record(event()).asRight() }
 
         assertThat(auditRows()).isEqualTo(1)
     }
 
     @Test
-    fun `U3 - un registro critico sin traza de acceso lo rechaza la base`() {
+    fun `U3 - a critical record without an access trace is rejected by the database`() {
         assertThatThrownBy { recorder.record(event(level = AuditLevel.CRITICAL, permissionKey = "inventory.adjust_theft")) }
             .rootCause().hasMessageContaining("audit_critical_has_trace")
         assertThat(auditRows()).isZero()
     }
 
     @Test
-    fun `un registro critico con su traza se guarda, y la traza se puede leer`() {
+    fun `a critical record with its trace is saved, and the trace can be read`() {
         val trace = AccessTraceBuilder.build(
             permissionKey = "inventory.adjust_theft",
             decisionCode = "OK",
@@ -159,7 +159,7 @@ class JdbcAuditRecorderTest {
     }
 
     @Test
-    fun `una denegacion queda escrita aunque el caso de uso que la provoco revierta`() {
+    fun `a denial is written even if the use case that caused it is rolled back`() {
         val denials = IndependentAccessDenialLog(recorder, db.independentTx)
 
         db.tx.inTransaction {
@@ -171,7 +171,7 @@ class JdbcAuditRecorderTest {
     }
 
     @Test
-    fun `una direccion que no es una IP no tumba el registro`() {
+    fun `an address that is not an IP does not break the record`() {
         val conOrigenRaro = event().let { it.copy(source = it.source.copy(ip = "unknown")) }
 
         val id = recorder.record(conOrigenRaro)

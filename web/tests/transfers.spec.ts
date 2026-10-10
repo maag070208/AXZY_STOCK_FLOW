@@ -99,8 +99,8 @@ async function openTransfers(page: Page) {
 
 test.beforeEach(async ({ page }) => mockHomeSummary(page));
 
-test.describe("traslados: acciones (API simulada)", () => {
-  test("despachar un borrador llama a /dispatch sin cuerpo y muestra el nuevo estado", async ({ page }) => {
+test.describe("transfers: actions (simulated API)", () => {
+  test("dispatching a draft calls /dispatch without a body and shows the new status", async ({ page }) => {
     const state = await mockTransfer(page, "DRAFT");
     await page.route("**/v1/transfers/5/dispatch", (route) => {
       state.set(detail("DISPATCHED"));
@@ -117,7 +117,7 @@ test.describe("traslados: acciones (API simulada)", () => {
     await expect(page.getByRole("button", { name: "Dispatch" })).toHaveCount(0);
   });
 
-  test("recibir un traslado que la API no admite muestra su motivo y no cambia el estado", async ({ page }) => {
+  test("receiving a transfer the API does not allow shows the reason and does not change the status", async ({ page }) => {
     await mockTransfer(page, "DISPATCHED");
     await page.route("**/v1/transfers/5/receive", (route) =>
       route.fulfill({ status: 409, json: { code: "INVALID_TRANSITION", message: "That action is not allowed in the current status." } }),
@@ -131,7 +131,7 @@ test.describe("traslados: acciones (API simulada)", () => {
     await expect(page.getByText("DISPATCHED").first()).toBeVisible();
   });
 
-  test("cancelar un despachado pide confirmación antes de enviar, y dice a dónde vuelve la mercancía", async ({ page }) => {
+  test("cancelling a dispatched transfer asks for confirmation first, and says where the goods go back", async ({ page }) => {
     const state = await mockTransfer(page, "DISPATCHED");
     let cancelled = 0;
     await page.route("**/v1/transfers/5/cancel", (route) => {

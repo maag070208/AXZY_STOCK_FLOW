@@ -50,8 +50,8 @@ async function signIn(page: Page) {
 
 test.beforeEach(async ({ page }) => mockHomeSummary(page));
 
-test.describe("etiquetas: reimpresión (API simulada)", () => {
-  test("reimprimir sin motivo no envía nada: el botón de confirmar queda apagado", async ({ page }) => {
+test.describe("labels: reprint (simulated API)", () => {
+  test("reprinting without a reason sends nothing: the confirm button stays disabled", async ({ page }) => {
     let requests = 0;
     await page.route("**/v1/labels/jobs?*", (route) =>
       route.fulfill({ json: { items: [job()], page: 0, size: 20, totalItems: 1, totalPages: 1 } }),
@@ -69,7 +69,7 @@ test.describe("etiquetas: reimpresión (API simulada)", () => {
     expect(requests).toBe(0);
   });
 
-  test("reimprimir con motivo envía el motivo y la cola muestra el trabajo nuevo enlazado", async ({ page }) => {
+  test("reprinting with a reason sends the reason and the queue shows the linked new job", async ({ page }) => {
     let queue = [job()];
     await page.route("**/v1/labels/jobs?*", (route) =>
       route.fulfill({ json: { items: queue, page: 0, size: 20, totalItems: queue.length, totalPages: 1 } }),

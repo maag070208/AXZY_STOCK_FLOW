@@ -104,7 +104,7 @@ class TransferFlowTest : ApiTest() {
     // ── T1 y T2: despachar y recibir ────────────────────────────────────────
 
     @Test
-    fun `T1 - despachar saca del origen y deja en transito sin cambiar el total`() {
+    fun `T1 - dispatching takes from the origin and leaves it in transit without changing the total`() {
         val token = manager()
         product(token)
         stockIn(token, 100, approver())
@@ -121,7 +121,7 @@ class TransferFlowTest : ApiTest() {
     }
 
     @Test
-    fun `T2 - recibir pone en el destino y cierra el transito`() {
+    fun `T2 - receiving puts it in the destination and closes the transit`() {
         val token = manager()
         product(token)
         stockIn(token, 100, approver())
@@ -139,7 +139,7 @@ class TransferFlowTest : ApiTest() {
     }
 
     @Test
-    fun `T3 - recibir dos veces no mueve la mercancia dos veces`() {
+    fun `T3 - receiving twice does not move the goods twice`() {
         val token = manager()
         product(token)
         stockIn(token, 100, approver())
@@ -158,7 +158,7 @@ class TransferFlowTest : ApiTest() {
     }
 
     @Test
-    fun `T4 - el origen y el destino de la misma bodega no son un traslado`() {
+    fun `T4 - the origin and destination of the same warehouse are not a transfer`() {
         val token = manager()
         product(token)
 
@@ -177,7 +177,7 @@ class TransferFlowTest : ApiTest() {
     }
 
     @Test
-    fun `T5 - sin existencias no se despacha`() {
+    fun `T5 - without stock nothing is dispatched`() {
         val token = manager()
         product(token)
         stockIn(token, 10, approver())
@@ -197,7 +197,7 @@ class TransferFlowTest : ApiTest() {
     // ── T6 y T7: cancelar ───────────────────────────────────────────────────
 
     @Test
-    fun `T6 - cancelar un despachado devuelve la mercancia a su origen`() {
+    fun `T6 - cancelling a dispatched transfer returns the goods to their origin`() {
         val token = manager()
         product(token)
         stockIn(token, 100, approver())
@@ -214,7 +214,7 @@ class TransferFlowTest : ApiTest() {
     }
 
     @Test
-    fun `T7 - un traslado recibido no se cancela`() {
+    fun `T7 - a received transfer cannot be cancelled`() {
         val token = manager()
         product(token)
         stockIn(token, 100, approver())
@@ -234,7 +234,7 @@ class TransferFlowTest : ApiTest() {
     // ── T8: el tránsito tiene su propio permiso ─────────────────────────────
 
     @Test
-    fun `T8 - el transito se ve con su propio permiso y no con el de traslados`() {
+    fun `T8 - the transit is seen with its own permission and not with the transfers one`() {
         val token = manager()
         product(token)
         stockIn(token, 100, approver())
@@ -273,7 +273,7 @@ class TransferFlowTest : ApiTest() {
     // ── El contrato de las rutas ────────────────────────────────────────────
 
     @Test
-    fun `el alta sin lineas y un traslado que no existe se rechazan`() {
+    fun `creating without lines and a transfer that does not exist are rejected`() {
         val token = manager()
         product(token)
 
@@ -285,7 +285,7 @@ class TransferFlowTest : ApiTest() {
     }
 
     @Test
-    fun `el listado trae los contadores y el detalle las lineas`() {
+    fun `the list brings the counters and the detail the lines`() {
         val token = manager()
         product(token)
         stockIn(token, 100, approver())
@@ -304,7 +304,7 @@ class TransferFlowTest : ApiTest() {
     }
 
     @Test
-    fun `un operador de piso no cancela traslados y el permiso se comprueba antes del 404`() {
+    fun `a floor operator does not cancel transfers and the permission is checked before the 404`() {
         createUser("operador", USER_PASSWORD, BaseRole.WAREHOUSE_OPERATOR.key.value)
         val token = accessTokenOf("operador", USER_PASSWORD)
 

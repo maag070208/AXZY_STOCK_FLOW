@@ -50,9 +50,9 @@ class AdjustmentTest : DescribeSpec({
     )
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("el motivo es obligatorio, sin excepciones") {
+    describe("the reason is mandatory, without exceptions") {
 
-        it("el motivo se elige de una lista cerrada y no se escribe") {
+        it("the reason is chosen from a closed list and is not typed") {
             // El legacy guardaba el motivo como texto libre, así que convivían
             // «merma», «Merma» y «producto dañado» como tres motivos distintos y
             // ningún reporte podía sumarlos.
@@ -64,7 +64,7 @@ class AdjustmentTest : DescribeSpec({
             }
         }
 
-        it("ROBO y OTRO exigen además una explicación escrita") {
+        it("THEFT and OTHER also require a written explanation") {
             // Robo tiene implicaciones legales y alguien tendrá que responder por
             // él. «Otro» sin explicación no dice nada.
             withClue("Solo esos dos exigen nota") {
@@ -73,7 +73,7 @@ class AdjustmentTest : DescribeSpec({
             }
         }
 
-        it("ROBO sin explicación se rechaza con REASON_REQUIRED") {
+        it("THEFT without an explanation is rejected with REASON_REQUIRED") {
             val result = create(reason = AdjustmentReason.THEFT, note = null)
 
             val error = result.leftOrNull().shouldBeInstanceOf<DomainError.ReasonRequired>()
@@ -82,7 +82,7 @@ class AdjustmentTest : DescribeSpec({
             }
         }
 
-        it("OTRO con una nota muy corta también se rechaza") {
+        it("OTHER with a very short note is also rejected") {
             // «no sé» no es una explicación. El mínimo existe para que la nota
             // sirva dentro de un año.
             create(reason = AdjustmentReason.OTHER, note = "no sé")
@@ -90,20 +90,20 @@ class AdjustmentTest : DescribeSpec({
                 .shouldBeInstanceOf<DomainError.ReasonRequired>()
         }
 
-        it("OTRO con una explicación suficiente se acepta") {
+        it("OTHER with a sufficient explanation is accepted") {
             create(
                 reason = AdjustmentReason.OTHER,
                 note = "Se rompió el empaque durante el traslado interno",
             ).rightOrNull().shouldBeInstanceOf<AdjustmentRequest>()
         }
 
-        it("una nota en blanco no cuenta como explicación") {
+        it("a blank note does not count as an explanation") {
             create(reason = AdjustmentReason.THEFT, note = "      ")
                 .leftOrNull()
                 .shouldBeInstanceOf<DomainError.ReasonRequired>()
         }
 
-        it("un motivo normal NO exige nota") {
+        it("a normal reason does NOT require a note") {
             // Exigirla siempre haría que la gente escribiera «ok» en todas, y una
             // nota que siempre dice «ok» no informa de nada.
             create(reason = AdjustmentReason.SHORTAGE, note = null)
@@ -113,9 +113,9 @@ class AdjustmentTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("la cantidad es positiva: la dirección dice el signo") {
+    describe("the quantity is positive: the direction gives the sign") {
 
-        it("una cantidad de cero se rechaza") {
+        it("a zero quantity is rejected") {
             val error = create(quantity = 0).leftOrNull()
                 .shouldBeInstanceOf<DomainError.InvalidQuantity>()
 
@@ -124,7 +124,7 @@ class AdjustmentTest : DescribeSpec({
             }
         }
 
-        it("UNA CANTIDAD NEGATIVA SE RECHAZA: invertiría el movimiento") {
+        it("A NEGATIVE QUANTITY IS REJECTED: it would reverse the movement") {
             // **Éste era un agujero real, y lo encontró un agente leyendo el código.**
             //
             // Con una cantidad negativa y dirección DECREASE, el motor resta un
@@ -143,7 +143,7 @@ class AdjustmentTest : DescribeSpec({
             }
         }
 
-        it("una cantidad negativa tampoco se cuela como DECREASE con nota") {
+        it("a negative quantity does not sneak through as a DECREASE with a note either") {
             // El caso completo del agujero: motivo que no exige nota, dirección que
             // no pide aprobación, y cantidad negativa. Los tres juntos sumaban
             // inventario sin que nadie aprobara nada.
@@ -158,7 +158,7 @@ class AdjustmentTest : DescribeSpec({
             }
         }
 
-        it("la dirección determina el tipo de movimiento del ledger") {
+        it("the direction determines the ledger's movement type") {
             // El ajuste no inventa un tipo nuevo: usa los que ya existen en la
             // matriz movimiento→efecto, que tiene sus propios tests.
             withClue("Un aumento es ADJUSTMENT_IN") {
@@ -171,9 +171,9 @@ class AdjustmentTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("un ajuste exige un usuario identificado") {
+    describe("an adjustment requires an identified user") {
 
-        it("sin usuario se rechaza") {
+        it("without a user it is rejected") {
             // Sin él no hay segregación de funciones ni auditoría: es el requisito
             // «quién» del sistema.
             create(requester = 0)
@@ -183,9 +183,9 @@ class AdjustmentTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("LA ASIMETRÍA DELIBERADA: aumentar exige aprobación, mermar no") {
+    describe("THE DELIBERATE ASYMMETRY: increasing requires approval, shrinking does not") {
 
-        it("un AUMENTO requiere aprobación") {
+        it("an INCREASE requires approval") {
             // Una merma se detecta sola en el siguiente conteo. Un aumento sin
             // justificar es la forma más sencilla de tapar un robo, así que
             // necesita que otra persona lo firme.
@@ -197,7 +197,7 @@ class AdjustmentTest : DescribeSpec({
             request.requiresApproval shouldBe true
         }
 
-        it("una MERMA no requiere aprobación, y es deliberado") {
+        it("a SHRINKAGE requires no approval, and that is deliberate") {
             // Bloquear la corrección de un error evidente solo hace que la gente
             // deje de corregirlos, y entonces el inventario se queda mal.
             val request = create(
@@ -208,7 +208,7 @@ class AdjustmentTest : DescribeSpec({
             request.requiresApproval shouldBe false
         }
 
-        it("un aumento SIN aprobador queda PENDIENTE, no se aplica") {
+        it("an increase WITHOUT an approver stays PENDING, it is not applied") {
             val request = create(
                 direction = AdjustmentDirection.INCREASE,
                 reason = AdjustmentReason.COUNT_ERROR,
@@ -222,7 +222,7 @@ class AdjustmentTest : DescribeSpec({
             }
         }
 
-        it("una merma se aplica sin aprobador") {
+        it("a shrinkage is applied without an approver") {
             val request = create(direction = AdjustmentDirection.DECREASE).rightOrNull()!!
 
             AdjustmentPolicy.decide(request, approverId = null) shouldBe
@@ -231,9 +231,9 @@ class AdjustmentTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("SEGREGACIÓN DE FUNCIONES: quien pide no aprueba") {
+    describe("SEGREGATION OF DUTIES: whoever requests does not approve") {
 
-        it("el mismo usuario no puede aprobar su propio ajuste") {
+        it("the same user cannot approve their own adjustment") {
             // Decisión R-74. Es el control que impide que alguien cubra su propio
             // error sin que nadie lo revise.
             val request = create(
@@ -248,7 +248,7 @@ class AdjustmentTest : DescribeSpec({
             rejection.error.shouldBeInstanceOf<DomainError.SegregationOfDuties>()
         }
 
-        it("otra persona SÍ puede aprobarlo") {
+        it("another person CAN approve it") {
             val request = create(
                 direction = AdjustmentDirection.INCREASE,
                 reason = AdjustmentReason.COUNT_ERROR,
@@ -259,7 +259,7 @@ class AdjustmentTest : DescribeSpec({
                 AdjustmentPolicy.Decision.Apply
         }
 
-        it("el rechazo nombra al usuario que intentó aprobarse") {
+        it("the rejection names the user who tried to approve themselves") {
             // Un mensaje que solo diga «no permitido» obliga a adivinar por qué.
             val request = create(
                 direction = AdjustmentDirection.INCREASE,
@@ -276,9 +276,9 @@ class AdjustmentTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("no se puede dejar el saldo en negativo") {
+    describe("the balance cannot be left negative") {
 
-        it("una merma mayor que el saldo se rechaza con los NÚMEROS") {
+        it("a shrinkage greater than the balance is rejected with the NUMBERS") {
             val request = create(
                 quantity = 500,
                 direction = AdjustmentDirection.DECREASE,
@@ -302,7 +302,7 @@ class AdjustmentTest : DescribeSpec({
             }
         }
 
-        it("una merma igual al saldo se acepta: deja la ubicación en cero") {
+        it("a shrinkage equal to the balance is accepted: it leaves the location at zero") {
             val request = create(
                 quantity = 100,
                 direction = AdjustmentDirection.DECREASE,
@@ -312,7 +312,7 @@ class AdjustmentTest : DescribeSpec({
                 AdjustmentPolicy.Decision.Apply
         }
 
-        it("sin conocer el saldo no se rechaza por cantidad") {
+        it("without knowing the balance a quantity is not rejected") {
             // La comprobación real la hace la base con su CHECK. Aquí se comprueba
             // solo si se conoce el saldo, para dar un mensaje mejor.
             val request = create(quantity = 500).rightOrNull()!!
@@ -321,7 +321,7 @@ class AdjustmentTest : DescribeSpec({
                 AdjustmentPolicy.Decision.Apply
         }
 
-        it("la comprobación de saldo NO aplica a un aumento") {
+        it("the balance check does NOT apply to an increase") {
             // Un aumento no puede dejar el saldo en negativo: suma.
             val request = create(
                 quantity = 500,
@@ -335,9 +335,9 @@ class AdjustmentTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("los cuatro orígenes del legacy, unificados") {
+    describe("the four legacy sources, unified") {
 
-        it("cada origen declara de qué flujo viene") {
+        it("each source declares which flow it comes from") {
             withClue("Los cuatro flujos que en el legacy tenían su propio camino") {
                 AdjustmentOrigin.entries.map { it.displayName } shouldBe listOf(
                     "Invoice discrepancy",
@@ -348,7 +348,7 @@ class AdjustmentTest : DescribeSpec({
             }
         }
 
-        it("el mismo motivo funciona con cualquier origen") {
+        it("the same reason works with any origin") {
             // **Ésta es la propiedad que unifica los cuatro flujos.** En el legacy
             // cada uno tenía su código, así que arreglar un motivo en la
             // discrepancia no arreglaba nada en el conteo.
@@ -364,9 +364,9 @@ class AdjustmentTest : DescribeSpec({
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("la clave de idempotencia se normaliza") {
+    describe("the idempotency key is normalised") {
 
-        it("una clave vacía se guarda como nula, no como cadena vacía") {
+        it("an empty key is stored as null, not as an empty string") {
             // El móvil sin señal reintenta; una cadena vacía como clave haría que
             // todos los reintentos parecieran el mismo movimiento.
             val request = create(key = "   ").rightOrNull()!!
@@ -374,13 +374,13 @@ class AdjustmentTest : DescribeSpec({
             request.idempotencyKey shouldBe null
         }
 
-        it("una clave con espacios alrededor se recorta") {
+        it("a key with spaces around it is trimmed") {
             create(key = "  abc-123  ").rightOrNull()!!.idempotencyKey shouldBe "abc-123"
         }
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    describe("casos variados con datos tabulados") {
+    describe("varied cases with tabulated data") {
 
         // Una clase con NOMBRE en vez de una tupla de cuatro posiciones.
         //

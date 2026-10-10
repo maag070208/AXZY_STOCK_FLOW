@@ -62,7 +62,7 @@ class PrintJobConfirmationTest : ApiTest() {
     // ── L2: la impresora confirma una vez ───────────────────────────────────
 
     @Test
-    fun `L2 - la impresora confirma y la etiqueta pasa a impresa una sola vez`() {
+    fun `L2 - the printer confirms and the label becomes printed exactly once`() {
         val token = manager()
         val jobId = printed(token, template(token))
 
@@ -81,7 +81,7 @@ class PrintJobConfirmationTest : ApiTest() {
     }
 
     @Test
-    fun `un fallo de la impresora deja el trabajo localizable`() {
+    fun `a printer failure leaves the job locatable`() {
         val token = manager()
         val jobId = printed(token, template(token))
 
@@ -95,7 +95,7 @@ class PrintJobConfirmationTest : ApiTest() {
     }
 
     @Test
-    fun `la confirmacion queda en la bitacora con su canal y su credencial`() {
+    fun `the confirmation is recorded in the audit log with its channel and its credential`() {
         val token = manager()
         val jobId = printed(token, template(token))
 
@@ -117,7 +117,7 @@ class PrintJobConfirmationTest : ApiTest() {
     // ── L4: la clave de servicio no sirve para otra cosa ────────────────────
 
     @Test
-    fun `L4 - sin credencial o con una que no vale, la ruta no contesta nada mas`() {
+    fun `L4 - without a credential, or with one that is not valid, the route answers nothing else`() {
         val token = manager()
         val jobId = printed(token, template(token))
 
@@ -133,7 +133,7 @@ class PrintJobConfirmationTest : ApiTest() {
     }
 
     @Test
-    fun `L4 - la credencial no autentica a una persona ni elige su canal`() {
+    fun `L4 - the credential does not authenticate a person or choose their channel`() {
         val token = manager()
         val jobId = printed(token, template(token))
 
@@ -151,7 +151,7 @@ class PrintJobConfirmationTest : ApiTest() {
     }
 
     @Test
-    fun `una credencial revocada deja de valer`() {
+    fun `a revoked credential stops being valid`() {
         val token = manager()
         val jobId = printed(token, template(token))
         db.sql("UPDATE service_api_keys SET revoked_at = now()").update()
@@ -163,7 +163,7 @@ class PrintJobConfirmationTest : ApiTest() {
     }
 
     @Test
-    fun `un estado que no es PRINTED ni FAILED se rechaza`() {
+    fun `a status that is neither PRINTED nor FAILED is rejected`() {
         val token = manager()
         val jobId = printed(token, template(token))
 
@@ -174,7 +174,7 @@ class PrintJobConfirmationTest : ApiTest() {
     }
 
     @Test
-    fun `un trabajo que no existe y una credencial valida responden PRINT_JOB_NOT_FOUND`() {
+    fun `a job that does not exist with a valid credential answers PRINT_JOB_NOT_FOUND`() {
         val response = confirm(999999, secreto, mapOf("status" to "PRINTED"))
 
         // Con credencial válida sí se puede distinguir: el `404` no filtra nada a quien
