@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test
 
 /**
  * El nombre visible de una ubicación es **la clave con la que el cliente la
- * identifica** en todo el flujo de inventario (`04-B-C`, `RECEPCION`, `SIN-UBICAR`),
+ * identifica** en todo el flujo de inventario (`04-B-C`, `RECEIVING`, `UNASSIGNED`),
  * y la regla que lo compone vive en el dominio ([Location.displayName]).
  *
  * Esta prueba es la que impide que las dos se separen: para cada tipo de ubicación,
@@ -33,21 +33,19 @@ class LocationRefTest {
 
     @Test
     fun `la recepcion y el saldo sin ubicar vuelven a ser su referencia`() {
-        assertRoundTrip("RECEPCION", "RECEPCION", "RECEPCION", LocationKind.RECEIVING)
-        assertRoundTrip("SINUBICAR", "SINUBICAR", "SINUBICAR", LocationKind.UNASSIGNED)
+        assertRoundTrip("RECEIVING", "RECEIVING", "RECEIVING", LocationKind.RECEIVING)
+        assertRoundTrip("UNASSIGNED", "UNASSIGNED", "UNASSIGNED", LocationKind.UNASSIGNED)
 
-        assertThat(LocationRef.parse("RECEPCION")).isEqualTo(LocationRef.Receiving)
-        assertThat(LocationRef.parse("SIN-UBICAR")).isEqualTo(LocationRef.Unassigned)
-        // El nombre de las COLUMNAS (`SINUBICAR`) no es el del contrato: el cliente
-        // escribe `SIN-UBICAR`, que es lo que compone el dominio. Aceptar los dos
-        // sería dos nombres para la misma ubicación.
-        assertThat(LocationRef.parse("SINUBICAR")).isNull()
+        assertThat(LocationRef.parse("RECEIVING")).isEqualTo(LocationRef.Receiving)
+        assertThat(LocationRef.parse("UNASSIGNED")).isEqualTo(LocationRef.Unassigned)
+        // El nombre de la columna y el visible son el mismo texto (V16): no hay un segundo
+        // nombre que rechazar, y la referencia se reconoce por cualquiera de los dos.
     }
 
     @Test
     fun `se acepta en minusculas porque el cliente escribe como quiere`() {
         assertThat(LocationRef.parse(" 04-b-c ")).isEqualTo(LocationRef.Shelf("04", "B", "C"))
-        assertThat(LocationRef.parse("recepcion")).isEqualTo(LocationRef.Receiving)
+        assertThat(LocationRef.parse("receiving")).isEqualTo(LocationRef.Receiving)
     }
 
     @Test

@@ -19,8 +19,8 @@ data class LockoutPolicy(
     val window: Duration = Duration.ofMinutes(15),
 ) {
     init {
-        require(maxFailedAttempts >= 1) { "El número de intentos debe ser al menos 1" }
-        require(!window.isNegative && !window.isZero) { "La ventana de bloqueo debe ser positiva" }
+        require(maxFailedAttempts >= 1) { "The number of attempts must be at least 1" }
+        require(!window.isNegative && !window.isZero) { "The lock window must be positive" }
     }
 }
 
@@ -50,7 +50,7 @@ class Login(
     fun execute(username: String, password: String, origin: RequestOrigin): Outcome<AuthSession> {
         val name = username.trim()
         if (name.isEmpty() || password.isEmpty()) {
-            return failure(FailureKind.INVALID_REQUEST, "FIELD_REQUIRED", "Usuario y contraseña son obligatorios.")
+            return failure(FailureKind.INVALID_REQUEST, "FIELD_REQUIRED", "Username and password are required.")
         }
 
         val now = clock.instant()
@@ -60,7 +60,7 @@ class Login(
             attempts.record(name, null, succeeded = false, failureCode = ACCOUNT_LOCKED, origin = origin, at = now)
             return failure(
                 FailureKind.UNAUTHENTICATED, ACCOUNT_LOCKED,
-                "La cuenta está bloqueada temporalmente por intentos fallidos. Vuelve a intentarlo más tarde.",
+                "The account is temporarily locked after failed attempts. Try again later.",
             )
         }
 
@@ -68,20 +68,20 @@ class Login(
         val passwordMatches = hasher.verify(password, account?.passwordHash ?: decoyHash)
         if (account == null || !passwordMatches) {
             attempts.record(name, account?.id, succeeded = false, failureCode = INVALID_CREDENTIALS, origin = origin, at = now)
-            return failure(FailureKind.UNAUTHENTICATED, INVALID_CREDENTIALS, "Usuario o contraseña incorrectos.")
+            return failure(FailureKind.UNAUTHENTICATED, INVALID_CREDENTIALS, "Wrong username or password.")
         }
 
         if (account.disabled) {
             attempts.record(name, account.id, succeeded = false, failureCode = ACCOUNT_DISABLED, origin = origin, at = now)
             return failure(
                 FailureKind.UNAUTHENTICATED, ACCOUNT_DISABLED,
-                "La cuenta está desactivada. Contacta con un administrador.",
+                "The account is disabled. Contact an administrator.",
             )
         }
 
         return tx.inTransaction {
             val snapshot = users.loadActor(account.id)
-                ?: return@inTransaction failure(FailureKind.UNAUTHENTICATED, INVALID_CREDENTIALS, "Usuario o contraseña incorrectos.")
+                ?: return@inTransaction failure(FailureKind.UNAUTHENTICATED, INVALID_CREDENTIALS, "Wrong username or password.")
             users.recordLogin(account.id, now)
             attempts.record(name, account.id, succeeded = true, failureCode = null, origin = origin, at = now)
             sessions.issue(snapshot, codec.newFamilyId(), generation = 1, origin = origin, now = now).session.asRight()

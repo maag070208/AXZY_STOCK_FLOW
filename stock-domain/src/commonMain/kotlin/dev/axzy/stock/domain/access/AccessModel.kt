@@ -76,9 +76,9 @@ enum class PermissionScope {
  */
 enum class PermissionModule(val displayName: String) {
     IDENTITY("identidad"),
-    CATALOG("catálogo"),
-    WAREHOUSE("almacén físico"),
-    RECEIVING("recepción"),
+    CATALOG("catalog"),
+    WAREHOUSE("physical warehouse"),
+    RECEIVING("receiving"),
     FULFILLMENT("surtido"),
     INVENTORY("inventario"),
     TRANSFER("transferencias"),
@@ -113,16 +113,16 @@ data class Permission(
     val sortOrder: Int = 0,
 ) {
     init {
-        require(key.isNotBlank()) { "La clave del permiso no puede estar vacía" }
+        require(key.isNotBlank()) { "The permission key cannot be empty" }
         require('.' in key) {
-            "La clave del permiso debe tener formato 'recurso.accion': '$key'"
+            "The permission key must have the format 'resource.action': '$key'"
         }
         require(key == key.lowercase()) {
-            "La clave del permiso debe estar en minúsculas: '$key'"
+            "The permission key must be lowercase: '$key'"
         }
-        require(scopes.isNotEmpty()) { "Un permiso debe admitir al menos un alcance: '$key'" }
+        require(scopes.isNotEmpty()) { "A permission must allow at least one scope: '$key'" }
         require(PermissionScope.NONE !in scopes) {
-            "El alcance NONE no se concede: no debe listarse en los alcances admitidos de '$key'"
+            "The NONE scope is not granted: it must not be listed among the allowed scopes of '$key'"
         }
     }
 
@@ -155,12 +155,12 @@ value class RoleKey private constructor(val value: String) {
 
         fun of(raw: String): RoleKey {
             val trimmed = raw.trim()
-            require(trimmed.isNotEmpty()) { "La clave del rol no puede estar vacía" }
+            require(trimmed.isNotEmpty()) { "The role key cannot be empty" }
             require(trimmed.length <= MAX_LENGTH) {
-                "La clave del rol excede $MAX_LENGTH caracteres: '$trimmed'"
+                "The role key exceeds $MAX_LENGTH characters: '$trimmed'"
             }
             require(PATTERN.matches(trimmed)) {
-                "La clave del rol debe ser MAYÚSCULAS, dígitos y guion bajo, empezando por letra: '$trimmed'"
+                "The role key must be UPPERCASE, digits and underscore, starting with a letter: '$trimmed'"
             }
             return RoleKey(trimmed)
         }
@@ -225,23 +225,23 @@ data class Role(
  * el trabajo, y es el rol que destruye un modelo de permisos.
  */
 enum class BaseRole(val key: RoleKey, val displayName: String, val oneLiner: String) {
-    ADMIN(RoleKey.of("ADMIN"), "Administrador", "Puede todo, incluida la configuración"),
+    ADMIN(RoleKey.of("ADMIN"), "Administrator", "Can do everything, including configuration"),
     OPERATIONS_MANAGER(
-        RoleKey.of("GERENTE_OPERACIONES"),
-        "Gerente de operaciones",
-        "Ve y aprueba todo, sin administrar el sistema",
+        RoleKey.of("OPERATIONS_MANAGER"),
+        "Operations manager",
+        "Views and approves everything, without administering the system",
     ),
     WAREHOUSE_MANAGER(
-        RoleKey.of("JEFE_BODEGA"),
-        "Jefe de bodega",
-        "Gobierna su bodega: captura, ubica, aprueba y ajusta",
+        RoleKey.of("WAREHOUSE_MANAGER"),
+        "Warehouse manager",
+        "Runs the warehouse: captures, locates, approves and adjusts",
     ),
     WAREHOUSE_OPERATOR(
-        RoleKey.of("OPERADOR_ALMACEN"),
-        "Operador de almacén",
-        "Ejecuta el trabajo que le asignan, sin aprobar nada",
+        RoleKey.of("WAREHOUSE_OPERATOR"),
+        "Warehouse operator",
+        "Carries out the work assigned, approves nothing",
     ),
-    AUDITOR(RoleKey.of("AUDITOR"), "Auditor", "Solo mira: reportes, kardex y bitácora"),
+    AUDITOR(RoleKey.of("AUDITOR"), "Auditor", "Read-only: reports, ledger and audit log"),
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -399,11 +399,11 @@ data class Policy(
     val conditions: List<PolicyCondition> = emptyList(),
 ) {
     init {
-        require(name.isNotBlank()) { "Una política debe tener nombre" }
+        require(name.isNotBlank()) { "A policy must have a name" }
         require(description.isNotBlank()) {
-            "Una política debe tener descripción: en seis meses nadie recordará por qué existe. " +
-                "Política sin descripción: '$name'"
+            "A policy must have a description: in six months nobody will remember why it exists. " +
+                "Policy without description: '$name'"
         }
-        require(action.isNotBlank()) { "Una política debe indicar sobre qué acción actúa" }
+        require(action.isNotBlank()) { "A policy must state which action it applies to" }
     }
 }

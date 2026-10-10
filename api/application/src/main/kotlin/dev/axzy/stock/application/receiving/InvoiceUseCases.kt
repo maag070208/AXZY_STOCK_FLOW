@@ -144,7 +144,7 @@ class CreateInvoice(
         if (number.isNullOrBlank()) {
             return failure(
                 FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-                "El número de factura es obligatorio.",
+                "The invoice number is required.",
                 mapOf("field" to "invoiceNumber"),
             )
         }
@@ -153,7 +153,7 @@ class CreateInvoice(
         if (number.length > 60) {
             return failure(
                 FailureKind.RULE_VIOLATION, "FIELD_TOO_LONG",
-                "El número de factura no puede pasar de 60 caracteres.",
+                "The invoice number cannot exceed 60 characters.",
                 mapOf("field" to "invoiceNumber", "maxLength" to "60"),
             )
         }
@@ -161,28 +161,28 @@ class CreateInvoice(
         if (rawDate.isNullOrBlank()) {
             return failure(
                 FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-                "La fecha de la factura es obligatoria.",
+                "The invoice date is required.",
                 mapOf("field" to "receiptDate"),
             )
         }
         val date = runCatching { LocalDate.parse(rawDate) }.getOrNull()
             ?: return failure(
                 FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
-                "La fecha de la factura no tiene el formato AAAA-MM-DD.",
+                "The invoice date is not in the format YYYY-MM-DD.",
                 mapOf("field" to "receiptDate", "expected" to "AAAA-MM-DD", "value" to rawDate),
             )
         val type = input.invoiceType?.trim()?.uppercase()?.takeUnless { it.isBlank() } ?: NATIONAL
         if (type !in INVOICE_TYPES) {
             return failure(
                 FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
-                "El tipo de factura no está en la lista admitida.",
+                "The invoice type is not in the list of allowed values.",
                 mapOf("field" to "invoiceType", "value" to type, "allowed" to INVOICE_TYPES.joinToString(",")),
             )
         }
         if (input.lines.isEmpty()) {
             return failure(
                 FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-                "Una factura necesita al menos una línea: sin líneas no se puede capturar ni ubicar.",
+                "An invoice needs at least one line: without lines nothing can be counted or located.",
                 mapOf("field" to "lines"),
             )
         }
@@ -198,17 +198,17 @@ class CreateInvoice(
             if (rawCode.isNullOrBlank()) {
                 return failure(
                     FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-                    "Falta el código de producto de la línea $position.",
+                    "The product code of line $position is missing.",
                     mapOf("field" to "lines[$index].productCode"),
                 )
             }
             val code = runCatching { ProductCode.of(rawCode) }.getOrElse {
-                return DomainError.InvalidProductCode(rawCode, it.message ?: "código inválido").toFailure().asLeft()
+                return DomainError.InvalidProductCode(rawCode, it.message ?: "invalid code").toFailure().asLeft()
             }
             val product = catalog.product(code)
                 ?: return DomainError.InvalidProductCode(
                     rawCode,
-                    "no existe en el catálogo o está inactivo",
+                    "does not exist in the catalog or is inactive",
                 ).toFailure().asLeft()
 
             // La unidad de la línea es la del producto salvo que el cliente diga otra:
@@ -220,12 +220,12 @@ class CreateInvoice(
             val quantity = line.quantity
                 ?: return failure(
                     FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-                    "Falta la cantidad facturada de la línea $position.",
+                    "The invoiced quantity of line $position is missing.",
                     mapOf("field" to "lines[$index].quantity"),
                 )
             if (!quantity.isPositive) {
                 return DomainError.InvalidQuantity(
-                    "La cantidad facturada debe ser mayor que cero (línea $position)",
+                    "The invoiced quantity must be greater than zero (line $position)",
                 ).toFailure().asLeft()
             }
 
@@ -235,12 +235,12 @@ class CreateInvoice(
             val rawUnitsPerBox = line.unitsPerBox
                 ?: return failure(
                     FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-                    "Faltan las unidades por caja de la línea $position: sin ellas no se puede validar el empaque.",
+                    "The units per box of line $position are missing: without them the packing cannot be validated.",
                     mapOf("field" to "lines[$index].unitsPerBox"),
                 )
             if (!rawUnitsPerBox.isPositive || !rawUnitsPerBox.isWhole) {
                 return DomainError.InvalidQuantity(
-                    "Las unidades por caja deben ser un entero mayor que cero (línea $position)",
+                    "Units per box must be a whole number greater than zero (line $position)",
                 ).toFailure().asLeft()
             }
             val unitsPerBox = UnitsPerBox.of(rawUnitsPerBox.units)
@@ -248,7 +248,7 @@ class CreateInvoice(
             val boxQuantity = line.boxQuantity ?: Quantity.ZERO
             if (boxQuantity.units < 0 || !boxQuantity.isWhole) {
                 return DomainError.InvalidQuantity(
-                    "Las cajas facturadas deben ser un entero no negativo (línea $position)",
+                    "The invoiced boxes must be a non-negative whole number (line $position)",
                 ).toFailure().asLeft()
             }
             val boxes = BoxQuantity.of(boxQuantity.units)
@@ -322,20 +322,20 @@ class CaptureLine(
             if (line.status == InvoiceLineStatus.APPROVED || line.status == InvoiceLineStatus.LOCATED) {
                 return@inTransaction failure(
                     FailureKind.CONFLICT, "LINE_ALREADY_RESOLVED",
-                    "La línea ya está ${line.status.name.lowercase()} y no se puede volver a capturar.",
+                    "The line is already ${line.status.name.lowercase()} and cannot be counted again.",
                     mapOf("lineId" to lineId.toString(), "status" to line.status.name),
                 )
             }
             val quantity = input.physicalQuantity
                 ?: return@inTransaction failure(
                     FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-                    "Falta la cantidad contada.",
+                    "The counted quantity is required.",
                     mapOf("field" to "physicalQuantity"),
                 )
             val boxes = input.physicalBoxQuantity
                 ?: return@inTransaction failure(
                     FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-                    "Faltan las cajas contadas: es lo que permite comprobar que el conteo es coherente.",
+                    "The counted boxes are missing: they are what allows checking that the count is consistent.",
                     mapOf("field" to "physicalBoxQuantity"),
                 )
 
@@ -345,7 +345,7 @@ class CaptureLine(
                     // **La mercancía entra al contar, y solo la diferencia.** El conteo es el
                     // momento en que el almacén toma posesión de lo que de verdad llegó —lo
                     // contado, no lo facturado—, y hasta aquí nadie la metía: el saldo tenía que
-                    // aparecer por un ajuste a mano, así que ubicar desde RECEPCION se encontraba
+                    // aparecer por un ajuste a mano, así que ubicar desde RECEIVING se encontraba
                     // cero. Se ingresa la diferencia contra lo ya ingresado por la línea porque
                     // una línea descartada por el supervisor se recuenta (`rejectDiscrepancy`) y
                     // la entrada a ciegas contaría la mercancía dos veces.
@@ -359,8 +359,8 @@ class CaptureLine(
                     if (invoices.claimCapture(persisted, yaIngresado, clock.instant()) == 0) {
                         return@inTransaction failure(
                             FailureKind.CONFLICT, "LINE_CHANGED",
-                            "Otra persona contó esta línea mientras tanto. Vuelve a consultarla " +
-                                "antes de contarla otra vez.",
+                            "Someone else counted this line in the meantime. Look it up again " +
+                                "before counting it again.",
                             mapOf("lineId" to lineId.toString()),
                         )
                     }
@@ -402,7 +402,7 @@ class CaptureLine(
     }
 
     /**
-     * Mete en `RECEPCION` lo que se acaba de contar de más, o saca lo que ya no está.
+     * Mete en `RECEIVING` lo que se acaba de contar de más, o saca lo que ya no está.
      *
      * · Si lo contado es **más** que lo ingresado, entra la diferencia con `RECEIPT_IN`.
      * · Si es **menos**, la diferencia sale con un ajuste por **error de conteo**: el conteo
@@ -413,7 +413,7 @@ class CaptureLine(
         val productId = catalog.activeProduct(line.productCode)?.id ?: return
         val warehouseId = actor.user.warehouseIds.singleOrNull() ?: catalog.defaultWarehouseId()
         val receiving = catalog.activeLocation(warehouseId, LocationRef.Receiving)
-            ?: error("No existe la ubicación RECEPCION en la bodega $warehouseId.")
+            ?: error("Location RECEIVING does not exist in warehouse $warehouseId.")
 
         if (delta.isPositive) {
             ledger.apply(
@@ -496,7 +496,7 @@ class ApproveInvoice(
                 // no se puede dar por buena.
                 return@inTransaction failure(
                     FailureKind.CONFLICT, "INVALID_TRANSITION",
-                    "Las líneas cambiaron mientras se aprobaban: vuelve a revisar la factura.",
+                    "The lines changed while they were being approved: review the invoice again.",
                     mapOf("expected" to pending.size.toString(), "affected" to affected.toString()),
                 )
             }
@@ -568,7 +568,7 @@ class RejectInvoiceDiscrepancy(
             if (affected != pending.size) {
                 return@inTransaction failure(
                     FailureKind.CONFLICT, "INVALID_TRANSITION",
-                    "Las líneas cambiaron mientras se rechazaban: vuelve a revisar la factura.",
+                    "The lines changed while they were being rejected: review the invoice again.",
                     mapOf("expected" to pending.size.toString(), "affected" to affected.toString()),
                 )
             }
@@ -624,7 +624,7 @@ class CloseInvoice(
                 if (detail.header.status == CANCELLED) {
                     return@inTransaction failure(
                         FailureKind.CONFLICT, "INVALID_TRANSITION",
-                        "Una factura anulada no se cierra.",
+                        "A voided invoice cannot be closed.",
                         mapOf("invoiceId" to invoiceId.toString(), "status" to CANCELLED),
                     )
                 }
@@ -632,7 +632,7 @@ class CloseInvoice(
                 if (blocking.isNotEmpty()) {
                     return@inTransaction failure(
                         FailureKind.RULE_VIOLATION, "INVOICE_HAS_PENDING_LINES",
-                        "La factura tiene ${blocking.size} línea(s) sin resolver: no se puede cerrar.",
+                        "The invoice has ${blocking.size} unresolved line(s): it cannot be closed.",
                         mapOf("pendingLines" to blocking.size.toString(), "lines" to blocking.joinToString(",") { it.line.id.toString() }),
                     )
                 }
@@ -680,38 +680,38 @@ internal val INVOICE_TYPES = listOf(NATIONAL, "INTERNATIONAL")
 
 private fun notFound(invoiceId: Long): Outcome<Nothing> = failure(
     FailureKind.NOT_FOUND, "INVOICE_NOT_FOUND",
-    "No existe la factura $invoiceId.",
+    "Invoice $invoiceId does not exist.",
     mapOf("invoiceId" to invoiceId.toString()),
 )
 
 private fun lineNotFound(lineId: Long): Outcome<Nothing> = failure(
     FailureKind.NOT_FOUND, "LINE_NOT_FOUND",
-    "No existe la línea $lineId en esta factura.",
+    "Line $lineId does not exist on this invoice.",
     mapOf("lineId" to lineId.toString()),
 )
 
 private fun duplicateNumber(number: String): Outcome<Nothing> = failure(
     FailureKind.CONFLICT, "DUPLICATE_INVOICE_NUMBER",
-    "Ya existe una factura con el número '$number'.",
+    "An invoice with the number '$number' already exists.",
     mapOf("invoiceNumber" to number),
 )
 
 private fun noPendingApproval(invoiceId: Long): Outcome<Nothing> = failure(
     FailureKind.CONFLICT, "NO_PENDING_APPROVAL",
-    "La factura $invoiceId no tiene líneas en discrepancia que resolver.",
+    "Invoice $invoiceId has no discrepant lines to resolve.",
     mapOf("invoiceId" to invoiceId.toString()),
 )
 
 private fun reasonRequired(action: String = "approve"): Outcome<Nothing> = failure(
     FailureKind.RULE_VIOLATION, "REASON_REQUIRED",
-    "La decisión sobre una discrepancia exige un motivo.",
+    "A decision on a discrepancy requires a reason.",
     mapOf("field" to "adjustmentReason", "action" to action),
 )
 
 /** Se dicen CUÁLES líneas: un «no puedes» sin ellas obliga a adivinar qué contó uno. */
 private fun segregation(lines: List<InvoiceLineView>, action: String): Outcome<Nothing> = failure(
     FailureKind.FORBIDDEN, "SEGREGATION_OF_DUTIES",
-    "No puedes $action una discrepancia que tú mismo capturaste: son las líneas " +
+    "You cannot $action a discrepancy you counted yourself: these are the lines " +
         lines.joinToString(", ") { it.line.id.toString() } + ".",
     mapOf("lines" to lines.joinToString(",") { it.line.id.toString() }),
 )

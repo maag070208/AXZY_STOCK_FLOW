@@ -6,7 +6,7 @@
 | **Estado** | Aceptada |
 | **Fecha** | 2026-10-09 |
 | **Reemplaza a** | — |
-| **Reemplazada por** | — |
+| **Reemplazada por** | [ADR-0018](0018-todo-en-ingles.md) (comentarios y documentación); códigos por [ADR-0017](0017-identificadores-y-datos-en-ingles.md) |
 
 ## Contexto
 

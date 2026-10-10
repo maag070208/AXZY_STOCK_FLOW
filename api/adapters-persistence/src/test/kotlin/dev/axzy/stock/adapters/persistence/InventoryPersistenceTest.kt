@@ -178,7 +178,7 @@ class InventoryPersistenceTest {
         // que hace el ledger auto-auditable y lo que demuestra que ubicar no cambia el
         // total (A1).
         assertThat(line.quantityAfter).isEqualTo(Quantity.of(200))
-        assertThat(line.fromLocationDisplayName).isEqualTo("RECEPCION")
+        assertThat(line.fromLocationDisplayName).isEqualTo("RECEIVING")
         assertThat(line.toLocationDisplayName).isEqualTo("04-B-C")
     }
 

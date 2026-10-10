@@ -14,10 +14,10 @@ import dev.axzy.stock.domain.value.ProductCode
  * del catálogo** en lugar de volver a escribir las consultas.
  *
  * La traducción de nombre visible a columnas vive aquí y es la única del sistema:
- * `04-B-C` son tres columnas, `RECEPCION` y `SIN-UBICAR` son las dos ubicaciones
+ * `04-B-C` son tres columnas, `RECEIVING` y `UNASSIGNED` son las dos ubicaciones
  * especiales que siembra la migración. Los nombres de esas dos columnas
- * (`RECEPCION`, `SINUBICAR`) están en la migración `V6` y **no** son el nombre
- * visible: el de `UNASSIGNED` lo compone el dominio (`SIN-UBICAR`).
+ * (`RECEIVING`, `UNASSIGNED`) están en la migración `V6` y **no** son el nombre
+ * visible: el de `UNASSIGNED` lo compone el dominio (`UNASSIGNED`).
  */
 class JdbcInventoryCatalog(
     private val products: Products,
@@ -37,7 +37,7 @@ class JdbcInventoryCatalog(
 
     override fun defaultWarehouseId(): Long =
         warehouses.defaultWarehouse()?.id
-            ?: error("No hay bodega predeterminada. El esquema siembra una (V3); sin ella ningún movimiento tiene bodega.")
+            ?: error("There is no default warehouse. The schema seeds one (V3); without it no movement has a warehouse.")
 
     private fun columnsOf(ref: LocationRef): Triple<String, String, String> = when (ref) {
         is LocationRef.Shelf -> Triple(ref.hall, ref.code, ref.position)
@@ -47,9 +47,9 @@ class JdbcInventoryCatalog(
 
     private companion object {
         /** Cómo se llama la recepción en las columnas (`V3`). */
-        const val RECEIVING_COLUMNS = "RECEPCION"
+        const val RECEIVING_COLUMNS = "RECEIVING"
 
-        /** Cómo se llama el saldo sin ubicar en las columnas (`V6`); su nombre visible es `SIN-UBICAR`. */
-        const val UNASSIGNED_COLUMNS = "SINUBICAR"
+        /** Cómo se llama el saldo sin ubicar en las columnas (`V6`); su nombre visible es `UNASSIGNED`. */
+        const val UNASSIGNED_COLUMNS = "UNASSIGNED"
     }
 }

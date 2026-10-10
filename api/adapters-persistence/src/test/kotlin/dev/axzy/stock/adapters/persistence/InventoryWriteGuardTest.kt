@@ -10,7 +10,7 @@ import java.io.File
  * PLAN-IMPLEMENTACION §6).
  *
  * Ninguna capa de adaptadores puede escribir a mano `stock_by_location`,
- * `product_stock` ni `kardex`: las tres las mueve `registrar_movimiento`, dentro de
+ * `product_stock` ni `kardex`: las tres las mueve `record_movement`, dentro de
  * su transacción y con el bloqueo que evita perder escrituras. Un `UPDATE` suelto
  * desde la API compilaría, pasaría las pruebas de felicidad y rompería la
  * concurrencia justo cuando el almacén tiene carga.
@@ -43,7 +43,7 @@ class InventoryWriteGuardTest {
                 val code = line.substringBefore("//").lowercase()
                 val writes = code.contains("update ") || code.contains("delete from ") || code.contains("insert into ")
                 val touchesProtected = protectedTables.any { code.contains(it) }
-                // El kardex sí se INSERTA, pero solo desde el motor: `registrar_movimiento`
+                // El kardex sí se INSERTA, pero solo desde el motor: `record_movement`
                 // es una función de la base, y este adaptador la llama con un SELECT.
                 if (writes && touchesProtected) {
                     offenders += "${file.path}:${index + 1} → ${line.trim()}"
@@ -60,7 +60,7 @@ class InventoryWriteGuardTest {
     fun `el unico que aplica movimientos es el libro, y lo hace por la funcion del motor`() {
         val ledger = File(persistenceRoot, "inventory/JdbcStockLedger.kt").readText().lowercase()
 
-        assertThat(ledger).contains("registrar_movimiento")
+        assertThat(ledger).contains("record_movement")
         // Sin `UPDATE` ni `INSERT` propios: el motor los hace dentro de su transacción.
         assertThat(ledger).doesNotContain("update stock_by_location")
         assertThat(ledger).doesNotContain("insert into stock_by_location")

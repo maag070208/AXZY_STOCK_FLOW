@@ -73,7 +73,7 @@ class TransferController(
         if (transferStatus != null && transferStatus !in TRANSFER_STATUSES) {
             return failure(
                 FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
-                "El estado no está en la lista admitida.",
+                "The status is not in the list of allowed values.",
                 mapOf("field" to "status", "value" to transferStatus, "allowed" to TRANSFER_STATUSES.joinToString(",")),
             ).toResponse()
         }
@@ -161,6 +161,6 @@ class TransferController(
 private fun quantityOf(raw: BigDecimal): Quantity =
     Quantity.parse(raw.toPlainString()).getOrElse {
         throw FailureException(
-            Failure(FailureKind.RULE_VIOLATION, "INVALID_QUANTITY", it.message ?: "Cantidad inválida."),
+            Failure(FailureKind.RULE_VIOLATION, "INVALID_QUANTITY", it.message ?: "Invalid quantity."),
         )
     }

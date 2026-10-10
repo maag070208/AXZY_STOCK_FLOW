@@ -128,8 +128,8 @@ class CatalogImporterTest : DescribeSpec({
                 report.isDryRun shouldBe true
             }
             withClue("Y el texto debe advertirlo explícitamente, sin ambigüedad") {
-                report.render() shouldContain "SIMULACIÓN"
-                report.render() shouldContain "No se escribió nada"
+                report.render() shouldContain "DRY RUN"
+                report.render() shouldContain "Nothing was written"
             }
         }
 
@@ -137,7 +137,7 @@ class CatalogImporterTest : DescribeSpec({
             val report = importer.import(listOf(row()), dryRun = false)
 
             report.isDryRun shouldBe false
-            (report.render().contains("SIMULACIÓN")) shouldBe false
+            (report.render().contains("DRY RUN")) shouldBe false
         }
     }
 
@@ -206,7 +206,7 @@ class CatalogImporterTest : DescribeSpec({
 
             val rejection = report.rejected.single().shouldBeInstanceOf<RowRejection.InvalidStock>()
             withClue("El motivo debe explicar por qué, no solo que falló") {
-                (rejection.detail.contains("negativas")) shouldBe true
+                (rejection.detail.contains("negative")) shouldBe true
             }
         }
 
@@ -326,7 +326,7 @@ class CatalogImporterTest : DescribeSpec({
                 (discrepancies.any { it.contains("1398") }) shouldBe true
             }
             withClue("Y también la de unidades") {
-                (discrepancies.any { it.contains("unidades") }) shouldBe true
+                (discrepancies.any { it.contains("units") }) shouldBe true
             }
         }
 
@@ -341,10 +341,10 @@ class CatalogImporterTest : DescribeSpec({
             val text = report.render()
 
             withClue("El informe debe ser legible para alguien de negocio") {
-                text shouldContain "Informe de importación"
-                text shouldContain "Productos aceptados"
-                text shouldContain "Existencias totales"
-                text shouldContain "Filas rechazadas"
+                text shouldContain "Catalog import report"
+                text shouldContain "Accepted products"
+                text shouldContain "Total stock"
+                text shouldContain "Rejected rows"
             }
             withClue("Y debe detallar qué fila falló y por qué") {
                 text shouldContain "fila 3"

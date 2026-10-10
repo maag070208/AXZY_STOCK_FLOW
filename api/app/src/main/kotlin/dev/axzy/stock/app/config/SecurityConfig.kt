@@ -34,10 +34,10 @@ class SecurityConfig {
     fun securityFilterChain(http: HttpSecurity, tokens: JwtAccessTokens, json: JsonMapper): SecurityFilterChain {
         val unauthenticated = AuthenticationEntryPoint { _, response, _ ->
             response.setHeader("WWW-Authenticate", "Bearer")
-            write(response, json, HttpStatus.UNAUTHORIZED, "UNAUTHENTICATED", "Falta el token de acceso o no es válido.")
+            write(response, json, HttpStatus.UNAUTHORIZED, "UNAUTHENTICATED", "The access token is missing or not valid.")
         }
         val forbidden = AccessDeniedHandler { _, response, _ ->
-            write(response, json, HttpStatus.FORBIDDEN, "PERMISSION_DENIED", "No tienes permiso para esta acción.")
+            write(response, json, HttpStatus.FORBIDDEN, "PERMISSION_DENIED", "You do not have permission for this action.")
         }
 
         http
@@ -69,7 +69,7 @@ class SecurityConfig {
                         val userId = token.subject?.toLongOrNull()
                         val credentialsStamp = token.claims[JwtAccessTokens.CLAIM_CREDENTIALS] as? Number
                         if (userId == null || credentialsStamp == null) {
-                            throw InvalidBearerTokenException("El token no identifica a un usuario.")
+                            throw InvalidBearerTokenException("The token does not identify a user.")
                         }
                         TokenIdentity(userId, credentialsStamp.toLong())
                     }

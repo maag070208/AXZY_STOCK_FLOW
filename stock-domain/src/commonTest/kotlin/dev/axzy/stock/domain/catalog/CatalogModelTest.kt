@@ -72,7 +72,7 @@ class CatalogModelTest : DescribeSpec({
     describe("la ubicación de recepción está protegida") {
 
         val receiving = Location(
-            id = 2, warehouseId = 1, hall = "RECEPCION", code = "RECEPCION", position = "RECEPCION",
+            id = 2, warehouseId = 1, hall = "RECEIVING", code = "RECEIVING", position = "RECEIVING",
             kind = LocationKind.RECEIVING,
         )
 
@@ -83,9 +83,9 @@ class CatalogModelTest : DescribeSpec({
 
         it("tampoco por un PUT que la deje inactiva") {
             val result = receiving.withUpdated(
-                hall = LocationPart.of("RECEPCION", "hall").getOrNull()!!,
-                code = LocationPart.of("RECEPCION", "code").getOrNull()!!,
-                position = LocationPart.of("RECEPCION", "position").getOrNull()!!,
+                hall = LocationPart.of("RECEIVING", "hall").getOrNull()!!,
+                code = LocationPart.of("RECEIVING", "code").getOrNull()!!,
+                position = LocationPart.of("RECEIVING", "position").getOrNull()!!,
                 levels = 1,
                 active = false,
             )
@@ -106,13 +106,13 @@ class CatalogModelTest : DescribeSpec({
         }
 
         it("la recepción se muestra con su código, no repetida tres veces") {
-            Location(2, 1, "RECEPCION", "RECEPCION", "RECEPCION", kind = LocationKind.RECEIVING)
-                .displayName shouldBe "RECEPCION"
+            Location(2, 1, "RECEIVING", "RECEIVING", "RECEIVING", kind = LocationKind.RECEIVING)
+                .displayName shouldBe "RECEIVING"
         }
 
-        it("el saldo heredado se muestra como SIN-UBICAR") {
+        it("el saldo heredado se muestra como UNASSIGNED") {
             Location(4, 1, "SIN", "UBICAR", "X", kind = LocationKind.UNASSIGNED)
-                .displayName shouldBe "SIN-UBICAR"
+                .displayName shouldBe "UNASSIGNED"
         }
     }
 
@@ -140,7 +140,7 @@ class CatalogModelTest : DescribeSpec({
     describe("solo una bodega predeterminada") {
 
         it("marcar otra deja a la anterior sin la marca") {
-            val first = Warehouse(1, "PRINCIPAL", "Bodega principal", isDefault = true)
+            val first = Warehouse(1, "MAIN", "Bodega principal", isDefault = true)
             val second = Warehouse(2, "NORTE", "Bodega norte")
 
             first.withDefault(false).isDefault shouldBe false

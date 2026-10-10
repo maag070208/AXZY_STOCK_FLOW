@@ -1,4 +1,6 @@
 import { expect, test, type Page, type Request } from "@playwright/test";
+import { openMenu } from "./support/menu";
+import { mockHomeSummary } from "./support/home";
 
 /**
  * Las pantallas de los módulos de lectura, **con la API simulada**.
@@ -42,13 +44,13 @@ async function signIn(page: Page) {
   await page.goto("/");
   await page.locator('input[name="username"]').fill("jefa");
   await page.locator('input[name="password"]').fill("lo-que-sea");
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page.getByRole("heading", { name: "Inicio", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
 }
 
 /** Entra al módulo desde el menú: un clic dentro de la app, sin recargar. */
 async function openFromMenu(page: Page, label: string) {
-  await page.getByText(label, { exact: true }).first().click();
+  await openMenu(page, label);
 }
 
 /** La petición que hizo la web a `pathname`, con sus parámetros. */
@@ -56,8 +58,10 @@ function requestTo(page: Page, pathname: string): Promise<Request> {
   return page.waitForRequest((req) => new URL(req.url()).pathname === pathname);
 }
 
+test.beforeEach(async ({ page }) => mockHomeSummary(page));
+
 test.describe("módulos de lectura (API simulada)", () => {
-  test("Existencias pide /inventory/stock y pinta la línea que devuelve", async ({ page }) => {
+  test("Stock pide /inventory/stock y pinta la línea que devuelve", async ({ page }) => {
     await page.route("**/v1/inventory/stock*", (route) =>
       route.fulfill({
         json: page1([
@@ -76,14 +80,14 @@ test.describe("módulos de lectura (API simulada)", () => {
     await signIn(page);
 
     const request = requestTo(page, "/v1/inventory/stock");
-    await openFromMenu(page, "Existencias");
+    await openFromMenu(page, "Stock");
 
-    await expect(page.getByText("Cuánto hay de cada producto y en qué ubicación.")).toBeVisible();
+    await expect(page.getByText("How much there is of each product and in which location.")).toBeVisible();
     await expect(page.getByText("ABRAZADERA DE ARRANQUE")).toBeVisible();
     await request;
   });
 
-  test("Recepción pide las facturas y la bandeja de aprobación", async ({ page }) => {
+  test("Receiving pide las facturas y la bandeja de aprobación", async ({ page }) => {
     await page.route("**/v1/invoices?*", (route) =>
       route.fulfill({
         json: page1([
@@ -103,14 +107,14 @@ test.describe("módulos de lectura (API simulada)", () => {
     await signIn(page);
 
     const request = requestTo(page, "/v1/invoices");
-    await openFromMenu(page, "Recepción");
+    await openFromMenu(page, "Receiving");
 
-    await expect(page.getByText("Facturas recibidas y las que esperan la aprobación de un supervisor.")).toBeVisible();
+    await expect(page.getByText("Received invoices and those waiting for a supervisor's approval.")).toBeVisible();
     await expect(page.getByText("FAC-1001")).toBeVisible();
     await request;
   });
 
-  test("Surtido pide las órdenes y pinta su estado de exportación", async ({ page }) => {
+  test("Fulfillment pide las órdenes y pinta su estado de exportación", async ({ page }) => {
     await page.route("**/v1/orders?*", (route) =>
       route.fulfill({
         json: page1([
@@ -129,13 +133,13 @@ test.describe("módulos de lectura (API simulada)", () => {
     await signIn(page);
 
     const request = requestTo(page, "/v1/orders");
-    await openFromMenu(page, "Surtido");
+    await openFromMenu(page, "Fulfillment");
 
     await expect(page.getByText("ORD-0003")).toBeVisible();
     await request;
   });
 
-  test("Traslados muestra los traslados y los que van en camino", async ({ page }) => {
+  test("Transfers muestra los traslados y los que van en camino", async ({ page }) => {
     await page.route("**/v1/transfers?*", (route) =>
       route.fulfill({
         json: page1([
@@ -161,13 +165,13 @@ test.describe("módulos de lectura (API simulada)", () => {
     await signIn(page);
 
     const request = requestTo(page, "/v1/transfers");
-    await openFromMenu(page, "Traslados");
+    await openFromMenu(page, "Transfers");
 
     await expect(page.getByText("TR-0005").first()).toBeVisible();
     await request;
   });
 
-  test("Etiquetas pide la cola en /v1/labels/jobs, no en las plantillas", async ({ page }) => {
+  test("Labels pide la cola en /v1/labels/jobs, no en las plantillas", async ({ page }) => {
     // Regresión: la web llamó a /v1/label-templates/jobs y la API respondió 400, porque
     // el {id} del detalle de plantillas absorbía la palabra «jobs».
     await page.route("**/v1/labels/jobs?*", (route) =>
@@ -190,21 +194,21 @@ test.describe("módulos de lectura (API simulada)", () => {
     await signIn(page);
 
     const request = requestTo(page, "/v1/labels/jobs");
-    await openFromMenu(page, "Etiquetas");
+    await openFromMenu(page, "Labels");
 
-    await expect(page.getByText("Etiquetas pedidas, impresas y fallidas.")).toBeVisible();
+    await expect(page.getByText("Labels requested, printed and failed.")).toBeVisible();
     await expect(page.getByText("ETQ-STD")).toBeVisible();
     await request;
   });
 
-  test("Auditoría pide la bitácora y abre con su título", async ({ page }) => {
+  test("Audit pide la bitácora y abre con su título", async ({ page }) => {
     await page.route("**/v1/audit/log?*", (route) => route.fulfill({ json: page1([]) }));
     await signIn(page);
 
     const request = requestTo(page, "/v1/audit/log");
-    await openFromMenu(page, "Auditoría");
+    await openFromMenu(page, "Audit");
 
-    await expect(page.getByText("Quién hizo qué, cuándo y desde dónde. Cada escritura del sistema aparece aquí.")).toBeVisible();
+    await expect(page.getByText("Who did what, when and from where. Every write in the system appears here.")).toBeVisible();
     await request;
   });
 });

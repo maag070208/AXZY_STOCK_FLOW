@@ -1,8 +1,10 @@
 import { ITAlert, ITButton, ITDatePicker, ITDialog, ITFlex, ITInput, ITSelect, ITText } from "@axzydev/axzy_ui_system";
 import { useEffect, useState, type FormEvent } from "react";
 import type { NewInvoice } from "@entities/receiving";
-import { ApiError } from "@shared/api/types";
+
 import { asDate, toIsoDay } from "@shared/lib/day";
+import i18n from "@shared/i18n";
+import { describeError } from "@shared/api/errorMessage";
 
 interface Props {
   open: boolean;
@@ -30,14 +32,14 @@ const positive = (raw: string): boolean => {
  * código, y se muestran tal cual.
  */
 const problemWith = (invoiceNumber: string, lines: LineForm[]): string | null => {
-  if (invoiceNumber.trim() === "") return "Falta el número de factura.";
-  if (lines.length === 0) return "Una factura necesita al menos una línea.";
+  if (invoiceNumber.trim() === "") return i18n.t("receiving.invoiceNumberRequired");
+  if (lines.length === 0) return i18n.t("receiving.atLeastOneLine");
   for (const [index, line] of lines.entries()) {
     const n = index + 1;
-    if (line.productCode.trim() === "") return `La línea ${n} necesita un código de producto.`;
-    if (!positive(line.quantity)) return `La línea ${n} necesita una cantidad mayor que cero.`;
-    if (!positive(line.boxQuantity)) return `La línea ${n} necesita un número de cajas mayor que cero.`;
-    if (!positive(line.unitsPerBox)) return `La línea ${n} necesita piezas por caja mayores que cero.`;
+    if (line.productCode.trim() === "") return i18n.t("receiving.lineNeedsProductCode", { n });
+    if (!positive(line.quantity)) return i18n.t("receiving.lineNeedsQuantity", { n });
+    if (!positive(line.boxQuantity)) return i18n.t("receiving.lineNeedsBoxes", { n });
+    if (!positive(line.unitsPerBox)) return i18n.t("receiving.lineNeedsPiecesPerBox", { n });
   }
   return null;
 };
@@ -67,7 +69,7 @@ export default function NewInvoiceDialog({ open, onClose, onSubmit }: Props) {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     const receiptDay = toIsoDay(receiptDate);
-    const problem = receiptDay === undefined ? "Falta una fecha de recepción válida." : problemWith(invoiceNumber, lines);
+    const problem = receiptDay === undefined ? i18n.t("receiving.receiptDateRequired") : problemWith(invoiceNumber, lines);
     if (problem || receiptDay === undefined) {
       setError(problem);
       return;
@@ -91,48 +93,48 @@ export default function NewInvoiceDialog({ open, onClose, onSubmit }: Props) {
     try {
       await onSubmit(body);
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "No se pudo registrar la factura.");
+      setError(describeError(caught, "receiving.registerFailedDot"));
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <ITDialog isOpen={open} onClose={onClose} title="Nueva factura">
+    <ITDialog isOpen={open} onClose={onClose} title={i18n.t("receiving.newInvoice")}>
       <form onSubmit={submit}>
         <ITFlex direction="column" gap={4}>
           <ITFlex gap={3} wrap="wrap">
             <ITInput
               name="invoiceNumber"
-              label="Número de factura"
+              label={i18n.t("receiving.invoiceNumber")}
               value={invoiceNumber}
               onChange={(event) => setInvoiceNumber(event.target.value)}
               required
               maxLength={40}
             />
-            <ITDatePicker name="receiptDate" label="Fecha de recepción" value={receiptDate} onChange={(event) => setReceiptDate(asDate(event.target.value) ?? new Date())} />
+            <ITDatePicker name="receiptDate" label={i18n.t("receiving.receiptDate")} value={receiptDate} onChange={(event) => setReceiptDate(asDate(event.target.value) ?? new Date())} />
             <ITSelect
               name="invoiceType"
-              label="Tipo"
+              label={i18n.t("common.type")}
               value={invoiceType}
               options={[
-                { value: "NATIONAL", label: "Nacional" },
-                { value: "INTERNATIONAL", label: "Internacional" },
+                { value: "NATIONAL", label: i18n.t("common.national") },
+                { value: "INTERNATIONAL", label: i18n.t("common.international") },
               ]}
               onChange={(event) => setInvoiceType(event.target.value as NewInvoice["invoiceType"])}
             />
           </ITFlex>
 
-          <ITText className="font-semibold">Líneas facturadas</ITText>
+          <ITText className="font-semibold">{i18n.t("receiving.billedLines")}</ITText>
           {lines.map((line, index) => (
             <ITFlex key={index} gap={2} wrap="wrap" align="end">
-              <ITInput name={`productCode-${index}`} label="Producto" value={line.productCode} onChange={(e) => updateLine(index, { productCode: e.target.value })} required maxLength={20} />
-              <ITInput name={`container-${index}`} label="Contenedor" value={line.container} onChange={(e) => updateLine(index, { container: e.target.value })} maxLength={40} />
-              <ITInput name={`quantity-${index}`} label="Cantidad" value={line.quantity} onChange={(e) => updateLine(index, { quantity: e.target.value })} required />
-              <ITInput name={`boxQuantity-${index}`} label="Cajas" value={line.boxQuantity} onChange={(e) => updateLine(index, { boxQuantity: e.target.value })} required />
-              <ITInput name={`unitsPerBox-${index}`} label="Piezas por caja" value={line.unitsPerBox} onChange={(e) => updateLine(index, { unitsPerBox: e.target.value })} required />
+              <ITInput name={`productCode-${index}`} label={i18n.t("common.product")} value={line.productCode} onChange={(e) => updateLine(index, { productCode: e.target.value })} required maxLength={20} />
+              <ITInput name={`container-${index}`} label={i18n.t("receiving.container")} value={line.container} onChange={(e) => updateLine(index, { container: e.target.value })} maxLength={40} />
+              <ITInput name={`quantity-${index}`} label={i18n.t("common.quantity")} value={line.quantity} onChange={(e) => updateLine(index, { quantity: e.target.value })} required />
+              <ITInput name={`boxQuantity-${index}`} label={i18n.t("receiving.boxes")} value={line.boxQuantity} onChange={(e) => updateLine(index, { boxQuantity: e.target.value })} required />
+              <ITInput name={`unitsPerBox-${index}`} label={i18n.t("receiving.piecesPerBox")} value={line.unitsPerBox} onChange={(e) => updateLine(index, { unitsPerBox: e.target.value })} required />
               <ITButton
-                label="Quitar"
+                label={i18n.t("common.remove")}
                 variant="outline"
                 color="danger"
                 disabled={busy || lines.length === 1}
@@ -141,14 +143,14 @@ export default function NewInvoiceDialog({ open, onClose, onSubmit }: Props) {
             </ITFlex>
           ))}
           <div>
-            <ITButton label="Agregar línea" variant="outline" disabled={busy} onClick={() => setLines((current) => [...current, emptyLine()])} />
+            <ITButton label={i18n.t("receiving.addLine")} variant="outline" disabled={busy} onClick={() => setLines((current) => [...current, emptyLine()])} />
           </div>
 
-          {error && <ITAlert variant="error" title="No se pudo registrar la factura">{error}</ITAlert>}
+          {error && <ITAlert variant="error" title={i18n.t("receiving.registerFailed")}>{error}</ITAlert>}
 
           <ITFlex justify="end" gap={2}>
-            <ITButton label="Cancelar" variant="outline" onClick={onClose} disabled={busy} />
-            <ITButton type="submit" label={busy ? "Registrando…" : "Registrar factura"} color="primary" disabled={busy} />
+            <ITButton label={i18n.t("common.cancel")} variant="outline" onClick={onClose} disabled={busy} />
+            <ITButton type="submit" label={busy ? i18n.t("common.recording") : i18n.t("receiving.registerInvoice")} color="primary" disabled={busy} />
           </ITFlex>
         </ITFlex>
       </form>

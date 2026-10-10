@@ -22,7 +22,7 @@ internal object KardexExportWriter {
 
     private val HEADERS = listOf(
         "id", "fecha", "codigo", "producto", "movimiento", "unidades", "saldo",
-        "origen", "destino", "contenedor", "orden", "motivo", "origen del ajuste",
+        "origen", "destino", "contenedor", "orden", "motivo", "source of the adjustment",
         "usuario", "nota",
     )
 

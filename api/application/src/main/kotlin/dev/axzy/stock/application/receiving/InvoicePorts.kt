@@ -139,7 +139,7 @@ interface Invoices {
      * Reclama la captura de la línea **contra el saldo ingresado que se leyó**.
      *
      * Es un *compare-and-set*, y existe por lo que escribe: contar mete mercancía en
-     * `RECEPCION` por la **diferencia** contra lo ya ingresado, así que si dos capturas de la
+     * `RECEIVING` por la **diferencia** contra lo ya ingresado, así que si dos capturas de la
      * misma línea leen el mismo saldo, las dos ingresan la misma diferencia y **el stock se
      * duplica**. El `WHERE` exige que `received_quantity` siga siendo el que se leyó: la
      * primera gana y la segunda cambia cero filas.

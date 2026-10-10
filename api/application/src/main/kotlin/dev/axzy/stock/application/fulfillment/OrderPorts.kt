@@ -13,7 +13,7 @@ import java.time.LocalDate
  *
  * La orden **no toca el inventario al crearse**: el stock sale al empacar y al
  * confirmar, que son actos con responsable. Toda escritura de existencias pasa por el
- * mismo motor que usa recepción (`registrar_movimiento`).
+ * mismo motor que usa recepción (`record_movement`).
  */
 
 data class OrderHeader(

@@ -156,7 +156,7 @@ class AdjustStock(
                 kardexIds = listOf(alreadyApplied),
                 status = MovementStatus.APPLIED,
                 total = ledger.productTotal(product.id),
-                message = "Este movimiento ya se había aplicado: la clave de idempotencia se repitió.",
+                message = "This movement was already applied: the idempotency key was repeated.",
             ).asRight()
         }
 
@@ -253,17 +253,17 @@ class AdjustStock(
                 parseEnum(input.origin, AdjustmentOrigin.entries, "origin").flatMap { origin: AdjustmentOrigin ->
                     InventoryFilters.productCode(input.productCode).flatMap { code: ProductCode? ->
                         if (code == null) {
-                            failure(FailureKind.RULE_VIOLATION, "FIELD_REQUIRED", "El código de producto es obligatorio.")
+                            failure(FailureKind.RULE_VIOLATION, "FIELD_REQUIRED", "The product code is required.")
                         } else {
                             InventoryFilters.locationRef(input.locationCode).flatMap { ref: LocationRef? ->
                                 when {
                                     ref == null -> failure(
                                         FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-                                        "El código de ubicación es obligatorio.",
+                                        "The location code is required.",
                                     )
                                     input.quantity == null -> failure(
                                         FailureKind.RULE_VIOLATION, "INVALID_QUANTITY",
-                                        "La cantidad es obligatoria.",
+                                        "The quantity is required.",
                                     )
                                     else -> Parsed(
                                         code, ref, input.quantity, direction, reason, origin,
@@ -287,14 +287,14 @@ class AdjustStock(
         if (raw.isNullOrBlank()) {
             return failure(
                 FailureKind.RULE_VIOLATION, "REASON_REQUIRED",
-                "Todo ajuste de existencias exige un motivo.",
+                "Every stock adjustment requires a reason.",
             )
         }
         val allowed = AdjustmentReason.entries.joinToString(",") { it.name }
         val value = AdjustmentReason.entries.firstOrNull { it.name == raw.trim().uppercase() }
             ?: return failure(
                 FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
-                "El valor de 'reason' no está en la lista admitida.",
+                "The value of 'reason' is not in the list of allowed values.",
                 mapOf("reason" to raw, "allowed" to allowed),
             )
         return value.asRight()
@@ -312,7 +312,7 @@ class AdjustStock(
         val value = values.firstOrNull { it.name == raw.trim().uppercase() }
             ?: return failure(
                 FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
-                "El valor de '$field' no está en la lista admitida.",
+                "The value of '$field' is not in the list of allowed values.",
                 mapOf(field to raw, "allowed" to allowed),
             )
         return value.asRight()
@@ -330,7 +330,7 @@ class AdjustStock(
         val approver = accounts.loadActor(approverId)?.actor
             ?: return Failure(
                 FailureKind.RULE_VIOLATION, "APPROVER_NOT_FOUND",
-                "El aprobador $approverId no existe.",
+                "Approver $approverId does not exist.",
                 mapOf("approverId" to approverId.toString()),
             )
         val decision = access.authorize(
@@ -343,7 +343,7 @@ class AdjustStock(
         return if (decision is Either.Left) {
             Failure(
                 FailureKind.FORBIDDEN, "APPROVER_NOT_AUTHORIZED",
-                "El aprobador ${approver.username} no tiene permiso para aprobar ajustes en esta bodega.",
+                "Approver ${approver.username} does not have permission to approve adjustments in this warehouse.",
                 mapOf(
                     "approverId" to approverId.toString(),
                     "approver" to approver.username,

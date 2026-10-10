@@ -109,7 +109,7 @@ class JdbcInventoryQueries(
     /**
      * El predicado de un filtro por ubicación, a partir del nombre visible.
      *
-     * `RECEPCION` y `SIN-UBICAR` son **tipos** de ubicación, no columnas: filtrarlos
+     * `RECEIVING` y `UNASSIGNED` son **tipos** de ubicación, no columnas: filtrarlos
      * por `kind` los encuentra aunque alguien renombre la ubicación de recepción.
      */
     private fun locationPredicate(

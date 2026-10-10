@@ -177,7 +177,7 @@ class PasswordPolicyTest : DescribeSpec({
 
             result.shouldBeInstanceOf<PasswordValidation.Valid>()
             withClue("El mensaje de una válida confirma, no advierte") {
-                PasswordPolicy.explain(result) shouldBe "La contraseña cumple los requisitos"
+                PasswordPolicy.explain(result) shouldBe "The password meets the requirements"
             }
         }
 
@@ -193,8 +193,8 @@ class PasswordPolicyTest : DescribeSpec({
             val explanation = PasswordPolicy.explain(result)
 
             withClue("Debe mencionar la longitud y que es una contraseña común") {
-                (explanation.contains("12 caracteres")) shouldBe true
-                (explanation.contains("filtradas")) shouldBe true
+                (explanation.contains("12 characters")) shouldBe true
+                (explanation.contains("leaked")) shouldBe true
             }
         }
 

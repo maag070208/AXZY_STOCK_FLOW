@@ -50,13 +50,13 @@ class CreateWarehouse(
             val rawCode = body.code
             if (rawCode.isNullOrBlank()) {
                 return@authorizeOr failure(
-                    FailureKind.RULE_VIOLATION, "FIELD_REQUIRED", "El código de la bodega es obligatorio.",
+                    FailureKind.RULE_VIOLATION, "FIELD_REQUIRED", "The warehouse code is required.",
                 )
             }
             if (rawCode.trim().length > CatalogLimits.WAREHOUSE_CODE) {
                 return@authorizeOr failure(
                     FailureKind.RULE_VIOLATION, "FIELD_TOO_LONG",
-                    "El código de la bodega supera ${CatalogLimits.WAREHOUSE_CODE} caracteres.",
+                    "The warehouse code exceeds ${CatalogLimits.WAREHOUSE_CODE} characters.",
                 )
             }
             val code = rawCode.trim().uppercase()
@@ -64,13 +64,13 @@ class CreateWarehouse(
             val rawName = body.name
             if (rawName.isNullOrBlank()) {
                 return@authorizeOr failure(
-                    FailureKind.RULE_VIOLATION, "FIELD_REQUIRED", "El nombre de la bodega es obligatorio.",
+                    FailureKind.RULE_VIOLATION, "FIELD_REQUIRED", "The warehouse name is required.",
                 )
             }
             if (rawName.trim().length > CatalogLimits.WAREHOUSE_NAME) {
                 return@authorizeOr failure(
                     FailureKind.RULE_VIOLATION, "FIELD_TOO_LONG",
-                    "El nombre de la bodega supera ${CatalogLimits.WAREHOUSE_NAME} caracteres.",
+                    "The warehouse name exceeds ${CatalogLimits.WAREHOUSE_NAME} characters.",
                 )
             }
             val name = rawName.trim()
@@ -119,7 +119,7 @@ class UpdateWarehouse(
         access.authorizeOr(actor, "warehouse.edit", origin, entityType = "warehouse", entityId = "$id") { grant ->
             val current = warehouses.findById(id)
                 ?: return@authorizeOr failure(
-                    FailureKind.NOT_FOUND, "UNKNOWN_WAREHOUSE", "No existe la bodega $id.",
+                    FailureKind.NOT_FOUND, "UNKNOWN_WAREHOUSE", "Warehouse $id does not exist.",
                 )
             val code = body.code?.trim()?.uppercase() ?: current.code
             val name = body.name?.trim()?.ifBlank { null } ?: current.name

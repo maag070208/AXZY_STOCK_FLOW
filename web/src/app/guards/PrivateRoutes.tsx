@@ -7,6 +7,7 @@ import type { AppDispatch, RootState } from "@app/store";
 import { MENU } from "@app/navigation";
 import { can, logout, meThunk } from "@entities/session";
 import { authApi } from "@entities/session/api";
+import i18n from "@shared/i18n";
 
 /**
  * El armazón de la aplicación: barra superior, menú lateral y el contenido.
@@ -52,8 +53,9 @@ export default function PrivateRoutes() {
   }));
 
   const sidebar: ITSidebarProps = {
-    // Desplegado: son cuatro entradas y el nombre es lo que las hace legibles.
-    isCollapsed: false,
+    // Se oculta solo, como en CYC: el contenido gana el ancho y el menú aparece al acercar el cursor.
+    // Colapsado muestra solo los iconos; el nombre aparece al desplegarlo.
+    isCollapsed: true,
     navigationItems,
   };
 
@@ -63,21 +65,21 @@ export default function PrivateRoutes() {
     // `alt` vacío a propósito: el nombre va al lado y repetirlo molesta a quien
     // usa un lector de pantalla.
     logo: <img src={glyph} alt="" className="h-10 w-auto" />,
-    logoText: "StockFlow",
+    logoText: i18n.t("app.name"),
     userMenu: user
       ? {
           userName: user.name,
           userEmail: user.username,
           menuItems: [
-            { label: "Cambiar contraseña", onClick: () => navigate("/change-password") },
-            { label: "Cerrar sesión", onClick: () => void handleLogout() },
+            { label: i18n.t("common.changePassword"), onClick: () => navigate("/change-password") },
+            { label: i18n.t("common.signOut"), onClick: () => void handleLogout() },
           ],
         }
       : undefined,
   };
 
   return (
-    <ITLayout topBar={topBar} sidebar={sidebar}>
+    <ITLayout topBar={topBar} sidebar={sidebar} contentClassName="max-w-screen! m-0! !px-0">
       <Outlet />
     </ITLayout>
   );

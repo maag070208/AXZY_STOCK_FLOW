@@ -41,7 +41,7 @@ data class CatalogImportResult(
     /**
      * Cuántos productos **no** tenían existencias y recibieron su carga inicial.
      *
-     * La carga inicial es el total heredado puesto en `SIN-UBICAR`: no dice en qué
+     * La carga inicial es el total heredado puesto en `UNASSIGNED`: no dice en qué
      * estantería está cada pieza, y eso se resuelve con conteo ([ADR-0012]). Solo se carga
      * a quien no tiene nada: reimportar el archivo no puede duplicar el stock (K2).
      */
@@ -95,7 +95,7 @@ class ImportCatalog(
         access.authorizeOr(actor, "product.import", origin) { grant ->
             if (rows.isEmpty()) {
                 return@authorizeOr failure(
-                    FailureKind.INVALID_REQUEST, "EMPTY_FILE", "El archivo no tiene filas de datos.",
+                    FailureKind.INVALID_REQUEST, "EMPTY_FILE", "The file has no data rows.",
                 )
             }
 
@@ -120,7 +120,7 @@ class ImportCatalog(
                             origin = origin,
                             action = "CATALOG_IMPORTED",
                             level = AuditLevel.CRITICAL,
-                            entity = AuditEntity("catalog", null, "Catálogo de productos"),
+                            entity = AuditEntity("catalog", null, "Product catalog"),
                             grant = grant,
                             newState = mapOf(
                                 "totalRows" to report.totalRows,
@@ -140,7 +140,7 @@ class ImportCatalog(
         }
 
     /**
-     * La carga inicial de existencias: el total heredado, a `SIN-UBICAR`.
+     * La carga inicial de existencias: el total heredado, a `UNASSIGNED`.
      *
      * **Solo a quien no tiene nada.** El archivo del legacy trae un total por producto y no
      * dice en qué estantería está cada pieza ([ADR-0012]); lo que hace esta carga es dejar
@@ -159,8 +159,8 @@ class ImportCatalog(
         val warehouseId = inventory.defaultWarehouseId()
         val unassigned = inventory.activeLocation(warehouseId, LocationRef.Unassigned)
             ?: error(
-                "No existe la ubicación SIN-UBICAR en la bodega $warehouseId. La siembra el esquema (V6); " +
-                    "sin ella no hay dónde dejar el stock heredado.",
+                "Location UNASSIGNED does not exist in warehouse $warehouseId. The schema seeds it (V6); " +
+                    "without it there is nowhere to put the inherited stock.",
             )
 
         var loaded = 0

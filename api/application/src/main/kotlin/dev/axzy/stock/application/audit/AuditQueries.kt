@@ -108,7 +108,7 @@ class QueryAuditLog(
                 origin = origin,
                 action = "AUDIT_QUERIED",
                 level = AuditLevel.ACCESS,
-                entity = AuditEntity("audit_log", null, "Consulta de la bitácora"),
+                entity = AuditEntity("audit_log", null, "Audit log query"),
                 grant = grant,
                 newState = mapOf(
                     "filters" to filters.toString(),

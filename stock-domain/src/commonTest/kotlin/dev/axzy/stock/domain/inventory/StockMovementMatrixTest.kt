@@ -24,7 +24,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
  */
 class StockMovementMatrixTest : DescribeSpec({
 
-    val receiving = LocationCode.of("RECEPCION")
+    val receiving = LocationCode.of("RECEIVING")
     val shelf = LocationCode.of("04BCA")
     val shelfB = LocationCode.of("04BCB")
 

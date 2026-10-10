@@ -41,7 +41,7 @@ export default function KpiTile({ label, value, icon, tone = "neutral", hint, on
         <div className="min-w-0 flex-1">
           <p className="truncate text-[12px] font-semibold text-slate-500">{label}</p>
           <p className="mt-1 truncate text-[26px] font-bold leading-none tabular-nums text-slate-900">
-            {value === null ? "—" : value.toLocaleString("es-MX")}
+            {value === null ? "—" : value.toLocaleString("en-US")}
           </p>
         </div>
       </div>

@@ -29,7 +29,7 @@ class JdbcDatabaseProbe(private val jdbc: JdbcClient) : DatabaseProbe {
                 up = true,
                 latencyMs = latencyMs,
                 schemaVersion = version,
-                error = if (version == null) "El historial de migraciones está vacío." else null,
+                error = if (version == null) "The migration history is empty." else null,
             )
         } catch (e: Exception) {
             DatabaseHealth(up = true, latencyMs = latencyMs, schemaVersion = null, error = e.rootMessage())

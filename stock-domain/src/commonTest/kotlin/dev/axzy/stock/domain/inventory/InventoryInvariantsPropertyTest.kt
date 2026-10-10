@@ -37,7 +37,7 @@ import io.kotest.property.checkAll
  */
 class InventoryInvariantsPropertyTest : DescribeSpec({
 
-    val receiving = LocationCode.of("RECEPCION")
+    val receiving = LocationCode.of("RECEIVING")
     val shelfA = LocationCode.of("04BCA")
     val shelfB = LocationCode.of("04BCB")
     val shelfNorth = LocationCode.of("NORTE01")

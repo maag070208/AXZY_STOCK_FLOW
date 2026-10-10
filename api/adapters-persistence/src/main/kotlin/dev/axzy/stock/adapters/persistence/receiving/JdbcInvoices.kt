@@ -384,7 +384,7 @@ class JdbcInvoices(private val jdbc: JdbcClient) : Invoices, ReceivingCatalog, L
         val unitsPerBox = getBigDecimal("units_per_box")
             // La columna es anulable y el dominio exige el dato: una fila sin él es un
             // problema de datos que hay que ver, no redondear en silencio.
-            ?: error("La línea ${getLong("id")} no tiene unidades por caja: el empaque no se puede validar.")
+            ?: error("Line ${getLong("id")} has no units per box: the packing cannot be validated.")
         val physical = getBigDecimal("physical_quantity").toQuantity().takeIf { !wasNull() }
         val physicalBoxes = getBigDecimal("physical_box_quantity")?.longValueExact()?.let(BoxQuantity::of)
         val located = getBigDecimal("located_quantity").toQuantity()

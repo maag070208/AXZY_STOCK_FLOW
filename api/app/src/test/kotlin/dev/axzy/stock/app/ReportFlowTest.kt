@@ -94,9 +94,9 @@ class ReportFlowTest : ApiTest() {
         val token = manager()
         val who = approver()
         createProduct(token, "AAA001")
-        stockIn(token, "AAA001", "RECEPCION", 10, who)
+        stockIn(token, "AAA001", "RECEIVING", 10, who)
 
-        val propia = get("/v1/reports/inventory?warehouseCode=PRINCIPAL", token)
+        val propia = get("/v1/reports/inventory?warehouseCode=MAIN", token)
         val ajena = get("/v1/reports/inventory?warehouseCode=NORTE", token)
 
         assertThat(propia.at<Int>("totalItems")).isEqualTo(1)
@@ -111,11 +111,11 @@ class ReportFlowTest : ApiTest() {
         val who = approver()
         createProduct(token, "AAA001")
         createShelf(token, "04")
-        stockIn(token, "AAA001", "RECEPCION", 1000, who)
+        stockIn(token, "AAA001", "RECEIVING", 1000, who)
         post(
             "/v1/inventory/locate",
             mapOf(
-                "productCode" to "AAA001", "fromLocationCode" to "RECEPCION",
+                "productCode" to "AAA001", "fromLocationCode" to "RECEIVING",
                 "toLocationCode" to "04-B-C", "quantity" to 300,
             ),
             token,
@@ -150,8 +150,8 @@ class ReportFlowTest : ApiTest() {
         val who = approver()
         createProduct(token, "AAA001")
         createProduct(token, "AAA002")
-        stockIn(token, "AAA001", "RECEPCION", 100, who)
-        stockIn(token, "AAA002", "RECEPCION", 40, who)
+        stockIn(token, "AAA001", "RECEIVING", 100, who)
+        stockIn(token, "AAA002", "RECEIVING", 40, who)
 
         val byProduct = get("/v1/reports/movements-summary?from=${today()}&to=${today()}&groupBy=product", token)
             .at<List<Map<String, Any?>>>("items")
@@ -160,7 +160,7 @@ class ReportFlowTest : ApiTest() {
 
         assertThat(byProduct.map { it["key"] }).containsExactly("AAA001", "AAA002")
         assertThat(byProduct.map { it["inUnits"] }).containsExactly("100.000", "40.000")
-        assertThat(byLocation.single()["key"]).isEqualTo("RECEPCION")
+        assertThat(byLocation.single()["key"]).isEqualTo("RECEIVING")
         assertThat(byLocation.single()["inUnits"]).isEqualTo("140.000")
     }
 
@@ -187,7 +187,7 @@ class ReportFlowTest : ApiTest() {
         val token = manager()
         val who = approver()
         createProduct(token, "AAA001")
-        stockIn(token, "AAA001", "RECEPCION", 100, who)
+        stockIn(token, "AAA001", "RECEIVING", 100, who)
 
         val response = get("/v1/reports/kardex-vs-projection", token)
 
@@ -202,7 +202,7 @@ class ReportFlowTest : ApiTest() {
         val token = manager()
         val who = approver()
         createProduct(token, "AAA001")
-        stockIn(token, "AAA001", "RECEPCION", 100, who)
+        stockIn(token, "AAA001", "RECEIVING", 100, who)
 
         // Se rompe la proyección a mano: es lo que pasaría si alguien escribiera el
         // saldo por fuera del motor. El ledger sigue diciendo 100.
@@ -227,8 +227,8 @@ class ReportFlowTest : ApiTest() {
         val who = approver()
         createProduct(token, "AAA001")
         createProduct(token, "BBB002")
-        stockIn(token, "AAA001", "RECEPCION", 10, who)
-        stockIn(token, "BBB002", "RECEPCION", 20, who)
+        stockIn(token, "AAA001", "RECEIVING", 10, who)
+        stockIn(token, "BBB002", "RECEIVING", 20, who)
 
         val todos = get("/v1/reports/kardex/export?format=csv", token)
         val filtrado = get("/v1/reports/kardex/export?format=csv&productCode=AAA001", token)
@@ -250,7 +250,7 @@ class ReportFlowTest : ApiTest() {
         val token = manager()
         val who = approver()
         createProduct(token, "AAA001")
-        stockIn(token, "AAA001", "RECEPCION", 10, who)
+        stockIn(token, "AAA001", "RECEIVING", 10, who)
 
         val response = get("/v1/reports/kardex/export?format=xlsx", token)
 

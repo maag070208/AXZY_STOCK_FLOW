@@ -93,7 +93,7 @@ value class TokenId(val value: Long)
 /** Por qué se revocó una familia o un token. */
 enum class RevocationReason(val description: String) {
     /** El usuario cerró sesión de forma explícita. */
-    LOGOUT("Cierre de sesión"),
+    LOGOUT("Sign-out"),
 
     /**
      * Se detectó reuso de un token ya rotado.
@@ -101,16 +101,16 @@ enum class RevocationReason(val description: String) {
      * Es el motivo que más importa: significa que **hay dos partes usando la
      * misma sesión**, y una de ellas no es el usuario.
      */
-    REUSE_DETECTED("Reuso de un token ya rotado: sesión comprometida"),
+    REUSE_DETECTED("Reuse of an already rotated token: compromised session"),
 
     /** La contraseña cambió: las sesiones activas dejan de ser válidas. */
-    PASSWORD_CHANGED("La contraseña cambió"),
+    PASSWORD_CHANGED("The password changed"),
 
     /** Un administrador revocó la sesión. */
-    ADMIN_REVOKED("Revocado por un administrador"),
+    ADMIN_REVOKED("Revoked by an administrator"),
 
     /** Venció sin usarse. */
-    EXPIRED("Expiró"),
+    EXPIRED("Expired"),
 }
 
 /**
@@ -238,13 +238,13 @@ data class SessionPolicy(
     val rotationGraceMs: Long,
 ) {
     init {
-        require(accessTokenTtlMs > 0) { "La vida del access token debe ser positiva" }
+        require(accessTokenTtlMs > 0) { "The access token lifetime must be positive" }
         require(refreshTokenTtlMs > accessTokenTtlMs) {
-            "El refresh token debe vivir más que el access token"
+            "The refresh token must live longer than the access token"
         }
-        require(rotationGraceMs >= 0) { "El margen de gracia no puede ser negativo" }
+        require(rotationGraceMs >= 0) { "The grace period cannot be negative" }
         require(rotationGraceMs < refreshTokenTtlMs) {
-            "El margen de gracia no puede superar la vida del refresh token"
+            "The grace period cannot exceed the refresh token lifetime"
         }
     }
 

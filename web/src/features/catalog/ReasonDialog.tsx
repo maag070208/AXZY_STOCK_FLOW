@@ -1,5 +1,6 @@
 import { ITAlert, ITButton, ITDialog, ITFlex, ITInput } from "@axzydev/axzy_ui_system";
 import { useEffect, useState } from "react";
+import i18n from "@shared/i18n";
 
 interface Props {
   open: boolean;
@@ -28,9 +29,9 @@ export default function ReasonDialog({
   open,
   title,
   description,
-  confirmLabel = "Desactivar",
-  placeholder = "Por qué se da de baja",
-  errorTitle = "No se pudo desactivar",
+  confirmLabel = i18n.t("common.deactivate"),
+  placeholder = i18n.t("catalog.deactivateReasonPlaceholder"),
+  errorTitle = i18n.t("catalog.deactivateFailed"),
   busy = false,
   error = null,
   onCancel,
@@ -51,7 +52,7 @@ export default function ReasonDialog({
 
         <ITInput
           name="reason"
-          label="Motivo"
+          label={i18n.t("common.reason")}
           placeholder={placeholder}
           value={reason}
           onChange={(event) => setReason(event.target.value)}
@@ -61,9 +62,9 @@ export default function ReasonDialog({
         {error && <ITAlert variant="error" title={errorTitle}>{error}</ITAlert>}
 
         <ITFlex justify="end" gap={2}>
-          <ITButton label="Cancelar" variant="outline" onClick={onCancel} disabled={busy} />
+          <ITButton label={i18n.t("common.cancel")} variant="outline" onClick={onCancel} disabled={busy} />
           <ITButton
-            label={busy ? "Desactivando…" : confirmLabel}
+            label={busy ? i18n.t("catalog.deactivating") : confirmLabel}
             color="danger"
             onClick={() => onConfirm(reason.trim())}
             disabled={busy || reason.trim() === ""}

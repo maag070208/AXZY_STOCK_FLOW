@@ -35,13 +35,13 @@ test.describe("entrada", () => {
   test("la pantalla de entrada se dibuja", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.getByText("Gestión de almacén")).toBeVisible();
+    await expect(page.getByText("Warehouse management")).toBeVisible();
     await expect(page.locator('input[name="username"]')).toBeVisible();
     await expect(page.locator('input[name="password"]')).toBeVisible();
 
     // Con los campos vacíos el botón está deshabilitado a propósito: no se puede
     // mandar una petición que la API va a rechazar por falta de campo.
-    const entrar = page.getByRole("button", { name: "Entrar" });
+    const entrar = page.getByRole("button", { name: "Sign in" });
     await expect(entrar).toBeDisabled();
     await page.locator('input[name="username"]').fill("alguien");
     await page.locator('input[name="password"]').fill("algo");
@@ -59,11 +59,11 @@ test.describe("entrada", () => {
      */
     await page.locator('input[name="username"]').fill(`no-existe-${Date.now()}`);
     await page.locator('input[name="password"]').fill("contrasena-incorrecta-123");
-    await page.getByRole("button", { name: "Entrar" }).click();
+    await page.getByRole("button", { name: "Sign in" }).click();
 
     // El texto lo escribe la API. La web no lo inventa: si lo inventara, mentiría
     // en cuanto la cuenta estuviera bloqueada, que es otro caso con otro remedio.
-    await expect(page.getByText("Usuario o contraseña incorrectos.")).toBeVisible();
+    await expect(page.getByText("Wrong username or password.")).toBeVisible();
     await expect(page).toHaveURL(/#\/login$/);
   });
 
@@ -76,17 +76,17 @@ test.describe("entrada", () => {
     await page.goto("/");
     await page.locator('input[name="username"]').fill(E2E.adminUser);
     await page.locator('input[name="password"]').fill(E2E.adminPassword);
-    await page.getByRole("button", { name: "Entrar" }).click();
+    await page.getByRole("button", { name: "Sign in" }).click();
 
     /*
      * Dos desenlaces, y los dos los decide la API, no la web:
      *  - contraseña temporal → la pantalla de cambio, sin menú (I8);
-     *  - contraseña ya cambiada → el armazón, con «Inicio».
+     *  - contraseña ya cambiada → el armazón, con «Home».
      * La prueba acepta los dos a propósito: cuál toca depende del estado de la
      * cuenta, y afirmar uno solo la volvería frágil sin ganar nada.
      */
     await expect(
-      page.getByText(/Inicio|Cambio de contraseña/),
+      page.getByRole("heading", { name: /^(Home|Change password)$/ }).first(),
     ).toBeVisible();
   });
 });

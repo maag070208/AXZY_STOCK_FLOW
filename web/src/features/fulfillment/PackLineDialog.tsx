@@ -1,8 +1,10 @@
 import { ITAlert, ITButton, ITDialog, ITFlex, ITInput, ITText } from "@axzydev/axzy_ui_system";
 import { useEffect, useState, type FormEvent } from "react";
 import type { OrderLine } from "@entities/fulfillment";
-import { ApiError } from "@shared/api/types";
+
 import { formatQuantity } from "@shared/lib/format";
+import i18n from "@shared/i18n";
+import { describeError } from "@shared/api/errorMessage";
 
 interface Props {
   open: boolean;
@@ -33,7 +35,7 @@ export default function PackLineDialog({ open, line, onClose, onSubmit }: Props)
     event.preventDefault();
     const quantity = Number(quantityText.trim().replace(",", "."));
     if (quantityText.trim() === "" || !Number.isFinite(quantity) || quantity <= 0) {
-      setError("Escribe cuántas piezas empacas, mayor que cero.");
+      setError(i18n.t("fulfillment.piecesPackedRequired"));
       return;
     }
 
@@ -42,14 +44,14 @@ export default function PackLineDialog({ open, line, onClose, onSubmit }: Props)
     try {
       await onSubmit(quantity);
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "No se pudo registrar el empaque.");
+      setError(describeError(caught, "fulfillment.packFailedDot"));
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <ITDialog isOpen={open} onClose={onClose} title="Empacar piezas">
+    <ITDialog isOpen={open} onClose={onClose} title={i18n.t("fulfillment.packPieces")}>
       <form onSubmit={submit}>
         <ITFlex direction="column" gap={4}>
           {line && (
@@ -57,13 +59,13 @@ export default function PackLineDialog({ open, line, onClose, onSubmit }: Props)
               {line.productCode} · {line.productName}. Faltan {formatQuantity(String(pending))} piezas por surtir.
             </ITText>
           )}
-          <ITInput name="quantity" label="Piezas empacadas ahora" value={quantityText} onChange={(e) => setQuantityText(e.target.value)} required autoFocus />
+          <ITInput name="quantity" label={i18n.t("fulfillment.piecesPackedNow")} value={quantityText} onChange={(e) => setQuantityText(e.target.value)} required autoFocus />
 
-          {error && <ITAlert variant="error" title="No se pudo registrar el empaque">{error}</ITAlert>}
+          {error && <ITAlert variant="error" title={i18n.t("fulfillment.packFailed")}>{error}</ITAlert>}
 
           <ITFlex justify="end" gap={2}>
-            <ITButton label="Cancelar" variant="outline" onClick={onClose} disabled={busy} />
-            <ITButton type="submit" label={busy ? "Registrando…" : "Registrar empaque"} color="primary" disabled={busy} />
+            <ITButton label={i18n.t("common.cancel")} variant="outline" onClick={onClose} disabled={busy} />
+            <ITButton type="submit" label={busy ? i18n.t("common.recording") : i18n.t("fulfillment.recordPack")} color="primary" disabled={busy} />
           </ITFlex>
         </ITFlex>
       </form>

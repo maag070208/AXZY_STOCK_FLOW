@@ -104,8 +104,8 @@ open class ApplyStockMovement(
                 if (from.warehouseId != to.warehouseId) {
                     return@authorizeOr failure(
                         FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
-                        "El movimiento no puede cambiar de bodega (${from.warehouseId} → ${to.warehouseId}): " +
-                            "para pasar mercancía entre bodegas se usa un traslado.",
+                        "The movement cannot change warehouse (${from.warehouseId} → ${to.warehouseId}): " +
+                            "to move goods between warehouses, use a transfer.",
                         mapOf("rule" to "misma_bodega"),
                     )
                 }
@@ -117,7 +117,7 @@ open class ApplyStockMovement(
                 if (kind != MovementKind.LOCATE && parsed.invoiceLineId != null) {
                     return@authorizeOr failure(
                         FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
-                        "Solo ubicar puede referirse a una línea de factura.",
+                        "Only locating can refer to an invoice line.",
                         mapOf("field" to "invoiceLineId"),
                     )
                 }
@@ -140,7 +140,7 @@ open class ApplyStockMovement(
                     val line = parsed.invoiceLineId?.let { lineId ->
                         locatingLines.find(lineId) ?: return@authorizeOr failure(
                             FailureKind.NOT_FOUND, "LINE_NOT_FOUND",
-                            "No existe la línea $lineId.",
+                            "Line $lineId does not exist.",
                             mapOf("lineId" to lineId.toString()),
                         )
                     }
@@ -149,7 +149,7 @@ open class ApplyStockMovement(
                         // otro dejaría la factura diciendo una cosa y el almacén otra.
                         return@authorizeOr failure(
                             FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
-                            "La línea ${line.id} es de ${line.productCode.value}, no de ${parsed.code.value}.",
+                            "Line ${line.id} belongs to ${line.productCode.value}, not ${parsed.code.value}.",
                             mapOf(
                                 "invoiceLineId" to line.id.toString(),
                                 "productCode" to parsed.code.value,
@@ -186,7 +186,7 @@ open class ApplyStockMovement(
                 kardexIds = listOf(alreadyApplied),
                 status = MovementStatus.APPLIED,
                 total = null,
-                message = "Este movimiento ya se había aplicado: la clave de idempotencia se repitió.",
+                message = "This movement was already applied: the idempotency key was repeated.",
             ).asRight()
         }
 
@@ -250,12 +250,12 @@ open class ApplyStockMovement(
         MovementKind.LOCATE -> when {
             from.kind != LocationKind.RECEIVING -> failure(
                 FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
-                "Ubicar saca mercancía de la ubicación de recepción, y el origen es ${from.displayName}.",
+                "Locating takes goods out of the receiving location, and the source is ${from.displayName}.",
                 mapOf("fromLocationCode" to from.displayName, "expectedKind" to "RECEIVING"),
             )
             to.kind != LocationKind.SHELF -> failure(
                 FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
-                "Ubicar deja la mercancía en un estante, y el destino es ${to.displayName}.",
+                "Locating puts the goods on a shelf, and the destination is ${to.displayName}.",
                 mapOf("toLocationCode" to to.displayName, "expectedKind" to "SHELF"),
             )
             else -> null
@@ -264,8 +264,8 @@ open class ApplyStockMovement(
         MovementKind.MOVE -> when {
             from.kind != LocationKind.SHELF || to.kind != LocationKind.SHELF -> failure(
                 FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
-                "Mover es entre estantes: ${from.displayName} → ${to.displayName} no lo es. " +
-                    "Para llevar mercancía a la recepción o al saldo sin ubicar no hay operación.",
+                "Moving is between shelves: ${from.displayName} → ${to.displayName} is not one. " +
+                    "There is no operation to move goods to receiving or to the unassigned balance.",
                 mapOf("fromLocationCode" to from.displayName, "toLocationCode" to to.displayName),
             )
             else -> null
@@ -283,22 +283,22 @@ open class ApplyStockMovement(
     private fun parse(input: MovementInput): Outcome<Parsed> =
         InventoryFilters.productCode(input.productCode).flatMap { code: ProductCode? ->
             if (code == null) {
-                failure(FailureKind.RULE_VIOLATION, "FIELD_REQUIRED", "El código de producto es obligatorio.")
+                failure(FailureKind.RULE_VIOLATION, "FIELD_REQUIRED", "The product code is required.")
             } else {
                 InventoryFilters.locationRef(input.fromLocationCode).flatMap { from: LocationRef? ->
                     InventoryFilters.locationRef(input.toLocationCode).flatMap { to: LocationRef? ->
                         when {
                             from == null -> failure(
                                 FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-                                "El código de ubicación de origen es obligatorio.",
+                                "The source location code is required.",
                             )
                             to == null -> failure(
                                 FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-                                "El código de ubicación de destino es obligatorio.",
+                                "The destination location code is required.",
                             )
                             input.quantity == null -> failure(
                                 FailureKind.RULE_VIOLATION, "INVALID_QUANTITY",
-                                "La cantidad es obligatoria.",
+                                "The quantity is required.",
                             )
                             else -> Parsed(code, from, to, input.quantity, input.invoiceLineId).asRight()
                         }

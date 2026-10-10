@@ -310,7 +310,7 @@ class AuditTest : DescribeSpec({
                     userId = 7L,
                     username = "jperez",
                     displayName = "Juan Pérez",
-                    roles = listOf("JEFE_BODEGA", "AUDITOR"),
+                    roles = listOf("WAREHOUSE_MANAGER", "AUDITOR"),
                 ),
             )
 
@@ -435,8 +435,8 @@ class AuditTest : DescribeSpec({
             identity = IdentityTrace(userId = 20L, active = true),
             rbac = RbacTrace(
                 effectiveScope = "AREA",
-                byRole = mapOf("JEFE_BODEGA" to "AREA"),
-                rolesAtTime = listOf("JEFE_BODEGA"),
+                byRole = mapOf("WAREHOUSE_MANAGER" to "AREA"),
+                rolesAtTime = listOf("WAREHOUSE_MANAGER"),
                 warehousesAtTime = listOf(1L),
             ),
             abac = AbacTrace(
@@ -465,7 +465,7 @@ class AuditTest : DescribeSpec({
             val trace = traceAllowed()
 
             withClue("Los roles vigentes entonces deben quedar registrados") {
-                trace.rbac.rolesAtTime shouldBe listOf("JEFE_BODEGA")
+                trace.rbac.rolesAtTime shouldBe listOf("WAREHOUSE_MANAGER")
             }
             withClue("Y las bodegas del alcance AREA en ese momento") {
                 trace.rbac.warehousesAtTime shouldBe listOf(1L)
@@ -496,7 +496,7 @@ class AuditTest : DescribeSpec({
                     rules = listOf(
                         AuditedPolicy(
                             policyId = 1L,
-                            policyName = "Prohibido aprobar lo propio (segregación de funciones)",
+                            policyName = "Approving your own work is forbidden (segregation of duties)",
                             effect = "DENY",
                             priority = 100,
                             appliesToUser = true,
@@ -519,7 +519,7 @@ class AuditTest : DescribeSpec({
             val explanation = traceDenied.explain()
 
             withClue("La explicación debe nombrar la política que denegó") {
-                (explanation.contains("segregación de funciones")) shouldBe true
+                (explanation.contains("segregation of duties")) shouldBe true
             }
             withClue("Y debe ser construida desde la traza, no contradecirla") {
                 traceDenied.wasDenied shouldBe true
@@ -537,7 +537,7 @@ class AuditTest : DescribeSpec({
             val explanation = byScope.explain()
 
             withClue("El mensaje debe ser accionable: 'no alcanza esta bodega', no 'acceso denegado'") {
-                (explanation.contains("no alcanza este recurso")) shouldBe true
+                (explanation.contains("not for this resource")) shouldBe true
             }
         }
     }

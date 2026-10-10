@@ -91,7 +91,7 @@ class BootstrapIdentity(
         val matrix = versionOf(
             kind = ConfigKind.PERMISSION_MATRIX,
             lines = store.currentGrants().map { "${it.roleKey}|${it.permissionKey}|${it.scope}" },
-            reason = "Sincronización del catálogo al arrancar",
+            reason = "Catalog synchronization at startup",
         )
         val policies = versionOf(
             kind = ConfigKind.POLICIES,
@@ -102,7 +102,7 @@ class BootstrapIdentity(
                     policy.conditions.map { "${it.field} ${it.operator.symbol} ${it.value}" },
                 ).joinToString("|")
             },
-            reason = "Políticas declaradas en el código",
+            reason = "Policies declared in code",
         )
 
         return BootstrapResult(
@@ -134,13 +134,13 @@ class BootstrapIdentity(
 
         val password = adminPassword?.takeIf { it.isNotBlank() }
             ?: throw MissingBootstrapPassword(
-                "La base no tiene ningún usuario y falta ADMIN_BOOTSTRAP_PASSWORD. " +
-                    "Defínela para crear el primer administrador; se le exigirá cambiarla al entrar.",
+                "The database has no users and ADMIN_BOOTSTRAP_PASSWORD is missing. " +
+                    "Define it to create the first administrator; they will be required to change it on sign-in.",
             )
         val validation = PasswordPolicy.validate(password, adminUsername)
         if (validation is PasswordValidation.Invalid) {
             throw MissingBootstrapPassword(
-                "ADMIN_BOOTSTRAP_PASSWORD no cumple la política de contraseñas: " + PasswordPolicy.explain(validation),
+                "ADMIN_BOOTSTRAP_PASSWORD does not meet the password policy: " + PasswordPolicy.explain(validation),
             )
         }
         store.createUser(

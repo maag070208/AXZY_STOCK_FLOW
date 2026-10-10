@@ -24,7 +24,7 @@ import java.util.concurrent.Executors
 /**
  * La concurrencia de la recepción contra PostgreSQL real (M03).
  *
- * Lo que se prueba aquí y no por HTTP: contar mete mercancía en `RECEPCION` por la **diferencia**
+ * Lo que se prueba aquí y no por HTTP: contar mete mercancía en `RECEIVING` por la **diferencia**
  * contra lo ya ingresado, así que dos capturas simultáneas de la misma línea que lean el mismo
  * saldo ingresarían la misma diferencia dos veces y **el stock se duplicaría**. La reclamación es
  * una sentencia condicional sobre `received_quantity`, y lo que hay que demostrar es que dos

@@ -341,7 +341,7 @@ fun RoleDetail.toDto(): RoleDetailDto = RoleDetailDto(
 
 data class RoleGrantDto(val permissionKey: String, val scope: String) {
     fun toGrant(): RoleGrantView =
-        RoleGrantView(permissionKey, parseScope(scope) ?: error("Alcance '${scope}' inválido."))
+        RoleGrantView(permissionKey, parseScope(scope) ?: error("Scope '${scope}' is invalid."))
 }
 
 data class NewRoleDto(

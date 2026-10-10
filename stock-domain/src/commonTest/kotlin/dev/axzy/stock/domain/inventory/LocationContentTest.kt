@@ -21,7 +21,7 @@ import io.kotest.matchers.string.shouldContain
  */
 class LocationContentTest : DescribeSpec({
 
-    val receiving = LocationCode.of("RECEPCION")
+    val receiving = LocationCode.of("RECEIVING")
     val shelf = LocationCode.of("04BCA")
     val shelfB = LocationCode.of("04BCB")
     val product = "ABRAA1B"
@@ -153,8 +153,8 @@ class LocationContentTest : DescribeSpec({
             val report = LocationContentComparison.report(ledger)
 
             // El informe debe existir y ser legible por alguien de negocio.
-            report shouldContain "Informe de divergencias"
-            report shouldContain "Ubicaciones con discrepancia"
+            report shouldContain "Content discrepancy report"
+            report shouldContain "Locations with discrepancy"
         }
 
         it("toda divergencia se clasifica como explicada o como pendiente de revisión") {

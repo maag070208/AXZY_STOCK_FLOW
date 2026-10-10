@@ -32,7 +32,7 @@ import java.time.Clock
  * Existencias (M02): el motor, las consultas y las rutas.
  *
  * **No hay ningún adaptador que escriba existencias.** El único puerto de escritura
- * es [StockLedger], que llama a `registrar_movimiento`; el resto de la clase es
+ * es [StockLedger], que llama a `record_movement`; el resto de la clase es
  * lectura. Es la regla del plan y el riesgo número dos de su tabla: dos rutas de
  * escritura al inventario por fuera del motor.
  */

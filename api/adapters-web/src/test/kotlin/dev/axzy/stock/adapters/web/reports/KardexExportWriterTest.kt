@@ -36,7 +36,7 @@ class KardexExportWriterTest {
         units = Quantity.ofScaled(100_000),
         quantityAfter = Quantity.ofScaled(1_100_000),
         fromLocationDisplayName = null,
-        toLocationDisplayName = "RECEPCION",
+        toLocationDisplayName = "RECEIVING",
         container = container,
         orderNumber = null,
         adjustmentReason = null,

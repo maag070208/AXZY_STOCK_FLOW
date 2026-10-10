@@ -40,13 +40,13 @@ class InventoryEngineConcurrencyTest {
             .param("code", code).query(Long::class.java).single()
 
     private fun move(locationId: Long, delta: Int) {
-        db.jdbc.sql("SELECT aplicar_movimiento_a_ubicacion(:product, :location, 1, :delta, FALSE)")
+        db.jdbc.sql("SELECT apply_location_movement(:product, :location, 1, :delta, FALSE)")
             .param("product", productId).param("location", locationId).param("delta", delta)
             .query(java.math.BigDecimal::class.java).single()
     }
 
     private fun recalculate() {
-        db.jdbc.sql("SELECT recalcular_total_producto(:product)").param("product", productId)
+        db.jdbc.sql("SELECT recalculate_product_total(:product)").param("product", productId)
             .query(java.math.BigDecimal::class.java).single()
     }
 
@@ -88,7 +88,7 @@ class InventoryEngineConcurrencyTest {
         // Sin el bloqueo de V10 el total quedaba en 205.000: el segundo recálculo no veía los 10 del primero.
         assertThat(sumOfLocations()).isEqualTo("215.000")
         assertThat(total()).isEqualTo("215.000")
-        assertThat(db.jdbc.sql("SELECT count(*) FROM comprobar_proyecciones()").query(Int::class.java).single()).isZero()
+        assertThat(db.jdbc.sql("SELECT count(*) FROM check_projections()").query(Int::class.java).single()).isZero()
     }
 
     @Test
@@ -132,7 +132,7 @@ class InventoryEngineConcurrencyTest {
 
     @Test
     fun `A9 - un movimiento del kardex no se puede modificar ni borrar, ni siquiera como dueno`() {
-        db.jdbc.sql("SELECT registrar_movimiento(:product, 1, 'INITIAL', 10, NULL, :shelf, NULL, NULL, NULL, NULL, NULL, NULL, NULL)")
+        db.jdbc.sql("SELECT record_movement(:product, 1, 'INITIAL', 10, NULL, :shelf, NULL, NULL, NULL, NULL, NULL, NULL, NULL)")
             .param("product", productId).param("shelf", shelfA).query(Long::class.java).single()
 
         assertThatThrownBy { db.asOwner.sql("UPDATE kardex SET units = 999").update() }.rootCause().isNotNull()

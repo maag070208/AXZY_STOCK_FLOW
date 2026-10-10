@@ -1,7 +1,9 @@
 import { ITAlert, ITButton, ITDialog, ITFlex, ITInput, ITText } from "@axzydev/axzy_ui_system";
 import { useEffect, useState, type FormEvent } from "react";
 import type { CaptureBody, InvoiceLine } from "@entities/receiving";
-import { ApiError } from "@shared/api/types";
+
+import i18n from "@shared/i18n";
+import { describeError } from "@shared/api/errorMessage";
 
 interface Props {
   open: boolean;
@@ -34,13 +36,13 @@ export default function CaptureLineDialog({ open, line, onClose, onSubmit }: Pro
     event.preventDefault();
     const quantity = Number(physicalQuantity.trim().replace(",", "."));
     if (physicalQuantity.trim() === "" || !Number.isFinite(quantity) || quantity < 0) {
-      setError("Escribe cuántas piezas contaste, cero o más.");
+      setError(i18n.t("receiving.countedPiecesRequired"));
       return;
     }
     const boxesRaw = physicalBoxQuantity.trim();
     const boxes = boxesRaw === "" ? undefined : Number(boxesRaw.replace(",", "."));
     if (boxes !== undefined && (!Number.isInteger(boxes) || boxes < 0)) {
-      setError("Las cajas contadas son un número entero: no hay media caja.");
+      setError(i18n.t("receiving.boxesWholeNumber"));
       return;
     }
 
@@ -49,14 +51,14 @@ export default function CaptureLineDialog({ open, line, onClose, onSubmit }: Pro
     try {
       await onSubmit(boxes === undefined ? { physicalQuantity: quantity } : { physicalQuantity: quantity, physicalBoxQuantity: boxes });
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "No se pudo guardar el conteo.");
+      setError(describeError(caught, "receiving.saveCountFailedDot"));
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <ITDialog isOpen={open} onClose={onClose} title="Contar línea">
+    <ITDialog isOpen={open} onClose={onClose} title={i18n.t("receiving.countLine")}>
       <form onSubmit={submit}>
         <ITFlex direction="column" gap={4}>
           {line && (
@@ -66,7 +68,7 @@ export default function CaptureLineDialog({ open, line, onClose, onSubmit }: Pro
           )}
           <ITInput
             name="physicalQuantity"
-            label="Piezas contadas"
+            label={i18n.t("receiving.countedPieces")}
            
             value={physicalQuantity}
             onChange={(event) => setPhysicalQuantity(event.target.value)}
@@ -75,17 +77,17 @@ export default function CaptureLineDialog({ open, line, onClose, onSubmit }: Pro
           />
           <ITInput
             name="physicalBoxQuantity"
-            label="Cajas contadas (opcional)"
+            label={i18n.t("receiving.countedBoxesOptional")}
            
             value={physicalBoxQuantity}
             onChange={(event) => setPhysicalBoxQuantity(event.target.value)}
           />
 
-          {error && <ITAlert variant="error" title="No se pudo guardar el conteo">{error}</ITAlert>}
+          {error && <ITAlert variant="error" title={i18n.t("receiving.saveCountFailed")}>{error}</ITAlert>}
 
           <ITFlex justify="end" gap={2}>
-            <ITButton label="Cancelar" variant="outline" onClick={onClose} disabled={busy} />
-            <ITButton type="submit" label={busy ? "Guardando…" : "Guardar conteo"} color="primary" disabled={busy} />
+            <ITButton label={i18n.t("common.cancel")} variant="outline" onClick={onClose} disabled={busy} />
+            <ITButton type="submit" label={busy ? i18n.t("catalog.saving") : i18n.t("receiving.saveCount")} color="primary" disabled={busy} />
           </ITFlex>
         </ITFlex>
       </form>

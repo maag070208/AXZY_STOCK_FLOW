@@ -1,7 +1,9 @@
 import { ITAlert, ITButton, ITCheckbox, ITDialog, ITFlex, ITInput, ITText } from "@axzydev/axzy_ui_system";
 import { useEffect, useState, type FormEvent } from "react";
 import { catalogApi, type Warehouse, type WarehouseInput } from "@entities/catalog";
-import { ApiError } from "@shared/api/types";
+
+import i18n from "@shared/i18n";
+import { describeError } from "@shared/api/errorMessage";
 
 interface Props {
   open: boolean;
@@ -54,39 +56,39 @@ export default function WarehouseFormDialog({ open, warehouse, onClose, onSaved 
       else await catalogApi.createWarehouse(body);
       onSaved();
     } catch (caught) {
-      setError((caught as ApiError).message);
+      setError(describeError(caught, "errors.unexpected"));
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <ITDialog isOpen={open} onClose={onClose} title={editing ? "Editar bodega" : "Nueva bodega"}>
+    <ITDialog isOpen={open} onClose={onClose} title={editing ? i18n.t("catalog.editWarehouse") : i18n.t("catalog.newWarehouse")}>
       <form onSubmit={submit}>
         <ITFlex direction="column" gap={4}>
           <ITInput
             name="code"
-            label="Código"
+            label={i18n.t("common.code")}
             value={code}
             onChange={(event) => setCode(event.target.value)}
             required
             maxLength={20}
-            placeholder="PRINCIPAL"
+            placeholder="MAIN"
           />
           <ITInput
             name="name"
-            label="Nombre"
+            label={i18n.t("common.name")}
             value={name}
             onChange={(event) => setName(event.target.value)}
             required
             maxLength={120}
           />
-          <ITInput name="address" label="Dirección" value={address} onChange={(event) => setAddress(event.target.value)} />
+          <ITInput name="address" label={i18n.t("common.address")} value={address} onChange={(event) => setAddress(event.target.value)} />
 
           <ITCheckbox
             checked={isDefault}
             onChange={setIsDefault}
-            label="Es la bodega predeterminada"
+            label={i18n.t("common.isDefaultWarehouse")}
             disabled={editing && warehouse.isDefault}
           />
           {editing && warehouse.isDefault && (
@@ -95,11 +97,11 @@ export default function WarehouseFormDialog({ open, warehouse, onClose, onSaved 
             </ITText>
           )}
 
-          {error && <ITAlert variant="error" title="No se pudo guardar">{error}</ITAlert>}
+          {error && <ITAlert variant="error" title={i18n.t("catalog.saveFailed")}>{error}</ITAlert>}
 
           <ITFlex justify="end" gap={2}>
-            <ITButton label="Cancelar" variant="outline" onClick={onClose} disabled={busy} />
-            <ITButton type="submit" label={busy ? "Guardando…" : "Guardar"} color="primary" disabled={busy} />
+            <ITButton label={i18n.t("common.cancel")} variant="outline" onClick={onClose} disabled={busy} />
+            <ITButton type="submit" label={busy ? i18n.t("catalog.saving") : i18n.t("common.save")} color="primary" disabled={busy} />
           </ITFlex>
         </ITFlex>
       </form>

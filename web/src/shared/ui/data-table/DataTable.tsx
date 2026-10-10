@@ -53,21 +53,22 @@ export function DataTable<T extends Record<string, unknown>>({
     return { data: page.items, total: page.totalItems };
   };
 
+  // El layout es `auto`: con `fixed`, las columnas sin ancho se reparten igual y los encabezados se encimaban.
   return (
-    <ITDataTable<T>
-      columns={columns}
-      fetchData={loadPage}
-      externalFilters={externalFilters}
-      reloadTrigger={reloadTrigger}
-      onRowClick={onRowClick ? (row) => onRowClick(row) : undefined}
-      defaultItemsPerPage={25}
-      itemsPerPageOptions={[25, 50, 100]}
-      layout="fixed"
-      density="compact"
-      size="sm"
-      virtualized
-      virtualizedMaxHeight={400}
-      rowHeight={50}
-    />
+      <ITDataTable<T>
+        columns={columns}
+        fetchData={loadPage}
+        externalFilters={externalFilters}
+        reloadTrigger={reloadTrigger}
+        onRowClick={onRowClick ? (row) => onRowClick(row) : undefined}
+        defaultItemsPerPage={25}
+        itemsPerPageOptions={[25, 50, 100]}
+        layout="auto"
+        density="compact"
+        size="sm"
+        virtualized
+        virtualizedMaxHeight={400}
+        rowHeight={50}
+      />
   );
 }

@@ -85,7 +85,7 @@ class JdbcProducts(private val jdbc: JdbcClient, private val json: JsonMapper) :
                 "externalId" to newProduct.externalId,
             ),
         ) { rs, _ -> rs.getLong("id") }.single()
-        return requireNotNull(findById(id)) { "El producto recién insertado $id no se pudo leer" }
+        return requireNotNull(findById(id)) { "The newly inserted product $id could not be read back" }
     }
 
     override fun update(product: Product): ProductView {
@@ -106,7 +106,7 @@ class JdbcProducts(private val jdbc: JdbcClient, private val json: JsonMapper) :
                 "active" to product.active,
             ),
         ) { rs, _ -> rs.getLong("id") }.single()
-        return requireNotNull(findById(product.id)) { "El producto ${product.id} no se pudo leer tras actualizarlo" }
+        return requireNotNull(findById(product.id)) { "Product ${product.id} could not be read back after updating it" }
     }
 
     /**

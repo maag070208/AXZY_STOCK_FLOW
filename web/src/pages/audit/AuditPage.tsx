@@ -5,6 +5,8 @@ import { asDate, toIsoDay } from "@shared/lib/day";
 import { useDebouncedValue } from "@shared/lib/useDebouncedValue";
 import { DataTable } from "@shared/ui/data-table/DataTable";
 import { Page } from "@shared/ui/page/Page";
+import { FaHistory } from "react-icons/fa";
+import i18n from "@shared/i18n";
 
 const LEVELS = ["CRITICAL", "RELEVANT", "ACCESS", "TECHNICAL"];
 const RESULTS = ["SUCCESS", "FAILURE", "DENIED", "PARTIAL"];
@@ -38,38 +40,38 @@ export default function AuditPage() {
   }, [debouncedEntity, debouncedAction, level, result, from, to]);
 
   const columns: Column<AuditEntry>[] = [
-    { key: "occurredAt", label: "Cuándo", type: "string", render: (row) => new Date(row.occurredAt).toLocaleString("es-MX") },
-    { key: "actorName", label: "Quién", type: "string", render: (row) => row.actorName ?? row.actorUsername ?? row.channel },
-    { key: "action", label: "Acción", type: "string" },
-    { key: "entityType", label: "Sobre", type: "string", render: (row) => (row.entityLabel ? `${row.entityType} ${row.entityLabel}` : row.entityType) },
-    { key: "level", label: "Nivel", type: "string" },
-    { key: "result", label: "Resultado", type: "string" },
-    { key: "channel", label: "Canal", type: "string" },
-    { key: "reason", label: "Motivo", type: "string", render: (row) => row.reason ?? "—" },
+    { key: "occurredAt", label: i18n.t("common.when"), type: "string", render: (row) => new Date(row.occurredAt).toLocaleString("en-US") },
+    { key: "actorName", label: i18n.t("common.who"), type: "string", render: (row) => row.actorName ?? row.actorUsername ?? row.channel },
+    { key: "action", label: i18n.t("common.action"), type: "string" },
+    { key: "entityType", label: i18n.t("common.envelope"), type: "string", render: (row) => (row.entityLabel ? `${row.entityType} ${row.entityLabel}` : row.entityType) },
+    { key: "level", label: i18n.t("common.level"), type: "string" },
+    { key: "result", label: i18n.t("common.result"), type: "string" },
+    { key: "channel", label: i18n.t("common.channel"), type: "string" },
+    { key: "reason", label: i18n.t("common.reason"), type: "string", render: (row) => row.reason ?? "—" },
   ];
 
   return (
-    <Page title="Auditoría" description="Quién hizo qué, cuándo y desde dónde. Cada escritura del sistema aparece aquí." breadcrumbs={[{ label: "Inicio", href: "#/" }, { label: "Auditoría" }]}>
+    <Page icon={<FaHistory size={18} />} title={i18n.t("nav.audit")} description={i18n.t("audit.description")} breadcrumbs={[{ label: i18n.t("nav.home"), href: "#/" }, { label: i18n.t("nav.audit") }]}>
       <div className="mb-3 flex flex-wrap items-end gap-3">
         <div className="w-44">
-          <ITInput size="sm" name="entityType" label="Tipo de entidad" value={entityType} onChange={(e) => setEntityType(e.target.value)} />
+          <ITInput size="sm" name="entityType" label={i18n.t("audit.entityType")} value={entityType} onChange={(e) => setEntityType(e.target.value)} />
         </div>
         <div className="w-56">
-          <ITInput size="sm" name="action" label="Acción" value={action} onChange={(e) => setAction(e.target.value)} />
+          <ITInput size="sm" name="action" label={i18n.t("common.action")} value={action} onChange={(e) => setAction(e.target.value)} />
         </div>
         <div className="w-40">
-          <ITSelect size="sm" name="level" label="Nivel" value={level} placeholder="Todos"
+          <ITSelect size="sm" name="level" label={i18n.t("common.level")} value={level} placeholder={i18n.t("common.all")}
             options={LEVELS.map((value) => ({ value, label: value }))} onChange={(e) => setLevel(e.target.value)} />
         </div>
         <div className="w-40">
-          <ITSelect size="sm" name="result" label="Resultado" value={result} placeholder="Todos"
+          <ITSelect size="sm" name="result" label={i18n.t("common.result")} value={result} placeholder={i18n.t("common.all")}
             options={RESULTS.map((value) => ({ value, label: value }))} onChange={(e) => setResult(e.target.value)} />
         </div>
         <div className="w-44">
-          <ITDatePicker name="from" label="Desde" value={from ?? undefined} onChange={(e) => setFrom(asDate(e.target.value))} />
+          <ITDatePicker name="from" label={i18n.t("common.from")} value={from ?? undefined} onChange={(e) => setFrom(asDate(e.target.value))} />
         </div>
         <div className="w-44">
-          <ITDatePicker name="to" label="Hasta" value={to ?? undefined} onChange={(e) => setTo(asDate(e.target.value))} />
+          <ITDatePicker name="to" label={i18n.t("common.to")} value={to ?? undefined} onChange={(e) => setTo(asDate(e.target.value))} />
         </div>
       </div>
       <DataTable<AuditEntry>

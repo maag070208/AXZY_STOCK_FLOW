@@ -60,7 +60,7 @@ class ActorArgumentResolver(private val resolveActor: ResolveActor) : HandlerMet
             throw FailureException(
                 Failure(
                     FailureKind.FORBIDDEN, "PASSWORD_CHANGE_REQUIRED",
-                    "Debes cambiar tu contraseña antes de continuar.",
+                    "You must change your password before continuing.",
                 ),
             )
         }
@@ -69,7 +69,7 @@ class ActorArgumentResolver(private val resolveActor: ResolveActor) : HandlerMet
 
     private fun load(): Actor {
         val identity = SecurityContextHolder.getContext().authentication as? TokenIdentity
-            ?: throw FailureException(Failure(FailureKind.UNAUTHENTICATED, "UNAUTHENTICATED", "Falta el token de acceso o no es válido."))
+            ?: throw FailureException(Failure(FailureKind.UNAUTHENTICATED, "UNAUTHENTICATED", "The access token is missing or not valid."))
         return when (val outcome = resolveActor.execute(identity.userId, identity.credentialsStamp)) {
             is Either.Right -> outcome.value
             is Either.Left -> throw FailureException(outcome.error)

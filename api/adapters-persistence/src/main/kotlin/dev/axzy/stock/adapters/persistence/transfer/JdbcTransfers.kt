@@ -32,7 +32,7 @@ import java.time.ZoneOffset
  * Los traslados sobre PostgreSQL (docs/api/traslados.md).
  *
  * **Las tres operaciones que mueven mercancía llaman a las funciones del motor**
- * (`despachar_traslado`, `recibir_traslado`, `cancelar_traslado`, migración V13). Este
+ * (`dispatch_transfer`, `receive_transfer`, `cancel_transfer`, migración V13). Este
  * archivo no tiene ningún `UPDATE stock_by_location`: si lo tuviera, sería la segunda
  * ruta de escritura al inventario y la guardia `InventoryWriteGuardTest` lo cazaría.
  *
@@ -130,13 +130,13 @@ class JdbcTransfers(private val jdbc: JdbcClient) : Transfers, TransferCatalog {
     }
 
     override fun dispatch(transferId: Long, userId: Long): Int =
-        function("despachar_traslado", transferId, userId)
+        function("dispatch_transfer", transferId, userId)
 
     override fun receive(transferId: Long, userId: Long): Int =
-        function("recibir_traslado", transferId, userId)
+        function("receive_transfer", transferId, userId)
 
     override fun cancel(transferId: Long, userId: Long): Int =
-        function("cancelar_traslado", transferId, userId)
+        function("cancel_transfer", transferId, userId)
 
     override fun openTransitLines(transferId: Long): Int =
         query(
@@ -195,7 +195,7 @@ class JdbcTransfers(private val jdbc: JdbcClient) : Transfers, TransferCatalog {
 
     override fun receivingLocationId(warehouseId: Long): Long? =
         query(
-            "SELECT ubicacion_recepcion(:warehouse) AS id",
+            "SELECT receiving_location(:warehouse) AS id",
             mapOf("warehouse" to warehouseId),
         ) { rs, _ -> rs.getLong("id") }.firstOrNull()
 

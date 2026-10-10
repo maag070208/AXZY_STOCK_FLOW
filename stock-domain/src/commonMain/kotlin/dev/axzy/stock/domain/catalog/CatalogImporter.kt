@@ -42,7 +42,7 @@ sealed interface RowRejection {
     val reason: String
 
     data class BlankRow(override val rowNumber: Int) : RowRejection {
-        override val reason = "Fila completamente vacía"
+        override val reason = "Completely empty row"
     }
 
     data class InvalidProductCode(
@@ -50,11 +50,11 @@ sealed interface RowRejection {
         val code: String,
         val detail: String,
     ) : RowRejection {
-        override val reason = "Código de producto inválido ('$code'): $detail"
+        override val reason = "Invalid product code ('$code'): $detail"
     }
 
     data class BlankName(override val rowNumber: Int, val code: String) : RowRejection {
-        override val reason = "El producto '$code' no tiene nombre"
+        override val reason = "Product '$code' has no name"
     }
 
     data class UnknownUnitMeasure(
@@ -63,7 +63,7 @@ sealed interface RowRejection {
         val unit: String,
     ) : RowRejection {
         override val reason =
-            "Unidad de medida desconocida '$unit' en '$code'. Debe existir en el catálogo."
+            "Unknown unit of measure '$unit' on '$code'. It must exist in the catalog."
     }
 
     data class InvalidStock(
@@ -72,7 +72,7 @@ sealed interface RowRejection {
         val raw: String,
         val detail: String,
     ) : RowRejection {
-        override val reason = "Existencias inválidas en '$code' ('$raw'): $detail"
+        override val reason = "Invalid stock in '$code' ('$raw'): $detail"
     }
 
     /**
@@ -88,7 +88,7 @@ sealed interface RowRejection {
         val raw: String,
     ) : RowRejection {
         override val reason =
-            "Identificador externo inválido en '$code' ('$raw'): debe ser numérico o venir vacío"
+            "Invalid external identifier in '$code' ('$raw'): it must be numeric or empty"
     }
 
     data class DuplicateCode(
@@ -97,7 +97,7 @@ sealed interface RowRejection {
         val firstSeenAtRow: Int,
     ) : RowRejection {
         override val reason =
-            "Código '$code' duplicado (ya apareció en la fila $firstSeenAtRow)"
+            "Code '$code' is duplicated (it already appeared in row $firstSeenAtRow)"
     }
 }
 
@@ -141,23 +141,23 @@ data class ImportReport(
 
     /** Informe legible, para presentarlo al negocio antes de importar. */
     fun render(): String = buildString {
-        appendLine("Informe de importación del catálogo${if (isDryRun) " (SIMULACIÓN)" else ""}")
+        appendLine("Catalog import report${if (isDryRun) " (DRY RUN)" else ""}")
         appendLine("─".repeat(58))
-        appendLine("Filas leídas:          $totalRows")
-        appendLine("Productos aceptados:   $acceptedCount")
-        appendLine("Filas rechazadas:      $rejectedCount")
-        appendLine("Existencias totales:   $totalStock")
-        appendLine("Productos en cero:     $zeroStockCount")
-        appendLine("Unidades de medida:    ${unitMeasures.joinToString(", ")}")
+        appendLine("Rows read:          $totalRows")
+        appendLine("Accepted products:     $acceptedCount")
+        appendLine("Rejected rows:          $rejectedCount")
+        appendLine("Total stock:            $totalStock")
+        appendLine("Products at zero:     $zeroStockCount")
+        appendLine("Units of measure:    ${unitMeasures.joinToString(", ")}")
         if (rejected.isNotEmpty()) {
             appendLine()
-            appendLine("Filas rechazadas (las primeras 20):")
+            appendLine("Rejected rows (first 20):")
             rejected.take(20).forEach { appendLine("  · fila ${it.rowNumber}: ${it.reason}") }
-            if (rejected.size > 20) appendLine("  … y ${rejected.size - 20} más")
+            if (rejected.size > 20) appendLine("  … and ${rejected.size - 20} more")
         }
         if (isDryRun) {
             appendLine()
-            appendLine("No se escribió nada: es una simulación.")
+            appendLine("Nothing was written: it is a simulation.")
         }
     }
 
@@ -174,13 +174,13 @@ data class ImportReport(
         expectedRejections: Int = 0,
     ): List<String> = buildList {
         if (acceptedCount != expectedProducts) {
-            add("Se esperaban $expectedProducts productos y se aceptaron $acceptedCount")
+            add("Expected $expectedProducts products and $acceptedCount were accepted")
         }
         if (totalStock != expectedTotalStock) {
-            add("Se esperaban $expectedTotalStock unidades y se obtuvieron $totalStock")
+            add("Expected $expectedTotalStock units and $totalStock were obtained")
         }
         if (rejectedCount != expectedRejections) {
-            add("Se esperaban $expectedRejections filas rechazadas y hubo $rejectedCount")
+            add("Expected $expectedRejections rejected rows and there were $rejectedCount")
         }
     }
 }
@@ -231,7 +231,7 @@ class CatalogImporter(
                 rejected += RowRejection.InvalidProductCode(
                     rowNumber = row.rowNumber,
                     code = row.productCode,
-                    detail = codeResult.exceptionOrNull()?.message ?: "formato inválido",
+                    detail = codeResult.exceptionOrNull()?.message ?: "invalid format",
                 )
                 return@forEach
             }
@@ -276,7 +276,7 @@ class CatalogImporter(
                     rowNumber = row.rowNumber,
                     code = code.value,
                     raw = row.stock,
-                    detail = stockResult.exceptionOrNull()?.message ?: "no es un número",
+                    detail = stockResult.exceptionOrNull()?.message ?: "is not a number",
                 )
                 return@forEach
             }
@@ -286,7 +286,7 @@ class CatalogImporter(
                     rowNumber = row.rowNumber,
                     code = code.value,
                     raw = row.stock,
-                    detail = "las existencias no pueden ser negativas",
+                    detail = "stock cannot be negative",
                 )
                 return@forEach
             }

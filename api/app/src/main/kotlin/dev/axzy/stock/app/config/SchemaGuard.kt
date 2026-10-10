@@ -20,12 +20,12 @@ class SchemaGuard {
     @Bean
     fun schemaVersion(probe: DatabaseProbe): SchemaVersion {
         val health = probe.probe()
-        check(health.up) { "No se puede conectar a la base de datos (${health.error}). Revisa STOCK_DB_URL y sus credenciales." }
+        check(health.up) { "Cannot connect to the database (${health.error}). Check STOCK_DB_URL and its credentials." }
 
         val applied = health.schemaVersion?.toIntOrNull()
-            ?: error("La base no tiene historial de migraciones. Ejecuta `docker compose up migrate` antes de arrancar la API.")
+            ?: error("The database has no migration history. Run `docker compose up migrate` before starting the API.")
         check(applied >= REQUIRED_SCHEMA_VERSION) {
-            "La base está en la migración V$applied y esta versión de la API necesita V$REQUIRED_SCHEMA_VERSION. " +
+            "The database is at migration V$applied and this version of the API needs V$REQUIRED_SCHEMA_VERSION. " +
                 "Ejecuta `docker compose up migrate`."
         }
         return SchemaVersion(applied)
@@ -36,6 +36,6 @@ class SchemaGuard {
          * La última migración de `db/migrations` que este código da por aplicada. Al añadir una
          * migración se sube aquí; una prueba comprueba que coincide con los archivos.
          */
-        const val REQUIRED_SCHEMA_VERSION = 15
+        const val REQUIRED_SCHEMA_VERSION = 17
     }
 }

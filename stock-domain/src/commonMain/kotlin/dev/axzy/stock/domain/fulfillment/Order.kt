@@ -135,13 +135,13 @@ data class OrderLine(
     fun packageQuantity(amount: Quantity): Either<DomainError, OrderLine> {
         if (status == OrderLineStatus.CANCELLED) {
             return DomainError.InvalidTransition(
-                entity = "Línea de orden",
+                entity = "Order line",
                 from = status.name,
                 action = "empacar",
             ).asLeft()
         }
         if (amount <= Quantity.ZERO) {
-            return DomainError.InvalidQuantity("La cantidad a empacar debe ser positiva.").asLeft()
+            return DomainError.InvalidQuantity("The quantity to pack must be positive.").asLeft()
         }
         // Se comprueba contra lo PENDIENTE y no contra `quantity`: empacar 7 de 10
         // dos veces sumaría 14. La base lo impide con un `CHECK`, pero aquí se
@@ -174,7 +174,7 @@ data class OrderLine(
     fun assign(userId: Long, locationId: Long?): Either<DomainError, OrderLine> {
         if (status != OrderLineStatus.PENDING && status != OrderLineStatus.ASSIGNED) {
             return DomainError.InvalidTransition(
-                entity = "Línea de orden",
+                entity = "Order line",
                 from = status.name,
                 action = "asignar",
             ).asLeft()

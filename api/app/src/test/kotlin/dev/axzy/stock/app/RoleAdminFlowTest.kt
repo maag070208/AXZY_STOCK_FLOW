@@ -55,7 +55,7 @@ class RoleAdminFlowTest : ApiTest() {
         val ajuste = post(
             "/v1/inventory/adjustments",
             mapOf(
-                "productCode" to "X", "locationCode" to "RECEPCION", "quantity" to 1,
+                "productCode" to "X", "locationCode" to "RECEIVING", "quantity" to 1,
                 "direction" to "DECREASE", "reason" to "COUNT_ERROR", "origin" to "MANUAL_COUNT",
             ),
             suyo,

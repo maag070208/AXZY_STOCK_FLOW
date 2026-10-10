@@ -165,7 +165,7 @@ class JdbcReportQueries(
     /**
      * La reconciliación: **solo los productos descuadrados**.
      *
-     * La comparación la hace la función de la base (`comprobar_proyecciones`), que es
+     * La comparación la hace la función de la base (`check_projections`), que es
      * la que conoce el ledger y la proyección; el servidor no recalcula el veredicto
      * en Kotlin, porque entonces habría dos verdades y el descuadre sería el de la
      * pantalla.
@@ -174,7 +174,7 @@ class JdbcReportQueries(
         query(
             """
             SELECT product_id, product_code, projected_total, ledger_total, difference
-            FROM comprobar_proyecciones() ORDER BY product_code
+            FROM check_projections() ORDER BY product_code
             """.trimIndent(),
             emptyMap(),
         ) { rs, _ ->

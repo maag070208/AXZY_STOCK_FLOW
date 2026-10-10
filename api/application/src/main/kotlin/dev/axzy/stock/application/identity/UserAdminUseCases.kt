@@ -183,7 +183,7 @@ class CreateUser(
             if (username.length > 80) {
                 return@authorizeOr failure(
                     FailureKind.RULE_VIOLATION, "FIELD_TOO_LONG",
-                    "El nombre de usuario no puede pasar de 80 caracteres.",
+                    "The username cannot exceed 80 characters.",
                     mapOf("field" to "username", "maxLength" to "80"),
                 )
             }
@@ -209,7 +209,7 @@ class CreateUser(
             if (store.usernameExists(username)) {
                 return@authorizeOr failure(
                     FailureKind.CONFLICT, "DUPLICATE_USERNAME",
-                    "Ya existe un usuario con el nombre '$username'.",
+                    "A user with the name '$username' already exists.",
                     mapOf("username" to username),
                 )
             }
@@ -253,7 +253,7 @@ class UpdateUser(
                 if (roles.isEmpty()) {
                     return@authorizeOr failure(
                         FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-                        "Un usuario sin roles no puede hacer nada: asigna al menos uno.",
+                        "A user with no roles can do nothing: assign at least one.",
                         mapOf("field" to "roles"),
                     )
                 }
@@ -353,7 +353,7 @@ private fun validateRoles(store: UserAdminStore, roles: List<String>): Outcome<U
     if (unknown.isNotEmpty()) {
         return failure(
             FailureKind.RULE_VIOLATION, "UNKNOWN_ROLE",
-            "Los roles ${unknown.joinToString(", ")} no existen.",
+            "Los roles ${unknown.joinToString(", ")} do not exist.",
             mapOf("roles" to unknown.joinToString(","), "allowed" to known.joinToString(",")),
         )
     }
@@ -362,13 +362,13 @@ private fun validateRoles(store: UserAdminStore, roles: List<String>): Outcome<U
 
 private fun fieldRequired(field: String): Outcome<Nothing> = failure(
     FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-    "Falta el campo '$field'.",
+    "The field '$field' is missing.",
     mapOf("field" to field),
 )
 
 private fun userNotFound(id: Long): Outcome<Nothing> = failure(
     FailureKind.NOT_FOUND, "USER_NOT_FOUND",
-    "No existe el usuario $id.",
+    "User $id does not exist.",
     mapOf("userId" to id.toString()),
 )
 

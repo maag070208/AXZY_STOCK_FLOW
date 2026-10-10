@@ -60,13 +60,13 @@ annotation class Auditable(
 /** Agrupación de las acciones auditables, para los reportes. */
 enum class AuditCategory(val displayName: String) {
     INVENTORY("inventario"),
-    RECEIVING("recepción"),
+    RECEIVING("receiving"),
     FULFILLMENT("surtido"),
     TRANSFER("transferencias"),
-    ACCESS_CONTROL("control de acceso"),
-    CATALOG("catálogo"),
+    ACCESS_CONTROL("access control"),
+    CATALOG("catalog"),
     LABELING("etiquetado"),
-    MIGRATION("migración"),
+    MIGRATION("migration"),
     DOMAIN("dominio"),
 }
 
@@ -89,14 +89,14 @@ data class AuditDeclaration(
     val reasonRequired: Boolean = false,
 ) {
     init {
-        require(action.isNotBlank()) { "La acción auditada no puede estar vacía: $useCase" }
-        require(entity.isNotBlank()) { "La entidad auditada no puede estar vacía: $useCase" }
+        require(action.isNotBlank()) { "The audited action cannot be empty: $useCase" }
+        require(entity.isNotBlank()) { "The audited entity cannot be empty: $useCase" }
         require(permission.isNotBlank()) {
-            "Un caso de uso auditable DEBE declarar su permiso: sin él no se puede " +
-                "responder 'con qué permiso se hizo'. Caso: $useCase"
+            "An auditable use case MUST declare its permission: without it, it cannot " +
+                "answer 'with which permission was it done'. Case: $useCase"
         }
         require(entity == entity.lowercase()) {
-            "El tipo de entidad debe ser minúsculas y singular: '$entity' en $useCase"
+            "The entity type must be lowercase and singular: '$entity' in $useCase"
         }
     }
 

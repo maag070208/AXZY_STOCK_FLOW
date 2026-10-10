@@ -50,11 +50,11 @@ class RoutePermissionAudit(private val mapping: RequestMappingHandlerMapping) {
         }
 
         check(undeclared.isEmpty()) {
-            "Rutas sin declarar qué exigen (I5). Añade @RequiresPermission, @AuthenticatedOnly, " +
-                "@PublicRoute o @ServiceKeyOnly: ${undeclared.sorted().joinToString(", ")}"
+            "Routes without a declared requirement (I5). Add @RequiresPermission, @AuthenticatedOnly, " +
+                "@PublicRoute or @ServiceKeyOnly: ${undeclared.sorted().joinToString(", ")}"
         }
         check(unknown.isEmpty()) {
-            "Rutas que declaran un permiso que no existe en el catálogo: ${unknown.sorted().joinToString(", ")}"
+            "Routes that declare a permission that does not exist in the catalog: ${unknown.sorted().joinToString(", ")}"
         }
     }
 }

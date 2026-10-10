@@ -57,7 +57,7 @@ class JdbcWarehouses(private val jdbc: JdbcClient) : Warehouses {
                 "isDefault" to newWarehouse.isDefault,
             ),
         ) { rs, _ -> rs.getLong("id") }.single()
-        return requireNotNull(findById(id)) { "La bodega recién insertada $id no se pudo leer" }
+        return requireNotNull(findById(id)) { "The newly inserted warehouse $id could not be read back" }
     }
 
     override fun update(warehouse: Warehouse): Warehouse {
@@ -76,7 +76,7 @@ class JdbcWarehouses(private val jdbc: JdbcClient) : Warehouses {
                 "isDefault" to warehouse.isDefault,
             ),
         ) { rs, _ -> rs.getLong("id") }.single()
-        return requireNotNull(findById(warehouse.id)) { "La bodega ${warehouse.id} no se pudo leer tras actualizarla" }
+        return requireNotNull(findById(warehouse.id)) { "Warehouse ${warehouse.id} could not be read back after updating it" }
     }
 
     override fun clearDefault() {

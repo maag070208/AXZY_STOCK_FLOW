@@ -2,7 +2,9 @@ import { ITAlert, ITButton, ITDialog, ITFlex, ITInput, ITSelect, ITText } from "
 import { useEffect, useState, type FormEvent } from "react";
 import type { DecisionBody } from "@entities/receiving";
 import { ADJUSTMENT_REASONS } from "@shared/lib/adjustmentReasons";
-import { ApiError } from "@shared/api/types";
+
+import i18n from "@shared/i18n";
+import { describeError } from "@shared/api/errorMessage";
 
 interface Props {
   open: boolean;
@@ -35,7 +37,7 @@ export default function DecisionDialog({ open, title, description, confirmLabel,
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (reason === "") {
-      setError("Elige un motivo.");
+      setError(i18n.t("receiving.chooseReasonDot"));
       return;
     }
 
@@ -44,7 +46,7 @@ export default function DecisionDialog({ open, title, description, confirmLabel,
     try {
       await onSubmit({ adjustmentReason: reason, ...(note.trim() === "" ? {} : { note: note.trim() }) });
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "No se pudo registrar la decisión.");
+      setError(describeError(caught, "receiving.decisionFailedDot"));
     } finally {
       setBusy(false);
     }
@@ -57,19 +59,19 @@ export default function DecisionDialog({ open, title, description, confirmLabel,
           <ITText muted className="text-sm">{description}</ITText>
           <ITSelect
             name="adjustmentReason"
-            label="Motivo"
-            placeholder="Elige un motivo"
+            label={i18n.t("common.reason")}
+            placeholder={i18n.t("receiving.chooseReason")}
             value={reason}
             options={ADJUSTMENT_REASONS.map((r) => ({ value: r.value, label: r.label }))}
             onChange={(event) => setReason(event.target.value)}
           />
-          <ITInput name="note" label="Nota (opcional)" value={note} onChange={(event) => setNote(event.target.value)} maxLength={500} />
+          <ITInput name="note" label={i18n.t("common.noteOptional")} value={note} onChange={(event) => setNote(event.target.value)} maxLength={500} />
 
-          {error && <ITAlert variant="error" title="No se pudo registrar la decisión">{error}</ITAlert>}
+          {error && <ITAlert variant="error" title={i18n.t("receiving.decisionFailed")}>{error}</ITAlert>}
 
           <ITFlex justify="end" gap={2}>
-            <ITButton label="Cancelar" variant="outline" onClick={onClose} disabled={busy} />
-            <ITButton type="submit" label={busy ? "Registrando…" : confirmLabel} color="primary" disabled={busy} />
+            <ITButton label={i18n.t("common.cancel")} variant="outline" onClick={onClose} disabled={busy} />
+            <ITButton type="submit" label={busy ? i18n.t("common.recording") : confirmLabel} color="primary" disabled={busy} />
           </ITFlex>
         </ITFlex>
       </form>

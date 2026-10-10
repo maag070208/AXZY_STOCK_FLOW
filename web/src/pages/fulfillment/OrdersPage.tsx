@@ -5,6 +5,8 @@ import { fulfillmentApi, type OrderHeader } from "@entities/fulfillment";
 import { useDebouncedValue } from "@shared/lib/useDebouncedValue";
 import { DataTable } from "@shared/ui/data-table/DataTable";
 import { Page } from "@shared/ui/page/Page";
+import { FaTruck } from "react-icons/fa";
+import i18n from "@shared/i18n";
 
 /**
  * Surtido: las órdenes y su estado de exportación. Sin ERP conectado, el intento sale `FAILED` con
@@ -17,18 +19,18 @@ export default function OrdersPage() {
   const externalFilters = useMemo(() => (q ? { q } : undefined), [q]);
 
   const columns: Column<OrderHeader>[] = [
-    { key: "orderNumber", label: "Orden", type: "string" },
-    { key: "status", label: "Estado", type: "string" },
-    { key: "totalLines", label: "Líneas", type: "number" },
-    { key: "packagedLines", label: "Empacadas", type: "number" },
+    { key: "orderNumber", label: i18n.t("fulfillment.order"), type: "string" },
+    { key: "status", label: i18n.t("common.status"), type: "string" },
+    { key: "totalLines", label: i18n.t("receiving.lines"), type: "number" },
+    { key: "packagedLines", label: i18n.t("fulfillment.packed"), type: "number" },
     {
       key: "exportStatus",
-      label: "Exportación",
+      label: i18n.t("fulfillment.export"),
       type: "string",
       render: (row) =>
         row.exportStatus ? (
           <ITBadget
-            label={row.exportStatus === "FAILED" ? `Fallida · ${row.exportAttempts}` : row.exportStatus}
+            label={row.exportStatus === "FAILED" ? i18n.t("fulfillment.failedAttempts", { attempts: row.exportAttempts }) : row.exportStatus}
             color={row.exportStatus === "SENT" ? "success" : row.exportStatus === "FAILED" ? "danger" : "secondary"}
             size="sm"
           />
@@ -36,13 +38,13 @@ export default function OrdersPage() {
           "—"
         ),
     },
-    { key: "exportLastError", label: "Motivo del fallo", type: "string", render: (row) => row.exportLastError ?? "—" },
+    { key: "exportLastError", label: i18n.t("fulfillment.failureReason"), type: "string", render: (row) => row.exportLastError ?? "—" },
   ];
 
   return (
-    <Page title="Surtido" description="Órdenes, su empaque y su exportación al ERP." breadcrumbs={[{ label: "Inicio", href: "#/" }, { label: "Surtido" }]}>
+    <Page icon={<FaTruck size={18} />} title={i18n.t("nav.fulfillment")} description={i18n.t("fulfillment.ordersDescription")} breadcrumbs={[{ label: i18n.t("nav.home"), href: "#/" }, { label: i18n.t("nav.fulfillment") }]}>
       <div className="mb-3 w-72">
-        <ITInput size="sm" name="q" label="Buscar orden" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <ITInput size="sm" name="q" label={i18n.t("fulfillment.searchOrder")} value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
       <DataTable<OrderHeader>
         columns={columns}

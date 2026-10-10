@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import type { AppDispatch, RootState } from "@app/store";
 import { changePasswordThunk, logout } from "@entities/session";
 import { showToast } from "@app/toast/toast.slice";
+import i18n from "@shared/i18n";
 
 /**
  * Cambio de contraseña, obligatorio la primera vez.
@@ -34,7 +35,7 @@ export default function ChangePasswordForm() {
     // de la contraseña la aplica la API (`WEAK_PASSWORD`), y duplicarla aquí
     // garantizaría que las dos se separen con el tiempo.
     if (newPassword !== repeat) {
-      setError("Las dos contraseñas no coinciden.");
+      setError(i18n.t("auth.passwordsDoNotMatch"));
       return;
     }
 
@@ -43,11 +44,11 @@ export default function ChangePasswordForm() {
     setSending(false);
 
     if (changePasswordThunk.rejected.match(result)) {
-      setError(result.payload?.message ?? "No se pudo cambiar la contraseña.");
+      setError(result.payload?.message ?? i18n.t("auth.changePasswordFailed"));
       return;
     }
 
-    dispatch(showToast("Contraseña cambiada. Vuelve a entrar con la nueva.", "success"));
+    dispatch(showToast(i18n.t("auth.passwordChanged"), "success"));
     dispatch(logout());
     navigate("/login", { replace: true });
   };
@@ -56,14 +57,14 @@ export default function ChangePasswordForm() {
     <form onSubmit={submit} className="w-full">
       <ITFlex direction="column" gap={4}>
         {user?.mustChangePassword && (
-          <ITAlert variant="warning" title="Contraseña temporal">
+          <ITAlert variant="warning" title={i18n.t("auth.temporaryPassword")}>
             Tu contraseña es temporal. Cámbiala para poder usar el sistema.
           </ITAlert>
         )}
 
         <ITInput
           name="currentPassword"
-          label="Contraseña actual"
+          label={i18n.t("auth.currentPassword")}
           type="password"
           value={currentPassword}
           onChange={(event) => setCurrentPassword(event.target.value)}
@@ -72,7 +73,7 @@ export default function ChangePasswordForm() {
         />
         <ITInput
           name="newPassword"
-          label="Contraseña nueva"
+          label={i18n.t("auth.newPassword")}
           type="password"
           value={newPassword}
           onChange={(event) => setNewPassword(event.target.value)}
@@ -80,18 +81,18 @@ export default function ChangePasswordForm() {
         />
         <ITInput
           name="repeat"
-          label="Repite la contraseña nueva"
+          label={i18n.t("auth.repeatNewPassword")}
           type="password"
           value={repeat}
           onChange={(event) => setRepeat(event.target.value)}
           required
         />
 
-        {error && <ITAlert variant="error" title="No se pudo cambiar">{error}</ITAlert>}
+        {error && <ITAlert variant="error" title={i18n.t("auth.changePasswordFailedShort")}>{error}</ITAlert>}
 
         <ITButton
           type="submit"
-          label={sending ? "Cambiando…" : "Cambiar contraseña"}
+          label={sending ? i18n.t("auth.changing") : i18n.t("common.changePassword")}
           color="primary"
           disabled={sending}
         />

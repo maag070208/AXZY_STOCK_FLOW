@@ -72,7 +72,7 @@ class CreateLocation(
 ) {
     fun execute(actor: Actor, body: LocationInput, origin: RequestOrigin): Outcome<LocationView> {
         val warehouseId = body.warehouseId
-            ?: return failure(FailureKind.RULE_VIOLATION, "FIELD_REQUIRED", "La bodega es obligatoria.")
+            ?: return failure(FailureKind.RULE_VIOLATION, "FIELD_REQUIRED", "The warehouse is required.")
 
         return access.authorizeOr(
             actor, "location.create", origin,

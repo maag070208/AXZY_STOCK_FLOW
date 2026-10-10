@@ -72,7 +72,7 @@ inline fun <E, A> Either<E, A>.onLeft(action: (E) -> Unit): Either<E, A> {
 fun <E, A> Either<E, A>.getOrThrow(): A = when (this) {
     is Either.Right -> value
     is Either.Left -> throw IllegalStateException(
-        "Se esperaba un resultado exitoso pero se obtuvo: $error"
+        "Expected a successful result but got: $error"
     )
 }
 

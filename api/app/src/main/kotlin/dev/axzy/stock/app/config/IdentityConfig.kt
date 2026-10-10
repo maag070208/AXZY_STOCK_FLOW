@@ -74,10 +74,10 @@ class IdentityConfig {
     ): AccessEngine {
         val result = tx.inTransaction { bootstrap.execute().asRight() }.getOrNull()!!
         log.info(
-            "Catálogo de acceso sincronizado: {} permisos, {} roles y {} celdas nuevas; matriz v{}, políticas v{}{}",
+            "Access catalog synchronized: {} permissions, {} roles and {} new cells; matrix v{}, policies v{}{}",
             result.permissionsSynced, result.rolesCreated, result.grantsCreated,
             result.versions.matrix, result.versions.policies,
-            if (result.adminCreated) "; se creó el primer administrador '${properties.admin.username}'" else "",
+            if (result.adminCreated) "; the first administrator '${properties.admin.username}' was created" else "",
         )
         return AccessEngine(
             policies = StockPolicies.all,

@@ -78,7 +78,7 @@ class ConfirmPrintJob(
         if (newStatus != PRINTED && newStatus != FAILED) {
             return failure(
                 FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
-                "El estado tiene que ser PRINTED o FAILED.",
+                "The status must be PRINTED or FAILED.",
                 mapOf("field" to "status", "allowed" to "$PRINTED,$FAILED"),
             )
         }
@@ -89,13 +89,13 @@ class ConfirmPrintJob(
             val affected = if (newStatus == PRINTED) {
                 jobs.markPrinted(jobId, at)
             } else {
-                jobs.markFailed(jobId, error?.take(500) ?: "La impresora reportó un fallo sin detalle", at)
+                jobs.markFailed(jobId, error?.take(500) ?: "The printer reported a failure without details", at)
             }
             if (affected == 0) {
                 // Ya estaba impresa: el reintento de la impresora no imprime dos veces.
                 return@inTransaction failure(
                     FailureKind.CONFLICT, "LABEL_ALREADY_PRINTED",
-                    "El trabajo $jobId ya estaba marcado como impreso.",
+                    "Job $jobId was already marked as printed.",
                     mapOf("jobId" to jobId.toString(), "status" to job.status),
                 )
             }
@@ -110,7 +110,7 @@ class ConfirmPrintJob(
              */
             audit.record(
                 auditEvents.byActor(
-                    actor = AuditActor.system("Confirmación de la impresora '${identity.name}'"),
+                    actor = AuditActor.system("Printer confirmation '${identity.name}'"),
                     origin = origin.copy(channel = AuditChannel.SERVICE_PRINTER),
                     action = if (newStatus == PRINTED) "PRINT_JOB_PRINTED" else "PRINT_JOB_FAILED",
                     level = AuditLevel.RELEVANT,
@@ -128,13 +128,13 @@ class ConfirmPrintJob(
 /** La credencial no vale: `401` y ni una pista de qué identificadores existen. */
 private fun invalidServiceKey(): Outcome<Nothing> = failure(
     FailureKind.UNAUTHENTICATED, "INVALID_SERVICE_KEY",
-    "La credencial de servicio falta, no es válida o está revocada.",
+    "The service credential is missing, not valid or revoked.",
     mapOf("header" to "X-Service-Key"),
 )
 
 private fun jobNotFound(id: Long): Outcome<Nothing> = failure(
     FailureKind.NOT_FOUND, "PRINT_JOB_NOT_FOUND",
-    "No existe el trabajo de impresión $id.",
+    "Print job $id does not exist.",
     mapOf("jobId" to id.toString()),
 )
 

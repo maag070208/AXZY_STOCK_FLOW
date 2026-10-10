@@ -10,8 +10,8 @@ import java.time.Instant
 /**
  * Los puertos de traslados (M05, docs/api/traslados.md).
  *
- * **El movimiento lo hace el motor SQL** (`despachar_traslado`, `recibir_traslado`,
- * `cancelar_traslado`, migración V13). Este puerto solo lo llama y lee: si el
+ * **El movimiento lo hace el motor SQL** (`dispatch_transfer`, `receive_transfer`,
+ * `cancel_transfer`, migración V13). Este puerto solo lo llama y lee: si el
  * adaptador moviera el saldo a mano sería la segunda ruta de escritura al inventario
  * que el plan prohíbe.
  */
@@ -141,6 +141,6 @@ interface TransferCatalog {
 internal fun transferNotFound(transferId: Long): dev.axzy.stock.application.shared.Outcome<Nothing> =
     dev.axzy.stock.application.shared.failure(
         dev.axzy.stock.application.shared.FailureKind.NOT_FOUND, "TRANSFER_NOT_FOUND",
-        "No existe el traslado $transferId.",
+        "Transfer $transferId does not exist.",
         mapOf("transferId" to transferId.toString()),
     )

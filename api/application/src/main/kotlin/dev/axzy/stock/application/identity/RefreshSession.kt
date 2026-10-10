@@ -41,7 +41,7 @@ class RefreshSession(
     private val policy: SessionPolicy,
 ) {
     fun execute(rawToken: String, origin: RequestOrigin): Outcome<AuthSession> {
-        val token = RefreshToken.of(rawToken) ?: return invalid("El token de refresco no es válido.")
+        val token = RefreshToken.of(rawToken) ?: return invalid("The refresh token is not valid.")
         val hash = codec.hash(token.value)
         val now = clock.instant()
         var reused: StoredRefreshToken? = null
@@ -53,18 +53,18 @@ class RefreshSession(
                     reused = stored
                     failure(
                         FailureKind.UNAUTHENTICATED, "TOKEN_REUSED",
-                        "La sesión se cerró por seguridad: se detectó un uso duplicado del token. Vuelve a iniciar sesión.",
+                        "The session was closed for security: a duplicate use of the token was detected. Sign in again.",
                     )
                 }
-                is RefreshDecision.Unknown -> invalid("El token de refresco no es válido.")
-                is RefreshDecision.Revoked -> invalid("La sesión ya se cerró. Vuelve a iniciar sesión.")
-                is RefreshDecision.Expired -> invalid("La sesión expiró. Vuelve a iniciar sesión.")
+                is RefreshDecision.Unknown -> invalid("The refresh token is not valid.")
+                is RefreshDecision.Revoked -> invalid("The session is already closed. Sign in again.")
+                is RefreshDecision.Expired -> invalid("The session expired. Sign in again.")
                 is RefreshDecision.Rotate -> {
                     val record = stored!!
                     val snapshot = users.loadActor(record.userId)
-                        ?: return@inTransaction failure(FailureKind.UNAUTHENTICATED, "UNAUTHENTICATED", "El usuario ya no existe.")
+                        ?: return@inTransaction failure(FailureKind.UNAUTHENTICATED, "UNAUTHENTICATED", "The user no longer exists.")
                     if (!snapshot.actor.user.active) {
-                        return@inTransaction failure(FailureKind.UNAUTHENTICATED, "ACCOUNT_DISABLED", "La cuenta está desactivada.")
+                        return@inTransaction failure(FailureKind.UNAUTHENTICATED, "ACCOUNT_DISABLED", "The account is disabled.")
                     }
                     val issued = sessions.issue(
                         account = snapshot,

@@ -43,7 +43,7 @@ object InventoryFilters {
             onFailure = {
                 failure(
                     FailureKind.INVALID_REQUEST, "INVALID_PRODUCT_CODE",
-                    "El código de producto '$raw' no cumple el formato.",
+                    "The product code '$raw' does not match the format.",
                     mapOf("productCode" to raw),
                 )
             },
@@ -55,7 +55,7 @@ object InventoryFilters {
         val ref = LocationRef.parse(raw)
             ?: return failure(
                 FailureKind.INVALID_REQUEST, "INVALID_LOCATION_CODE",
-                "El código de ubicación '$raw' no tiene forma de ubicación (por ejemplo 04-B-C o RECEPCION).",
+                "The location code '$raw' is not a location format (for example 04-B-C or RECEIVING).",
                 mapOf("locationCode" to raw),
             )
         return ref.asRight()
@@ -75,7 +75,7 @@ object InventoryFilters {
         } catch (_: DateTimeParseException) {
             failure(
                 FailureKind.INVALID_REQUEST, "INVALID_FILTER_DATE",
-                "La fecha '$raw' no es ISO (AAAA-MM-DD).",
+                "The date '$raw' is not ISO (YYYY-MM-DD).",
                 mapOf(field to raw),
             )
         }
@@ -87,7 +87,7 @@ object InventoryFilters {
         val type = MovementType.entries.firstOrNull { it.name == value }
             ?: return failure(
                 FailureKind.INVALID_REQUEST, "INVALID_FILTER",
-                "Tipo de movimiento desconocido. Se admiten: ${MovementType.entries.joinToString(", ") { it.name }}.",
+                "Unknown movement type. Allowed: ${MovementType.entries.joinToString(", ") { it.name }}.",
                 mapOf("moveType" to raw),
             )
         return type.asRight()
@@ -98,7 +98,7 @@ object InventoryFilters {
         if (from != null && to != null && from > to) {
             failure(
                 FailureKind.INVALID_REQUEST, "INVALID_FILTER_RANGE",
-                "El rango está invertido: desde $from hasta $to.",
+                "The range is inverted: from $from to $to.",
                 mapOf("from" to from.toString(), "to" to to.toString()),
             )
         } else {

@@ -24,12 +24,12 @@ package dev.axzy.stock.domain.identity
 
 /** Por qué se rechaza una contraseña. */
 enum class PasswordRejection(val message: String) {
-    TOO_SHORT("La contraseña debe tener al menos 12 caracteres"),
-    TOO_LONG("La contraseña no puede superar los 128 caracteres"),
-    ONLY_WHITESPACE("La contraseña no puede ser solo espacios"),
-    COMMON("Esa contraseña aparece en las listas de contraseñas filtradas más usadas"),
-    CONTAINS_USERNAME("La contraseña no puede contener el nombre de usuario"),
-    TOO_SIMPLE("La contraseña debe combinar letras y números, o ser una frase larga"),
+    TOO_SHORT("The password must be at least 12 characters"),
+    TOO_LONG("The password cannot exceed 128 characters"),
+    ONLY_WHITESPACE("The password cannot be only spaces"),
+    COMMON("That password appears in the most commonly leaked password lists"),
+    CONTAINS_USERNAME("The password cannot contain the username"),
+    TOO_SIMPLE("The password must combine letters and numbers, or be a long passphrase"),
 }
 
 /** Resultado de validar una contraseña. */
@@ -73,7 +73,7 @@ object PasswordPolicy {
      * nombre del dominio del que viene este sistema.
      */
     val COMMON = setOf(
-        "password", "password1", "password123", "contrasena", "contraseña",
+        "password", "password1", "password123", "contrasena", "password",
         "123456789012", "1234567890", "qwertyuiop", "administrador",
         "admin12345", "admin123456", "administrator", "bienvenido", "bienvenido1",
         "puertonuevo", "axzy123456", "stock123456", "almacen12345",
@@ -146,7 +146,7 @@ object PasswordPolicy {
 
     /** Mensaje legible con todos los motivos del rechazo. */
     fun explain(validation: PasswordValidation): String = when (validation) {
-        is PasswordValidation.Valid -> "La contraseña cumple los requisitos"
+        is PasswordValidation.Valid -> "The password meets the requirements"
         is PasswordValidation.Invalid ->
             validation.rejections.joinToString(". ") { it.message }
     }

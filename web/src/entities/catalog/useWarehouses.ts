@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ApiError } from "@shared/api/types";
 import { catalogApi } from "./api";
 import type { Warehouse } from "./model";
+import { describeError } from "@shared/api/errorMessage";
 
 interface WarehousesState {
   items: Warehouse[];
@@ -28,7 +29,7 @@ export function useWarehouses(): WarehousesState {
         if (alive) setState({ items: response.items, loading: false, error: null });
       })
       .catch((error: ApiError) => {
-        if (alive) setState({ items: [], loading: false, error: error.message });
+        if (alive) setState({ items: [], loading: false, error: describeError(error, "errors.unexpected") });
       });
     return () => {
       alive = false;

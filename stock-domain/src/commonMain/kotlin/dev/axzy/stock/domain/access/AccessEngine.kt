@@ -26,7 +26,7 @@ package dev.axzy.stock.domain.access
  * El usuario, con su información de acceso.
  *
  * Nótese que las **bodegas del alcance `AREA` son del usuario, no del rol**.
- * Es lo que permite que un solo rol `JEFE_BODEGA` sirva para cualquier bodega,
+ * Es lo que permite que un solo rol `WAREHOUSE_MANAGER` sirva para cualquier bodega,
  * en lugar de crear un rol por bodega.
  */
 data class AccessUser(
@@ -224,7 +224,7 @@ class AccessEngine(
      *
      *  1. **Identidad** — ¿existe el usuario y está activo? Si no, se corta aquí.
      *  2. **RBAC** — ¿tiene el permiso, y con alcance suficiente **para este
-     *     recurso**? Un `JEFE_BODEGA` con alcance `AREA` no alcanza una bodega
+     *     recurso**? Un `WAREHOUSE_MANAGER` con alcance `AREA` no alcanza una bodega
      *     que no es suya.
      *  3. **ABAC** — ¿las condiciones se cumplen? Con `DENY` ganando siempre y
      *     `DEFAULT DENY` si hay políticas aplicables y ninguna permite.
@@ -242,10 +242,10 @@ class AccessEngine(
         // el middleware, así que desactivar a alguien no invalidaba su token
         // hasta 24 horas (hallazgo S3).
         if (user == null) {
-            return AccessDecision.NotAuthenticated("Usuario no autenticado", matrixVersion, policiesVersion)
+            return AccessDecision.NotAuthenticated("User not authenticated", matrixVersion, policiesVersion)
         }
         if (!user.active) {
-            return AccessDecision.NotAuthenticated("La cuenta está desactivada", matrixVersion, policiesVersion)
+            return AccessDecision.NotAuthenticated("The account is disabled", matrixVersion, policiesVersion)
         }
 
         val permission = PermissionCatalog.find(permissionKey)
@@ -306,7 +306,7 @@ class AccessEngine(
         // Sin esta comprobación, `AREA` sería equivalente a `ALL` y el modelo de
         // permisos multi-bodega no serviría para nada: un jefe de bodega podría
         // operar en cualquier bodega. Es la comprobación que hace que un solo
-        // rol `JEFE_BODEGA` sirva para todas las bodegas sin crear un rol por
+        // rol `WAREHOUSE_MANAGER` sirva para todas las bodegas sin crear un rol por
         // cada una.
         //
         // Es el hallazgo S7 del legacy: allí la autorización fallaba con 401 en

@@ -39,7 +39,7 @@ sealed interface DomainError {
         val entity: String,
         val from: String,
         val action: String,
-        override val message: String = "No se puede '$action' desde el estado '$from'",
+        override val message: String = "Cannot '$action' from status '$from'",
     ) : DomainError {
         override val code = "INVALID_TRANSITION"
     }
@@ -51,7 +51,7 @@ sealed interface DomainError {
         val requested: Long,
         val available: Long,
         override val message: String =
-            "La cantidad solicitada excede lo disponible en la línea",
+            "The requested quantity exceeds what is available on the line",
     ) : DomainError {
         override val code = "EXCEEDS_LINE_QUANTITY"
     }
@@ -65,8 +65,8 @@ sealed interface DomainError {
         val unitsPerBox: Long,
         val remainder: Long,
         override val message: String =
-            "La cantidad no es divisible entre las unidades por caja: " +
-                "quedaría un remanente de $remainder",
+            "The quantity is not divisible by units per box: " +
+                "a remainder of $remainder would be left",
     ) : DomainError {
         override val code = "BOXES_DO_NOT_DIVIDE_EVENLY"
     }
@@ -80,7 +80,7 @@ sealed interface DomainError {
         val boxes: Long,
         val unitsPerBox: Long,
         override val message: String =
-            "$boxes caja(s) de $unitsPerBox no caben en $quantity unidades",
+            "$boxes box(es) of $unitsPerBox do not fit in $quantity units",
     ) : DomainError {
         override val code = "INCONSISTENT_BOX_COUNT"
     }
@@ -104,8 +104,8 @@ sealed interface DomainError {
     data class DiscrepancyNotApproved(
         val difference: Long,
         override val message: String =
-            "La línea tiene una diferencia de $difference unidades sin aprobar. " +
-                "Un supervisor debe autorizarla antes de ubicar la mercancía.",
+            "The line has a difference of $difference unapproved units. " +
+                "A supervisor must authorize it before the goods are located.",
     ) : DomainError {
         override val code = "DISCREPANCY_NOT_APPROVED"
     }
@@ -118,8 +118,8 @@ sealed interface DomainError {
      */
     data class SegregationOfDuties(
         override val message: String =
-            "No puedes aprobar una discrepancia que tú mismo capturaste. " +
-                "Requiere la autorización de otra persona.",
+            "You cannot approve a discrepancy you counted yourself. " +
+                "Requires another person's authorization.",
     ) : DomainError {
         override val code = "SEGREGATION_OF_DUTIES"
     }
@@ -128,7 +128,7 @@ sealed interface DomainError {
     data class NotPendingApproval(
         val currentStatus: String,
         override val message: String =
-            "La línea no está pendiente de aprobación (estado actual: $currentStatus)",
+            "The line is not awaiting approval (current status: $currentStatus)",
     ) : DomainError {
         override val code = "NOT_PENDING_APPROVAL"
     }
@@ -136,7 +136,7 @@ sealed interface DomainError {
     /** Se exige un motivo y no se proporcionó (invariante I6). */
     data class ReasonRequired(
         val context: String,
-        override val message: String = "Se requiere un motivo para $context",
+        override val message: String = "A reason is required for $context",
     ) : DomainError {
         override val code = "REASON_REQUIRED"
     }
@@ -149,7 +149,7 @@ sealed interface DomainError {
         val requested: Long,
         val location: String,
         override val message: String =
-            "Stock insuficiente en $location: hay $available y se piden $requested",
+            "Insufficient stock at $location: there are $available and $requested are requested",
     ) : DomainError {
         override val code = "INSUFFICIENT_STOCK"
     }
@@ -160,7 +160,7 @@ sealed interface DomainError {
      */
     data class SameSourceAndDestination(
         val location: String,
-        override val message: String = "El origen y el destino no pueden ser la misma ubicación",
+        override val message: String = "The source and destination cannot be the same location",
     ) : DomainError {
         override val code = "SAME_SOURCE_AND_DESTINATION"
     }
@@ -171,7 +171,7 @@ sealed interface DomainError {
     data class HasPendingLines(
         val pendingCount: Int,
         override val message: String =
-            "El documento tiene $pendingCount línea(s) sin resolver y no se puede cerrar",
+            "The document has $pendingCount unresolved line(s) and cannot be closed",
     ) : DomainError {
         override val code = "HAS_PENDING_LINES"
     }
@@ -182,8 +182,8 @@ sealed interface DomainError {
      */
     data class CannotDeleteWithInventoryEffect(
         override val message: String =
-            "Este documento afecta al inventario y no se puede eliminar: " +
-                "debe anularse con un movimiento compensatorio.",
+            "This document affects inventory and cannot be deleted: " +
+                "must be voided with a compensating movement.",
     ) : DomainError {
         override val code = "CANNOT_DELETE_WITH_INVENTORY_EFFECT"
     }
@@ -192,7 +192,7 @@ sealed interface DomainError {
     data class Duplicate(
         val entity: String,
         val value: String,
-        override val message: String = "Ya existe $entity con el valor '$value'",
+        override val message: String = "$entity with value '$value' already exists",
     ) : DomainError {
         override val code = "DUPLICATE"
     }
@@ -201,7 +201,7 @@ sealed interface DomainError {
     data class NotFound(
         val entity: String,
         val id: String,
-        override val message: String = "No se encontró $entity con id '$id'",
+        override val message: String = "No $entity found with id '$id'",
     ) : DomainError {
         override val code = "NOT_FOUND"
     }
@@ -211,7 +211,7 @@ sealed interface DomainError {
     /** RBAC no alcanza: el usuario no tiene el permiso. */
     data class PermissionDenied(
         val permission: String,
-        override val message: String = "No tienes permiso para esta acción",
+        override val message: String = "You do not have permission for this action",
     ) : DomainError {
         override val code = "PERMISSION_DENIED"
     }
@@ -221,7 +221,7 @@ sealed interface DomainError {
         val permission: String,
         val scope: String,
         override val message: String =
-            "No tienes permiso sobre este recurso (alcance: $scope)",
+            "You do not have permission over this resource (scope: $scope)",
     ) : DomainError {
         override val code = "SCOPE_INSUFFICIENT"
     }
@@ -229,7 +229,7 @@ sealed interface DomainError {
     /** Una política ABAC denegó la acción. */
     data class PolicyDenied(
         val policyName: String,
-        override val message: String = "Denegado por la política '$policyName'",
+        override val message: String = "Denied by policy '$policyName'",
     ) : DomainError {
         override val code = "POLICY_DENIED"
     }
@@ -239,7 +239,7 @@ sealed interface DomainError {
      * Es lo que hace que ABAC suba el listón en lugar de bajarlo.
      */
     data class PolicyRequired(
-        override val message: String = "Esta acción requiere autorización específica",
+        override val message: String = "This action requires specific authorization",
     ) : DomainError {
         override val code = "POLICY_REQUIRED"
     }
@@ -261,7 +261,7 @@ sealed interface DomainError {
      */
     data class SameWarehouse(
         override val message: String =
-            "El traslado debe ir a una bodega distinta de la de origen.",
+            "The transfer must go to a warehouse other than the origin.",
     ) : DomainError {
         override val code = "SAME_WAREHOUSE"
     }
@@ -274,7 +274,7 @@ sealed interface DomainError {
      * se puede cerrar de forma útil.
      */
     data class EmptyTransfer(
-        override val message: String = "El traslado no tiene ninguna línea.",
+        override val message: String = "The transfer has no lines.",
     ) : DomainError {
         override val code = "EMPTY_TRANSFER"
     }
@@ -292,7 +292,7 @@ sealed interface DomainError {
         val orderNumber: String,
         override val message: String =
             "La orden $orderNumber ya estaba confirmada. Confirmarla otra vez " +
-                "descontaría el stock dos veces.",
+                "would deduct the stock twice.",
     ) : DomainError {
         override val code = "ORDER_ALREADY_CONFIRMED"
     }
@@ -306,7 +306,7 @@ sealed interface DomainError {
     data class OrderNotConverted(
         val orderNumber: String,
         override val message: String =
-            "La orden $orderNumber no está confirmada: no hay nada que exportar.",
+            "Order $orderNumber is not confirmed: there is nothing to export.",
     ) : DomainError {
         override val code = "ORDER_NOT_CONVERTED"
     }
@@ -322,8 +322,8 @@ sealed interface DomainError {
         val requested: Long,
         val pending: Long,
         override val message: String =
-            "Se intentaron surtir $requested unidades y solo quedan $pending pendientes " +
-                "en la línea.",
+            "Attempted to fulfill $requested units and only $pending remain pending " +
+                "on the line.",
     ) : DomainError {
         override val code = "EXCEEDS_PENDING_QUANTITY"
     }
@@ -341,8 +341,8 @@ sealed interface DomainError {
     data class MissingLabelField(
         val fields: List<String>,
         override val message: String =
-            "Faltan datos para la etiqueta: ${fields.joinToString(", ")}. " +
-                "La plantilla los necesita y no se imprimen etiquetas incompletas.",
+            "Missing data for the label: ${fields.joinToString(", ")}. " +
+                "The template needs them, and incomplete labels are not printed.",
     ) : DomainError {
         override val code = "MISSING_LABEL_FIELD"
     }
@@ -357,8 +357,8 @@ sealed interface DomainError {
     data class LabelAlreadyPrinted(
         val jobId: Long,
         override val message: String =
-            "El trabajo de impresión $jobId ya está marcado como impreso; " +
-                "un reintento no debe imprimir dos veces.",
+            "Print job $jobId is already marked as printed; " +
+                "a retry must not print twice.",
     ) : DomainError {
         override val code = "LABEL_ALREADY_PRINTED"
     }
@@ -373,7 +373,7 @@ sealed interface DomainError {
     data class InvalidProductCode(
         val raw: String,
         val detail: String,
-        override val message: String = "Código de producto inválido ('$raw'): $detail",
+        override val message: String = "Invalid product code ('$raw'): $detail",
     ) : DomainError {
         override val code = "INVALID_PRODUCT_CODE"
     }
@@ -382,7 +382,7 @@ sealed interface DomainError {
     data class UnknownUnitMeasure(
         val unit: String,
         override val message: String =
-            "Unidad de medida desconocida '$unit'. Debe existir en el catálogo de unidades.",
+            "Unknown unit of measure '$unit'. It must exist in the unit catalog.",
     ) : DomainError {
         override val code = "UNKNOWN_UNIT_MEASURE"
     }
@@ -390,7 +390,7 @@ sealed interface DomainError {
     /** El número de niveles de una ubicación no es positivo. */
     data class InvalidLevels(
         val levels: Int,
-        override val message: String = "El número de niveles debe ser al menos 1, se recibió $levels",
+        override val message: String = "The number of levels must be at least 1, got $levels",
     ) : DomainError {
         override val code = "INVALID_LEVELS"
     }
@@ -398,7 +398,7 @@ sealed interface DomainError {
     /** El tipo de ubicación no es `SHELF` ni `RECEIVING`. */
     data class InvalidLocationKind(
         val raw: String,
-        override val message: String = "Tipo de ubicación inválido '$raw': debe ser SHELF o RECEIVING",
+        override val message: String = "Invalid location kind '$raw': it must be SHELF or RECEIVING",
     ) : DomainError {
         override val code = "INVALID_LOCATION_KIND"
     }
@@ -408,7 +408,7 @@ sealed interface DomainError {
         val part: String,
         val raw: String,
         val detail: String,
-        override val message: String = "Parte de ubicación inválida '$part' ('$raw'): $detail",
+        override val message: String = "Invalid location part '$part' ('$raw'): $detail",
     ) : DomainError {
         override val code = "INVALID_LOCATION_PART"
     }
@@ -416,7 +416,7 @@ sealed interface DomainError {
     /** La bodega referenciada no existe. */
     data class UnknownWarehouse(
         val id: Long,
-        override val message: String = "No existe la bodega $id",
+        override val message: String = "Warehouse $id does not exist",
     ) : DomainError {
         override val code = "UNKNOWN_WAREHOUSE"
     }
@@ -431,7 +431,7 @@ sealed interface DomainError {
     data class InvalidExternalId(
         val raw: String,
         override val message: String =
-            "El identificador externo '$raw' no es numérico; perdería la referencia con el ERP.",
+            "The external identifier '$raw' is not numeric; the reference to the ERP would be lost.",
     ) : DomainError {
         override val code = "IMPORT_INVALID_EXTERNAL_ID"
     }
@@ -440,7 +440,7 @@ sealed interface DomainError {
     data class ProductCodeImmutable(
         val productCode: String,
         override val message: String =
-            "El código de producto '$productCode' no se puede cambiar: está impreso en las etiquetas y en los estantes.",
+            "The product code '$productCode' cannot be changed: it is printed on labels and shelves.",
     ) : DomainError {
         override val code = "PRODUCT_CODE_IMMUTABLE"
     }
@@ -449,7 +449,7 @@ sealed interface DomainError {
     data class WarehouseImmutable(
         val locationId: Long,
         override val message: String =
-            "La ubicación $locationId no se puede mover de bodega: su stock cambiaría de bodega sin un movimiento.",
+            "Location $locationId cannot be moved to another warehouse: its stock would change warehouse without a movement.",
     ) : DomainError {
         override val code = "WAREHOUSE_IMMUTABLE"
     }
@@ -457,7 +457,7 @@ sealed interface DomainError {
     /** Ya existe un producto con ese código. */
     data class DuplicateProductCode(
         val productCode: String,
-        override val message: String = "Ya existe un producto con el código '$productCode'",
+        override val message: String = "A product with the code '$productCode' already exists",
     ) : DomainError {
         override val code = "DUPLICATE_PRODUCT_CODE"
     }
@@ -465,7 +465,7 @@ sealed interface DomainError {
     /** Ya existe un producto con ese identificador del ERP. */
     data class DuplicateExternalId(
         val externalId: String,
-        override val message: String = "Ya existe un producto con el identificador externo '$externalId'",
+        override val message: String = "A product with the external identifier '$externalId' already exists",
     ) : DomainError {
         override val code = "DUPLICATE_EXTERNAL_ID"
     }
@@ -476,7 +476,7 @@ sealed interface DomainError {
         val locationCode: String,
         val position: String,
         override val message: String =
-            "Ya existe la ubicación $hall-$locationCode-$position en esa bodega",
+            "A location $hall-$locationCode-$position already exists in that warehouse",
     ) : DomainError {
         override val code = "DUPLICATE_LOCATION"
     }
@@ -484,7 +484,7 @@ sealed interface DomainError {
     /** Ya existe una bodega con ese código. */
     data class DuplicateWarehouseCode(
         val warehouseCode: String,
-        override val message: String = "Ya existe una bodega con el código '$warehouseCode'",
+        override val message: String = "A warehouse with the code '$warehouseCode' already exists",
     ) : DomainError {
         override val code = "DUPLICATE_WAREHOUSE_CODE"
     }
@@ -500,7 +500,7 @@ sealed interface DomainError {
     /** La ubicación ya estaba desactivada. */
     data class LocationAlreadyInactive(
         val locationCode: String,
-        override val message: String = "La ubicación '$locationCode' ya estaba desactivada",
+        override val message: String = "Location '$locationCode' was already deactivated",
     ) : DomainError {
         override val code = "LOCATION_ALREADY_INACTIVE"
     }
@@ -514,14 +514,14 @@ sealed interface DomainError {
     data object ReceivingLocationProtected : DomainError {
         override val code = "RECEIVING_LOCATION_PROTECTED"
         override val message =
-            "La ubicación de recepción no se puede desactivar: toda mercancía recibida pasa por ella."
+            "The receiving location cannot be deactivated: all received goods pass through it."
     }
 
     /** La ubicación todavía tiene existencias. */
     data class LocationHasStock(
         val quantity: String,
         override val message: String =
-            "La ubicación tiene $quantity unidades. Muévelas o ajústelas antes de desactivarla.",
+            "The location holds $quantity units. Move or adjust them before deactivating it.",
     ) : DomainError {
         override val code = "LOCATION_HAS_STOCK"
     }
@@ -530,7 +530,7 @@ sealed interface DomainError {
     data class ProductHasStock(
         val stock: String,
         override val message: String =
-            "El producto tiene $stock unidades. Ajusta o traslada el stock antes de desactivarlo.",
+            "The product has $stock units. Adjust or transfer the stock before deactivating it.",
     ) : DomainError {
         override val code = "PRODUCT_HAS_STOCK"
     }
@@ -538,7 +538,7 @@ sealed interface DomainError {
     /** El producto no existe o está inactivo. */
     data class ProductNotFound(
         val reference: String,
-        override val message: String = "No se encontró un producto activo con '$reference'",
+        override val message: String = "No active product found for '$reference'",
     ) : DomainError {
         override val code = "PRODUCT_NOT_FOUND"
     }
@@ -546,7 +546,7 @@ sealed interface DomainError {
     /** La ubicación no existe o está inactiva. */
     data class LocationNotFound(
         val reference: String,
-        override val message: String = "No se encontró una ubicación activa con '$reference'",
+        override val message: String = "No active location found for '$reference'",
     ) : DomainError {
         override val code = "LOCATION_NOT_FOUND"
     }
@@ -559,7 +559,7 @@ sealed interface DomainError {
     data class ImportInvalidRows(
         val rows: List<RejectedRow>,
         override val message: String =
-            "El archivo tiene ${rows.size} fila(s) inválida(s). No se escribió ningún producto.",
+            "The file has ${rows.size} invalid row(s). No product was written.",
     ) : DomainError {
         override val code = "IMPORT_INVALID_ROWS"
 

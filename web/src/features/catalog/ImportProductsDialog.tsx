@@ -4,6 +4,8 @@ import { catalogApi, type ImportReport } from "@entities/catalog";
 import { ApiError } from "@shared/api/types";
 import { formatQuantity } from "@shared/lib/format";
 import { Loader } from "@shared/ui/loader/Loader";
+import i18n from "@shared/i18n";
+import { describeError } from "@shared/api/errorMessage";
 
 interface Props {
   open: boolean;
@@ -51,7 +53,7 @@ export default function ImportProductsDialog({ open, onClose, onImported }: Prop
       if (!result.dryRun) onImported();
     } catch (caught) {
       const apiError = caught as ApiError;
-      setError(apiError.message);
+      setError(describeError(apiError, "catalog.importFailed"));
       // `IMPORT_INVALID_ROWS` trae un detalle por fila (`fila_3`): es lo que
       // permite corregir el archivo sin adivinar cuál estaba mal.
       setRejected(Object.entries(apiError.details ?? {}));
@@ -62,7 +64,7 @@ export default function ImportProductsDialog({ open, onClose, onImported }: Prop
   };
 
   return (
-    <ITDialog isOpen={open} onClose={onClose} title="Importar catálogo" className="w-full max-w-2xl">
+    <ITDialog isOpen={open} onClose={onClose} title={i18n.t("catalog.importCatalog")} className="w-full max-w-2xl">
       <ITFlex direction="column" gap={4}>
         <ITText muted className="text-xs">
           Archivo CSV o TSV con las columnas: identificador externo, código, nombre, unidad de medida y
@@ -72,7 +74,7 @@ export default function ImportProductsDialog({ open, onClose, onImported }: Prop
         <input
           type="file"
           accept=".csv,.tsv,.txt"
-          aria-label="Archivo del catálogo"
+          aria-label={i18n.t("catalog.catalogFile")}
           onChange={(event) => setFile(event.target.files?.[0] ?? null)}
           className="w-full rounded border border-slate-300 p-2 text-sm"
         />
@@ -80,15 +82,15 @@ export default function ImportProductsDialog({ open, onClose, onImported }: Prop
         <ITCheckbox
           checked={dryRun}
           onChange={setDryRun}
-          label="Simular (no escribe nada y muestra qué se crearía)"
+          label={i18n.t("catalog.dryRunButton")}
         />
 
         {/* El loader de marca mientras la API lee el archivo: es la única
             operación de hoy con una espera real (1.398 filas). */}
-        {busy && <Loader label="Procesando el archivo…" />}
+        {busy && <Loader label={i18n.t("catalog.processingFile")} />}
 
         {error && (
-          <ITAlert variant="error" title="No se pudo importar">
+          <ITAlert variant="error" title={i18n.t("catalog.importFailed")}>
             {error}
           </ITAlert>
         )}
@@ -98,7 +100,7 @@ export default function ImportProductsDialog({ open, onClose, onImported }: Prop
             <ul className="flex flex-col gap-1 text-xs text-red-800">
               {rejected.map(([row, reason]) => (
                 <li key={row}>
-                  <span className="font-semibold">{row.replace("fila_", "Fila ")}:</span> {reason}
+                  <span className="font-semibold">{row.replace("fila_", i18n.t("catalog.row"))}:</span> {reason}
                 </li>
               ))}
             </ul>
@@ -109,7 +111,7 @@ export default function ImportProductsDialog({ open, onClose, onImported }: Prop
           <div className="rounded border border-slate-200 bg-slate-50 p-3 text-sm">
             <ITFlex direction="column" gap={1}>
               <ITText className="font-semibold">
-                {report.dryRun ? "Simulación: no se escribió nada" : "Importación aplicada"}
+                {report.dryRun ? i18n.t("catalog.dryRunNotice") : i18n.t("catalog.importApplied")}
               </ITText>
               <span>Filas leídas: {report.totalRows}</span>
               <span>Aceptadas: {report.accepted} · Rechazadas: {report.rejected}</span>
@@ -130,9 +132,9 @@ export default function ImportProductsDialog({ open, onClose, onImported }: Prop
         )}
 
         <ITFlex justify="end" gap={2}>
-          <ITButton label="Cerrar" variant="outline" onClick={onClose} disabled={busy} />
+          <ITButton label={i18n.t("common.close")} variant="outline" onClick={onClose} disabled={busy} />
           <ITButton
-            label={busy ? "Procesando…" : dryRun ? "Simular" : "Importar"}
+            label={busy ? i18n.t("catalog.processing") : dryRun ? i18n.t("catalog.preview") : i18n.t("catalog.import")}
             color={dryRun ? "primary" : "danger"}
             onClick={() => void run()}
             disabled={busy || file === null}

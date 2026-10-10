@@ -5,6 +5,8 @@ import { formatQuantity } from "@shared/lib/format";
 import { useDebouncedValue } from "@shared/lib/useDebouncedValue";
 import { DataTable } from "@shared/ui/data-table/DataTable";
 import { Page } from "@shared/ui/page/Page";
+import { FaBoxOpen } from "react-icons/fa";
+import i18n from "@shared/i18n";
 
 /**
  * Existencias por ubicación. Dos filtros que el endpoint acepta de verdad: el código de producto y
@@ -23,21 +25,21 @@ export default function StockPage() {
   );
 
   const columns: Column<StockLine>[] = [
-    { key: "productCode", label: "Código", type: "string" },
-    { key: "productName", label: "Producto", type: "string" },
-    { key: "locationDisplayName", label: "Ubicación", type: "string" },
-    { key: "warehouseCode", label: "Bodega", type: "string" },
-    { key: "quantity", label: "Existencias", type: "number", render: (row) => formatQuantity(row.quantity) },
+    { key: "productCode", label: i18n.t("common.code"), type: "string" },
+    { key: "productName", label: i18n.t("common.product"), type: "string" },
+    { key: "locationDisplayName", label: i18n.t("common.location"), type: "string" },
+    { key: "warehouseCode", label: i18n.t("common.warehouse"), type: "string" },
+    { key: "quantity", label: i18n.t("nav.stock"), type: "number", render: (row) => formatQuantity(row.quantity) },
   ];
 
   return (
-    <Page title="Existencias" description="Cuánto hay de cada producto y en qué ubicación." breadcrumbs={[{ label: "Inicio", href: "#/" }, { label: "Existencias" }]}>
+    <Page icon={<FaBoxOpen size={18} />} title={i18n.t("nav.stock")} description={i18n.t("inventory.stockDescription")} breadcrumbs={[{ label: i18n.t("nav.home"), href: "#/" }, { label: i18n.t("nav.stock") }]}>
       <div className="mb-3 flex flex-wrap gap-3">
         <div className="w-56">
-          <ITInput size="sm" name="productCode" label="Código de producto" value={productCode} onChange={(e) => setProductCode(e.target.value)} />
+          <ITInput size="sm" name="productCode" label={i18n.t("inventory.productCode")} value={productCode} onChange={(e) => setProductCode(e.target.value)} />
         </div>
         <div className="w-56">
-          <ITInput size="sm" name="locationCode" label="Ubicación" value={locationCode} onChange={(e) => setLocationCode(e.target.value)} />
+          <ITInput size="sm" name="locationCode" label={i18n.t("common.location")} value={locationCode} onChange={(e) => setLocationCode(e.target.value)} />
         </div>
       </div>
       <DataTable<StockLine>

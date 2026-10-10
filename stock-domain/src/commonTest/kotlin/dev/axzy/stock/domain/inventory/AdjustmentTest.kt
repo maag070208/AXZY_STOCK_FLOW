@@ -78,7 +78,7 @@ class AdjustmentTest : DescribeSpec({
 
             val error = result.leftOrNull().shouldBeInstanceOf<DomainError.ReasonRequired>()
             withClue("El mensaje debe decir POR QUÉ se exige, no solo que falta") {
-                (error.message.contains("auditar")) shouldBe true
+                (error.message.contains("audit")) shouldBe true
             }
         }
 
@@ -120,7 +120,7 @@ class AdjustmentTest : DescribeSpec({
                 .shouldBeInstanceOf<DomainError.InvalidQuantity>()
 
             withClue("El mensaje debe explicar que la dirección ya lleva el signo") {
-                (error.message.contains("dirección")) shouldBe true
+                (error.message.contains("direction")) shouldBe true
             }
         }
 
@@ -139,7 +139,7 @@ class AdjustmentTest : DescribeSpec({
             val error = result.leftOrNull().shouldBeInstanceOf<DomainError.InvalidQuantity>()
 
             withClue("El mensaje debe explicar que invertiría el movimiento") {
-                (error.message.contains("invertiría")) shouldBe true
+                (error.message.contains("reverse")) shouldBe true
             }
         }
 
@@ -218,7 +218,7 @@ class AdjustmentTest : DescribeSpec({
 
             val pending = decision.shouldBeInstanceOf<AdjustmentPolicy.Decision.PendingApproval>()
             withClue("El motivo debe explicar el porqué de la aprobación, no solo pedirla") {
-                (pending.reason.contains("tapar un robo")) shouldBe true
+                (pending.reason.contains("cover up a theft")) shouldBe true
             }
         }
 
@@ -340,10 +340,10 @@ class AdjustmentTest : DescribeSpec({
         it("cada origen declara de qué flujo viene") {
             withClue("Los cuatro flujos que en el legacy tenían su propio camino") {
                 AdjustmentOrigin.entries.map { it.displayName } shouldBe listOf(
-                    "Discrepancia de factura",
-                    "Faltante en surtido",
-                    "Conteo físico",
-                    "Reporte de daño",
+                    "Invoice discrepancy",
+                    "Shortage in fulfillment",
+                    "Physical count",
+                    "Damage report",
                 )
             }
         }

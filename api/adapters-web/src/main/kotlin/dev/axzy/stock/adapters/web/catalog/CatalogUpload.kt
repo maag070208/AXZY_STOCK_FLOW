@@ -28,18 +28,18 @@ class CatalogUpload(private val importer: CatalogImporter) {
 
     fun read(file: MultipartFile?): Outcome<List<CatalogRow>> {
         if (file == null) {
-            return failure(FailureKind.INVALID_REQUEST, "FILE_REQUIRED", "Falta el archivo del catálogo.")
+            return failure(FailureKind.INVALID_REQUEST, "FILE_REQUIRED", "The catalog file is missing.")
         }
         // Un archivo de cero bytes no es «falta el archivo»: llegó, y está vacío. El
         // cliente hace algo distinto con cada código (volver a adjuntar, o mirar el archivo).
         if (file.isEmpty) {
-            return failure(FailureKind.INVALID_REQUEST, "EMPTY_FILE", "El archivo no tiene filas de datos.")
+            return failure(FailureKind.INVALID_REQUEST, "EMPTY_FILE", "The file has no data rows.")
         }
         val name = file.originalFilename.orEmpty().lowercase()
         if (name.isNotEmpty() && SUPPORTED.none { name.endsWith(it) }) {
             return failure(
                 FailureKind.INVALID_REQUEST, "IMPORT_FILE_FORMAT",
-                "Formato no admitido. Se acepta CSV, TSV o XLSX.",
+                "Unsupported format. CSV, TSV or XLSX is accepted.",
                 mapOf("file" to name),
             )
         }
@@ -55,7 +55,7 @@ class CatalogUpload(private val importer: CatalogImporter) {
 
         val rows = importer.parseCsv(text, delimiterOf(text))
         if (rows.isEmpty()) {
-            return failure(FailureKind.INVALID_REQUEST, "EMPTY_FILE", "El archivo no tiene filas de datos.")
+            return failure(FailureKind.INVALID_REQUEST, "EMPTY_FILE", "The file has no data rows.")
         }
         return rows.asRight()
     }
@@ -72,7 +72,7 @@ class CatalogUpload(private val importer: CatalogImporter) {
         WorkbookFactory.create(file.inputStream).use { workbook ->
             val sheet = workbook.getSheetAt(0)
             if (sheet == null) {
-                failure(FailureKind.INVALID_REQUEST, "EMPTY_FILE", "El libro no tiene hojas.")
+                failure(FailureKind.INVALID_REQUEST, "EMPTY_FILE", "The workbook has no sheets.")
             } else {
                 val formatter = DataFormatter(Locale.US)
                 val text = buildString {
@@ -89,7 +89,7 @@ class CatalogUpload(private val importer: CatalogImporter) {
         // usuario a mirar los registros de la API por algo que puede arreglar él.
         failure(
             FailureKind.INVALID_REQUEST, "IMPORT_FILE_FORMAT",
-            "No se pudo leer el archivo de Excel: ${error.message ?: "el archivo no es un libro válido"}.",
+            "The Excel file could not be read: ${error.message ?: "the file is not a valid workbook"}.",
             mapOf("file" to file.originalFilename.orEmpty()),
         )
     }

@@ -74,13 +74,13 @@ class InventoryFlowTest : ApiTest() {
         val who = approver()
         createProduct(token)
         createShelf(token, "04")
-        assertThat(stockIn(token, "RECEPCION", 1000, who).status).isEqualTo(201)
+        assertThat(stockIn(token, "RECEIVING", 1000, who).status).isEqualTo(201)
 
         val located = post(
             "/v1/inventory/locate",
             mapOf(
                 "productCode" to "ABRAA1B",
-                "fromLocationCode" to "RECEPCION",
+                "fromLocationCode" to "RECEIVING",
                 "toLocationCode" to "04-B-C",
                 "quantity" to 300,
             ),
@@ -94,7 +94,7 @@ class InventoryFlowTest : ApiTest() {
         assertThat(located.at<String?>("total")).isNull()
 
         assertThat(quantityAt(token, "04-B-C")).isEqualTo("300.000")
-        assertThat(quantityAt(token, "RECEPCION")).isEqualTo("700.000")
+        assertThat(quantityAt(token, "RECEIVING")).isEqualTo("700.000")
 
         val kardex = get("/v1/inventory/kardex?moveType=LOCATE", token)
         assertThat(kardex.at<Int>("totalItems")).isEqualTo(1)
@@ -138,13 +138,13 @@ class InventoryFlowTest : ApiTest() {
         val token = manager()
         val who = approver()
         createProduct(token)
-        stockIn(token, "RECEPCION", 100, who)
+        stockIn(token, "RECEIVING", 100, who)
 
         val response = adjust(
             token,
             mapOf(
                 "productCode" to "ABRAA1B",
-                "locationCode" to "RECEPCION",
+                "locationCode" to "RECEIVING",
                 "quantity" to 10,
                 "direction" to "DECREASE",
                 "origin" to "MANUAL_COUNT",
@@ -153,7 +153,7 @@ class InventoryFlowTest : ApiTest() {
 
         assertThat(response.status).isEqualTo(422)
         assertThat(response.code).isEqualTo("REASON_REQUIRED")
-        assertThat(quantityAt(token, "RECEPCION")).isEqualTo("100.000")
+        assertThat(quantityAt(token, "RECEIVING")).isEqualTo("100.000")
     }
 
     @Test
@@ -161,13 +161,13 @@ class InventoryFlowTest : ApiTest() {
         val token = manager()
         val who = approver()
         createProduct(token)
-        stockIn(token, "RECEPCION", 100, who)
+        stockIn(token, "RECEIVING", 100, who)
 
         val response = adjust(
             token,
             mapOf(
                 "productCode" to "ABRAA1B",
-                "locationCode" to "RECEPCION",
+                "locationCode" to "RECEIVING",
                 "quantity" to 10,
                 "direction" to "DECREASE",
                 "reason" to "PORQUE_SI",
@@ -187,7 +187,7 @@ class InventoryFlowTest : ApiTest() {
         val token = manager()
         val who = approver()
         createProduct(token)
-        stockIn(token, "RECEPCION", 100, who)
+        stockIn(token, "RECEIVING", 100, who)
 
         // Un operador que puede corregir un conteo pero no declarar un robo.
         createUser("operador", USER_PASSWORD, BaseRole.WAREHOUSE_OPERATOR.key.value)
@@ -205,7 +205,7 @@ class InventoryFlowTest : ApiTest() {
             operator,
             mapOf(
                 "productCode" to "ABRAA1B",
-                "locationCode" to "RECEPCION",
+                "locationCode" to "RECEIVING",
                 "quantity" to 1,
                 "direction" to "DECREASE",
                 "reason" to "THEFT",
@@ -217,7 +217,7 @@ class InventoryFlowTest : ApiTest() {
             operator,
             mapOf(
                 "productCode" to "ABRAA1B",
-                "locationCode" to "RECEPCION",
+                "locationCode" to "RECEIVING",
                 "quantity" to 1,
                 "direction" to "DECREASE",
                 "reason" to "COUNT_ERROR",
@@ -241,8 +241,8 @@ class InventoryFlowTest : ApiTest() {
             "/v1/inventory/locate",
             mapOf(
                 "productCode" to "ABRAA1B",
-                "fromLocationCode" to "RECEPCION",
-                "toLocationCode" to "RECEPCION",
+                "fromLocationCode" to "RECEIVING",
+                "toLocationCode" to "RECEIVING",
                 "quantity" to 10,
             ),
             token,
@@ -283,12 +283,12 @@ class InventoryFlowTest : ApiTest() {
         val token = manager()
         val who = approver()
         createProduct(token)
-        stockIn(token, "RECEPCION", 100, who)
+        stockIn(token, "RECEIVING", 100, who)
         val key = UUID.randomUUID()
 
         val body = mapOf(
             "productCode" to "ABRAA1B",
-            "locationCode" to "RECEPCION",
+            "locationCode" to "RECEIVING",
             "quantity" to 10,
             "direction" to "DECREASE",
             "reason" to "COUNT_ERROR",
@@ -301,7 +301,7 @@ class InventoryFlowTest : ApiTest() {
         assertThat(second.status).isEqualTo(201)
         // La misma respuesta: el mismo movimiento.
         assertThat(second.at<List<Int>>("kardexIds")).isEqualTo(first.at<List<Int>>("kardexIds"))
-        assertThat(quantityAt(token, "RECEPCION")).isEqualTo("90.000")
+        assertThat(quantityAt(token, "RECEIVING")).isEqualTo("90.000")
         assertThat(db.sql("SELECT count(*) FROM kardex").query(Int::class.java).single()).isEqualTo(2)
     }
 
@@ -314,7 +314,7 @@ class InventoryFlowTest : ApiTest() {
             "/v1/inventory/adjustments",
             mapOf(
                 "productCode" to "ABRAA1B",
-                "locationCode" to "RECEPCION",
+                "locationCode" to "RECEIVING",
                 "quantity" to 1,
                 "direction" to "DECREASE",
                 "reason" to "COUNT_ERROR",
@@ -335,7 +335,7 @@ class InventoryFlowTest : ApiTest() {
         val token = manager()
         val who = approver()
         createProduct(token)
-        stockIn(token, "RECEPCION", 10, who)
+        stockIn(token, "RECEIVING", 10, who)
 
         val response = get("/v1/inventory/kardex?from=2020-01-01&to=2020-01-31", token)
 
@@ -364,7 +364,7 @@ class InventoryFlowTest : ApiTest() {
             token,
             mapOf(
                 "productCode" to "ABRAA1B",
-                "locationCode" to "RECEPCION",
+                "locationCode" to "RECEIVING",
                 "quantity" to 500,
                 "direction" to "INCREASE",
                 "reason" to "COUNT_ERROR",
@@ -375,7 +375,7 @@ class InventoryFlowTest : ApiTest() {
         // 202: aceptado, pendiente. No es un error y no es un movimiento.
         assertThat(response.status).isEqualTo(202)
         assertThat(response.at<String>("status")).isEqualTo("PENDING_APPROVAL")
-        assertThat(quantityAt(token, "RECEPCION")).isNull()
+        assertThat(quantityAt(token, "RECEIVING")).isNull()
         assertThat(db.sql("SELECT count(*) FROM kardex").query(Int::class.java).single()).isZero()
     }
 
@@ -389,7 +389,7 @@ class InventoryFlowTest : ApiTest() {
             token,
             mapOf(
                 "productCode" to "ABRAA1B",
-                "locationCode" to "RECEPCION",
+                "locationCode" to "RECEIVING",
                 "quantity" to 500,
                 "direction" to "INCREASE",
                 "reason" to "COUNT_ERROR",
@@ -411,7 +411,7 @@ class InventoryFlowTest : ApiTest() {
         val who = approver()
         createProduct(token)
 
-        stockIn(token, "RECEPCION", 100, who)
+        stockIn(token, "RECEIVING", 100, who)
 
         val registros = db.sql("SELECT count(*) FROM audit_log WHERE action = 'INVENTORY_ADJUSTED'")
             .query(Int::class.java).single()
@@ -430,7 +430,7 @@ class InventoryFlowTest : ApiTest() {
         val who = approver()
         createProduct(token)
         createShelf(token, "04")
-        stockIn(token, "RECEPCION", 100, who)
+        stockIn(token, "RECEIVING", 100, who)
         stockIn(token, "04-B-C", 40, who)
 
         val all = get("/v1/inventory/stock?onlyWithStock=false", token)
@@ -448,11 +448,11 @@ class InventoryFlowTest : ApiTest() {
         val token = manager()
         val who = approver()
         createProduct(token)
-        stockIn(token, "SIN-UBICAR", 250, who)
+        stockIn(token, "UNASSIGNED", 250, who)
 
-        val response = get("/v1/inventory/stock?locationCode=SIN-UBICAR", token)
+        val response = get("/v1/inventory/stock?locationCode=UNASSIGNED", token)
 
-        assertThat(response.at<List<Map<String, Any?>>>("items").single()["locationDisplayName"]).isEqualTo("SIN-UBICAR")
+        assertThat(response.at<List<Map<String, Any?>>>("items").single()["locationDisplayName"]).isEqualTo("UNASSIGNED")
         assertThat(response.at<List<Map<String, Any?>>>("items").single()["quantity"]).isEqualTo("250.000")
     }
 
@@ -495,7 +495,7 @@ class InventoryFlowTest : ApiTest() {
             "/v1/inventory/adjustments",
             mapOf(
                 "productCode" to "ABRAA1B",
-                "locationCode" to "RECEPCION",
+                "locationCode" to "RECEIVING",
                 "quantity" to 5,
                 "direction" to "DECREASE",
                 "reason" to "THEFT",
@@ -524,13 +524,13 @@ class InventoryFlowTest : ApiTest() {
         val suToken = accessTokenOf("operador", USER_PASSWORD)
         // Deja existencias quien pide, y las aprueba otra persona: la jefa pide, la
         // supervisora aprueba.
-        assertThat(stockIn(token, "RECEPCION", 50, supervisora).status).isEqualTo(201)
+        assertThat(stockIn(token, "RECEIVING", 50, supervisora).status).isEqualTo(201)
 
         val response = post(
             "/v1/inventory/adjustments",
             mapOf(
                 "productCode" to "ABRAA1B",
-                "locationCode" to "RECEPCION",
+                "locationCode" to "RECEIVING",
                 "quantity" to 5,
                 "direction" to "DECREASE",
                 "reason" to "THEFT",
@@ -544,6 +544,6 @@ class InventoryFlowTest : ApiTest() {
         // La operadora pide y la supervisora —que sí tiene el permiso— aprueba.
         assertThat(response.status).describedAs(response.raw).isEqualTo(201)
         assertThat(response.at<String>("status")).isEqualTo("APPLIED")
-        assertThat(quantityAt(token, "RECEPCION")).isEqualTo("45.000")
+        assertThat(quantityAt(token, "RECEIVING")).isEqualTo("45.000")
     }
 }

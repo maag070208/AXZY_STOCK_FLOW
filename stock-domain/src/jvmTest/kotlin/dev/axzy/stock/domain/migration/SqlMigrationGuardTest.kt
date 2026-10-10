@@ -310,7 +310,7 @@ class SqlMigrationGuardTest : DescribeSpec({
         }
 
         it("las bodegas del alcance AREA viven en la PERSONA, no en el rol") {
-            // Es lo que permite que un solo rol JEFE_BODEGA sirva para cualquier
+            // Es lo que permite que un solo rol WAREHOUSE_MANAGER sirva para cualquier
             // bodega, en lugar de crear un rol por cada una.
             val sql = contentComplete()
 

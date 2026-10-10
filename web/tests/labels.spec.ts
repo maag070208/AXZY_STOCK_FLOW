@@ -1,9 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openMenu } from "./support/menu";
+import { mockHomeSummary } from "./support/home";
 
 /**
  * La cola de impresión y su reimpresión, **con la API simulada**.
  *
- * Reimprimir gasta una etiqueta más y el contrato exige un motivo: se afirma que la web no envía
+ * Reprint gasta una etiqueta más y el contrato exige un motivo: se afirma que la web no envía
  * nada sin motivo, que envía el motivo escrito y que la cola muestra el trabajo nuevo que la API crea.
  */
 
@@ -42,9 +44,11 @@ async function signIn(page: Page) {
   await page.goto("/");
   await page.locator('input[name="username"]').fill("etiquetas");
   await page.locator('input[name="password"]').fill("lo-que-sea");
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page.getByRole("heading", { name: "Inicio", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
 }
+
+test.beforeEach(async ({ page }) => mockHomeSummary(page));
 
 test.describe("etiquetas: reimpresión (API simulada)", () => {
   test("reimprimir sin motivo no envía nada: el botón de confirmar queda apagado", async ({ page }) => {
@@ -57,11 +61,11 @@ test.describe("etiquetas: reimpresión (API simulada)", () => {
       return route.fulfill({ status: 202, json: job({ id: 10, status: "PENDING", attempts: 0, printedAt: null, reprintedFromId: 9 }) });
     });
     await signIn(page);
-    await page.getByText("Etiquetas", { exact: true }).first().click();
-    await expect(page.getByText("Etiquetas pedidas, impresas y fallidas.")).toBeVisible();
+    await openMenu(page, "Labels");
+    await expect(page.getByText("Labels requested, printed and failed.")).toBeVisible();
 
-    await page.getByRole("button", { name: "Reimprimir" }).click();
-    await expect(page.getByRole("button", { name: "Reimprimir" }).last()).toBeDisabled();
+    await page.getByRole("button", { name: "Reprint" }).click();
+    await expect(page.getByRole("button", { name: "Reprint" }).last()).toBeDisabled();
     expect(requests).toBe(0);
   });
 
@@ -75,18 +79,18 @@ test.describe("etiquetas: reimpresión (API simulada)", () => {
       return route.fulfill({ status: 202, json: queue[0] });
     });
     await signIn(page);
-    await page.getByText("Etiquetas", { exact: true }).first().click();
+    await openMenu(page, "Labels");
     await expect(page.getByText("ETQ-STD").first()).toBeVisible();
 
-    await page.getByRole("button", { name: "Reimprimir" }).click();
+    await page.getByRole("button", { name: "Reprint" }).click();
     await page.locator('input[name="reason"]').fill("  Etiqueta dañada en el estante  ");
 
     const request = page.waitForRequest((req) => req.url().endsWith("/v1/labels/jobs/9/reprint"));
-    await page.getByRole("button", { name: "Reimprimir", exact: true }).last().click();
+    await page.getByRole("button", { name: "Reprint", exact: true }).last().click();
     // El motivo sale sin los espacios de los extremos: es el texto que quedará en la bitácora.
     expect((await request).postDataJSON()).toEqual({ reason: "Etiqueta dañada en el estante" });
 
-    await expect(page.getByText("Reimpresión pedida. Aparece en la cola como un trabajo nuevo.")).toBeVisible();
+    await expect(page.getByText("Reprint requested. It appears in the queue as a new job.")).toBeVisible();
     await expect(page.getByText("#9")).toBeVisible();
   });
 });

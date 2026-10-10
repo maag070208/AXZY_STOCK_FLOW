@@ -56,7 +56,7 @@ fun HttpServletRequest.origin(): RequestOrigin {
         else -> throw FailureException(
             Failure(
                 FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
-                "$HEADER_CLIENT_CHANNEL debe ser WEB, MOBILE o MOBILE_OFFLINE.",
+                "$HEADER_CLIENT_CHANNEL must be WEB, MOBILE or MOBILE_OFFLINE.",
                 mapOf("header" to HEADER_CLIENT_CHANNEL),
             ),
         )

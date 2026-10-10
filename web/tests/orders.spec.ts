@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openMenu } from "./support/menu";
+import { mockHomeSummary } from "./support/home";
 
 /**
  * Las acciones del surtido, **con la API simulada**.
@@ -71,8 +73,8 @@ async function signIn(page: Page) {
   await page.goto("/");
   await page.locator('input[name="username"]').fill("operador");
   await page.locator('input[name="password"]').fill("lo-que-sea");
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page.getByRole("heading", { name: "Inicio", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
 }
 
 /** Lista con la orden, y la orden que devuelve `current` (que cambia con cada acción). */
@@ -88,11 +90,13 @@ async function mockOrder(page: Page, initial: Record<string, unknown>) {
 }
 
 async function openOrder(page: Page) {
-  await page.getByText("Surtido", { exact: true }).first().click();
-  await expect(page.getByText("Órdenes, su empaque y su exportación al ERP.")).toBeVisible();
+  await openMenu(page, "Fulfillment");
+  await expect(page.getByText("Orders, their packing and their export to the ERP.")).toBeVisible();
   await page.getByText("ORD-2024-0042").first().click();
-  await expect(page.getByRole("heading", { name: "Orden ORD-2024-0042" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Order ORD-2024-0042" })).toBeVisible();
 }
+
+test.beforeEach(async ({ page }) => mockHomeSummary(page));
 
 test.describe("surtido: acciones (API simulada)", () => {
   test("empacar envía la cantidad de esta vez y muestra la orden que devuelve el servidor", async ({ page }) => {
@@ -105,15 +109,15 @@ test.describe("surtido: acciones (API simulada)", () => {
     await signIn(page);
     await openOrder(page);
 
-    await page.getByRole("button", { name: "Empacar" }).click();
+    await page.getByRole("button", { name: "Pack" }).click();
     await page.locator('input[name="quantity"]').fill("7");
 
     const request = page.waitForRequest((req) => req.url().endsWith("/v1/orders/30/lines/88/package"));
-    await page.getByRole("button", { name: "Registrar empaque" }).click();
+    await page.getByRole("button", { name: "Record packing" }).click();
     expect((await request).postDataJSON()).toEqual({ quantity: 7 });
 
-    await expect(page.getByText("Empaque registrado.")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Empacar" })).toBeVisible();
+    await expect(page.getByText("Packing recorded.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Pack" })).toBeVisible();
   });
 
   test("un faltante sin motivo no se envía: la web lo pide antes", async ({ page }) => {
@@ -126,11 +130,11 @@ test.describe("surtido: acciones (API simulada)", () => {
     await signIn(page);
     await openOrder(page);
 
-    await page.getByRole("button", { name: "Faltante" }).click();
+    await page.getByRole("button", { name: "Shortage" }).click();
     await page.locator('input[name="quantity"]').fill("3");
-    await page.getByRole("button", { name: "Registrar faltante" }).click();
+    await page.getByRole("button", { name: "Record shortage" }).click();
 
-    await expect(page.getByText("Elige el motivo del faltante.")).toBeVisible();
+    await expect(page.getByText("Choose the reason for the shortage.")).toBeVisible();
     expect(sent, "sin motivo no debe salir ninguna petición").toBe(0);
   });
 
@@ -143,12 +147,12 @@ test.describe("surtido: acciones (API simulada)", () => {
     await signIn(page);
     await openOrder(page);
 
-    await page.getByRole("button", { name: "Faltante" }).click();
+    await page.getByRole("button", { name: "Shortage" }).click();
     await page.locator('input[name="quantity"]').fill("3");
     await page.locator('select[name="reason"]').selectOption("SHORTAGE");
 
     const request = page.waitForRequest((req) => req.url().endsWith("/v1/orders/30/shortage"));
-    await page.getByRole("button", { name: "Registrar faltante" }).click();
+    await page.getByRole("button", { name: "Record shortage" }).click();
     expect((await request).postDataJSON()).toEqual({ lineId: 88, quantity: 3, reason: "SHORTAGE" });
   });
 
@@ -164,10 +168,10 @@ test.describe("surtido: acciones (API simulada)", () => {
     await signIn(page);
     await openOrder(page);
 
-    await page.getByRole("button", { name: "Exportar al ERP" }).click();
+    await page.getByRole("button", { name: "Export to ERP" }).click();
 
-    await expect(page.getByText("La última exportación falló")).toBeVisible();
+    await expect(page.getByText("The last export failed")).toBeVisible();
     await expect(page.getByText(failure)).toBeVisible();
-    await expect(page.getByRole("button", { name: "Reintentar exportación" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Retry export" })).toBeVisible();
   });
 });

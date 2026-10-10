@@ -173,12 +173,12 @@ class CatalogPersistenceTest {
         val created = locations.insert(NewLocation(defaultWarehouse, "04", "B", "C", 3, LocationKind.SHELF))
 
         assertThat(created.location.displayName).isEqualTo("04-B-C")
-        assertThat(created.warehouseCode).isEqualTo("PRINCIPAL")
+        assertThat(created.warehouseCode).isEqualTo("MAIN")
         assertThat(locations.find(defaultWarehouse, "04", "B", "C")!!.location.id).isEqualTo(created.location.id)
         assertThat(locations.findById(created.location.id)!!.location.levels).isEqualTo(3)
 
         val page = locations.page(LocationFilter(null, defaultWarehouse, null, null), PageRequest.of())
-        assertThat(page.items.map { it.location.displayName }).contains("04-B-C", "RECEPCION")
+        assertThat(page.items.map { it.location.displayName }).contains("04-B-C", "RECEIVING")
     }
 
     @Test
@@ -190,7 +190,7 @@ class CatalogPersistenceTest {
         val page = locations.page(filter, PageRequest.of(page = 0, size = 10))
 
         assertThat(statements).isEqualTo(2)
-        // 20 estantes, la recepción y la ubicación del saldo heredado (SIN-UBICAR),
+        // 20 estantes, la recepción y la ubicación del saldo heredado (UNASSIGNED),
         // que siembra la migración V6.
         assertThat(page.totalItems).isEqualTo(22)
         assertThat(page.items).hasSize(10)
@@ -215,7 +215,7 @@ class CatalogPersistenceTest {
         )
 
         assertThat(receiving.totalItems).isEqualTo(1)
-        assertThat(receiving.items.single().location.displayName).isEqualTo("RECEPCION")
+        assertThat(receiving.items.single().location.displayName).isEqualTo("RECEIVING")
     }
 
     @Test
@@ -224,7 +224,7 @@ class CatalogPersistenceTest {
 
         assertThat(receiving.location.id).isPositive()
         assertThat(receiving.location.kind).isEqualTo(LocationKind.RECEIVING)
-        assertThat(receiving.location.displayName).isEqualTo("RECEPCION")
+        assertThat(receiving.location.displayName).isEqualTo("RECEIVING")
     }
 
     @Test
@@ -267,7 +267,7 @@ class CatalogPersistenceTest {
 
         assertThat(list).hasSize(2)
         assertThat(list.first().isDefault).isTrue()
-        assertThat(list.first().code).isEqualTo("PRINCIPAL")
+        assertThat(list.first().code).isEqualTo("MAIN")
     }
 
     @Test

@@ -82,7 +82,7 @@ class OrderController(
         if (orderStatus != null && orderStatus !in ORDER_STATUSES) {
             return failure(
                 FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
-                "El estado no está en la lista admitida.",
+                "The status is not in the list of allowed values.",
                 mapOf("field" to "status", "value" to orderStatus, "allowed" to ORDER_STATUSES.joinToString(",")),
             ).toResponse()
         }
@@ -195,7 +195,7 @@ class OrderController(
                 ?: throw FailureException(
                     Failure(
                         FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
-                        "El motivo no está en la lista admitida.",
+                        "The reason is not in the list of allowed values.",
                         mapOf(
                             "reason" to raw,
                             "allowed" to AdjustmentReason.entries.joinToString(",") { it.name },
@@ -228,7 +228,7 @@ class OrderController(
 private fun quantityOf(raw: BigDecimal): Quantity =
     Quantity.parse(raw.toPlainString()).getOrElse {
         throw FailureException(
-            Failure(FailureKind.RULE_VIOLATION, "INVALID_QUANTITY", it.message ?: "Cantidad inválida."),
+            Failure(FailureKind.RULE_VIOLATION, "INVALID_QUANTITY", it.message ?: "Invalid quantity."),
         )
     }
 

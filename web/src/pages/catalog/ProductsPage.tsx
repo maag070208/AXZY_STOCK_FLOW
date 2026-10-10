@@ -1,6 +1,6 @@
 import { ITAlert, ITBadget, ITButton, ITFlex, ITInput, type Column } from "@axzydev/axzy_ui_system";
 import { useCallback, useMemo, useState } from "react";
-import { FaEdit, FaFileImport, FaPlus, FaTrashAlt } from "react-icons/fa";
+import { FaEdit, FaFileImport, FaPlus, FaTrashAlt, FaBoxes } from "react-icons/fa";
 import { useDispatch, useSelector } from "react-redux";
 import { showToast } from "@app/toast/toast.slice";
 import type { AppDispatch, RootState } from "@app/store";
@@ -9,11 +9,13 @@ import { can } from "@entities/session";
 import ImportProductsDialog from "@features/catalog/ImportProductsDialog";
 import ProductFormDialog from "@features/catalog/ProductFormDialog";
 import ReasonDialog from "@features/catalog/ReasonDialog";
-import { ApiError } from "@shared/api/types";
+
 import { formatQuantity } from "@shared/lib/format";
 import { useDebouncedValue } from "@shared/lib/useDebouncedValue";
 import { DataTable } from "@shared/ui/data-table/DataTable";
 import { Page } from "@shared/ui/page/Page";
+import i18n from "@shared/i18n";
+import { describeError } from "@shared/api/errorMessage";
 
 /**
  * Productos: el listado con paginación, filtro y orden **en el servidor**.
@@ -52,31 +54,30 @@ export default function ProductsPage() {
     } catch (caught) {
       // `PRODUCT_HAS_STOCK` (409) es el caso interesante: se dice cuánto stock hay
       // y qué hacer, en lugar de un «no se pudo».
-      setActionError((caught as ApiError).message);
+      setActionError(describeError(caught, "errors.unexpected"));
     } finally {
       setBusy(false);
     }
   };
 
   const columns: Column<Product>[] = [
-    { key: "productCode", label: "Código", type: "string", sortable: true },
-    { key: "name", label: "Nombre", type: "string", sortable: true },
-    { key: "description", label: "Descripción", type: "string" },
-    { key: "unitMeasure", label: "Unidad", type: "string" },
-    { key: "externalId", label: "Id. ERP", type: "number" },
+    { key: "productCode", label: i18n.t("common.code"), type: "string", sortable: true },
+    { key: "name", label: i18n.t("common.name"), type: "string", sortable: true },
+    { key: "description", label: i18n.t("common.description"), type: "string" },
+    { key: "unitMeasure", label: i18n.t("common.unit"), type: "string" },
+    { key: "externalId", label: i18n.t("catalog.erpId"), type: "number" },
     {
       key: "stock",
-      label: "Existencias",
+      label: i18n.t("nav.stock"),
       type: "number",
       render: (row) => formatQuantity(row.stock),
     },
     {
       key: "active",
-      label: "Estado",
+      label: i18n.t("common.status"),
       type: "boolean",
-      filter: true,
       render: (row) => (
-        <ITBadget label={row.active ? "Activo" : "Inactivo"} color={row.active ? "success" : "secondary"} size="sm" />
+        <ITBadget label={row.active ? i18n.t("common.activeMasc") : i18n.t("common.inactiveMasc")} color={row.active ? "success" : "secondary"} size="sm" />
       ),
     },
     {
@@ -90,8 +91,8 @@ export default function ProductsPage() {
               icon={<FaEdit size={12} />}
               variant="outline"
               size="sm"
-              ariaLabel="Editar"
-              title="Editar"
+              ariaLabel={i18n.t("common.edit")}
+              title={i18n.t("common.edit")}
               onClick={() => {
                 setEditing(row);
                 setFormOpen(true);
@@ -104,8 +105,8 @@ export default function ProductsPage() {
               variant="outline"
               color="danger"
               size="sm"
-              ariaLabel="Desactivar"
-              title="Desactivar"
+              ariaLabel={i18n.t("common.deactivate")}
+              title={i18n.t("common.deactivate")}
               onClick={() => {
                 setActionError(null);
                 setToDeactivate(row);
@@ -118,22 +119,16 @@ export default function ProductsPage() {
   ];
 
   return (
-    <Page
-      title="Productos"
-      description="Lista maestra de productos del almacén."
-      breadcrumbs={[{ label: "Inicio", href: "#/" }, { label: "Productos" }]}
+    <Page icon={<FaBoxes size={18} />}
+      title={i18n.t("nav.products")}
+      description={i18n.t("catalog.productsDescription")}
+      breadcrumbs={[{ label: i18n.t("nav.home"), href: "#/" }, { label: i18n.t("nav.products") }]}
       actions={
         <ITFlex gap={2} align="center">
-          <ITInput
-            name="search"
-            placeholder="Buscar por código o nombre"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            size="sm"
-          />
           {can(user, "product.import") && (
             <ITButton
-              label="Importar"
+              label={i18n.t("catalog.import")}
+              className="whitespace-nowrap"
               icon={<FaFileImport size={12} />}
               variant="outline"
               size="sm"
@@ -142,7 +137,8 @@ export default function ProductsPage() {
           )}
           {can(user, "product.create") && (
             <ITButton
-              label="Nuevo producto"
+              label={i18n.t("catalog.newProduct")}
+              className="whitespace-nowrap"
               icon={<FaPlus size={12} />}
               color="primary"
               size="sm"
@@ -155,9 +151,20 @@ export default function ProductsPage() {
         </ITFlex>
       }
     >
+      <ITFlex gap={2} align="center" wrap="wrap" className="mb-4">
+        <div className="w-72">
+          <ITInput
+            name="search"
+            placeholder={i18n.t("catalog.searchProductPlaceholder")}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            size="sm"
+          />
+        </div>
+      </ITFlex>
       <ITFlex direction="column" gap={3}>
         {actionError && !toDeactivate && (
-          <ITAlert variant="error" title="No se pudo completar" dismissible onDismiss={() => setActionError(null)}>
+          <ITAlert variant="error" title={i18n.t("common.actionFailed")} dismissible onDismiss={() => setActionError(null)}>
             {actionError}
           </ITAlert>
         )}
@@ -177,16 +184,16 @@ export default function ProductsPage() {
         onSaved={() => {
           setFormOpen(false);
           refresh();
-          dispatch(showToast(editing ? "Producto actualizado" : "Producto creado"));
+          dispatch(showToast(editing ? i18n.t("catalog.productUpdated") : i18n.t("catalog.productCreated")));
         }}
       />
 
       <ReasonDialog
         open={toDeactivate !== null}
-        title="Desactivar producto"
+        title={i18n.t("catalog.deactivateProduct")}
         description={
           toDeactivate
-            ? `Se desactivará «${toDeactivate.name}» (${toDeactivate.productCode}). Deja de estar disponible, pero conserva su historial.`
+            ? i18n.t("catalog.deactivateProductHint", { name: toDeactivate.name, code: toDeactivate.productCode })
             : ""
         }
         busy={busy}

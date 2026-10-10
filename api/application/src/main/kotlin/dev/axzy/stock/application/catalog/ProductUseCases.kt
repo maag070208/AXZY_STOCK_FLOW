@@ -182,7 +182,7 @@ class DeactivateProduct(
             if (reason.isNullOrBlank()) {
                 return@authorizeOr failure(
                     FailureKind.RULE_VIOLATION, "REASON_REQUIRED",
-                    "Se requiere un motivo para desactivar un producto.",
+                    "A reason is required to deactivate a product.",
                 )
             }
             current.product.deactivate().toOutcome().flatMap { deactivated: Product ->
@@ -224,16 +224,16 @@ private data class PreparedProduct(
 
 private fun requireCode(raw: String?): Outcome<ProductCode> = when {
     raw.isNullOrBlank() ->
-        failure(FailureKind.RULE_VIOLATION, "FIELD_REQUIRED", "El código de producto es obligatorio.")
+        failure(FailureKind.RULE_VIOLATION, "FIELD_REQUIRED", "The product code is required.")
     else -> ProductCode.validate(raw).fold(
         onSuccess = { it.asRight() },
-        onFailure = { DomainError.InvalidProductCode(raw, it.message ?: "formato inválido").toFailure().asLeft() },
+        onFailure = { DomainError.InvalidProductCode(raw, it.message ?: "invalid format").toFailure().asLeft() },
     )
 }
 
 private fun requireName(raw: String?): Outcome<String> = when {
     raw.isNullOrBlank() ->
-        failure(FailureKind.RULE_VIOLATION, "FIELD_REQUIRED", "El nombre del producto es obligatorio.")
+        failure(FailureKind.RULE_VIOLATION, "FIELD_REQUIRED", "The product name is required.")
     raw.trim().length > CatalogLimits.PRODUCT_NAME ->
         failure(FailureKind.RULE_VIOLATION, "FIELD_TOO_LONG", "El nombre supera ${CatalogLimits.PRODUCT_NAME} caracteres.")
     else -> raw.trim().asRight()
@@ -245,7 +245,7 @@ private fun requireName(raw: String?): Outcome<String> = when {
  */
 private fun resolveUnit(units: UnitsOfMeasure, raw: String?): Outcome<UnitOfMeasure> = when {
     raw.isNullOrBlank() ->
-        failure(FailureKind.RULE_VIOLATION, "FIELD_REQUIRED", "La unidad de medida es obligatoria.")
+        failure(FailureKind.RULE_VIOLATION, "FIELD_REQUIRED", "The unit of measure is required.")
     else -> {
         val wanted = raw.trim().uppercase()
         units.all().firstOrNull { it.code == wanted }?.asRight()

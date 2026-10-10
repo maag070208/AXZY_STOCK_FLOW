@@ -6,7 +6,8 @@ import { can } from "@entities/session";
 import { labelsApi } from "@entities/labels";
 import { receivingApi, type PendingApproval } from "@entities/receiving";
 import { transfersApi, type InTransit } from "@entities/transfers";
-import { ApiError } from "@shared/api/types";
+
+import { describeError } from "@shared/api/errorMessage";
 
 /**
  * Lo que el inicio muestra del estado de la operación. Cada cifra sale de un endpoint que el usuario
@@ -55,7 +56,7 @@ export function useHomeSummary(): { summary: HomeSummary; loading: boolean } {
 
       const failures = [products, pending, transit, labels]
         .filter((result): result is PromiseRejectedResult => result.status === "rejected")
-        .map((result) => (result.reason instanceof ApiError ? result.reason.message : "Una cifra no se pudo cargar."));
+        .map((result) => describeError(result.reason, "home.figureFailed"));
 
       setSummary({
         products: products.status === "fulfilled" && products.value ? products.value.totalItems : null,

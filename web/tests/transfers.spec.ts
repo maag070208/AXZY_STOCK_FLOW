@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openMenu } from "./support/menu";
+import { mockHomeSummary } from "./support/home";
 
 /**
  * Las acciones de un traslado, **con la API simulada**.
@@ -20,7 +22,7 @@ const USER = {
   id: 1,
   username: "jefa",
   name: "Jefa de almacén",
-  roles: ["GERENTE_OPERACIONES"],
+  roles: ["OPERATIONS_MANAGER"],
   permissions: PERMISSIONS,
   scopes: { "transfer.view": "ALL" },
   warehouses: [1],
@@ -68,8 +70,8 @@ async function signIn(page: Page) {
   await page.goto("/");
   await page.locator('input[name="username"]').fill("jefa");
   await page.locator('input[name="password"]').fill("lo-que-sea");
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page.getByRole("heading", { name: "Inicio", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
 }
 
 /**
@@ -89,11 +91,13 @@ async function mockTransfer(page: Page, initialStatus: string) {
 }
 
 async function openTransfers(page: Page) {
-  await page.getByText("Traslados", { exact: true }).first().click();
-  await expect(page.getByText("Mercancía entre bodegas y la que va en camino.")).toBeVisible();
+  await openMenu(page, "Transfers");
+  await expect(page.getByText("Goods moving between warehouses and those in transit.")).toBeVisible();
   await page.getByText("TR-0005").first().click();
-  await expect(page.getByRole("heading", { name: "Traslado TR-0005" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Transfer TR-0005" })).toBeVisible();
 }
+
+test.beforeEach(async ({ page }) => mockHomeSummary(page));
 
 test.describe("traslados: acciones (API simulada)", () => {
   test("despachar un borrador llama a /dispatch sin cuerpo y muestra el nuevo estado", async ({ page }) => {
@@ -106,24 +110,24 @@ test.describe("traslados: acciones (API simulada)", () => {
     await openTransfers(page);
 
     const request = page.waitForRequest((req) => req.method() === "POST" && req.url().endsWith("/v1/transfers/5/dispatch"));
-    await page.getByRole("button", { name: "Despachar" }).click();
+    await page.getByRole("button", { name: "Dispatch" }).click();
     expect((await request).postData()).toBeNull();
 
     await expect(page.getByText("DISPATCHED").first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "Despachar" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Dispatch" })).toHaveCount(0);
   });
 
   test("recibir un traslado que la API no admite muestra su motivo y no cambia el estado", async ({ page }) => {
     await mockTransfer(page, "DISPATCHED");
     await page.route("**/v1/transfers/5/receive", (route) =>
-      route.fulfill({ status: 409, json: { code: "INVALID_TRANSITION", message: "El traslado no está en camino: no se puede recibir." } }),
+      route.fulfill({ status: 409, json: { code: "INVALID_TRANSITION", message: "That action is not allowed in the current status." } }),
     );
     await signIn(page);
     await openTransfers(page);
 
-    await page.getByRole("button", { name: "Recibir" }).click();
+    await page.getByRole("button", { name: "Receive" }).click();
 
-    await expect(page.getByText("El traslado no está en camino: no se puede recibir.")).toBeVisible();
+    await expect(page.getByText("That action is not allowed in the current status.")).toBeVisible();
     await expect(page.getByText("DISPATCHED").first()).toBeVisible();
   });
 
@@ -138,11 +142,11 @@ test.describe("traslados: acciones (API simulada)", () => {
     await signIn(page);
     await openTransfers(page);
 
-    await page.getByRole("button", { name: "Cancelar traslado" }).click();
-    await expect(page.getByText("La mercancía vuelve a su bodega de origen (BOD1).")).toBeVisible();
+    await page.getByRole("button", { name: "Cancel transfer" }).click();
+    await expect(page.getByText("The goods return to their origin warehouse (BOD1). This action is recorded in the audit log.")).toBeVisible();
     expect(cancelled, "no debe enviarse antes de confirmar").toBe(0);
 
-    await page.getByRole("button", { name: "Sí, cancelar" }).click();
+    await page.getByRole("button", { name: "Yes, cancel" }).click();
     await expect(page.getByText("CANCELLED").first()).toBeVisible();
     expect(cancelled).toBe(1);
   });

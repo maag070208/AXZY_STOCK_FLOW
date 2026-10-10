@@ -50,17 +50,17 @@ class ChangePassword(
 ) {
     fun execute(actor: Actor, currentPassword: String, newPassword: String, origin: RequestOrigin): Outcome<Unit> {
         val account = users.findById(actor.id)
-            ?: return failure(FailureKind.UNAUTHENTICATED, "UNAUTHENTICATED", "El usuario ya no existe.")
+            ?: return failure(FailureKind.UNAUTHENTICATED, "UNAUTHENTICATED", "The user no longer exists.")
 
         if (!hasher.verify(currentPassword, account.passwordHash)) {
-            return failure(FailureKind.UNAUTHENTICATED, "INVALID_CREDENTIALS", "La contraseña actual no es correcta.")
+            return failure(FailureKind.UNAUTHENTICATED, "INVALID_CREDENTIALS", "The current password is not correct.")
         }
         val validation = PasswordPolicy.validate(newPassword, account.username)
         if (validation is PasswordValidation.Invalid) {
             return failure(FailureKind.RULE_VIOLATION, "WEAK_PASSWORD", PasswordPolicy.explain(validation))
         }
         if (newPassword == currentPassword) {
-            return failure(FailureKind.RULE_VIOLATION, "SAME_PASSWORD", "La contraseña nueva debe ser distinta de la actual.")
+            return failure(FailureKind.RULE_VIOLATION, "SAME_PASSWORD", "The new password must be different from the current one.")
         }
 
         // El hash es deliberadamente lento: se calcula ANTES de abrir la transacción para no
@@ -95,14 +95,14 @@ class ResolveActor(private val users: UserAccounts) {
 
     fun execute(userId: Long, credentialsStamp: Long): Outcome<Actor> {
         val snapshot = users.loadActor(userId)
-            ?: return failure(FailureKind.UNAUTHENTICATED, "UNAUTHENTICATED", "El usuario ya no existe.")
+            ?: return failure(FailureKind.UNAUTHENTICATED, "UNAUTHENTICATED", "The user no longer exists.")
         if (!snapshot.actor.user.active) {
-            return failure(FailureKind.UNAUTHENTICATED, "ACCOUNT_DISABLED", "La cuenta está desactivada.")
+            return failure(FailureKind.UNAUTHENTICATED, "ACCOUNT_DISABLED", "The account is disabled.")
         }
         if (credentialsStamp != snapshot.credentialsStamp) {
             return failure(
                 FailureKind.UNAUTHENTICATED, "UNAUTHENTICATED",
-                "La contraseña cambió después de emitirse esta sesión. Vuelve a iniciar sesión.",
+                "The password changed after this session was issued. Sign in again.",
             )
         }
         return snapshot.actor.asRight()

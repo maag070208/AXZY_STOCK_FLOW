@@ -8,9 +8,12 @@ import PackLineDialog from "@features/fulfillment/PackLineDialog";
 import ShortageDialog from "@features/fulfillment/ShortageDialog";
 import { can } from "@entities/session";
 import { fulfillmentApi, type OrderDetail, type OrderLine } from "@entities/fulfillment";
-import { ApiError } from "@shared/api/types";
+
 import { formatQuantity } from "@shared/lib/format";
 import { Page } from "@shared/ui/page/Page";
+import { FaTruck } from "react-icons/fa";
+import i18n from "@shared/i18n";
+import { describeError } from "@shared/api/errorMessage";
 
 /**
  * Una orden con sus líneas y las acciones del surtido: asignarse una línea, empacar, registrar un
@@ -37,7 +40,7 @@ export default function OrderDetailPage() {
 
   useEffect(() => {
     if (!Number.isInteger(orderId) || orderId <= 0) {
-      setLoadError("Esa orden no existe.");
+      setLoadError(i18n.t("fulfillment.notFound"));
       return;
     }
     let active = true;
@@ -49,7 +52,7 @@ export default function OrderDetailPage() {
         setLoadError(null);
       })
       .catch((caught: unknown) => {
-        if (active) setLoadError(caught instanceof ApiError ? caught.message : "No se pudo cargar la orden.");
+        if (active) setLoadError(describeError(caught, "fulfillment.loadFailed"));
       });
     return () => {
       active = false;
@@ -73,29 +76,29 @@ export default function OrderDetailPage() {
       refresh();
     } catch (caught) {
       if (rethrow) throw caught;
-      setActionError(caught instanceof ApiError ? caught.message : "No se pudo completar la acción.");
+      setActionError(describeError(caught, "common.actionFailedDot"));
     } finally {
       setBusy(false);
     }
   };
 
   const breadcrumbs = [
-    { label: "Inicio", href: "#/" },
-    { label: "Surtido", href: "#/orders" },
-    { label: order?.orderNumber ?? "Orden" },
+    { label: i18n.t("nav.home"), href: "#/" },
+    { label: i18n.t("nav.fulfillment"), href: "#/orders" },
+    { label: order?.orderNumber ?? i18n.t("fulfillment.order") },
   ];
 
   if (loadError) {
     return (
-      <Page title="Orden" breadcrumbs={breadcrumbs}>
-        <ITAlert variant="error" title="No se pudo abrir la orden">{loadError}</ITAlert>
+      <Page icon={<FaTruck size={18} />} title={i18n.t("fulfillment.order")} breadcrumbs={breadcrumbs}>
+        <ITAlert variant="error" title={i18n.t("fulfillment.openFailed")}>{loadError}</ITAlert>
       </Page>
     );
   }
   if (!order) {
     return (
-      <Page title="Orden" breadcrumbs={breadcrumbs}>
-        <ITText muted>Cargando la orden…</ITText>
+      <Page title={i18n.t("fulfillment.order")} breadcrumbs={breadcrumbs}>
+        <ITText muted>{i18n.t("fulfillment.loadingOrder")}</ITText>
       </Page>
     );
   }
@@ -105,8 +108,8 @@ export default function OrderDetailPage() {
 
   return (
     <Page
-      title={`Orden ${order.orderNumber}`}
-      description={`${order.packagedLines} de ${order.totalLines} líneas empacadas${order.converted ? " · confirmada" : ""}`}
+      title={`${i18n.t("fulfillment.order")} ${order.orderNumber}`}
+      description={`${i18n.t("fulfillment.packedSummary", { packed: order.packagedLines, total: order.totalLines })}${order.converted ? i18n.t("fulfillment.confirmedSuffix") : ""}`}
       breadcrumbs={breadcrumbs}
     >
       <ITFlex gap={2} wrap="wrap" className="mb-4">
@@ -118,22 +121,22 @@ export default function OrderDetailPage() {
         )}
       </ITFlex>
       {order.exportLastError && (
-        <ITAlert variant="warning" title="La última exportación falló">{order.exportLastError}</ITAlert>
+        <ITAlert variant="warning" title={i18n.t("fulfillment.lastExportFailed")}>{order.exportLastError}</ITAlert>
       )}
 
-      {actionError && <ITAlert variant="error" title="No se pudo completar la acción">{actionError}</ITAlert>}
+      {actionError && <ITAlert variant="error" title={i18n.t("common.actionFailedShort")}>{actionError}</ITAlert>}
 
       <ITFlex gap={2} wrap="wrap" className="my-4">
-        <ITButton label="Volver a surtido" variant="outline" onClick={() => navigate("/orders")} />
+        <ITButton label={i18n.t("fulfillment.backToFulfillment")} variant="outline" onClick={() => navigate("/orders")} />
         {can(user, "order.confirm") && !order.converted && (
-          <ITButton label="Confirmar surtido" color="primary" disabled={busy} onClick={() => void run(() => fulfillmentApi.confirm(orderId), "Orden confirmada.")} />
+          <ITButton label={i18n.t("fulfillment.confirmFulfillment")} color="primary" disabled={busy} onClick={() => void run(() => fulfillmentApi.confirm(orderId), i18n.t("fulfillment.orderConfirmed"))} />
         )}
         {can(user, "order.convert") && order.converted && !exportDone && (
           <ITButton
-            label={order.exportAttempts > 0 ? "Reintentar exportación" : "Exportar al ERP"}
+            label={order.exportAttempts > 0 ? i18n.t("fulfillment.retryExport") : i18n.t("fulfillment.exportToErp")}
             variant="outline"
             disabled={busy}
-            onClick={() => void run(() => fulfillmentApi.exportOrder(orderId), "Intento de exportación registrado.")}
+            onClick={() => void run(() => fulfillmentApi.exportOrder(orderId), i18n.t("fulfillment.exportAttemptRecorded"))}
           />
         )}
       </ITFlex>
@@ -142,12 +145,12 @@ export default function OrderDetailPage() {
         <table className="w-full min-w-[720px] border-collapse text-sm">
           <thead>
             <tr className="border-b text-left">
-              <th className="py-2 pr-3">Producto</th>
-              <th className="py-2 pr-3 text-right">Pedido</th>
-              <th className="py-2 pr-3 text-right">Surtido</th>
-              <th className="py-2 pr-3 text-right">Pendiente</th>
-              <th className="py-2 pr-3">Asignado a</th>
-              <th className="py-2 pr-3">Estado</th>
+              <th className="py-2 pr-3">{i18n.t("common.product")}</th>
+              <th className="py-2 pr-3 text-right">{i18n.t("fulfillment.ordered")}</th>
+              <th className="py-2 pr-3 text-right">{i18n.t("nav.fulfillment")}</th>
+              <th className="py-2 pr-3 text-right">{i18n.t("fulfillment.pending")}</th>
+              <th className="py-2 pr-3">{i18n.t("fulfillment.assignedTo")}</th>
+              <th className="py-2 pr-3">{i18n.t("common.status")}</th>
               <th className="py-2 pr-3" />
             </tr>
           </thead>
@@ -170,13 +173,13 @@ export default function OrderDetailPage() {
                   <td className="py-2 pr-3">
                     <ITFlex gap={2} wrap="wrap" justify="end">
                       {can(user, "order.assign") && open && (line.status === "PENDING" || line.status === "ASSIGNED") && (
-                        <ITButton label="Asignarme" size="sm" variant="outline" disabled={busy} onClick={() => void run(() => fulfillmentApi.assign(orderId, line.id, {}), "Línea asignada.")} />
+                        <ITButton label={i18n.t("receiving.assignToMe")} size="sm" variant="outline" disabled={busy} onClick={() => void run(() => fulfillmentApi.assign(orderId, line.id, {}), i18n.t("receiving.lineAssigned"))} />
                       )}
                       {can(user, "order.package") && open && (
-                        <ITButton label="Empacar" size="sm" variant="outline" disabled={busy} onClick={() => setPacking(line)} />
+                        <ITButton label={i18n.t("fulfillment.pack")} size="sm" variant="outline" disabled={busy} onClick={() => setPacking(line)} />
                       )}
                       {can(user, "order.package") && can(user, "inventory.adjust_shortage") && open && (
-                        <ITButton label="Faltante" size="sm" variant="outline" color="danger" disabled={busy} onClick={() => setShorting(line)} />
+                        <ITButton label={i18n.t("reasons.shortage")} size="sm" variant="outline" color="danger" disabled={busy} onClick={() => setShorting(line)} />
                       )}
                     </ITFlex>
                   </td>
@@ -192,7 +195,7 @@ export default function OrderDetailPage() {
         line={packing}
         onClose={() => setPacking(null)}
         onSubmit={(quantity) =>
-          run(() => fulfillmentApi.pack(orderId, packing!.id, { quantity }), "Empaque registrado.", { rethrow: true })
+          run(() => fulfillmentApi.pack(orderId, packing!.id, { quantity }), i18n.t("fulfillment.packRecorded"), { rethrow: true })
         }
       />
 
@@ -201,7 +204,7 @@ export default function OrderDetailPage() {
         line={shorting}
         onClose={() => setShorting(null)}
         onSubmit={(body) =>
-          run(() => fulfillmentApi.shortage(orderId, { ...body, lineId: shorting!.id }), "Faltante registrado.", { rethrow: true })
+          run(() => fulfillmentApi.shortage(orderId, { ...body, lineId: shorting!.id }), i18n.t("fulfillment.shortageRecorded"), { rethrow: true })
         }
       />
     </Page>

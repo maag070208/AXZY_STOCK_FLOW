@@ -179,7 +179,7 @@ class CatalogUploadTest {
     fun `un archivo de otro formato se rechaza diciendo cual se acepta`() {
         val mensaje = (upload.read(file("lo que sea", "catalogo.pdf")) as Either.Left).error.message
 
-        assertThat(mensaje).contains("CSV, TSV o XLSX")
+        assertThat(mensaje).contains("CSV, TSV or XLSX")
     }
 
 }

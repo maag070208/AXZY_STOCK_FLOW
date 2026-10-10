@@ -172,7 +172,7 @@ class InventoryLedger {
     ): DomainResult<LedgerEntry> {
         if (!quantity.isPositive) {
             return DomainError.InvalidQuantity(
-                "La carga inicial debe ser mayor que cero (se recibió $quantity)"
+                "The initial load must be greater than zero (got $quantity)"
             ).asLeft()
         }
         val result = record(productCode, MovementType.INITIAL, quantity, from = null, to = location)
@@ -190,7 +190,7 @@ class InventoryLedger {
         clientUuid: String? = null,
     ): DomainResult<LedgerEntry> {
         if (!quantity.isPositive) {
-            return DomainError.InvalidQuantity("La recepción debe ser mayor que cero").asLeft()
+            return DomainError.InvalidQuantity("The receipt must be greater than zero").asLeft()
         }
 
         // ── Invariante I8: idempotencia ─────────────────────────────────────
@@ -227,7 +227,7 @@ class InventoryLedger {
         quantity: Quantity,
     ): DomainResult<LedgerEntry> {
         if (!quantity.isPositive) {
-            return DomainError.InvalidQuantity("La cantidad a ubicar debe ser mayor que cero").asLeft()
+            return DomainError.InvalidQuantity("The quantity to locate must be greater than zero").asLeft()
         }
         if (fromReceiving == toShelf) {
             return DomainError.SameSourceAndDestination(fromReceiving.value).asLeft()
@@ -261,7 +261,7 @@ class InventoryLedger {
         clientUuid: String? = null,
     ): DomainResult<LedgerEntry> {
         if (!quantity.isPositive) {
-            return DomainError.InvalidQuantity("La cantidad a mover debe ser mayor que cero").asLeft()
+            return DomainError.InvalidQuantity("The quantity to move must be greater than zero").asLeft()
         }
         if (from == to) {
             return DomainError.SameSourceAndDestination(from.value).asLeft()
@@ -293,7 +293,7 @@ class InventoryLedger {
         quantity: Quantity,
     ): DomainResult<LedgerEntry> {
         if (!quantity.isPositive) {
-            return DomainError.InvalidQuantity("La cantidad a transferir debe ser mayor que cero").asLeft()
+            return DomainError.InvalidQuantity("The quantity to transfer must be greater than zero").asLeft()
         }
 
         val available = quantityAt(productCode, fromLocation)
@@ -324,7 +324,7 @@ class InventoryLedger {
         quantity: Quantity,
     ): DomainResult<LedgerEntry> {
         if (!quantity.isPositive) {
-            return DomainError.InvalidQuantity("La cantidad a recibir debe ser mayor que cero").asLeft()
+            return DomainError.InvalidQuantity("The quantity to receive must be greater than zero").asLeft()
         }
 
         val index = _inTransit.indexOfFirst {
@@ -336,8 +336,8 @@ class InventoryLedger {
             return DomainError.InsufficientStock(
                 available = 0L,
                 requested = quantity.value,
-                location = "tránsito",
-                message = "No hay mercancía de $productCode en tránsito para recibir",
+                location = "transit",
+                message = "There are no goods of $productCode in transit to receive",
             ).asLeft()
         }
 
@@ -361,10 +361,10 @@ class InventoryLedger {
         reason: String,
     ): DomainResult<LedgerEntry> {
         if (reason.isBlank()) {
-            return DomainError.ReasonRequired("un ajuste de entrada").asLeft()
+            return DomainError.ReasonRequired("an incoming adjustment").asLeft()
         }
         if (!quantity.isPositive) {
-            return DomainError.InvalidQuantity("El ajuste debe ser mayor que cero").asLeft()
+            return DomainError.InvalidQuantity("The adjustment must be greater than zero").asLeft()
         }
         val result = record(
             productCode, MovementType.ADJUSTMENT_IN, quantity,
@@ -383,10 +383,10 @@ class InventoryLedger {
         reason: String,
     ): DomainResult<LedgerEntry> {
         if (reason.isBlank()) {
-            return DomainError.ReasonRequired("una merma").asLeft()
+            return DomainError.ReasonRequired("a shrinkage").asLeft()
         }
         if (!quantity.isPositive) {
-            return DomainError.InvalidQuantity("La merma debe ser mayor que cero").asLeft()
+            return DomainError.InvalidQuantity("The shrinkage must be greater than zero").asLeft()
         }
 
         val available = quantityAt(productCode, location)

@@ -2,6 +2,8 @@ import { ITAlert, ITButton, ITDialog, ITFlex, ITInput, ITText } from "@axzydev/a
 import { useEffect, useState, type FormEvent } from "react";
 import { catalogApi, type Product, type ProductInput } from "@entities/catalog";
 import { ApiError } from "@shared/api/types";
+import i18n from "@shared/i18n";
+import { describeError } from "@shared/api/errorMessage";
 
 interface Props {
   open: boolean;
@@ -63,7 +65,7 @@ export default function ProductFormDialog({ open, product, onClose, onSaved }: P
       // El campo se marca cuando el código del error dice de qué campo habla; el
       // cliente decide con `code`, nunca comparando el texto (docs/api/errores.md).
       setError({
-        message: apiError.message,
+        message: describeError(apiError, "errors.unexpected"),
         field: isProductCodeError(apiError.code) ? "productCode" : undefined,
       });
     } finally {
@@ -72,12 +74,12 @@ export default function ProductFormDialog({ open, product, onClose, onSaved }: P
   };
 
   return (
-    <ITDialog isOpen={open} onClose={onClose} title={editing ? "Editar producto" : "Nuevo producto"}>
+    <ITDialog isOpen={open} onClose={onClose} title={editing ? i18n.t("catalog.editProduct") : i18n.t("catalog.newProduct")}>
       <form onSubmit={submit}>
         <ITFlex direction="column" gap={4}>
           <ITInput
             name="productCode"
-            label="Código"
+            label={i18n.t("common.code")}
             value={productCode}
             onChange={(event) => setProductCode(event.target.value)}
             disabled={editing}
@@ -94,7 +96,7 @@ export default function ProductFormDialog({ open, product, onClose, onSaved }: P
 
           <ITInput
             name="name"
-            label="Nombre"
+            label={i18n.t("common.name")}
             value={name}
             onChange={(event) => setName(event.target.value)}
             required
@@ -102,24 +104,24 @@ export default function ProductFormDialog({ open, product, onClose, onSaved }: P
           />
           <ITInput
             name="description"
-            label="Descripción"
+            label={i18n.t("common.description")}
             value={description}
             onChange={(event) => setDescription(event.target.value)}
           />
           <ITInput
             name="unitMeasure"
-            label="Unidad de medida"
+            label={i18n.t("common.unitMeasure")}
             value={unitMeasure}
             onChange={(event) => setUnitMeasure(event.target.value)}
             required
             placeholder="PZA"
           />
 
-          {error && !error.field && <ITAlert variant="error" title="No se pudo guardar">{error.message}</ITAlert>}
+          {error && !error.field && <ITAlert variant="error" title={i18n.t("catalog.saveFailed")}>{error.message}</ITAlert>}
 
           <ITFlex justify="end" gap={2}>
-            <ITButton label="Cancelar" variant="outline" onClick={onClose} disabled={busy} />
-            <ITButton type="submit" label={busy ? "Guardando…" : "Guardar"} color="primary" disabled={busy} />
+            <ITButton label={i18n.t("common.cancel")} variant="outline" onClick={onClose} disabled={busy} />
+            <ITButton type="submit" label={busy ? i18n.t("catalog.saving") : i18n.t("common.save")} color="primary" disabled={busy} />
           </ITFlex>
         </ITFlex>
       </form>

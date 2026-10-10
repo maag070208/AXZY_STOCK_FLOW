@@ -91,7 +91,7 @@ class CreateOrder(
             if (input.lines.isEmpty()) {
                 return@authorizeOr failure(
                     FailureKind.RULE_VIOLATION, "EMPTY_ORDER",
-                    "Una orden necesita al menos una línea.",
+                    "An order needs at least one line.",
                     mapOf("field" to "lines"),
                 )
             }
@@ -143,7 +143,7 @@ class CreateOrder(
             runCatching { LocalDate.parse(rawDate) }.getOrNull()
                 ?: return failure(
                     FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
-                    "La fecha de empaque no tiene el formato AAAA-MM-DD.",
+                    "The packing date is not in the format YYYY-MM-DD.",
                     mapOf("field" to "packagingDate", "expected" to "AAAA-MM-DD", "value" to rawDate),
                 )
         }
@@ -152,7 +152,7 @@ class CreateOrder(
         if (number.length > 40) {
             return failure(
                 FailureKind.RULE_VIOLATION, "FIELD_TOO_LONG",
-                "El número de orden no puede pasar de 40 caracteres.",
+                "The order number cannot exceed 40 characters.",
                 mapOf("field" to "orderNumber", "maxLength" to "40"),
             )
         }
@@ -172,24 +172,24 @@ class CreateOrder(
             if (rawCode.isNullOrBlank()) {
                 return failure(
                     FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-                    "Falta el código de producto de la línea $position.",
+                    "The product code of line $position is missing.",
                     mapOf("field" to "lines[$index].productCode"),
                 )
             }
             val code = runCatching { ProductCode.of(rawCode) }.getOrElse {
-                return DomainError.InvalidProductCode(rawCode, it.message ?: "código inválido").toFailure().asLeft()
+                return DomainError.InvalidProductCode(rawCode, it.message ?: "invalid code").toFailure().asLeft()
             }
             val product = catalog.product(code)
-                ?: return DomainError.InvalidProductCode(rawCode, "no existe en el catálogo o está inactivo")
+                ?: return DomainError.InvalidProductCode(rawCode, "does not exist in the catalog or is inactive")
                     .toFailure().asLeft()
             val quantity = line.quantity
                 ?: return failure(
                     FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-                    "Falta la cantidad de la línea $position.",
+                    "The quantity of line $position is missing.",
                     mapOf("field" to "lines[$index].quantity"),
                 )
             if (!quantity.isPositive) {
-                return DomainError.InvalidQuantity("La cantidad de la línea $position debe ser mayor que cero")
+                return DomainError.InvalidQuantity("The quantity of line $position must be greater than zero")
                     .toFailure().asLeft()
             }
             resolved += ResolvedOrderLine(product.id, code, product.unitMeasureId, quantity)
@@ -235,14 +235,14 @@ class PackageLine(
             if (!OrderStatus.valueOf(detail.header.status).allowsPackaging) {
                 return@inTransaction failure(
                     FailureKind.CONFLICT, "INVALID_TRANSITION",
-                    "Una orden ${detail.header.status.lowercase()} no admite empaque.",
+                    "An order that is ${detail.header.status.lowercase()} does not allow packing.",
                     mapOf("orderId" to orderId.toString(), "status" to detail.header.status),
                 )
             }
             val amount = input.quantity
                 ?: return@inTransaction failure(
                     FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-                    "Falta la cantidad a empacar.",
+                    "The quantity to pack is required.",
                     mapOf("field" to "quantity"),
                 )
 
@@ -324,7 +324,7 @@ class PackageLine(
 
     private fun locationRequired(lineId: Long) = failure(
         FailureKind.RULE_VIOLATION, "LOCATION_REQUIRED",
-        "La línea $lineId no tiene ubicación de la que sacar la mercancía.",
+        "Line $lineId has no location to take the goods from.",
         mapOf("lineId" to lineId.toString()),
     )
 }
@@ -439,7 +439,7 @@ class ConfirmOrder(
 
     private fun locationRequiredFor(lineId: Long) = failure(
         FailureKind.RULE_VIOLATION, "LOCATION_REQUIRED",
-        "La línea $lineId no tiene ubicación de la que sacar la mercancía.",
+        "Line $lineId has no location to take the goods from.",
         mapOf("lineId" to lineId.toString()),
     )
 
@@ -577,7 +577,7 @@ class RegisterShortage(
         val detail = orders.detail(orderId) ?: return@authorizeOr orderNotFound(orderId)
         val lineId = input.lineId ?: return@authorizeOr failure(
             FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-            "Falta la línea del faltante.",
+            "The shortage line is missing.",
             mapOf("field" to "lineId"),
         )
         val view = detail.lines.firstOrNull { it.line.id == lineId }
@@ -585,13 +585,13 @@ class RegisterShortage(
         val location = view.line.locationId
             ?: return@authorizeOr failure(
                 FailureKind.RULE_VIOLATION, "LOCATION_REQUIRED",
-                "La línea $lineId no tiene ubicación de la que descontar el faltante.",
+                "Line $lineId has no location to deduct the shortage from.",
                 mapOf("lineId" to lineId.toString()),
             )
         val locationView = view.locationDisplayName
             ?: return@authorizeOr failure(
                 FailureKind.RULE_VIOLATION, "LOCATION_REQUIRED",
-                "La línea $lineId no tiene ubicación legible.",
+                "Line $lineId has no readable location.",
                 mapOf("lineId" to lineId.toString()),
             )
 
@@ -654,19 +654,19 @@ internal fun Quantity.toPlain(): String = java.math.BigDecimal.valueOf(value, Qu
 
 internal fun orderNotFound(orderId: Long): Outcome<Nothing> = failure(
     FailureKind.NOT_FOUND, "ORDER_NOT_FOUND",
-    "No existe la orden $orderId.",
+    "Order $orderId does not exist.",
     mapOf("orderId" to orderId.toString()),
 )
 
 internal fun lineNotFound(lineId: Long): Outcome<Nothing> = failure(
     FailureKind.NOT_FOUND, "ORDER_LINE_NOT_FOUND",
-    "No existe la línea $lineId en esta orden.",
+    "Line $lineId does not exist on this order.",
     mapOf("lineId" to lineId.toString()),
 )
 
 internal fun duplicateNumber(number: String): Outcome<Nothing> = failure(
     FailureKind.CONFLICT, "DUPLICATE_ORDER_NUMBER",
-    "Ya existe una orden con el número '$number'.",
+    "An order with the number '$number' already exists.",
     mapOf("orderNumber" to number),
 )
 
@@ -706,7 +706,7 @@ class AssignOrderLine(
             val assignee = accounts.loadActor(userId)?.actor
                 ?: return@inTransaction failure(
                     FailureKind.RULE_VIOLATION, "ASSIGNEE_NOT_FOUND",
-                    "No existe el usuario $userId al que se quiere asignar la línea.",
+                    "User $userId, to whom the line should be assigned, does not exist.",
                     mapOf("userId" to userId.toString()),
                 )
             // Una ubicación que no existe se rechaza antes de escribir: asignar una estantería
@@ -715,7 +715,7 @@ class AssignOrderLine(
                 locations.findById(id)
                     ?: return@inTransaction failure(
                         FailureKind.RULE_VIOLATION, "LOCATION_NOT_FOUND",
-                        "No existe la ubicación $id.",
+                        "Location $id does not exist.",
                         mapOf("locationId" to id.toString()),
                     )
             }
@@ -728,7 +728,7 @@ class AssignOrderLine(
                         // El empaque la surtió entre la lectura y la escritura.
                         return@inTransaction failure(
                             FailureKind.CONFLICT, "LINE_CHANGED",
-                            "La línea cambió mientras se asignaba. Vuelve a consultarla.",
+                            "The line changed while it was being assigned. Look it up again.",
                             mapOf("lineId" to lineId.toString()),
                         )
                     }
@@ -760,7 +760,7 @@ class AssignOrderLine(
 
     private fun lineNotFound(orderId: Long, lineId: Long): Outcome<Nothing> = failure(
         FailureKind.NOT_FOUND, "ORDER_LINE_NOT_FOUND",
-        "La orden $orderId no tiene la línea $lineId.",
+        "Order $orderId does not have line $lineId.",
         mapOf("orderId" to orderId.toString(), "lineId" to lineId.toString()),
     )
 }

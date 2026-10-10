@@ -46,19 +46,19 @@ class TransferEngineTest {
             .query(Long::class.java).single()
 
         destinationWarehouse = db.asOwner.sql(
-            "INSERT INTO warehouses (code, name, is_default, active) VALUES ('SUCURSAL', 'Sucursal', FALSE, TRUE) RETURNING id",
+            "INSERT INTO warehouses (code, name, is_default, active) VALUES ('BRANCH', 'Sucursal', FALSE, TRUE) RETURNING id",
         ).query(Long::class.java).single()
         destination = db.asOwner.sql(
             """
             INSERT INTO locations (warehouse_id, hall, code, position, levels, kind)
-            VALUES (:warehouse, 'RECEPCION', 'RECEPCION', 'RECEPCION', 1, 'RECEIVING') RETURNING id
+            VALUES (:warehouse, 'RECEIVING', 'RECEIVING', 'RECEIVING', 1, 'RECEIVING') RETURNING id
             """.trimIndent(),
         ).param("warehouse", destinationWarehouse).query(Long::class.java).single()
 
         // 100 unidades en la recepción del origen, por el motor.
         db.jdbc.sql(
             """
-            SELECT registrar_movimiento(:product, 1, 'INITIAL', 100, NULL, :location, NULL, NULL, NULL, NULL, :user, NULL, NULL)
+            SELECT record_movement(:product, 1, 'INITIAL', 100, NULL, :location, NULL, NULL, NULL, NULL, :user, NULL, NULL)
             """.trimIndent(),
         ).param("product", productId).param("location", origin).param("user", userId).query(Long::class.java).single()
     }
@@ -78,15 +78,15 @@ class TransferEngineTest {
     }
 
     private fun dispatch(id: Long = transferId): Int =
-        db.jdbc.sql("SELECT despachar_traslado(:id, :user)").param("id", id).param("user", userId)
+        db.jdbc.sql("SELECT dispatch_transfer(:id, :user)").param("id", id).param("user", userId)
             .query(Int::class.java).single()
 
     private fun receive(id: Long = transferId): Int =
-        db.jdbc.sql("SELECT recibir_traslado(:id, :user)").param("id", id).param("user", userId)
+        db.jdbc.sql("SELECT receive_transfer(:id, :user)").param("id", id).param("user", userId)
             .query(Int::class.java).single()
 
     private fun cancel(id: Long = transferId): Int =
-        db.jdbc.sql("SELECT cancelar_traslado(:id, :user)").param("id", id).param("user", userId)
+        db.jdbc.sql("SELECT cancel_transfer(:id, :user)").param("id", id).param("user", userId)
             .query(Int::class.java).single()
 
     private fun stockAt(locationId: Long): Quantity =

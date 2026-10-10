@@ -65,7 +65,7 @@ class AuditController(private val queryAuditLog: QueryAuditLog) {
         if (AuditFilters.isInverted(fromDate, toDate)) {
             return failure(
                 FailureKind.INVALID_REQUEST, "INVALID_FILTER_RANGE",
-                "El rango de fechas está invertido: 'from' es posterior a 'to'.",
+                "The date range is inverted: 'from' is after 'to'.",
                 mapOf("from" to (from ?: ""), "to" to (to ?: "")),
             ).toResponse()
         }
@@ -92,7 +92,7 @@ class AuditController(private val queryAuditLog: QueryAuditLog) {
                 dev.axzy.stock.domain.common.Either.Left(
                     dev.axzy.stock.application.shared.Failure(
                         FailureKind.INVALID_REQUEST, "INVALID_FILTER_DATE",
-                        "La fecha no tiene el formato AAAA-MM-DD.",
+                        "The date is not in the format YYYY-MM-DD.",
                         mapOf("field" to field, "value" to raw),
                     ),
                 )

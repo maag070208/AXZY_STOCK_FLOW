@@ -65,7 +65,7 @@ class CreateLabelTemplate(
             if (code.isNullOrBlank()) {
                 return@authorizeOr failure(
                     FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-                    "El código de la plantilla es obligatorio.",
+                    "The label template code is required.",
                     mapOf("field" to "code"),
                 )
             }
@@ -73,7 +73,7 @@ class CreateLabelTemplate(
             if (name.isNullOrBlank()) {
                 return@authorizeOr failure(
                     FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-                    "El nombre de la plantilla es obligatorio.",
+                    "The template name is required.",
                     mapOf("field" to "name"),
                 )
             }
@@ -84,14 +84,14 @@ class CreateLabelTemplate(
             if (input.fieldSchema?.keys?.any { it.isBlank() } == true) {
                 return@authorizeOr failure(
                     FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
-                    "Los nombres de campo del esquema no pueden estar vacíos.",
+                    "Schema field names cannot be empty.",
                     mapOf("field" to "fieldSchema"),
                 )
             }
             if (templates.codeExists(code)) {
                 return@authorizeOr failure(
                     FailureKind.CONFLICT, "DUPLICATE_LABEL_TEMPLATE_CODE",
-                    "Ya existe una plantilla con el código '$code'.",
+                    "A template with the code '$code' already exists.",
                     mapOf("code" to code),
                 )
             }
@@ -135,7 +135,7 @@ class UpdateLabelTemplate(
                 if (code != current.summary.code && templates.codeExists(code)) {
                     return@authorizeOr failure(
                         FailureKind.CONFLICT, "DUPLICATE_LABEL_TEMPLATE_CODE",
-                        "Ya existe una plantilla con el código '$code'.",
+                        "A template with the code '$code' already exists.",
                         mapOf("code" to code),
                     )
                 }
@@ -181,7 +181,7 @@ class PreviewLabel(private val templates: LabelTemplates, private val access: Ac
         access.authorizeOr(actor, "label.print", origin) {
             val templateId = input.templateId ?: return@authorizeOr failure(
                 FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-                "Falta la plantilla.",
+                "The template is missing.",
                 mapOf("field" to "templateId"),
             )
             val detail = templates.findTemplate(templateId) ?: return@authorizeOr templateNotFound(templateId)
@@ -219,21 +219,21 @@ class PrintLabels(
         access.authorizeOr(actor, "label.print", origin) { grant ->
             val templateId = input.templateId ?: return@authorizeOr failure(
                 FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-                "Falta la plantilla.",
+                "The template is missing.",
                 mapOf("field" to "templateId"),
             )
             val copies = input.copies ?: 1
             if (copies < 1 || copies > MAX_COPIES) {
                 return@authorizeOr failure(
                     FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
-                    "Las copias tienen que estar entre 1 y $MAX_COPIES.",
+                    "The copies must be between 1 and $MAX_COPIES.",
                     mapOf("field" to "copies", "value" to copies.toString(), "max" to MAX_COPIES.toString()),
                 )
             }
             if (input.data.isNullOrEmpty()) {
                 return@authorizeOr failure(
                     FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-                    "No hay ninguna etiqueta que imprimir.",
+                    "There are no labels to print.",
                     mapOf("field" to "data"),
                 )
             }
@@ -241,7 +241,7 @@ class PrintLabels(
             if (!detail.summary.isActive) {
                 return@authorizeOr failure(
                     FailureKind.RULE_VIOLATION, "LABEL_TEMPLATE_INACTIVE",
-                    "La plantilla '${detail.summary.code}' está inactiva.",
+                    "Template '${detail.summary.code}' is inactive.",
                     mapOf("templateId" to templateId.toString(), "code" to detail.summary.code),
                 )
             }
@@ -328,7 +328,7 @@ class ReprintLabel(
             if (motivo.isNullOrBlank()) {
                 return@authorizeOr failure(
                     FailureKind.RULE_VIOLATION, "REASON_REQUIRED",
-                    "Reimprimir una etiqueta exige un motivo: queda en la bitácora con quién lo pidió.",
+                    "Reprinting a label requires a reason: it stays in the audit log with who requested it.",
                     mapOf("field" to "reason"),
                 )
             }
@@ -376,15 +376,15 @@ private fun validateZpl(zpl: String?): Outcome<String> {
     if (zpl.isNullOrBlank()) {
         return failure(
             FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-            "El ZPL de la plantilla es obligatorio.",
+            "The template ZPL is required.",
             mapOf("field" to "zpl"),
         )
     }
     if (!zpl.contains("^XA") || !zpl.contains("^XZ")) {
         return failure(
             FailureKind.RULE_VIOLATION, "INVALID_ZPL",
-            "El ZPL tiene que llevar '^XA' y '^XZ': sin el cierre la impresora no da error, " +
-                "deja la etiqueta en blanco y se descubre gastando papel.",
+            "The ZPL must contain '^XA' and '^XZ': without the closing the printer reports no error, " +
+                "leaves the label blank and is discovered by wasting paper.",
             mapOf("field" to "zpl"),
         )
     }
@@ -405,13 +405,13 @@ internal fun LabelTemplateDetail.template(): LabelTemplate = LabelTemplate(
 
 private fun templateNotFound(id: Long): Outcome<Nothing> = failure(
     FailureKind.NOT_FOUND, "LABEL_TEMPLATE_NOT_FOUND",
-    "No existe la plantilla $id.",
+    "Template $id does not exist.",
     mapOf("templateId" to id.toString()),
 )
 
 private fun jobNotFound(id: Long): Outcome<Nothing> = failure(
     FailureKind.NOT_FOUND, "PRINT_JOB_NOT_FOUND",
-    "No existe el trabajo de impresión $id.",
+    "Print job $id does not exist.",
     mapOf("jobId" to id.toString()),
 )
 

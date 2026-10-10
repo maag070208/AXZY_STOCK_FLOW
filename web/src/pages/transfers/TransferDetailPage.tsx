@@ -6,9 +6,12 @@ import type { AppDispatch, RootState } from "@app/store";
 import { showToast } from "@app/toast/toast.slice";
 import { can } from "@entities/session";
 import { transfersApi, type TransferDetail } from "@entities/transfers";
-import { ApiError } from "@shared/api/types";
+
 import { formatQuantity } from "@shared/lib/format";
 import { Page } from "@shared/ui/page/Page";
+import { FaExchangeAlt } from "react-icons/fa";
+import i18n from "@shared/i18n";
+import { describeError } from "@shared/api/errorMessage";
 
 /**
  * Un traslado con sus líneas y las tres acciones que mueven mercancía: despachar, recibir y cancelar.
@@ -34,7 +37,7 @@ export default function TransferDetailPage() {
 
   useEffect(() => {
     if (!Number.isInteger(transferId) || transferId <= 0) {
-      setLoadError("Ese traslado no existe.");
+      setLoadError(i18n.t("transfers.notFound"));
       return;
     }
     let active = true;
@@ -46,7 +49,7 @@ export default function TransferDetailPage() {
         setLoadError(null);
       })
       .catch((caught: unknown) => {
-        if (active) setLoadError(caught instanceof ApiError ? caught.message : "No se pudo cargar el traslado.");
+        if (active) setLoadError(describeError(caught, "transfers.loadFailed"));
       });
     return () => {
       active = false;
@@ -61,7 +64,7 @@ export default function TransferDetailPage() {
       setDetail(updated);
       dispatch(showToast(done, "success"));
     } catch (caught) {
-      setActionError(caught instanceof ApiError ? caught.message : "No se pudo completar la acción.");
+      setActionError(describeError(caught, "common.actionFailedDot"));
     } finally {
       setBusy(false);
       setConfirmingCancel(false);
@@ -69,22 +72,22 @@ export default function TransferDetailPage() {
   };
 
   const breadcrumbs = [
-    { label: "Inicio", href: "#/" },
-    { label: "Traslados", href: "#/transfers" },
-    { label: detail?.transfer.code ?? "Traslado" },
+    { label: i18n.t("nav.home"), href: "#/" },
+    { label: i18n.t("nav.transfers"), href: "#/transfers" },
+    { label: detail?.transfer.code ?? i18n.t("transfers.transfer") },
   ];
 
   if (loadError) {
     return (
-      <Page title="Traslado" breadcrumbs={breadcrumbs}>
-        <ITAlert variant="error" title="No se pudo abrir el traslado">{loadError}</ITAlert>
+      <Page icon={<FaExchangeAlt size={18} />} title={i18n.t("transfers.transfer")} breadcrumbs={breadcrumbs}>
+        <ITAlert variant="error" title={i18n.t("transfers.openFailed")}>{loadError}</ITAlert>
       </Page>
     );
   }
   if (!detail) {
     return (
-      <Page title="Traslado" breadcrumbs={breadcrumbs}>
-        <ITText muted>Cargando el traslado…</ITText>
+      <Page title={i18n.t("transfers.transfer")} breadcrumbs={breadcrumbs}>
+        <ITText muted>{i18n.t("transfers.loading")}</ITText>
       </Page>
     );
   }
@@ -96,8 +99,8 @@ export default function TransferDetailPage() {
 
   return (
     <Page
-      title={`Traslado ${transfer.code}`}
-      description={`${transfer.fromWarehouseCode} → ${transfer.toWarehouseCode} · ${transfer.lineCount} líneas · ${formatQuantity(transfer.totalUnits)} unidades`}
+      title={`${i18n.t("transfers.transfer")} ${transfer.code}`}
+      description={i18n.t("transfers.routeSummary", { from: transfer.fromWarehouseCode, to: transfer.toWarehouseCode, lines: transfer.lineCount, units: formatQuantity(transfer.totalUnits) })}
       breadcrumbs={breadcrumbs}
     >
       <ITFlex gap={2} wrap="wrap" className="mb-4">
@@ -106,18 +109,18 @@ export default function TransferDetailPage() {
         {transfer.receivedByName && <ITText muted className="text-sm">Recibió {transfer.receivedByName}</ITText>}
       </ITFlex>
 
-      {actionError && <ITAlert variant="error" title="No se pudo completar la acción">{actionError}</ITAlert>}
+      {actionError && <ITAlert variant="error" title={i18n.t("common.actionFailedShort")}>{actionError}</ITAlert>}
 
       <ITFlex gap={2} wrap="wrap" className="mb-4">
-        <ITButton label="Volver a traslados" variant="outline" onClick={() => navigate("/transfers")} />
+        <ITButton label={i18n.t("transfers.backToTransfers")} variant="outline" onClick={() => navigate("/transfers")} />
         {can(user, "transfer.dispatch") && transfer.status === "DRAFT" && (
-          <ITButton label="Despachar" color="primary" disabled={busy} onClick={() => void run(transfersApi.dispatch, "Traslado despachado.")} />
+          <ITButton label={i18n.t("transfers.dispatch")} color="primary" disabled={busy} onClick={() => void run(transfersApi.dispatch, i18n.t("transfers.dispatched"))} />
         )}
         {can(user, "transfer.receive") && inCamino && (
-          <ITButton label="Recibir" color="primary" disabled={busy} onClick={() => void run(transfersApi.receive, "Traslado recibido.")} />
+          <ITButton label={i18n.t("transfers.receive")} color="primary" disabled={busy} onClick={() => void run(transfersApi.receive, i18n.t("transfers.received"))} />
         )}
         {can(user, "transfer.cancel") && cancellable && (
-          <ITButton label="Cancelar traslado" variant="outline" color="danger" disabled={busy} onClick={() => setConfirmingCancel(true)} />
+          <ITButton label={i18n.t("transfers.cancelTransfer")} variant="outline" color="danger" disabled={busy} onClick={() => setConfirmingCancel(true)} />
         )}
       </ITFlex>
 
@@ -125,9 +128,9 @@ export default function TransferDetailPage() {
         <table className="w-full min-w-[560px] border-collapse text-sm">
           <thead>
             <tr className="border-b text-left">
-              <th className="py-2 pr-3">Producto</th>
-              <th className="py-2 pr-3 text-right">Cantidad</th>
-              <th className="py-2 pr-3">Ubicación de origen</th>
+              <th className="py-2 pr-3">{i18n.t("common.product")}</th>
+              <th className="py-2 pr-3 text-right">{i18n.t("common.quantity")}</th>
+              <th className="py-2 pr-3">{i18n.t("transfers.sourceLocation")}</th>
             </tr>
           </thead>
           <tbody>
@@ -145,16 +148,16 @@ export default function TransferDetailPage() {
         </table>
       </div>
 
-      <ITDialog isOpen={confirmingCancel} onClose={() => setConfirmingCancel(false)} title="Cancelar el traslado">
+      <ITDialog isOpen={confirmingCancel} onClose={() => setConfirmingCancel(false)} title={i18n.t("transfers.cancelTransferTitle")}>
         <ITFlex direction="column" gap={4}>
           <ITText muted className="text-sm">
             {transfer.status === "DISPATCHED"
-              ? `La mercancía vuelve a su bodega de origen (${transfer.fromWarehouseCode}). Esta acción queda en la bitácora.`
-              : "El traslado se cancela. No se ha movido mercancía."}
+              ? i18n.t("transfers.cancelHintDispatched", { warehouse: transfer.fromWarehouseCode })
+              : i18n.t("transfers.cancelHintNoStock")}
           </ITText>
           <ITFlex justify="end" gap={2}>
-            <ITButton label="No cancelar" variant="outline" disabled={busy} onClick={() => setConfirmingCancel(false)} />
-            <ITButton label="Sí, cancelar" color="danger" disabled={busy} onClick={() => void run(transfersApi.cancel, "Traslado cancelado.")} />
+            <ITButton label={i18n.t("transfers.noCancel")} variant="outline" disabled={busy} onClick={() => setConfirmingCancel(false)} />
+            <ITButton label={i18n.t("transfers.yesCancel")} color="danger" disabled={busy} onClick={() => void run(transfersApi.cancel, i18n.t("transfers.cancelled"))} />
           </ITFlex>
         </ITFlex>
       </ITDialog>

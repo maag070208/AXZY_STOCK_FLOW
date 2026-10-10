@@ -44,8 +44,8 @@ class JwtAccessTokens(
 
     init {
         require(secret.toByteArray(Charsets.UTF_8).size >= MIN_SECRET_BYTES) {
-            "El secreto de firma debe tener al menos $MIN_SECRET_BYTES bytes: uno más corto se puede " +
-                "adivinar por fuerza bruta y permitiría firmar tokens válidos."
+            "The signing secret must be at least $MIN_SECRET_BYTES bytes: a shorter one can be " +
+                "brute-force guess and would allow signing valid tokens."
         }
     }
 
@@ -61,7 +61,7 @@ class JwtAccessTokens(
                 JwtIssuerValidator(issuer),
                 OAuth2TokenValidator<Jwt> { jwt ->
                     if (jwt.audience.orEmpty().contains(audience)) OAuth2TokenValidatorResult.success()
-                    else OAuth2TokenValidatorResult.failure(OAuth2Error("invalid_token", "La audiencia del token no es esta API.", null))
+                    else OAuth2TokenValidatorResult.failure(OAuth2Error("invalid_token", "The token audience is not this API.", null))
                 },
             ),
         )

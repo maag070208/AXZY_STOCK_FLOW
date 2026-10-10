@@ -90,7 +90,7 @@ class CreateRole(
             if (!KEY_PATTERN.matches(key)) {
                 return@authorizeOr failure(
                     FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
-                    "La clave del rol solo admite mayúsculas, dígitos y guion bajo.",
+                    "The role key only allows uppercase letters, digits and underscore.",
                     mapOf("field" to "key", "value" to key),
                 )
             }
@@ -99,7 +99,7 @@ class CreateRole(
             if (store.keyExists(key)) {
                 return@authorizeOr failure(
                     FailureKind.CONFLICT, "DUPLICATE_ROLE",
-                    "Ya existe un rol con la clave '$key'.",
+                    "A role with the key '$key' already exists.",
                     mapOf("role" to key),
                 )
             }
@@ -204,7 +204,7 @@ class SetRolePermissions(
                     previousState = mapOf("grants" to current.grants.associate { it.permissionKey to it.scope.name }),
                     newState = mapOf("grants" to grants.associate { it.permissionKey to it.scope.name }),
                     // Cambiar la matriz de un rol afecta a todas las personas que lo tienen.
-                    note = "Afecta a ${current.users} usuario(s) con este rol.",
+                    note = "Affects ${current.users} user(s) with this role.",
                 ),
             )
             store.find(key)?.asRight() ?: roleNotFound(key)
@@ -233,21 +233,21 @@ private fun validateGrants(grants: List<RoleGrantView>): Outcome<List<RoleGrantV
         val permission = PermissionCatalog.find(grant.permissionKey)
             ?: return failure(
                 FailureKind.RULE_VIOLATION, "UNKNOWN_PERMISSION",
-                "El permiso '${grant.permissionKey}' no existe en el catálogo.",
+                "The permission '${grant.permissionKey}' does not exist in the catalog.",
                 mapOf("permission" to grant.permissionKey),
             )
         if (grant.scope == PermissionScope.NONE) {
             // Conceder NONE no es conceder: para quitar una celda, no se manda.
             return failure(
                 FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
-                "El alcance NONE no se concede: para quitar un permiso, no lo mandes.",
+                "The NONE scope is not granted: to remove a permission, do not send it.",
                 mapOf("permission" to grant.permissionKey, "scope" to "NONE"),
             )
         }
         if (grant.scope !in permission.scopes) {
             return failure(
                 FailureKind.RULE_VIOLATION, "SCOPE_NOT_ALLOWED",
-                "El permiso '${grant.permissionKey}' no admite el alcance ${grant.scope.name}.",
+                "Permission '${grant.permissionKey}' does not support the scope ${grant.scope.name}.",
                 mapOf(
                     "permission" to grant.permissionKey,
                     "scope" to grant.scope.name,
@@ -265,13 +265,13 @@ fun parseScope(raw: String?): PermissionScope? =
 
 private fun roleNotFound(key: String): Outcome<Nothing> = failure(
     FailureKind.NOT_FOUND, "ROLE_NOT_FOUND",
-    "No existe el rol '$key'.",
+    "The role '$key' does not exist.",
     mapOf("role" to key),
 )
 
 private fun fieldRequired(field: String): Outcome<Nothing> = failure(
     FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-    "Falta el campo '$field'.",
+    "The field '$field' is missing.",
     mapOf("field" to field),
 )
 

@@ -49,7 +49,7 @@ class RevokeUserSessions(
                 val account = accounts.findById(userId)
                     ?: return@inTransaction failure(
                         FailureKind.NOT_FOUND, "USER_NOT_FOUND",
-                        "No existe el usuario $userId.",
+                        "User $userId does not exist.",
                         mapOf("userId" to userId.toString()),
                     )
 

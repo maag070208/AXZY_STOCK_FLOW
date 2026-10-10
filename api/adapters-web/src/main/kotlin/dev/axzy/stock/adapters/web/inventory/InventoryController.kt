@@ -236,7 +236,7 @@ internal fun idempotencyKeyOf(raw: String?): Outcome<UUID?> {
         onFailure = {
             failure(
                 FailureKind.INVALID_REQUEST, "INVALID_IDEMPOTENCY_KEY",
-                "La cabecera Idempotency-Key no es un UUID.",
+                "The Idempotency-Key header is not a UUID.",
                 mapOf("Idempotency-Key" to raw),
             )
         },
@@ -251,7 +251,7 @@ private fun quantityOf(raw: BigDecimal?): Outcome<Quantity?> {
         onFailure = {
             failure(
                 FailureKind.RULE_VIOLATION, "INVALID_QUANTITY",
-                it.message ?: "La cantidad no es válida.",
+                it.message ?: "The quantity is not valid.",
             )
         },
     )

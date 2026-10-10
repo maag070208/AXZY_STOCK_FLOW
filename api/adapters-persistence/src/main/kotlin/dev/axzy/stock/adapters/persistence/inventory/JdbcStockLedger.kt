@@ -12,7 +12,7 @@ import java.util.UUID
 /**
  * El libro de inventario sobre PostgreSQL: **la API no escribe existencias**.
  *
- * Todas las escrituras pasan por `registrar_movimiento`, la función del motor
+ * Todas las escrituras pasan por `record_movement`, la función del motor
  * ([ADR-0015]). Esa función aplica el movimiento a las ubicaciones, recalcula el
  * total del producto y escribe el kardex, en ese orden y dentro de la transacción
  * del caso de uso. Escribir `stock_by_location` desde aquí sería la segunda ruta de
@@ -40,7 +40,7 @@ class JdbcStockLedger(private val jdbc: JdbcClient) : StockLedger {
     override fun apply(command: MovementCommand): Long = try {
         jdbc.sql(
             """
-            SELECT registrar_movimiento(
+            SELECT record_movement(
                 :product, :warehouse, CAST(:moveType AS movement_type), :units,
                 :fromLocation, :toLocation, :container, :orderNumber,
                 CAST(:reason AS adjustment_reason), CAST(:origin AS adjustment_origin),

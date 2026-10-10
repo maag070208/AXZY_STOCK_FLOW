@@ -59,7 +59,7 @@ enum class LocationKind {
         fun parse(raw: String?): Result<LocationKind> = runCatching {
             val value = raw?.trim()?.uppercase().orEmpty()
             entries.firstOrNull { it.name == value && it in declarable }
-                ?: throw IllegalArgumentException("Tipo de ubicación inválido: '$raw'")
+                ?: throw IllegalArgumentException("Invalid location kind: '$raw'")
         }
     }
 }
@@ -84,11 +84,11 @@ value class LocationPart private constructor(val value: String) {
             val value = raw.trim().uppercase()
             return when {
                 value.isEmpty() ->
-                    DomainError.InvalidLocationPart(field, raw, "no puede estar vacío").asLeft()
+                    DomainError.InvalidLocationPart(field, raw, "cannot be empty").asLeft()
                 value.length > CatalogLimits.LOCATION_PART ->
                     DomainError.InvalidLocationPart(field, raw, "excede ${CatalogLimits.LOCATION_PART} caracteres").asLeft()
                 !ALLOWED.matches(value) ->
-                    DomainError.InvalidLocationPart(field, raw, "solo admite 0-9, A-Z y Ñ").asLeft()
+                    DomainError.InvalidLocationPart(field, raw, "only allows 0-9, A-Z and Ñ").asLeft()
                 else -> LocationPart(value).asRight()
             }
         }
@@ -133,11 +133,11 @@ data class Location(
     val kind: LocationKind = LocationKind.SHELF,
     val active: Boolean = true,
 ) {
-    /** `04-B-C` para un estante; `RECEPCION` para la recepción; `SIN-UBICAR` para el saldo heredado. */
+    /** `04-B-C` para un estante; `RECEIVING` para la recepción; `UNASSIGNED` para el saldo heredado. */
     val displayName: String
         get() = when (kind) {
             LocationKind.RECEIVING -> code
-            LocationKind.UNASSIGNED -> "SIN-UBICAR"
+            LocationKind.UNASSIGNED -> "UNASSIGNED"
             LocationKind.SHELF -> "$hall-$code-$position"
         }
 
@@ -205,12 +205,12 @@ data class Product(
     ): DomainResult<Product> {
         if (code != this.code) return DomainError.ProductCodeImmutable(this.code.value).asLeft()
         if (name.isBlank()) {
-            return DomainError.InvalidProductCode(code.value, "el nombre no puede estar vacío").asLeft()
+            return DomainError.InvalidProductCode(code.value, "the name cannot be empty").asLeft()
         }
         if (name.length > CatalogLimits.PRODUCT_NAME) {
             return DomainError.InvalidProductCode(
                 code.value,
-                "el nombre excede ${CatalogLimits.PRODUCT_NAME} caracteres",
+                "the name exceeds ${CatalogLimits.PRODUCT_NAME} characters",
             ).asLeft()
         }
         return copy(

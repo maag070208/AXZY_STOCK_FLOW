@@ -197,8 +197,8 @@ object LocationContentComparison {
     fun report(ledger: InventoryLedger): String {
         val divergences = onlyDivergent(ledger)
         if (divergences.isEmpty()) {
-            return "Sin divergencias: los dos métodos coinciden en las " +
-                "${compare(ledger).size} ubicaciones con stock."
+            return "No discrepancies: the two methods agree on the " +
+                "${compare(ledger).size} locations with stock."
         }
 
         val explained = divergences.count { it.explainedByKnownBug }
@@ -206,24 +206,24 @@ object LocationContentComparison {
         val mismatchTotal = divergences.sumOf { it.absoluteDifference }
 
         return buildString {
-            appendLine("Informe de divergencias de contenido por ubicación")
+            appendLine("Content discrepancy report by location")
             appendLine("─────────────────────────────────────────────────────")
-            appendLine("Ubicaciones con discrepancia: ${divergences.size}")
-            appendLine("  · Explicadas por el bug conocido (el modelo ve MÁS): $explained")
-            appendLine("  · Sin explicar (el modelo ve MENOS): ${withoutExplanation.size}")
+            appendLine("Locations with discrepancy: ${divergences.size}")
+            appendLine("  · Explained by the known bug (the model sees MORE): $explained")
+            appendLine("  · Not explained (the model sees LESS): ${withoutExplanation.size}")
             appendLine("Descuadre absoluto acumulado: ${Quantity.ofScaled(mismatchTotal)} unidades")
             if (withoutExplanation.isNotEmpty()) {
                 appendLine()
-                appendLine("⚠️  Las siguientes NO se explican por el bug conocido y requieren")
-                appendLine("    revisión manual antes de simplificar el algoritmo:")
+                appendLine("⚠️  The following are NOT explained by the known bug and require ")
+                appendLine("    manual review before simplifying the algorithm:")
                 withoutExplanation.take(20).forEach {
                     appendLine(
-                        "    · ${it.productCode} en ${it.location.value}: " +
+                        "  · ${it.productCode} in ${it.location.value}: " +
                             "modelo=${it.modelSays} legacy=${it.legacySays}"
                     )
                 }
                 if (withoutExplanation.size > 20) {
-                    appendLine("    … y ${withoutExplanation.size - 20} más")
+                    appendLine("    … and ${withoutExplanation.size - 20} more")
                 }
             }
         }

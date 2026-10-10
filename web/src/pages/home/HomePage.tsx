@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { FaClipboardList, FaExchangeAlt, FaTags, FaBoxes } from "react-icons/fa";
+import { FaClipboardList, FaExchangeAlt, FaTags, FaBoxes, FaHome } from "react-icons/fa";
 import { useSelector } from "react-redux";
 import type { RootState } from "@app/store";
 import { MENU } from "@app/navigation";
@@ -8,6 +8,7 @@ import KpiTile from "@shared/ui/kpi-tile/KpiTile";
 import PanelCard from "@shared/ui/panel-card/PanelCard";
 import { Page } from "@shared/ui/page/Page";
 import { useHomeSummary } from "./useHomeSummary";
+import i18n from "@shared/i18n";
 
 /**
  * Inicio: lo que pide atención hoy y los accesos a cada módulo.
@@ -23,24 +24,24 @@ export default function HomePage() {
   const accesses = MENU.filter((entry) => entry.id !== "home" && (entry.permission === null || can(user, entry.permission)));
 
   return (
-    <Page
-      title="Inicio"
-      description="Lo que pide atención hoy, y a dónde ir a resolverlo."
-      breadcrumbs={[{ label: "Inicio" }]}
+    <Page icon={<FaHome size={18} />}
+      title={i18n.t("nav.home")}
+      description={i18n.t("home.description")}
+      breadcrumbs={[{ label: i18n.t("nav.home") }]}
     >
       <div className="flex flex-col gap-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {can(user, "product.view") && (
-            <KpiTile label="Productos" value={loading ? null : summary.products} icon={<FaBoxes size={18} />} tone="emerald" hint="En el catálogo" onClick={() => navigate("/products")} />
+            <KpiTile label={i18n.t("nav.products")} value={loading ? null : summary.products} icon={<FaBoxes size={18} />} tone="emerald" hint={i18n.t("home.kpiProductsHint")} onClick={() => navigate("/products")} />
           )}
           {can(user, "invoice.view") && (
-            <KpiTile label="Por aprobar" value={loading ? null : summary.pendingApproval} icon={<FaClipboardList size={18} />} tone="amber" hint="Facturas con diferencias" onClick={() => navigate("/invoices")} />
+            <KpiTile label={i18n.t("home.kpiPending")} value={loading ? null : summary.pendingApproval} icon={<FaClipboardList size={18} />} tone="amber" hint={i18n.t("home.kpiPendingHint")} onClick={() => navigate("/invoices")} />
           )}
           {can(user, "transit.view") && (
-            <KpiTile label="En tránsito" value={loading ? null : summary.inTransit} icon={<FaExchangeAlt size={18} />} tone="sky" hint="Traslados despachados" onClick={() => navigate("/transfers")} />
+            <KpiTile label={i18n.t("transfers.inTransit")} value={loading ? null : summary.inTransit} icon={<FaExchangeAlt size={18} />} tone="sky" hint={i18n.t("home.kpiTransitHint")} onClick={() => navigate("/transfers")} />
           )}
           {can(user, "label.queue_view") && (
-            <KpiTile label="Etiquetas fallidas" value={loading ? null : summary.failedLabels} icon={<FaTags size={18} />} tone="rose" hint="Pendientes de reimprimir" onClick={() => navigate("/labels")} />
+            <KpiTile label={i18n.t("home.kpiFailedLabels")} value={loading ? null : summary.failedLabels} icon={<FaTags size={18} />} tone="rose" hint={i18n.t("home.kpiFailedLabelsHint")} onClick={() => navigate("/labels")} />
           )}
         </div>
 
@@ -49,12 +50,12 @@ export default function HomePage() {
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           {can(user, "invoice.view") && (
             <PanelCard
-              title="Pendientes de aprobación"
-              description="Facturas con diferencias que un supervisor debe decidir."
-              actions={<button type="button" className="text-[12px] font-semibold text-sky-700 hover:underline" onClick={() => navigate("/invoices")}>Ver todo</button>}
+              title={i18n.t("receiving.pendingApproval")}
+              description={i18n.t("home.pendingDescription")}
+              actions={<button type="button" className="text-[12px] font-semibold text-sky-700 hover:underline" onClick={() => navigate("/invoices")}>{i18n.t("home.seeAll")}</button>}
             >
               {summary.pendingList.length === 0 ? (
-                <p className="text-[12px] text-slate-500">No hay facturas esperando una decisión.</p>
+                <p className="text-[12px] text-slate-500">{i18n.t("home.noPending")}</p>
               ) : (
                 <ul className="flex flex-col divide-y divide-slate-100">
                   {summary.pendingList.map((row) => (
@@ -72,12 +73,12 @@ export default function HomePage() {
 
           {can(user, "transit.view") && (
             <PanelCard
-              title="En tránsito"
-              description="Mercancía despachada que todavía no llega a su bodega."
-              actions={<button type="button" className="text-[12px] font-semibold text-sky-700 hover:underline" onClick={() => navigate("/transfers")}>Ver todo</button>}
+              title={i18n.t("transfers.inTransit")}
+              description={i18n.t("home.transitDescription")}
+              actions={<button type="button" className="text-[12px] font-semibold text-sky-700 hover:underline" onClick={() => navigate("/transfers")}>{i18n.t("home.seeAll")}</button>}
             >
               {summary.transitList.length === 0 ? (
-                <p className="text-[12px] text-slate-500">Nada en camino.</p>
+                <p className="text-[12px] text-slate-500">{i18n.t("home.noTransit")}</p>
               ) : (
                 <ul className="flex flex-col divide-y divide-slate-100">
                   {summary.transitList.map((row) => (
@@ -94,7 +95,7 @@ export default function HomePage() {
           )}
         </div>
 
-        <PanelCard title="Accesos" description="Los módulos a los que tienes permiso.">
+        <PanelCard title={i18n.t("home.accesses")} description={i18n.t("home.accessesDescription")}>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
             {accesses.map((entry) => (
               <button

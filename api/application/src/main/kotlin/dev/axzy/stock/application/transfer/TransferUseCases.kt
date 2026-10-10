@@ -114,7 +114,7 @@ class CreateTransfer(
                     if (from == null || to == null) {
                         return@authorizeOr failure(
                             FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-                            "El traslado necesita bodega de origen y de destino.",
+                            "The transfer needs an origin and a destination warehouse.",
                             mapOf("field" to if (from == null) "fromWarehouseId" else "toWarehouseId"),
                         )
                     }
@@ -160,7 +160,7 @@ class CreateTransfer(
             when (val inserted = transfers.insert(draft, lines)) {
                 InsertTransferResult.DuplicateCode -> failure(
                     FailureKind.CONFLICT, "DUPLICATE_TRANSFER_CODE",
-                    "Ya existe un traslado con el código '${draft.code}'.",
+                    "A transfer with the code '${draft.code}' already exists.",
                     mapOf("code" to draft.code),
                 )
                 is InsertTransferResult.Inserted -> {
@@ -190,24 +190,24 @@ class CreateTransfer(
             if (rawCode.isNullOrBlank()) {
                 return failure(
                     FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-                    "Falta el código de producto de la línea $position.",
+                    "The product code of line $position is missing.",
                     mapOf("field" to "lines[$index].productCode"),
                 )
             }
             val code = runCatching { ProductCode.of(rawCode) }.getOrElse {
-                return DomainError.InvalidProductCode(rawCode, it.message ?: "código inválido").toFailure().asLeft()
+                return DomainError.InvalidProductCode(rawCode, it.message ?: "invalid code").toFailure().asLeft()
             }
             val product = catalog.product(code)
-                ?: return DomainError.InvalidProductCode(rawCode, "no existe en el catálogo o está inactivo")
+                ?: return DomainError.InvalidProductCode(rawCode, "does not exist in the catalog or is inactive")
                     .toFailure().asLeft()
             val quantity = line.quantity
                 ?: return failure(
                     FailureKind.RULE_VIOLATION, "FIELD_REQUIRED",
-                    "Falta la cantidad de la línea $position.",
+                    "The quantity of line $position is missing.",
                     mapOf("field" to "lines[$index].quantity"),
                 )
             if (!quantity.isPositive) {
-                return DomainError.InvalidQuantity("La cantidad de la línea $position debe ser mayor que cero")
+                return DomainError.InvalidQuantity("The quantity of line $position must be greater than zero")
                     .toFailure().asLeft()
             }
             resolved += ResolvedTransferLine(
@@ -261,7 +261,7 @@ class DispatchTransfer(
                         ?: catalog.receivingLocationId(detail.header.fromWarehouseId)
                         ?: return@inTransaction failure(
                             FailureKind.RULE_VIOLATION, "NO_RECEIVING_LOCATION",
-                            "La bodega de origen no tiene ubicación de recepción.",
+                            "The source warehouse has no receiving location.",
                             mapOf("warehouseId" to detail.header.fromWarehouseId.toString()),
                         )
                     val available = ledger.balanceAt(view.line.productId, originLocation, forUpdate = true)
@@ -321,13 +321,13 @@ class ReceiveTransfer(
                 catalog.receivingLocationId(detail.header.toWarehouseId)
                     ?: return@inTransaction failure(
                         FailureKind.RULE_VIOLATION, "NO_RECEIVING_LOCATION",
-                        "La bodega de destino no tiene ubicación de recepción.",
+                        "The destination warehouse has no receiving location.",
                         mapOf("warehouseId" to detail.header.toWarehouseId.toString()),
                     )
                 if (transfers.openTransitLines(transferId) == 0) {
                     return@inTransaction failure(
                         FailureKind.CONFLICT, "NOTHING_IN_TRANSIT",
-                        "No hay mercancía en tránsito que recibir en este traslado.",
+                        "There are no goods in transit to receive in this transfer.",
                         mapOf("transferId" to transferId.toString()),
                     )
                 }

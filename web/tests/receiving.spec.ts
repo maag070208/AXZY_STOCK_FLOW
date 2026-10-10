@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openMenu } from "./support/menu";
+import { mockHomeSummary } from "./support/home";
 
 /**
  * Las acciones de escritura de recepción, **con la API simulada**.
@@ -75,14 +77,14 @@ async function signIn(page: Page) {
   await page.goto("/");
   await page.locator('input[name="username"]').fill("capturista");
   await page.locator('input[name="password"]').fill("lo-que-sea");
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page.getByRole("heading", { name: "Inicio", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
 }
 
-/** Entra a Recepción desde el menú: un clic dentro de la app, sin recargar (la sesión vive en memoria). */
+/** Entra a Receiving desde el menú: un clic dentro de la app, sin recargar (la sesión vive en memoria). */
 async function openReceiving(page: Page) {
-  await page.getByText("Recepción", { exact: true }).first().click();
-  await expect(page.getByText("Facturas recibidas y las que esperan la aprobación de un supervisor.")).toBeVisible();
+  await openMenu(page, "Receiving");
+  await expect(page.getByText("Received invoices and those waiting for a supervisor's approval.")).toBeVisible();
 }
 
 /** La lista de facturas y la bandeja vacías; una factura que aparece en la lista. */
@@ -97,6 +99,8 @@ async function mockList(page: Page, lines: unknown[] = []) {
   );
 }
 
+test.beforeEach(async ({ page }) => mockHomeSummary(page));
+
 test.describe("recepción: escrituras (API simulada)", () => {
   test("registrar una factura envía sus líneas y abre la factura creada", async ({ page }) => {
     await mockList(page);
@@ -108,7 +112,7 @@ test.describe("recepción: escrituras (API simulada)", () => {
     await signIn(page);
     await openReceiving(page);
 
-    await page.getByRole("button", { name: "Nueva factura" }).click();
+    await page.getByRole("button", { name: "New invoice" }).click();
     await page.locator('input[name="invoiceNumber"]').fill("F-2024-0158");
     await page.locator('input[name="productCode-0"]').fill("abraa1b");
     await page.locator('input[name="quantity-0"]').fill("100");
@@ -116,7 +120,7 @@ test.describe("recepción: escrituras (API simulada)", () => {
     await page.locator('input[name="unitsPerBox-0"]').fill("50");
 
     const request = page.waitForRequest((req) => req.method() === "POST" && new URL(req.url()).pathname === "/v1/invoices");
-    await page.getByRole("button", { name: "Registrar factura" }).click();
+    await page.getByRole("button", { name: "Register invoice" }).click();
     const body = (await request).postDataJSON() as Record<string, unknown>;
 
     expect(body.invoiceNumber).toBe("F-2024-0158");
@@ -126,8 +130,8 @@ test.describe("recepción: escrituras (API simulada)", () => {
     expect(body.lines).toEqual([{ productCode: "ABRAA1B", container: null, quantity: 100, boxQuantity: 2, unitsPerBox: 50 }]);
 
     await expect(page).toHaveURL(/\/invoices\/15$/);
-    // Acotado al encabezado: el aviso «Factura … registrada.» repite el texto.
-    await expect(page.getByRole("heading", { name: "Factura F-2024-0158" })).toBeVisible();
+    // Acotado al encabezado: el aviso «Invoice … registrada.» repite el texto.
+    await expect(page.getByRole("heading", { name: "Invoice F-2024-0158" })).toBeVisible();
   });
 
   test("contar una línea envía solo las piezas y muestra la línea ya contada", async ({ page }) => {
@@ -142,13 +146,13 @@ test.describe("recepción: escrituras (API simulada)", () => {
     await openReceiving(page);
 
     await page.getByText("F-2024-0158").first().click();
-    await expect(page.getByText("Factura F-2024-0158")).toBeVisible();
+    await expect(page.getByText("Invoice F-2024-0158")).toBeVisible();
 
-    await page.getByRole("button", { name: "Contar" }).click();
+    await page.getByRole("button", { name: "Count" }).click();
     await page.locator('input[name="physicalQuantity"]').fill("80");
 
     const request = page.waitForRequest((req) => req.url().includes("/lines/88/capture"));
-    await page.getByRole("button", { name: "Guardar conteo" }).click();
+    await page.getByRole("button", { name: "Save count" }).click();
     expect((await request).postDataJSON()).toEqual({ physicalQuantity: 80 });
 
     // Una diferencia pide aprobación: la línea queda en discrepancia y la factura lo dice.
@@ -162,22 +166,22 @@ test.describe("recepción: escrituras (API simulada)", () => {
     await page.route("**/v1/invoices/15/approve", (route) =>
       route.fulfill({
         status: 403,
-        json: { code: "SEGREGATION_OF_DUTIES", message: "Quien capturó una línea no puede aprobar su discrepancia.", details: { lines: "88" } },
+        json: { code: "SEGREGATION_OF_DUTIES", message: "The person who counted a line cannot approve its discrepancy.", details: { lines: "88" } },
       }),
     );
     await signIn(page);
     await openReceiving(page);
 
     await page.getByText("F-2024-0158").first().click();
-    await page.getByRole("button", { name: "Aprobar discrepancias" }).click();
+    await page.getByRole("button", { name: "Approve discrepancies" }).click();
     await page.locator('select[name="adjustmentReason"]').selectOption("SUPPLIER_ERROR");
 
     const request = page.waitForRequest((req) => req.url().includes("/approve"));
-    await page.getByRole("button", { name: "Aprobar", exact: true }).click();
+    await page.getByRole("button", { name: "Approve", exact: true }).click();
     // La decisión lleva el motivo y no lleva nota: no se inventa un texto que nadie escribió.
     expect((await request).postDataJSON()).toEqual({ adjustmentReason: "SUPPLIER_ERROR" });
 
-    await expect(page.getByText("Quien capturó una línea no puede aprobar su discrepancia.")).toBeVisible();
+    await expect(page.getByText("The person who counted a line cannot approve its discrepancy.")).toBeVisible();
   });
 
   test("asignarse una línea pendiente envía la asignación sin cuerpo y la línea queda a nombre del usuario", async ({ page }) => {
@@ -193,7 +197,7 @@ test.describe("recepción: escrituras (API simulada)", () => {
 
     await page.getByText("F-2024-0158").first().click();
     const request = page.waitForRequest((req) => req.url().endsWith("/lines/88/assign"));
-    await page.getByRole("button", { name: "Asignarme" }).click();
+    await page.getByRole("button", { name: "Assign to me" }).click();
     // Sin userId: la API asigna a quien llama.
     expect((await request).postDataJSON()).toEqual({});
     await expect(page.getByText("ASSIGNED").first()).toBeVisible();

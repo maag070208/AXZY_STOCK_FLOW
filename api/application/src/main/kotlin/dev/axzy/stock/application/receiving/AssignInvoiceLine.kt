@@ -51,13 +51,13 @@ class AssignInvoiceLine(
             val detail = invoices.detail(invoiceId)
                 ?: return@inTransaction failure(
                     FailureKind.NOT_FOUND, "INVOICE_NOT_FOUND",
-                    "No existe la factura $invoiceId.",
+                    "Invoice $invoiceId does not exist.",
                     mapOf("invoiceId" to invoiceId.toString()),
                 )
             val view = detail.lines.firstOrNull { it.line.id == lineId }
                 ?: return@inTransaction failure(
                     FailureKind.NOT_FOUND, "INVOICE_LINE_NOT_FOUND",
-                    "La factura $invoiceId no tiene la línea $lineId.",
+                    "Invoice $invoiceId does not have line $lineId.",
                     mapOf("invoiceId" to invoiceId.toString(), "lineId" to lineId.toString()),
                 )
 
@@ -65,7 +65,7 @@ class AssignInvoiceLine(
             val assignee = accounts.loadActor(userId)?.actor
                 ?: return@inTransaction failure(
                     FailureKind.RULE_VIOLATION, "ASSIGNEE_NOT_FOUND",
-                    "No existe el usuario $userId al que se quiere asignar la línea.",
+                    "User $userId, to whom the line should be assigned, does not exist.",
                     mapOf("userId" to userId.toString()),
                 )
 
@@ -77,7 +77,7 @@ class AssignInvoiceLine(
                     if (invoices.assignLine(lineId, userId, clock.instant()) == 0) {
                         return@inTransaction failure(
                             FailureKind.CONFLICT, "LINE_CHANGED",
-                            "La línea cambió mientras se asignaba. Vuelve a consultarla.",
+                            "The line changed while it was being assigned. Look it up again.",
                             mapOf("lineId" to lineId.toString()),
                         )
                     }

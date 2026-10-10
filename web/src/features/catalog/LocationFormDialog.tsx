@@ -1,7 +1,9 @@
 import { ITAlert, ITButton, ITDialog, ITFlex, ITInput, ITSelect, ITText } from "@axzydev/axzy_ui_system";
 import { useEffect, useState, type FormEvent } from "react";
 import { catalogApi, useWarehouses, type Location, type LocationInput } from "@entities/catalog";
-import { ApiError } from "@shared/api/types";
+
+import i18n from "@shared/i18n";
+import { describeError } from "@shared/api/errorMessage";
 
 interface Props {
   open: boolean;
@@ -12,8 +14,8 @@ interface Props {
 }
 
 const KIND_OPTIONS = [
-  { value: "SHELF", label: "Estante" },
-  { value: "RECEIVING", label: "Recepción" },
+  { value: "SHELF", label: i18n.t("common.shelf") },
+  { value: "RECEIVING", label: i18n.t("nav.receiving") },
 ];
 
 /**
@@ -72,19 +74,19 @@ export default function LocationFormDialog({ open, location, onClose, onSaved }:
       else await catalogApi.createLocation(body);
       onSaved();
     } catch (caught) {
-      setError((caught as ApiError).message);
+      setError(describeError(caught, "errors.unexpected"));
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <ITDialog isOpen={open} onClose={onClose} title={editing ? "Editar ubicación" : "Nueva ubicación"}>
+    <ITDialog isOpen={open} onClose={onClose} title={editing ? i18n.t("catalog.editLocation") : i18n.t("catalog.newLocation")}>
       <form onSubmit={submit}>
         <ITFlex direction="column" gap={4}>
           <ITSelect
             name="warehouseId"
-            label="Bodega"
+            label={i18n.t("common.warehouse")}
             options={warehouses.map((warehouse) => ({
               value: String(warehouse.id),
               label: `${warehouse.code} — ${warehouse.name}`,
@@ -104,11 +106,11 @@ export default function LocationFormDialog({ open, location, onClose, onSaved }:
           )}
 
           <ITFlex gap={3}>
-            <ITInput name="hall" label="Pasillo" value={hall} onChange={(e) => setHall(e.target.value)} required maxLength={20} />
-            <ITInput name="code" label="Localidad" value={code} onChange={(e) => setCode(e.target.value)} required maxLength={20} />
+            <ITInput name="hall" label={i18n.t("common.aisle")} value={hall} onChange={(e) => setHall(e.target.value)} required maxLength={20} />
+            <ITInput name="code" label={i18n.t("common.locality")} value={code} onChange={(e) => setCode(e.target.value)} required maxLength={20} />
             <ITInput
               name="position"
-              label="Posición"
+              label={i18n.t("common.position")}
               value={position}
               onChange={(e) => setPosition(e.target.value)}
               required
@@ -119,7 +121,7 @@ export default function LocationFormDialog({ open, location, onClose, onSaved }:
           <ITFlex gap={3}>
             <ITInput
               name="levels"
-              label="Niveles"
+              label={i18n.t("common.levels")}
               type="number"
               min={1}
               value={levels}
@@ -128,7 +130,7 @@ export default function LocationFormDialog({ open, location, onClose, onSaved }:
             />
             <ITSelect
               name="kind"
-              label="Tipo"
+              label={i18n.t("common.type")}
               options={KIND_OPTIONS}
               valueField="value"
               labelField="label"
@@ -138,11 +140,11 @@ export default function LocationFormDialog({ open, location, onClose, onSaved }:
             />
           </ITFlex>
 
-          {error && <ITAlert variant="error" title="No se pudo guardar">{error}</ITAlert>}
+          {error && <ITAlert variant="error" title={i18n.t("catalog.saveFailed")}>{error}</ITAlert>}
 
           <ITFlex justify="end" gap={2}>
-            <ITButton label="Cancelar" variant="outline" onClick={onClose} disabled={busy} />
-            <ITButton type="submit" label={busy ? "Guardando…" : "Guardar"} color="primary" disabled={busy} />
+            <ITButton label={i18n.t("common.cancel")} variant="outline" onClick={onClose} disabled={busy} />
+            <ITButton type="submit" label={busy ? i18n.t("catalog.saving") : i18n.t("common.save")} color="primary" disabled={busy} />
           </ITFlex>
         </ITFlex>
       </form>

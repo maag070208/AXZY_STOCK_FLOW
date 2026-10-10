@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import type { AppDispatch, RootState } from "@app/store";
 import { loginThunk } from "@entities/session";
+import i18n from "@shared/i18n";
 
 /**
  * El formulario de entrada.
@@ -36,8 +37,8 @@ export default function LoginForm() {
       <ITFlex direction="column" gap={4}>
         <ITInput
           name="username"
-          label="Usuario"
-          placeholder="tu usuario"
+          label={i18n.t("auth.username")}
+          placeholder={i18n.t("auth.usernamePlaceholder")}
           value={username}
           onChange={(event) => setUsername(event.target.value)}
           required
@@ -45,19 +46,19 @@ export default function LoginForm() {
         />
         <ITInput
           name="password"
-          label="Contraseña"
+          label={i18n.t("auth.password")}
           type="password"
-          placeholder="tu contraseña"
+          placeholder={i18n.t("auth.passwordPlaceholder")}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           required
         />
 
-        {error && <ITAlert variant="error" title="No se pudo entrar">{error}</ITAlert>}
+        {error && <ITAlert variant="error" title={i18n.t("auth.signInFailed")}>{error}</ITAlert>}
 
         <ITButton
           type="submit"
-          label={status === "loading" ? "Entrando…" : "Entrar"}
+          label={status === "loading" ? i18n.t("auth.signingIn") : i18n.t("auth.signIn")}
           color="primary"
           disabled={status === "loading" || username === "" || password === ""}
         />

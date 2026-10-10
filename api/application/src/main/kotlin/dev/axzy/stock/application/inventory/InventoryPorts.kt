@@ -19,12 +19,12 @@ import java.util.UUID
  * **Toda escritura pasa por el motor SQL** ([ADR-0015]): la API no toca
  * `stock_by_location` ni `product_stock` directamente. Por eso aquí no hay
  * `saveStock` ni nada parecido: hay [StockLedger.apply], que es
- * `registrar_movimiento`.
+ * `record_movement`.
  */
 
 /**
  * Una ubicación, tal como la identifica el contrato: **por su nombre visible**
- * (`04-B-C`, `RECEPCION`, `SIN-UBICAR`).
+ * (`04-B-C`, `RECEIVING`, `UNASSIGNED`).
  *
  * Se traduce a partes en la capa de aplicación y no en SQL, porque la regla de
  * composición vive en el dominio ([Location.displayName]) y tenerla dos veces
@@ -45,13 +45,13 @@ sealed interface LocationRef {
     val displayName: String
         get() = when (this) {
             is Shelf -> "$hall-$code-$position"
-            Receiving -> "RECEPCION"
-            Unassigned -> "SIN-UBICAR"
+            Receiving -> "RECEIVING"
+            Unassigned -> "UNASSIGNED"
         }
 
     companion object {
-        const val RECEIVING_CODE = "RECEPCION"
-        const val UNASSIGNED_CODE = "SIN-UBICAR"
+        const val RECEIVING_CODE = "RECEIVING"
+        const val UNASSIGNED_CODE = "UNASSIGNED"
 
         /**
          * Reconstruye la referencia desde el nombre visible.

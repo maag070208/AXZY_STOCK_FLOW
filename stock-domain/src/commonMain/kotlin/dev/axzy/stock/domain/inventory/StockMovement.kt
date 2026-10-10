@@ -195,7 +195,7 @@ data class AdjustmentIn(
 ) : StockMovement {
     init {
         require(reason.isNotBlank()) {
-            "Todo ajuste de entrada exige un motivo. Un ajuste sin motivo es un agujero de auditoría."
+            "Every incoming adjustment requires a reason. An adjustment without a reason is an audit gap."
         }
     }
 
@@ -212,7 +212,7 @@ data class FulfillmentOut(
     val orderNumber: String,
 ) : StockMovement {
     init {
-        require(orderNumber.isNotBlank()) { "Una salida por surtido exige el número de orden" }
+        require(orderNumber.isNotBlank()) { "A picking exit requires the order number" }
     }
 
     override val type = MovementType.FULFILLMENT_OUT
@@ -229,7 +229,7 @@ data class AdjustmentOut(
 ) : StockMovement {
     init {
         require(reason.isNotBlank()) {
-            "Toda merma exige un motivo. Nunca se borra inventario: se registra el movimiento."
+            "Every shrinkage requires a reason. Inventory is never deleted: the movement is recorded."
         }
     }
 
@@ -253,7 +253,7 @@ data class Locate(
 ) : StockMovement {
     init {
         require(fromReceiving != toShelf) {
-            "Ubicar requiere que la ubicación de destino sea distinta de la de recepción"
+            "Locating requires the destination location to differ from the receiving location"
         }
     }
 
@@ -271,7 +271,7 @@ data class MoveWithinWarehouse(
     override val to: LocationCode,
 ) : StockMovement {
     init {
-        require(from != to) { "Un traslado requiere origen y destino distintos" }
+        require(from != to) { "A transfer requires different origin and destination" }
     }
 
     override val type = MovementType.MOVE_WITHIN_WAREHOUSE

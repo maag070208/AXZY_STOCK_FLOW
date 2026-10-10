@@ -138,6 +138,6 @@ class FulfillmentConfig {
     @Bean
     fun erpClient(): ErpClient = object : ErpClient {
         override fun send(order: OrderDetail): ErpResult =
-            ErpResult.Failed("ERP_NOT_CONNECTED: no hay conexión configurada con el ERP (ADR-0013).")
+            ErpResult.Failed("ERP_NOT_CONNECTED: no ERP connection is configured (ADR-0013).")
     }
 }

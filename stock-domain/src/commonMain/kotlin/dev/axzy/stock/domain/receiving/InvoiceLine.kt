@@ -116,7 +116,7 @@ data class InvoiceLine(
     /** Ubicación de destino. */
     val location: LocationCode? = null,
     /**
-     * Unidades ya **ingresadas** en `RECEPCION` por esta línea.
+     * Unidades ya **ingresadas** en `RECEIVING` por esta línea.
      *
      * Es lo que hace que contar dos veces no sume dos veces: la entrada se escribe por la
      * diferencia entre lo contado ahora y lo que ya se ingresó. Existe porque una línea con
@@ -180,7 +180,7 @@ data class InvoiceLine(
     ): DomainResult<InvoiceLine> {
         if (status != InvoiceLineStatus.PENDING && status != InvoiceLineStatus.ASSIGNED) {
             return DomainError.InvalidTransition(
-                entity = "línea de factura",
+                entity = "invoice line",
                 from = status.name,
                 action = "capturar",
             ).asLeft()
@@ -188,7 +188,7 @@ data class InvoiceLine(
 
         if (!physicalQuantity.isPositive) {
             return DomainError.InvalidQuantity(
-                "La cantidad contada debe ser mayor que cero (se contaron $physicalQuantity)"
+                "The counted quantity must be greater than zero (counted $physicalQuantity)"
             ).asLeft()
         }
 
@@ -239,7 +239,7 @@ data class InvoiceLine(
         }
 
         if (reason.isBlank()) {
-            return DomainError.ReasonRequired("autorizar una discrepancia de inventario").asLeft()
+            return DomainError.ReasonRequired("authorize an inventory discrepancy").asLeft()
         }
 
         // ── Segregación de funciones (R-74) ─────────────────────────────────
@@ -269,7 +269,7 @@ data class InvoiceLine(
             return DomainError.NotPendingApproval(status.name).asLeft()
         }
         if (reason.isBlank()) {
-            return DomainError.ReasonRequired("rechazar una discrepancia").asLeft()
+            return DomainError.ReasonRequired("reject a discrepancy").asLeft()
         }
 
         return copy(
@@ -299,20 +299,20 @@ data class InvoiceLine(
         }
 
         if (status == InvoiceLineStatus.CANCELLED) {
-            return DomainError.InvalidTransition("línea de factura", status.name, "ubicar").asLeft()
+            return DomainError.InvalidTransition("invoice line", status.name, "ubicar").asLeft()
         }
 
         if (status == InvoiceLineStatus.PENDING) {
             return DomainError.InvalidTransition(
-                entity = "línea de factura",
+                entity = "invoice line",
                 from = status.name,
                 action = "ubicar",
-                message = "La mercancía debe contarse antes de ubicarse",
+                message = "The goods must be counted before they are located",
             ).asLeft()
         }
 
         if (!quantity.isPositive) {
-            return DomainError.InvalidQuantity("La cantidad a ubicar debe ser mayor que cero").asLeft()
+            return DomainError.InvalidQuantity("The quantity to locate must be greater than zero").asLeft()
         }
 
         val pending = pendingToLocate
@@ -320,8 +320,8 @@ data class InvoiceLine(
             return DomainError.ExceedsLineQuantity(
                 requested = quantity.value,
                 available = pending.value,
-                message = "No se pueden ubicar $quantity unidades: " +
-                    "solo quedan $pending pendientes de ubicar",
+                message = "Cannot locate $quantity units: " +
+                    "only $pending remain to locate",
             ).asLeft()
         }
 
@@ -349,12 +349,12 @@ data class InvoiceLine(
     fun cancel(reason: String): DomainResult<InvoiceLine> {
         if (status == InvoiceLineStatus.LOCATED) {
             return DomainError.CannotDeleteWithInventoryEffect(
-                message = "No se puede anular una línea con mercancía ya ubicada. " +
-                    "Debe registrarse un movimiento de ajuste con motivo.",
+                message = "A line with goods already located cannot be voided. " +
+                    "An adjustment movement must be recorded with a reason.",
             ).asLeft()
         }
         if (reason.isBlank()) {
-            return DomainError.ReasonRequired("anular una línea de factura").asLeft()
+            return DomainError.ReasonRequired("void an invoice line").asLeft()
         }
         return copy(status = InvoiceLineStatus.CANCELLED).asRight()
     }
@@ -368,7 +368,7 @@ data class InvoiceLine(
      */
     fun assign(userId: Long): DomainResult<InvoiceLine> {
         if (status != InvoiceLineStatus.PENDING) {
-            return DomainError.InvalidTransition("línea de factura", status.name, "asignar").asLeft()
+            return DomainError.InvalidTransition("invoice line", status.name, "asignar").asLeft()
         }
         return copy(status = InvoiceLineStatus.ASSIGNED, assignedUserId = userId).asRight()
     }

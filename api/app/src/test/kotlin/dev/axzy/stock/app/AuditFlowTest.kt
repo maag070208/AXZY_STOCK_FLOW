@@ -118,7 +118,7 @@ class AuditFlowTest : ApiTest() {
         post(
             "/v1/inventory/adjustments",
             mapOf(
-                "productCode" to "AAA001", "locationCode" to "RECEPCION", "quantity" to 100,
+                "productCode" to "AAA001", "locationCode" to "RECEIVING", "quantity" to 100,
                 "direction" to "INCREASE", "reason" to "COUNT_ERROR", "origin" to "MANUAL_COUNT",
                 "approverId" to aprobador,
             ),

@@ -1,6 +1,6 @@
 import { ITAlert, ITBadget, ITButton, ITFlex, ITInput, ITSelect, type Column } from "@axzydev/axzy_ui_system";
 import { useCallback, useMemo, useState } from "react";
-import { FaEdit, FaPlus, FaTrashAlt } from "react-icons/fa";
+import { FaEdit, FaPlus, FaTrashAlt, FaLayerGroup } from "react-icons/fa";
 import { useDispatch, useSelector } from "react-redux";
 import { showToast } from "@app/toast/toast.slice";
 import type { AppDispatch, RootState } from "@app/store";
@@ -8,15 +8,17 @@ import { catalogApi, useWarehouses, type Location } from "@entities/catalog";
 import { can } from "@entities/session";
 import LocationFormDialog from "@features/catalog/LocationFormDialog";
 import ReasonDialog from "@features/catalog/ReasonDialog";
-import { ApiError } from "@shared/api/types";
+
 import { useDebouncedValue } from "@shared/lib/useDebouncedValue";
 import { DataTable } from "@shared/ui/data-table/DataTable";
 import { Page } from "@shared/ui/page/Page";
+import i18n from "@shared/i18n";
+import { describeError } from "@shared/api/errorMessage";
 
 const KIND_LABEL: Record<Location["kind"], string> = {
-  SHELF: "Estante",
-  RECEIVING: "Recepción",
-  UNASSIGNED: "Sin ubicar",
+  SHELF: i18n.t("common.shelf"),
+  RECEIVING: i18n.t("nav.receiving"),
+  UNASSIGNED: i18n.t("catalog.unassigned"),
 };
 
 /**
@@ -61,28 +63,27 @@ export default function LocationsPage() {
       await catalogApi.deactivateLocation(toDeactivate.id, reason);
       setToDeactivate(null);
       refresh();
-      dispatch(showToast(`Ubicación ${toDeactivate.displayName} desactivada`));
+      dispatch(showToast(i18n.t("catalog.locationDeactivated", { name: toDeactivate.displayName })));
     } catch (caught) {
       // `LOCATION_HAS_STOCK` y `RECEIVING_LOCATION_PROTECTED` explican qué pasó y
       // qué hacer; el mensaje de la API es el que se muestra.
-      setActionError((caught as ApiError).message);
+      setActionError(describeError(caught, "errors.unexpected"));
     } finally {
       setBusy(false);
     }
   };
 
   const columns: Column<Location>[] = [
-    { key: "displayName", label: "Ubicación", type: "string" },
-    { key: "warehouseCode", label: "Bodega", type: "string" },
-    { key: "kind", label: "Tipo", type: "string", render: (row) => KIND_LABEL[row.kind] },
-    { key: "levels", label: "Niveles", type: "number" },
+    { key: "displayName", label: i18n.t("common.location"), type: "string" },
+    { key: "warehouseCode", label: i18n.t("common.warehouse"), type: "string" },
+    { key: "kind", label: i18n.t("common.type"), type: "string", render: (row) => KIND_LABEL[row.kind] },
+    { key: "levels", label: i18n.t("common.levels"), type: "number" },
     {
       key: "active",
-      label: "Estado",
+      label: i18n.t("common.status"),
       type: "boolean",
-      filter: true,
       render: (row) => (
-        <ITBadget label={row.active ? "Activa" : "Inactiva"} color={row.active ? "success" : "secondary"} size="sm" />
+        <ITBadget label={row.active ? i18n.t("common.active") : i18n.t("common.inactive")} color={row.active ? "success" : "secondary"} size="sm" />
       ),
     },
     {
@@ -96,8 +97,8 @@ export default function LocationsPage() {
               icon={<FaEdit size={12} />}
               variant="outline"
               size="sm"
-              ariaLabel="Editar"
-              title="Editar"
+              ariaLabel={i18n.t("common.edit")}
+              title={i18n.t("common.edit")}
               onClick={() => {
                 setEditing(row);
                 setFormOpen(true);
@@ -110,8 +111,8 @@ export default function LocationsPage() {
               variant="outline"
               color="danger"
               size="sm"
-              ariaLabel="Desactivar"
-              title="Desactivar"
+              ariaLabel={i18n.t("common.deactivate")}
+              title={i18n.t("common.deactivate")}
               onClick={() => {
                 setActionError(null);
                 setToDeactivate(row);
@@ -124,47 +125,15 @@ export default function LocationsPage() {
   ];
 
   return (
-    <Page
-      title="Ubicaciones"
-      description="Pasillos, localidades y posiciones del almacén."
-      breadcrumbs={[{ label: "Inicio", href: "#/" }, { label: "Ubicaciones" }]}
+    <Page icon={<FaLayerGroup size={18} />}
+      title={i18n.t("nav.locations")}
+      description={i18n.t("catalog.locationsDescription")}
+      breadcrumbs={[{ label: i18n.t("nav.home"), href: "#/" }, { label: i18n.t("nav.locations") }]}
       actions={
         <ITFlex gap={2} align="center" wrap="wrap">
-          <ITInput
-            name="search"
-            placeholder="Buscar por pasillo, localidad o posición"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            size="sm"
-          />
-          <ITSelect
-            name="warehouseId"
-            options={[
-              { value: "", label: "Todas las bodegas" },
-              ...warehouses.map((warehouse) => ({ value: String(warehouse.id), label: warehouse.code })),
-            ]}
-            valueField="value"
-            labelField="label"
-            value={warehouseId}
-            onChange={(event) => setWarehouseId(event.target.value)}
-            size="sm"
-          />
-          <ITSelect
-            name="kind"
-            options={[
-              { value: "", label: "Todo tipo" },
-              { value: "SHELF", label: "Estantes" },
-              { value: "RECEIVING", label: "Recepción" },
-            ]}
-            valueField="value"
-            labelField="label"
-            value={kind}
-            onChange={(event) => setKind(event.target.value)}
-            size="sm"
-          />
           {can(user, "location.create") && (
             <ITButton
-              label="Nueva ubicación"
+              label={i18n.t("catalog.newLocation")}
               icon={<FaPlus size={12} />}
               color="primary"
               size="sm"
@@ -177,9 +146,49 @@ export default function LocationsPage() {
         </ITFlex>
       }
     >
+      <ITFlex gap={2} align="center" wrap="wrap" className="mb-4">
+        <div className="w-64">
+          <ITInput
+            name="search"
+            placeholder={i18n.t("catalog.searchLocationPlaceholder")}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            size="sm"
+          />
+        </div>
+        <div className="w-64">
+          <ITSelect
+            name="warehouseId"
+            options={[
+              { value: "", label: i18n.t("common.allWarehouses") },
+              ...warehouses.map((warehouse) => ({ value: String(warehouse.id), label: warehouse.code })),
+            ]}
+            valueField="value"
+            labelField="label"
+            value={warehouseId}
+            onChange={(event) => setWarehouseId(event.target.value)}
+            size="sm"
+          />
+        </div>
+        <div className="w-64">
+          <ITSelect
+            name="kind"
+            options={[
+              { value: "", label: i18n.t("common.allTypes") },
+              { value: "SHELF", label: i18n.t("common.shelves") },
+              { value: "RECEIVING", label: i18n.t("nav.receiving") },
+            ]}
+            valueField="value"
+            labelField="label"
+            value={kind}
+            onChange={(event) => setKind(event.target.value)}
+            size="sm"
+          />
+        </div>
+      </ITFlex>
       <ITFlex direction="column" gap={3}>
         {actionError && !toDeactivate && (
-          <ITAlert variant="error" title="No se pudo completar" dismissible onDismiss={() => setActionError(null)}>
+          <ITAlert variant="error" title={i18n.t("common.actionFailed")} dismissible onDismiss={() => setActionError(null)}>
             {actionError}
           </ITAlert>
         )}
@@ -199,16 +208,16 @@ export default function LocationsPage() {
         onSaved={() => {
           setFormOpen(false);
           refresh();
-          dispatch(showToast(editing ? "Ubicación actualizada" : "Ubicación creada"));
+          dispatch(showToast(editing ? i18n.t("catalog.locationUpdated") : i18n.t("catalog.locationCreated")));
         }}
       />
 
       <ReasonDialog
         open={toDeactivate !== null}
-        title="Desactivar ubicación"
+        title={i18n.t("catalog.deactivateLocation")}
         description={
           toDeactivate
-            ? `Se desactivará «${toDeactivate.displayName}» de ${toDeactivate.warehouseCode}. Una ubicación con existencias no se puede desactivar.`
+            ? i18n.t("catalog.deactivateLocationHint", { name: toDeactivate.displayName, warehouse: toDeactivate.warehouseCode })
             : ""
         }
         busy={busy}

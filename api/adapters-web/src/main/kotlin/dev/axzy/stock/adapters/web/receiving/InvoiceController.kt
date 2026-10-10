@@ -91,7 +91,7 @@ class InvoiceController(
         if (invoiceStatus != null && invoiceStatus !in INVOICE_STATUSES) {
             return failure(
                 FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
-                "El estado no está en la lista admitida.",
+                "The status is not in the list of allowed values.",
                 mapOf("field" to "status", "value" to invoiceStatus, "allowed" to INVOICE_STATUSES.joinToString(",")),
             ).toResponse()
         }
@@ -250,7 +250,7 @@ class InvoiceController(
  */
 private fun quantityOf(raw: BigDecimal): Quantity =
     Quantity.parse(raw.toPlainString()).getOrElse {
-        throw FailureException(Failure(FailureKind.RULE_VIOLATION, "INVALID_QUANTITY", it.message ?: "Cantidad inválida."))
+        throw FailureException(Failure(FailureKind.RULE_VIOLATION, "INVALID_QUANTITY", it.message ?: "Invalid quantity."))
     }
 
 /** Las cajas son una cuenta entera: media caja no existe. */
@@ -260,7 +260,7 @@ private fun boxesOf(raw: BigDecimal?): Outcome<BoxQuantity?> {
     if (quantity.units < 0 || Quantity.of(quantity.units) != quantity) {
         return failure(
             FailureKind.RULE_VIOLATION, "INVALID_QUANTITY",
-            "Las cajas contadas deben ser un entero no negativo.",
+            "The counted boxes must be a non-negative whole number.",
             mapOf("field" to "physicalBoxQuantity"),
         )
     }

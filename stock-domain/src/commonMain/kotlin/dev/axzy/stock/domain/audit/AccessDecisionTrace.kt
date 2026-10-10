@@ -125,25 +125,25 @@ data class AccessDecisionTrace(
      * con su valor real.
      */
     fun explain(): String = when {
-        !wasDenied -> "Permitido por $stage (alcance ${rbac.effectiveScope})"
+        !wasDenied -> "Allowed by $stage (scope ${rbac.effectiveScope})"
 
-        stage == "IDENTITY" -> "Usuario no válido"
+        stage == "IDENTITY" -> "Invalid user"
 
         stage == "RBAC" && decisionCode == "PERMISSION_DENIED" ->
-            "El usuario no tiene el permiso $permissionKey. " +
+            "The user does not have the permission $permissionKey. " +
                 "Roles: ${rbac.rolesAtTime.joinToString(", ").ifEmpty { "ninguno" }}"
 
         stage == "RBAC" && decisionCode == "SCOPE_INSUFFICIENT" ->
-            "Tiene el permiso pero no alcanza este recurso " +
+            "Has the permission but not for this resource " +
                 "(alcance ${rbac.effectiveScope}, bodegas ${rbac.warehousesAtTime})"
 
         stage == "ABAC" -> {
             val rule = abac.rules.firstOrNull { it.policyId == (abac.deniedByPolicyId ?: abac.decidedByPolicyId) }
             val conditionsThatFailed = rule?.conditions?.filterNot { it.matches }.orEmpty()
             buildString {
-                append("Denegado por la política '${rule?.policyName ?: "?"}'")
+                append("Denied by policy '${rule?.policyName ?: "?"}'")
                 if (conditionsThatFailed.isNotEmpty()) {
-                    append(". Condiciones no cumplidas: ")
+                    append(". Unmet conditions: ")
                     append(
                         conditionsThatFailed.joinToString("; ") {
                             "${it.field} ${it.operator} ${it.expected} (valor real: ${it.current})"

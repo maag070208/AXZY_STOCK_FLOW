@@ -83,11 +83,11 @@ class ReportController(
         // Las dos fechas son obligatorias: un resumen sin rango recorrería todo el
         // kardex, que es justo lo que el reporte existe para evitar.
         if (from.isNullOrBlank()) {
-            return failure(FailureKind.RULE_VIOLATION, "FIELD_REQUIRED", "Falta la fecha inicial.", mapOf("from" to ""))
+            return failure(FailureKind.RULE_VIOLATION, "FIELD_REQUIRED", "The start date is missing.", mapOf("from" to ""))
                 .toResponse()
         }
         if (to.isNullOrBlank()) {
-            return failure(FailureKind.RULE_VIOLATION, "FIELD_REQUIRED", "Falta la fecha final.", mapOf("to" to ""))
+            return failure(FailureKind.RULE_VIOLATION, "FIELD_REQUIRED", "The end date is missing.", mapOf("to" to ""))
                 .toResponse()
         }
         val fromDate = when (val parsed = InventoryFilters.date(from, "from")) {
@@ -105,7 +105,7 @@ class ReportController(
         val group = SummaryGroup.parse(groupBy)
             ?: return failure(
                 FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
-                "El valor de 'groupBy' no está en la lista admitida.",
+                "The value of 'groupBy' is not in the list of allowed values.",
                 mapOf("groupBy" to (groupBy ?: ""), "allowed" to SummaryGroup.entries.joinToString(",") { it.name }),
             ).toResponse()
 
@@ -149,7 +149,7 @@ class ReportController(
             ?: throw FailureException(
                 Failure(
                     FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
-                    "El formato es obligatorio y solo admite csv o xlsx.",
+                    "The format is required and only accepts csv or xlsx.",
                     mapOf(
                         "format" to (format ?: ""),
                         "allowed" to ExportFormat.entries.joinToString(",") { it.name.lowercase() },

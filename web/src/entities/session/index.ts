@@ -2,6 +2,8 @@ import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/tool
 import { ApiError } from "@shared/api/types";
 import { authApi } from "./api";
 import type { AuthSession, AuthState } from "./model";
+import i18n from "@shared/i18n";
+import { describeError } from "@shared/api/errorMessage";
 
 const initialState: AuthState = {
   token: null,
@@ -25,7 +27,7 @@ export const loginThunk = createAsyncThunk<
     return await authApi.login(username, password);
   } catch (error) {
     const apiError = error as ApiError;
-    return rejectWithValue({ code: apiError.code ?? "UNKNOWN", message: apiError.message });
+    return rejectWithValue({ code: apiError.code ?? "UNKNOWN", message: describeError(apiError, "auth.loginFailed") });
   }
 });
 
@@ -42,7 +44,7 @@ export const changePasswordThunk = createAsyncThunk<
     await authApi.changePassword(currentPassword, newPassword);
   } catch (error) {
     const apiError = error as ApiError;
-    return rejectWithValue({ code: apiError.code ?? "UNKNOWN", message: apiError.message });
+    return rejectWithValue({ code: apiError.code ?? "UNKNOWN", message: describeError(apiError, "auth.changePasswordFailed") });
   }
 });
 
@@ -73,7 +75,7 @@ const authSlice = createSlice({
       })
       .addCase(loginThunk.rejected, (state, action) => {
         state.status = "error";
-        state.error = action.payload?.message ?? "No se pudo iniciar sesión.";
+        state.error = action.payload?.message ?? i18n.t("auth.loginFailed");
       })
       .addCase(meThunk.fulfilled, (state, action) => {
         // Un `/me` que responde confirma que el token sirve y trae los permisos

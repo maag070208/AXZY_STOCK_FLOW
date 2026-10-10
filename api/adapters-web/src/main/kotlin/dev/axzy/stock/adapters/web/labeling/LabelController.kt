@@ -149,7 +149,7 @@ class LabelController(
         if (jobStatus != null && jobStatus !in PRINT_STATUSES) {
             return failure(
                 FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
-                "El estado no está en la lista admitida.",
+                "The status is not in the list of allowed values.",
                 mapOf("field" to "status", "value" to jobStatus, "allowed" to PRINT_STATUSES.joinToString(",")),
             ).toResponse()
         }

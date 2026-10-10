@@ -209,7 +209,7 @@ class CatalogFlowTest : ApiTest() {
         assertThat(created.status).isEqualTo(201)
         // El cliente manda minúsculas y el servidor las escribe como están en el estante.
         assertThat(created.at<String>("displayName")).isEqualTo("04-B-C")
-        assertThat(created.at<String>("warehouseCode")).isEqualTo("PRINCIPAL")
+        assertThat(created.at<String>("warehouseCode")).isEqualTo("MAIN")
         assertThat(created.at<String>("kind")).isEqualTo("SHELF")
     }
 
@@ -409,7 +409,7 @@ class CatalogFlowTest : ApiTest() {
         ).query(String::class.java).list().filterNotNull()
 
     @Test
-    fun `M10 - el stock del archivo se carga en SIN-UBICAR con un movimiento INITIAL`() {
+    fun `M10 - el stock del archivo se carga en UNASSIGNED con un movimiento INITIAL`() {
         val token = manager()
 
         val response = postFile("/v1/products/import", validFile, token = token, query = "?dryRun=false")
@@ -422,8 +422,8 @@ class CatalogFlowTest : ApiTest() {
         // estantería está cada pieza (ADR-0012).
         assertThat(totalStock("ABRAA1B")).isEqualTo("10.000")
         assertThat(totalStock("ABRAA1C")).isEqualTo("5.000")
-        // La columna de la ubicación sin ubicar se llama SINUBICAR; su nombre visible es SIN-UBICAR.
-        assertThat(kardexInitialRows()).containsOnly("SINUBICAR")
+        // La columna de la ubicación sin ubicar se llama UNASSIGNED; su nombre visible es UNASSIGNED.
+        assertThat(kardexInitialRows()).containsOnly("UNASSIGNED")
     }
 
     @Test

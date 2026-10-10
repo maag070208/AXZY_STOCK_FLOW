@@ -6,9 +6,12 @@ import { showToast } from "@app/toast/toast.slice";
 import ReasonDialog from "@features/catalog/ReasonDialog";
 import { can } from "@entities/session";
 import { labelsApi, type PrintJob } from "@entities/labels";
-import { ApiError } from "@shared/api/types";
+
 import { DataTable } from "@shared/ui/data-table/DataTable";
 import { Page } from "@shared/ui/page/Page";
+import { FaTags } from "react-icons/fa";
+import i18n from "@shared/i18n";
+import { describeError } from "@shared/api/errorMessage";
 
 const STATUSES = ["PENDING", "PRINTED", "FAILED"];
 
@@ -35,29 +38,29 @@ export default function PrintJobsPage() {
     try {
       await labelsApi.reprint(reprinting.id, reason);
       setReprinting(null);
-      dispatch(showToast("Reimpresión pedida. Aparece en la cola como un trabajo nuevo.", "success"));
+      dispatch(showToast(i18n.t("labels.reprintRequested"), "success"));
       setVersion((current) => current + 1);
     } catch (caught) {
-      setReprintError(caught instanceof ApiError ? caught.message : "No se pudo pedir la reimpresión.");
+      setReprintError(describeError(caught, "labels.reprintFailed"));
     } finally {
       setBusy(false);
     }
   };
 
   const columns: Column<PrintJob>[] = [
-    { key: "createdAt", label: "Pedida", type: "string", render: (row) => new Date(row.createdAt).toLocaleString("es-MX") },
-    { key: "templateCode", label: "Plantilla", type: "string" },
-    { key: "copies", label: "Copias", type: "number" },
+    { key: "createdAt", label: i18n.t("labels.requested"), type: "string", render: (row) => new Date(row.createdAt).toLocaleString("en-US") },
+    { key: "templateCode", label: i18n.t("labels.template"), type: "string" },
+    { key: "copies", label: i18n.t("labels.copies"), type: "number" },
     {
       key: "status",
-      label: "Estado",
+      label: i18n.t("common.status"),
       type: "string",
       render: (row) => <ITBadget label={row.status} color="secondary" size="sm" />,
     },
-    { key: "attempts", label: "Intentos", type: "number" },
-    { key: "printedAt", label: "Impresa", type: "string", render: (row) => (row.printedAt ? new Date(row.printedAt).toLocaleString("es-MX") : "—") },
-    { key: "lastError", label: "Motivo del fallo", type: "string", render: (row) => row.lastError ?? "—" },
-    { key: "reprintedFromId", label: "Reimpresión de", type: "number", render: (row) => (row.reprintedFromId ? `#${row.reprintedFromId}` : "—") },
+    { key: "attempts", label: i18n.t("labels.attempts"), type: "number" },
+    { key: "printedAt", label: i18n.t("labels.printed"), type: "string", render: (row) => (row.printedAt ? new Date(row.printedAt).toLocaleString("en-US") : "—") },
+    { key: "lastError", label: i18n.t("fulfillment.failureReason"), type: "string", render: (row) => row.lastError ?? "—" },
+    { key: "reprintedFromId", label: i18n.t("labels.reprintOf"), type: "number", render: (row) => (row.reprintedFromId ? `#${row.reprintedFromId}` : "—") },
     ...(can(user, "label.reprint")
       ? [
           {
@@ -65,16 +68,16 @@ export default function PrintJobsPage() {
             label: "",
             type: "string" as const,
             sortable: false,
-            render: (row: PrintJob) => <ITButton label="Reimprimir" size="sm" variant="outline" onClick={() => setReprinting(row)} />,
+            render: (row: PrintJob) => <ITButton label={i18n.t("labels.reprint")} size="sm" variant="outline" onClick={() => setReprinting(row)} />,
           },
         ]
       : []),
   ];
 
   return (
-    <Page title="Cola de impresión" description="Etiquetas pedidas, impresas y fallidas." breadcrumbs={[{ label: "Inicio", href: "#/" }, { label: "Etiquetas" }]}>
+    <Page icon={<FaTags size={18} />} title={i18n.t("labels.queue")} description={i18n.t("labels.description")} breadcrumbs={[{ label: i18n.t("nav.home"), href: "#/" }, { label: i18n.t("nav.labels") }]}>
       <div className="mb-3 w-56">
-        <ITSelect size="sm" name="status" label="Estado" value={status} placeholder="Todos"
+        <ITSelect size="sm" name="status" label={i18n.t("common.status")} value={status} placeholder={i18n.t("common.all")}
           options={STATUSES.map((value) => ({ value, label: value }))} onChange={(e) => setStatus(e.target.value)} />
       </div>
       <DataTable<PrintJob>
@@ -86,11 +89,11 @@ export default function PrintJobsPage() {
 
       <ReasonDialog
         open={reprinting !== null}
-        title="Reimprimir etiqueta"
-        description={reprinting ? `Se pide otra copia de la etiqueta #${reprinting.id} (${reprinting.templateCode}). Gasta una etiqueta más.` : ""}
-        confirmLabel="Reimprimir"
-        placeholder="Por qué se reimprime"
-        errorTitle="No se pudo reimprimir"
+        title={i18n.t("labels.reprintLabel")}
+        description={reprinting ? i18n.t("labels.reprintDescription", { id: reprinting.id, template: reprinting.templateCode }) : ""}
+        confirmLabel={i18n.t("labels.reprint")}
+        placeholder={i18n.t("labels.reprintReasonPlaceholder")}
+        errorTitle={i18n.t("labels.reprintFailedShort")}
         busy={busy}
         error={reprintError}
         onCancel={() => setReprinting(null)}

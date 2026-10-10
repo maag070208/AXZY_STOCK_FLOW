@@ -3,7 +3,7 @@
  * interfaz y de los mensajes de la API.
  */
 
-const quantityFormat = new Intl.NumberFormat("es-MX", {
+const quantityFormat = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 0,
   // La API manda la cantidad con 3 decimales (docs/api/convenciones.md §1.7).
   // Se muestran solo si existen: `5193`, no `5193.000`.
@@ -19,7 +19,7 @@ export const formatQuantity = (value: number | string | null | undefined): strin
 
 /** Un importe en pesos. */
 export const formatCurrency = (value: number | string): string =>
-  new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(Number(value));
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "MXN" }).format(Number(value));
 
 /** Un instante ISO a fecha y hora local. */
 export const formatDateTime = (iso: string | null | undefined): string => {
@@ -27,7 +27,7 @@ export const formatDateTime = (iso: string | null | undefined): string => {
   const date = new Date(iso);
   return Number.isNaN(date.getTime())
     ? "—"
-    : date.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
+    : date.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
 };
 
 /** Corta un texto largo para una celda de tabla, sin mentir sobre lo que hay. */

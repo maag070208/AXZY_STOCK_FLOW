@@ -52,37 +52,37 @@ import dev.axzy.stock.domain.value.Quantity
 enum class AdjustmentReason(val displayName: String, val description: String) {
     SHORTAGE(
         "Faltante",
-        "Falta mercancía respecto a lo que debería haber. Se detecta en un conteo.",
+        "Goods are missing compared to what should be there. Detected during a count.",
     ),
     DAMAGE(
-        "Daño",
-        "La mercancía se dañó y no se puede vender. Se retira del inventivo disponible.",
+        "Damage",
+        "The goods were damaged and cannot be sold. They are withdrawn from available stock.",
     ),
     THEFT(
         "Robo",
-        "Se detectó un faltante con indicios de robo. **Exige motivo escrito**: " +
-            "tiene implicaciones legales y alguien tendrá que responder por él.",
+        "A shortage with signs of theft was detected. **Requires a written reason**: " +
+            "it has legal implications and someone will have to answer for it.",
     ),
     SUPPLIER_ERROR(
-        "Error del proveedor",
-        "El proveedor envió menos o distinto de lo facturado.",
+        "Supplier error",
+        "The supplier sent less or something different from what was invoiced.",
     ),
     COUNT_ERROR(
-        "Error de conteo",
-        "El saldo anterior estaba mal por un error de captura, no por una pérdida real.",
+        "Count error",
+        "The previous balance was wrong because of a capture error, not a real loss.",
     ),
     RETURN_TO_SUPPLIER(
-        "Devolución a proveedor",
-        "La mercancía sale del almacén de vuelta al proveedor.",
+        "Return to supplier",
+        "The goods leave the warehouse back to the supplier.",
     ),
     EXPIRED(
         "Caducado",
-        "La mercancía superó su vida útil y se retira.",
+        "The goods reached the end of their useful life and are withdrawn.",
     ),
     OTHER(
         "Otro",
-        "**Exige motivo escrito.** Si se usa con frecuencia, falta un motivo en la " +
-            "lista: un «otro» repetido es una señal de que la taxonomía está mal.",
+        "**Requires a written reason.** If it is used often, a reason is missing from the " +
+            "list: a repeated 'other' is a sign that the taxonomy is wrong.",
     ),
     ;
 
@@ -97,10 +97,10 @@ enum class AdjustmentReason(val displayName: String, val description: String) {
  * daños?» sin interpretar textos. Los cuatro orígenes del legacy unificados aquí.
  */
 enum class AdjustmentOrigin(val displayName: String) {
-    INVOICE_DISCREPANCY("Discrepancia de factura"),
-    FULFILLMENT_SHORTAGE("Faltante en surtido"),
-    MANUAL_COUNT("Conteo físico"),
-    DAMAGE_REPORT("Reporte de daño"),
+    INVOICE_DISCREPANCY("Invoice discrepancy"),
+    FULFILLMENT_SHORTAGE("Shortage in fulfillment"),
+    MANUAL_COUNT("Physical count"),
+    DAMAGE_REPORT("Damage report"),
     ;
 }
 
@@ -136,7 +136,7 @@ enum class AdjustmentDirection {
 data class AdjustmentRequest private constructor(
     val productCode: ProductCode,
     /**
-     * La ubicación, por su **nombre visible** (`04-B-C`, `RECEPCION`, `SIN-UBICAR`).
+     * La ubicación, por su **nombre visible** (`04-B-C`, `RECEIVING`, `UNASSIGNED`).
      *
      * No es un [dev.axzy.stock.value.LocationCode]: aquel objeto de valor es el
      * código plano del legacy (`04BCA`) y no puede representar ni la recepción ni el
@@ -204,10 +204,10 @@ data class AdjustmentRequest private constructor(
             // la próxima ruta que se añada tendría el mismo agujero.
             if (quantity.isZero || quantity.isNegative) {
                 return DomainError.InvalidQuantity(
-                    "La cantidad de un ajuste debe ser mayor que cero. " +
-                        "La dirección ya indica si suma o resta: una cantidad negativa " +
-                        "invertiría el movimiento y aumentaría el inventario sin " +
-                        "necesitar aprobación.",
+                    "The quantity of an adjustment must be greater than zero. " +
+                        "The direction already says whether it adds or subtracts: a negative quantity " +
+                        "would reverse the movement and increase inventory without " +
+                        "need approval.",
                 ).asLeft()
             }
 
@@ -216,9 +216,9 @@ data class AdjustmentRequest private constructor(
                 val text = note?.trim().orEmpty()
                 if (text.length < MIN_NOTE_LENGTH) {
                     return DomainError.ReasonRequired(
-                        "El motivo «${reason.displayName}» exige una explicación de al " +
-                            "menos $MIN_NOTE_LENGTH caracteres. Sin ella, el ajuste no " +
-                            "se puede auditar dentro de un año.",
+                        "The reason «${reason.displayName}» requires an explanation of at " +
+                            "less than $MIN_NOTE_LENGTH characters. Without it, the adjustment does not " +
+                            "it can be audited within a year.",
                     ).asLeft()
                 }
             }
@@ -228,8 +228,8 @@ data class AdjustmentRequest private constructor(
             // auditar quién movió el inventario.
             if (requestedBy <= 0) {
                 return DomainError.PermissionDenied(
-                    "Un ajuste de inventario exige un usuario identificado. " +
-                        "Sin él no hay segregación de funciones ni auditoría.",
+                    "An inventory adjustment requires an identified user. " +
+                        "Without it there is no segregation of duties or audit.",
                 ).asLeft()
             }
 
@@ -318,9 +318,9 @@ object AdjustmentPolicy {
         // ── Requiere aprobación y no hay aprobador ──────────────────────────
         if (approverId == null) {
             return Decision.PendingApproval(
-                "Un ajuste que AUMENTA el inventario necesita la aprobación de otra " +
-                    "persona. Una merma se detecta sola en el siguiente conteo; un " +
-                    "aumento sin justificar es la forma más sencilla de tapar un robo.",
+                "An adjustment that INCREASES inventory needs another person's approval " +
+                    "person. A shrinkage is detected on its own at the next count; a " +
+                    "an unjustified increase is the simplest way to cover up a theft.",
             )
         }
 
@@ -330,8 +330,8 @@ object AdjustmentPolicy {
         if (approverId == request.requestedBy) {
             return Decision.Reject(
                 DomainError.SegregationOfDuties(
-                    "Quien solicita un ajuste no puede aprobarlo. El usuario " +
-                        "${request.requestedBy} tendría que aprobar su propia solicitud.",
+                    "Whoever requests an adjustment cannot approve it. The user " +
+                        "${request.requestedBy} would have to approve their own request.",
                 ),
             )
         }

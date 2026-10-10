@@ -17,7 +17,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 value class Id<T>(val value: Long) {
     init {
-        require(value > 0) { "El id debe ser positivo, se recibió $value" }
+        require(value > 0) { "The id must be positive, got $value" }
     }
 }
 
@@ -50,20 +50,20 @@ value class ProductCode private constructor(val value: String) {
          */
         fun of(raw: String): ProductCode {
             val trimmed = raw.trim()
-            require(trimmed.isNotEmpty()) { "El código de producto no puede estar vacío" }
+            require(trimmed.isNotEmpty()) { "The product code cannot be empty" }
             require(trimmed.length <= MAX_LENGTH) {
-                "El código de producto excede $MAX_LENGTH caracteres: '$trimmed'"
+                "The product code exceeds $MAX_LENGTH characters: '$trimmed'"
             }
             require(trimmed.uppercase() == trimmed) {
-                "El código de producto debe estar en mayúsculas: '$trimmed'. " +
-                    "Si viene de un archivo, la fila debe rechazarse, no normalizarse en silencio."
+                "The product code must be in uppercase: '$trimmed'. " +
+                    "If it comes from a file, the row must be rejected, not silently normalized."
             }
             require(trimmed.none { it.isWhitespace() }) {
-                "El código de producto no puede contener espacios: '$trimmed'"
+                "The product code cannot contain spaces: '$trimmed'"
             }
             require(ALLOWED.matches(trimmed)) {
-                "El código de producto contiene caracteres no permitidos: '$trimmed'. " +
-                    "Alfabeto válido: 0-9 y A-Z"
+                "The product code contains characters that are not allowed: '$trimmed'. " +
+                    "Valid alphabet: 0-9 and A-Z"
             }
             return ProductCode(trimmed)
         }
@@ -102,15 +102,15 @@ value class LocationCode private constructor(val value: String) {
 
         fun of(raw: String): LocationCode {
             val trimmed = raw.trim()
-            require(trimmed.isNotEmpty()) { "El código de ubicación no puede estar vacío" }
+            require(trimmed.isNotEmpty()) { "The location code cannot be empty" }
             require(trimmed.length <= MAX_LENGTH) {
-                "El código de ubicación excede $MAX_LENGTH caracteres: '$trimmed'"
+                "The location code exceeds $MAX_LENGTH characters: '$trimmed'"
             }
             require(trimmed.uppercase() == trimmed) {
-                "El código de ubicación debe estar en mayúsculas: '$trimmed'"
+                "The location code must be in uppercase: '$trimmed'"
             }
             require(ALLOWED.matches(trimmed)) {
-                "El código de ubicación contiene caracteres no permitidos: '$trimmed'"
+                "The location code contains characters that are not allowed: '$trimmed'"
             }
             return LocationCode(trimmed)
         }
@@ -121,10 +121,10 @@ value class LocationCode private constructor(val value: String) {
          */
         fun of(hall: String, code: String, position: String, level: Int): LocationCode {
             require(level in LEVEL_ALPHABET.indices) {
-                "El nivel $level está fuera del alfabeto (0..${LEVEL_ALPHABET.lastIndex})"
+                "Level $level is outside the alphabet (0..${LEVEL_ALPHABET.lastIndex})"
             }
             val prefix = (hall + code + position).trim().uppercase()
-            require(prefix.isNotEmpty()) { "Pasillo, localidad y posición no pueden estar vacíos" }
+            require(prefix.isNotEmpty()) { "Aisle, locality and position cannot be empty" }
             return of(prefix + LEVEL_ALPHABET[level])
         }
 
@@ -142,7 +142,7 @@ value class LocationCode private constructor(val value: String) {
  * Aquí es una ubicación **real** con `kind = RECEIVING`.
  */
 object ReceivingLocation {
-    const val CODE = "RECEPCION"
+    const val CODE = "RECEIVING"
 }
 
 // ── Cantidades y medidas ────────────────────────────────────────────────────
@@ -177,21 +177,21 @@ value class Quantity private constructor(val value: Long) {
          */
         fun parse(raw: String): Result<Quantity> = runCatching {
             val trimmed = raw.trim()
-            require(trimmed.isNotEmpty()) { "La cantidad no puede estar vacía" }
+            require(trimmed.isNotEmpty()) { "The quantity cannot be empty" }
 
             val negative = trimmed.startsWith("-")
             val body = if (negative) trimmed.drop(1) else trimmed
             val parts = body.split('.')
 
-            require(parts.size <= 2) { "Cantidad con formato inválido: '$raw'" }
+            require(parts.size <= 2) { "Quantity with invalid format: '$raw'" }
             val integerPart = parts[0].ifEmpty { "0" }
-            require(integerPart.all { it.isDigit() }) { "Cantidad no numérica: '$raw'" }
+            require(integerPart.all { it.isDigit() }) { "Non-numeric quantity: '$raw'" }
 
             val decimals = parts.getOrNull(1) ?: ""
             require(decimals.length <= SCALE) {
-                "La cantidad '$raw' tiene más de $SCALE decimales"
+                "The quantity '$raw' has more than $SCALE decimals"
             }
-            require(decimals.all { it.isDigit() }) { "Cantidad no numérica: '$raw'" }
+            require(decimals.all { it.isDigit() }) { "Non-numeric quantity: '$raw'" }
 
             val padded = decimals.padEnd(SCALE, '0')
             val scaled = integerPart.toLong() * FACTOR + padded.toLong()
@@ -241,7 +241,7 @@ value class BoxQuantity private constructor(val value: Long) {
         val ZERO = BoxQuantity(0)
 
         fun of(boxes: Long): BoxQuantity {
-            require(boxes >= 0) { "La cantidad de cajas no puede ser negativa: $boxes" }
+            require(boxes >= 0) { "The box quantity cannot be negative: $boxes" }
             return BoxQuantity(boxes)
         }
     }
@@ -276,8 +276,8 @@ value class UnitsPerBox private constructor(val value: Long) {
     companion object {
         fun of(units: Long): UnitsPerBox {
             require(units > 0) {
-                "Las unidades por caja deben ser mayores que cero (se recibió $units). " +
-                    "Un valor 0 provoca división por cero en el cálculo de cajas."
+                "Units per box must be greater than zero (got $units). " +
+                    "A value of 0 causes division by zero in the box calculation."
             }
             return UnitsPerBox(units)
         }

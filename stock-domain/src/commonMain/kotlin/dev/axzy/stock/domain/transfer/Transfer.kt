@@ -31,7 +31,7 @@ import dev.axzy.stock.domain.value.Quantity
  * explicarlo.
  *
  * Es la razón de que `stock_in_transit` exista como tabla desde V3 y de que
- * `recalcular_total_producto` (V6) la sume.
+ * `recalculate_product_total` (V6) la sume.
  *
  * ── POR QUÉ EL ESTADO NO ES UN `String` ────────────────────────────────────
  *

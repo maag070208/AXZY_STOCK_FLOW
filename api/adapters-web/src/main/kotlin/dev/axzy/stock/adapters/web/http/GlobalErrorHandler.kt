@@ -30,7 +30,7 @@ class GlobalErrorHandler {
 
     @ExceptionHandler(HttpMessageNotReadableException::class)
     fun unreadableBody(): ResponseEntity<Any> =
-        error(HttpStatus.BAD_REQUEST, "MALFORMED_REQUEST", "El cuerpo de la petición no es un JSON válido o le faltan campos.")
+        error(HttpStatus.BAD_REQUEST, "MALFORMED_REQUEST", "The request body is not valid JSON or is missing fields.")
 
     @ExceptionHandler(MethodArgumentTypeMismatchException::class)
     fun wrongParameterType(e: MethodArgumentTypeMismatchException): ResponseEntity<Any> {
@@ -38,25 +38,25 @@ class GlobalErrorHandler {
         return error(
             HttpStatus.BAD_REQUEST,
             if (isId) "INVALID_ID" else "INVALID_PARAMETER",
-            "El valor de '${e.name}' no es válido.",
+            "The value of '${e.name}' is not valid.",
             mapOf("parameter" to e.name),
         )
     }
 
     @ExceptionHandler(MissingRequestValueException::class)
     fun missingParameter(e: MissingRequestValueException): ResponseEntity<Any> =
-        error(HttpStatus.BAD_REQUEST, "INVALID_PARAMETER", "Falta un parámetro obligatorio de la petición.")
+        error(HttpStatus.BAD_REQUEST, "INVALID_PARAMETER", "A required request parameter is missing.")
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException::class)
     fun methodNotAllowed(): ResponseEntity<Any> =
-        error(HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED", "El método no está permitido en esta ruta.")
+        error(HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED", "The method is not allowed on this route.")
 
     @ExceptionHandler(HttpMediaTypeNotSupportedException::class)
     fun unsupportedMediaType(): ResponseEntity<Any> =
-        error(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "UNSUPPORTED_MEDIA_TYPE", "El tipo de contenido debe ser application/json.")
+        error(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "UNSUPPORTED_MEDIA_TYPE", "The content type must be application/json.")
 
     @ExceptionHandler(NoHandlerFoundException::class, NoResourceFoundException::class)
-    fun notFound(): ResponseEntity<Any> = error(HttpStatus.NOT_FOUND, "NOT_FOUND", "La ruta no existe.")
+    fun notFound(): ResponseEntity<Any> = error(HttpStatus.NOT_FOUND, "NOT_FOUND", "The route does not exist.")
 
     /**
      * El archivo supera el límite del contenedor.
@@ -67,7 +67,7 @@ class GlobalErrorHandler {
      */
     @ExceptionHandler(MaxUploadSizeExceededException::class)
     fun fileTooLarge(): ResponseEntity<Any> =
-        error(HttpStatus.BAD_REQUEST, "FILE_TOO_LARGE", "El archivo supera el tamaño máximo admitido.")
+        error(HttpStatus.BAD_REQUEST, "FILE_TOO_LARGE", "The file exceeds the maximum allowed size.")
 
     /**
      * Un error que nadie esperaba. Al cliente NO se le da el detalle: el mensaje de una excepción
@@ -77,11 +77,11 @@ class GlobalErrorHandler {
     @ExceptionHandler(Exception::class)
     fun unexpected(e: Exception, request: HttpServletRequest): ResponseEntity<Any> {
         val incident = UUID.randomUUID().toString()
-        log.error("Incidente {} en {} {}", incident, request.method, request.requestURI, e)
+        log.error("Incident {} in {} {}", incident, request.method, request.requestURI, e)
         return error(
             HttpStatus.INTERNAL_SERVER_ERROR,
             "INTERNAL_ERROR",
-            "Error interno. El incidente quedó registrado.",
+            "Internal error. The incident was recorded.",
             mapOf("incident" to incident),
         )
     }

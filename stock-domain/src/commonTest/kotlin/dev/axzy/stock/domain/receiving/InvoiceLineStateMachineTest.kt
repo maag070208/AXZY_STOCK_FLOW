@@ -29,7 +29,7 @@ class InvoiceLineStateMachineTest : DescribeSpec({
 
     val product = ProductCode.of("ABRAA1B")
     val shelf = LocationCode.of("04BCA")
-    val receiving = LocationCode.of("RECEPCION")
+    val receiving = LocationCode.of("RECEIVING")
     val operator = 10L
     val supervisor = 20L
 
@@ -353,7 +353,7 @@ class InvoiceLineStateMachineTest : DescribeSpec({
             val error = result.shouldBeInstanceOf<dev.axzy.stock.domain.common.Either.Left<*>>()
             val transition = error.error.shouldBeInstanceOf<DomainError.InvalidTransition>()
             withClue("El mensaje debe guiar al usuario, no solo fallar") {
-                transition.message shouldBe "La mercancía debe contarse antes de ubicarse"
+                transition.message shouldBe "The goods must be counted before they are located"
             }
         }
 

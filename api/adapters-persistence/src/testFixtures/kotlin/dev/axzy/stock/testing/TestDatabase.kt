@@ -92,9 +92,9 @@ object TestDatabase {
                 EXECUTE 'TRUNCATE TABLE ' || tablas || ' RESTART IDENTITY CASCADE';
                 DELETE FROM locations WHERE kind = 'SHELF';
                 DELETE FROM locations
-                WHERE warehouse_id NOT IN (SELECT id FROM warehouses WHERE code = 'PRINCIPAL');
-                DELETE FROM warehouses WHERE code <> 'PRINCIPAL';
-                UPDATE warehouses SET is_default = TRUE, active = TRUE WHERE code = 'PRINCIPAL';
+                WHERE warehouse_id NOT IN (SELECT id FROM warehouses WHERE code = 'MAIN');
+                DELETE FROM warehouses WHERE code <> 'MAIN';
+                UPDATE warehouses SET is_default = TRUE, active = TRUE WHERE code = 'MAIN';
             END $$;
             """.trimIndent(),
         ).update()

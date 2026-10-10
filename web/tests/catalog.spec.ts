@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import { expandMenu, openMenu } from "./support/menu";
+import { mockHomeSummary } from "./support/home";
 
 /**
  * Las pantallas del catálogo, **con la API simulada**.
@@ -90,17 +92,20 @@ async function signIn(page: Page) {
   await page.goto("/");
   await page.locator('input[name="username"]').fill("jefa");
   await page.locator('input[name="password"]').fill("lo-que-sea");
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page.getByRole("heading", { name: "Inicio", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
 }
 
+test.beforeEach(async ({ page }) => mockHomeSummary(page));
+
 test.describe("catálogo (API simulada)", () => {
-  test("el menú lateral se ve a 1280 px y lleva a Productos", async ({ page }) => {
+  test("el menú lateral se ve a 1280 px y lleva a Products", async ({ page }) => {
     await signIn(page);
 
     // La prueba del §5 de web-react.md: el menú tiene que VERSE, no solo existir.
-    // Dentro del `nav`: el inicio también tiene un indicador llamado «Productos».
-    const menuItem = page.getByRole("navigation").getByText("Productos", { exact: true });
+    // El menú se oculta solo: se despliega acercando el cursor, y entonces la etiqueta tiene que verse.
+    const sidebar = await expandMenu(page);
+    const menuItem = sidebar.getByText("Products", { exact: true });
     await expect(menuItem).toBeVisible();
     expect((await menuItem.boundingBox())?.width ?? 0).toBeGreaterThan(0);
   });
@@ -116,7 +121,7 @@ test.describe("catálogo (API simulada)", () => {
     });
 
     await signIn(page);
-    await page.getByText("Productos", { exact: true }).first().click();
+    await openMenu(page, "Products");
 
     await expect(page.getByText("ABRAA1B")).toBeVisible();
     await expect(page.getByText("ABRAZADERA DE ARRANQUE")).toBeVisible();
@@ -135,10 +140,10 @@ test.describe("catálogo (API simulada)", () => {
     await page.route("**/v1/products?*", (route) => route.fulfill({ json: PRODUCTS_PAGE }));
 
     await signIn(page);
-    await page.getByText("Productos", { exact: true }).first().click();
-    await page.getByRole("button", { name: "Nuevo producto" }).click();
+    await openMenu(page, "Products");
+    await page.getByRole("button", { name: "New product" }).click();
 
-    await expect(page.getByText("Nuevo producto", { exact: true }).last()).toBeVisible();
+    await expect(page.getByText("New product", { exact: true }).last()).toBeVisible();
     await expect(page.locator('input[name="productCode"]')).toBeEnabled();
     await expect(page.locator('input[name="unitMeasure"]')).toHaveValue("PZA");
   });
@@ -148,18 +153,18 @@ test.describe("catálogo (API simulada)", () => {
       route.fulfill({
         json: {
           items: [
-            { id: 1, code: "PRINCIPAL", name: "Bodega principal", address: null, isDefault: true, active: true },
-            { id: 2, code: "NORTE", name: "Bodega norte", address: null, isDefault: false, active: true },
+            { id: 1, code: "MAIN", name: "Warehouse principal", address: null, isDefault: true, active: true },
+            { id: 2, code: "NORTE", name: "Warehouse norte", address: null, isDefault: false, active: true },
           ],
         },
       }),
     );
 
     await signIn(page);
-    await page.getByText("Bodegas", { exact: true }).first().click();
+    await openMenu(page, "Warehouses");
 
-    await expect(page.getByText("PRINCIPAL", { exact: true })).toBeVisible();
-    await expect(page.getByText("Bodega norte", { exact: true })).toBeVisible();
+    await expect(page.getByText("MAIN", { exact: true })).toBeVisible();
+    await expect(page.getByText("Warehouse norte", { exact: true })).toBeVisible();
   });
 
   test("la importación muestra el loader de marca mientras la API trabaja", async ({ page }) => {
@@ -178,19 +183,19 @@ test.describe("catálogo (API simulada)", () => {
     });
 
     await signIn(page);
-    await page.getByText("Productos", { exact: true }).first().click();
-    await page.getByRole("button", { name: "Importar" }).click();
+    await openMenu(page, "Products");
+    await page.getByRole("button", { name: "Import" }).click();
     await page.setInputFiles('input[type="file"]', {
       name: "catalogo.csv",
       mimeType: "text/csv",
       buffer: Buffer.from("externalId,productCode,name,unitMeasure,stock\n1,ABRAA1B,ABRAZADERA,PZA,10"),
     });
-    await page.getByRole("button", { name: "Simular" }).click();
+    await page.getByRole("button", { name: "Preview" }).click();
 
-    await expect(page.getByRole("status")).toContainText("Procesando el archivo…");
+    await expect(page.getByRole("status")).toContainText("Processing the file…");
 
     release();
-    await expect(page.getByText("Simulación: no se escribió nada")).toBeVisible();
+    await expect(page.getByText("Dry run: nothing was written")).toBeVisible();
   });
 
   test("una cuenta sin permisos de catálogo no ve el menú de productos", async ({ page }) => {
@@ -204,9 +209,9 @@ test.describe("catálogo (API simulada)", () => {
     await page.goto("/");
     await page.locator('input[name="username"]').fill("operador");
     await page.locator('input[name="password"]').fill("lo-que-sea");
-    await page.getByRole("button", { name: "Entrar" }).click();
+    await page.getByRole("button", { name: "Sign in" }).click();
 
-    await expect(page.getByRole("heading", { name: "Inicio", exact: true })).toBeVisible();
-    await expect(page.getByText("Productos", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
+    await expect(page.getByText("Products", { exact: true })).toHaveCount(0);
   });
 });

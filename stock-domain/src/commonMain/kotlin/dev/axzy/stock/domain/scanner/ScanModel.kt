@@ -49,13 +49,13 @@ data class ScanRect(
     val height: Double,
 ) {
     init {
-        require(left in 0.0..1.0) { "left debe estar entre 0 y 1: $left" }
-        require(top in 0.0..1.0) { "top debe estar entre 0 y 1: $top" }
+        require(left in 0.0..1.0) { "left must be between 0 and 1: $left" }
+        require(top in 0.0..1.0) { "top must be between 0 and 1: $top" }
         require(width > 0.0 && left + width <= 1.0001) {
-            "La ventana excede el ancho: left=$left width=$width"
+            "The window exceeds the width: left=$left width=$width"
         }
         require(height > 0.0 && top + height <= 1.0001) {
-            "La ventana excede el alto: top=$top height=$height"
+            "The window exceeds the height: top=$top height=$height"
         }
     }
 
@@ -85,7 +85,7 @@ data class ScanWindow(
     val tolerance: Double = 0.05,
 ) {
     init {
-        require(tolerance in 0.0..0.5) { "La tolerancia debe estar entre 0 y 0.5: $tolerance" }
+        require(tolerance in 0.0..0.5) { "The tolerance must be between 0 and 0.5: $tolerance" }
     }
 
     /** La ventana efectiva de aceptación: la visual más la tolerancia. */
@@ -129,9 +129,9 @@ fun ScanWindow.contains(bounds: ScanRect): Boolean {
 
 /** Qué debe hacer el escáner en cada paso. */
 enum class ScanTarget(val displayName: String) {
-    PRODUCT("un código de producto"),
-    LOCATION("una ubicación"),
-    CONTAINER("un contenedor"),
+    PRODUCT("a product code"),
+    LOCATION("a location"),
+    CONTAINER("a container"),
     ;
 
     /** Pista de contexto para mostrar al operador. */
@@ -226,11 +226,11 @@ fun ScanState.onScan(
     is ScanState.Idle -> {
         if (!window.contains(input.bounds)) {
             return ScanOutcome.Rejected(
-                "El código quedó fuera de la ventana de escaneo. Céntralo en la banda."
+                "The code is outside the scanning window. Center it on the band."
             )
         }
         val product = resolveProduct(input.raw)
-            ?: return ScanOutcome.Rejected("'${input.raw}' no es un código de producto conocido")
+            ?: return ScanOutcome.Rejected("'${input.raw}' is not a known product code")
         ScanOutcome.Advanced(ScanState.ProductScanned(product, unitsEntered))
     }
 
@@ -240,16 +240,16 @@ fun ScanState.onScan(
         // asignar una ubicación sin haber escaneado el producto antes.
         // El `step === 1` del legacy permitía justo lo contrario.
         if (units == null && unitsEntered == null) {
-            return ScanOutcome.Rejected("Escribe las unidades antes de escanear la ubicación")
+            return ScanOutcome.Rejected("Enter the units before scanning the location")
         }
         if (!window.contains(input.bounds)) {
-            return ScanOutcome.Rejected("La ubicación quedó fuera de la ventana de escaneo")
+            return ScanOutcome.Rejected("The location is outside the scanning window")
         }
         val location = resolveLocation(input.raw)
-            ?: return ScanOutcome.Rejected("'${input.raw}' no es una ubicación conocida")
+            ?: return ScanOutcome.Rejected("'${input.raw}' is not a known location")
 
         if (location.value == Receiving) {
-            return ScanOutcome.Rejected("No se puede mover mercancía a la misma ubicación de origen")
+            return ScanOutcome.Rejected("Goods cannot be moved to the receiving location: locating them is a separate operation")
         }
 
         ScanOutcome.Advanced(
@@ -262,7 +262,7 @@ fun ScanState.onScan(
     }
 
     is ScanState.ReadyToConfirm -> ScanOutcome.Rejected(
-        "Ya hay un movimiento listo para confirmar. Confírmalo o cancélalo primero."
+        "There is already a movement ready to confirm. Confirm or cancel it first."
     )
 
     is ScanState.Failed -> ScanOutcome.Rejected(reason)
@@ -270,4 +270,4 @@ fun ScanState.onScan(
 }
 
 /** Alias para el nombre de la ubicación de recepción, para no repetir literales. */
-private const val Receiving = "RECEPCION"
+private const val Receiving = "RECEIVING"

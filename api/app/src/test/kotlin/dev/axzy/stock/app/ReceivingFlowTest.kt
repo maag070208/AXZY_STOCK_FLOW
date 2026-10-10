@@ -80,7 +80,7 @@ class ReceivingFlowTest : ApiTest() {
         lineId: Long?,
         to: String = "04-B-C",
         quantity: Int,
-        from: String = "RECEPCION",
+        from: String = "RECEIVING",
     ) = post(
         "/v1/inventory/locate",
         buildMap<String, Any?> {
@@ -441,7 +441,7 @@ class ReceivingFlowTest : ApiTest() {
         assertThat(response.status).isEqualTo(409)
         assertThat(response.code).isEqualTo("DISCREPANCY_NOT_APPROVED")
         // El inventario no cambió: sigue todo en la recepción y nada en el estante.
-        assertThat(quantityAt(token, "RECEPCION")).isEqualTo("9.000")
+        assertThat(quantityAt(token, "RECEIVING")).isEqualTo("9.000")
         assertThat(quantityAt(token, "04-B-C")).isNull()
         // Y la línea sigue esperando decisión.
         assertThat(line(token, id, lineId)["status"]).isEqualTo("DISCREPANCY")
@@ -464,7 +464,7 @@ class ReceivingFlowTest : ApiTest() {
         assertThat(line["locatedQuantity"]).isEqualTo("10.000")
         assertThat(line["locationDisplayName"]).isEqualTo("04-B-C")
         // El total del producto no cambia: sale de la recepción y entra en el estante.
-        assertThat(quantityAt(token, "RECEPCION")).isEqualTo("0.000")
+        assertThat(quantityAt(token, "RECEIVING")).isEqualTo("0.000")
         assertThat(quantityAt(token, "04-B-C")).isEqualTo("10.000")
         // El catálogo manda las cantidades como número (su excepción documentada).
         assertThat(
@@ -524,7 +524,7 @@ class ReceivingFlowTest : ApiTest() {
         val otro = post(
             "/v1/inventory/locate",
             mapOf(
-                "productCode" to "OTRO01", "fromLocationCode" to "RECEPCION",
+                "productCode" to "OTRO01", "fromLocationCode" to "RECEIVING",
                 "toLocationCode" to "04-B-C", "quantity" to 1, "invoiceLineId" to lineId,
             ),
             token,
@@ -553,7 +553,7 @@ class ReceivingFlowTest : ApiTest() {
         get("/v1/inventory/kardex?moveType=$moveType", token).at<List<Map<String, Any?>>>("items")
 
     @Test
-    fun `al contar, la mercancia entra en RECEPCION`() {
+    fun `al contar, la mercancia entra en RECEIVING`() {
         val token = manager()
         product(token)
         val factura = invoice(token)
@@ -563,8 +563,8 @@ class ReceivingFlowTest : ApiTest() {
 
         assertThat(response.status).describedAs(response.raw).isEqualTo(200)
         // Antes de esto, contar no metía nada: el saldo tenía que aparecer por un ajuste a
-        // mano y ubicar desde RECEPCION se encontraba cero.
-        assertThat(quantityAt(token, "RECEPCION")).isEqualTo("10.000")
+        // mano y ubicar desde RECEIVING se encontraba cero.
+        assertThat(quantityAt(token, "RECEIVING")).isEqualTo("10.000")
         val entradas = kardexOf(token, "RECEIPT_IN")
         assertThat(entradas).hasSize(1)
         assertThat(entradas.single()["units"]).isEqualTo("10.000")
@@ -591,7 +591,7 @@ class ReceivingFlowTest : ApiTest() {
         assertThat(response.status).describedAs(response.raw).isEqualTo(200)
         // Quedan 8: entraron 9 y el recuento sacó 1 con un ajuste por error de conteo. Sin
         // la cuenta de lo ya ingresado, el kardex tendría 17 y el stock no cuadraría con nada.
-        assertThat(quantityAt(token, "RECEPCION")).isEqualTo("8.000")
+        assertThat(quantityAt(token, "RECEIVING")).isEqualTo("8.000")
         assertThat(kardexOf(token, "RECEIPT_IN")).hasSize(1)
         val ajustes = kardexOf(token, "ADJUSTMENT_OUT")
         assertThat(ajustes.single()["units"]).isEqualTo("1.000")
@@ -615,7 +615,7 @@ class ReceivingFlowTest : ApiTest() {
 
         assertThat(response.status).describedAs(response.raw).isEqualTo(200)
         // 9 + 5: la segunda entrada es la diferencia, no los 14 otra vez.
-        assertThat(quantityAt(token, "RECEPCION")).isEqualTo("14.000")
+        assertThat(quantityAt(token, "RECEIVING")).isEqualTo("14.000")
         assertThat(kardexOf(token, "RECEIPT_IN").map { it["units"] }).containsExactly("9.000", "5.000")
     }
 

@@ -148,7 +148,7 @@ private fun parseDryRun(raw: String?): Outcome<Boolean> = when (raw?.trim()?.low
     "false" -> false.asRight()
     else -> failure(
         FailureKind.INVALID_REQUEST, "INVALID_DRY_RUN",
-        "dryRun debe ser true o false.",
+        "dryRun must be true or false.",
         mapOf("dryRun" to raw),
     )
 }

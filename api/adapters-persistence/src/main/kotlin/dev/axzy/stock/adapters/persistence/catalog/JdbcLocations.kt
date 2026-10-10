@@ -96,7 +96,7 @@ class JdbcLocations(private val jdbc: JdbcClient) : Locations {
                 "kind" to newLocation.kind.name,
             ),
         ) { rs, _ -> rs.getLong("id") }.single()
-        return requireNotNull(findById(id)) { "La ubicación recién insertada $id no se pudo leer" }
+        return requireNotNull(findById(id)) { "The newly inserted location $id could not be read back" }
     }
 
     override fun update(location: Location): LocationView {
@@ -118,7 +118,7 @@ class JdbcLocations(private val jdbc: JdbcClient) : Locations {
                 "active" to location.active,
             ),
         ) { rs, _ -> rs.getLong("id") }.single()
-        return requireNotNull(findById(location.id)) { "La ubicación ${location.id} no se pudo leer tras actualizarla" }
+        return requireNotNull(findById(location.id)) { "Location ${location.id} could not be read back after updating it" }
     }
 
     // ── Interno ─────────────────────────────────────────────────────────────

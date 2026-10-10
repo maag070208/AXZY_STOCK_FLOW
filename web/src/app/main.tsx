@@ -6,6 +6,7 @@ import { Provider } from "react-redux";
 import { HashRouter } from "react-router-dom";
 import App from "./App";
 import ToastProvider from "./toast/ToastProvider";
+import "@shared/i18n";
 import "@app/index.css";
 
 /*

@@ -5,6 +5,8 @@ import { transfersApi, type InTransit, type TransferHeader } from "@entities/tra
 import { formatQuantity } from "@shared/lib/format";
 import { DataTable } from "@shared/ui/data-table/DataTable";
 import { Page } from "@shared/ui/page/Page";
+import { FaExchangeAlt } from "react-icons/fa";
+import i18n from "@shared/i18n";
 
 const STATUSES = ["DRAFT", "DISPATCHED", "RECEIVED", "CANCELLED"];
 
@@ -19,27 +21,27 @@ export default function TransfersPage() {
   const externalFilters = useMemo(() => (status ? { status } : undefined), [status]);
 
   const columns: Column<TransferHeader>[] = [
-    { key: "code", label: "Código", type: "string" },
-    { key: "fromWarehouseCode", label: "Desde", type: "string" },
-    { key: "toWarehouseCode", label: "Hasta", type: "string" },
-    { key: "status", label: "Estado", type: "string", render: (row) => <ITBadget label={row.status} color="secondary" size="sm" /> },
-    { key: "lineCount", label: "Líneas", type: "number" },
-    { key: "totalUnits", label: "Unidades", type: "number", render: (row) => formatQuantity(row.totalUnits) },
-    { key: "dispatchedByName", label: "Despachó", type: "string", render: (row) => row.dispatchedByName ?? "—" },
+    { key: "code", label: i18n.t("common.code"), type: "string" },
+    { key: "fromWarehouseCode", label: i18n.t("common.from"), type: "string" },
+    { key: "toWarehouseCode", label: i18n.t("common.to"), type: "string" },
+    { key: "status", label: i18n.t("common.status"), type: "string", render: (row) => <ITBadget label={row.status} color="secondary" size="sm" /> },
+    { key: "lineCount", label: i18n.t("receiving.lines"), type: "number" },
+    { key: "totalUnits", label: i18n.t("common.units"), type: "number", render: (row) => formatQuantity(row.totalUnits) },
+    { key: "dispatchedByName", label: i18n.t("transfers.dispatchedBy"), type: "string", render: (row) => row.dispatchedByName ?? "—" },
   ];
 
   const transitColumns: Column<InTransit>[] = [
-    { key: "code", label: "Código", type: "string" },
-    { key: "fromWarehouseCode", label: "Desde", type: "string" },
-    { key: "toWarehouseCode", label: "Hasta", type: "string" },
-    { key: "totalUnits", label: "Unidades", type: "number", render: (row) => formatQuantity(row.totalUnits) },
-    { key: "daysInTransit", label: "Días en camino", type: "number" },
+    { key: "code", label: i18n.t("common.code"), type: "string" },
+    { key: "fromWarehouseCode", label: i18n.t("common.from"), type: "string" },
+    { key: "toWarehouseCode", label: i18n.t("common.to"), type: "string" },
+    { key: "totalUnits", label: i18n.t("common.units"), type: "number", render: (row) => formatQuantity(row.totalUnits) },
+    { key: "daysInTransit", label: i18n.t("transfers.daysInTransit"), type: "number" },
   ];
 
   return (
-    <Page title="Traslados" description="Mercancía entre bodegas y la que va en camino." breadcrumbs={[{ label: "Inicio", href: "#/" }, { label: "Traslados" }]}>
+    <Page icon={<FaExchangeAlt size={18} />} title={i18n.t("nav.transfers")} description={i18n.t("transfers.description")} breadcrumbs={[{ label: i18n.t("nav.home"), href: "#/" }, { label: i18n.t("nav.transfers") }]}>
       <div className="mb-3 w-56">
-        <ITSelect size="sm" name="status" label="Estado" value={status} placeholder="Todos"
+        <ITSelect size="sm" name="status" label={i18n.t("common.status")} value={status} placeholder={i18n.t("common.all")}
           options={STATUSES.map((value) => ({ value, label: value }))} onChange={(e) => setStatus(e.target.value)} />
       </div>
       <DataTable<TransferHeader>
@@ -48,7 +50,7 @@ export default function TransfersPage() {
         fetchPage={(query) => transfersApi.transfers(query, {})}
         externalFilters={externalFilters}
       />
-      <ITText className="mb-2 mt-6 font-semibold">En tránsito</ITText>
+      <ITText className="mb-2 mt-6 font-semibold">{i18n.t("transfers.inTransit")}</ITText>
       <DataTable<InTransit>
         columns={transitColumns}
         onRowClick={(row) => navigate(`/transfers/${row.id}`)}

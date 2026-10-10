@@ -139,7 +139,7 @@ data class AuditActor(
         fun service(name: String, keyId: Long) = AuditActor(
             userId = null,
             username = "service:$name",
-            displayName = "Integración $name (key #$keyId)",
+            displayName = "Integration $name (key #$keyId)",
             roles = emptyList(),
         )
     }

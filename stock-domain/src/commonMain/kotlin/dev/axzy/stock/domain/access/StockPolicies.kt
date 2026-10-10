@@ -50,9 +50,9 @@ object StockPolicies {
 
         Policy(
             id = 1,
-            name = "Prohibido aprobar lo propio (segregación de funciones)",
-            description = "Nadie puede autorizar una discrepancia que él mismo capturó. " +
-                "Evita que alguien tape su propio error de conteo. Decisión R-74.",
+            name = "Approving your own work is forbidden (segregation of duties)",
+            description = "No one can authorize a discrepancy they counted themselves. " +
+                "Prevents someone from covering up their own count error. Decision R-74.",
             action = "invoice.approve",
             effect = PolicyEffect.DENY,
             priority = 100,
@@ -69,9 +69,9 @@ object StockPolicies {
 
         Policy(
             id = 2,
-            name = "El jefe de bodega aprueba discrepancias de su bodega",
-            description = "Sin umbral de cantidad: toda diferencia requiere aprobación " +
-                "(decisión R-75). El control está en que sea OTRA persona y de su bodega.",
+            name = "The warehouse manager approves discrepancies in their warehouse",
+            description = "No quantity threshold: every difference requires approval " +
+                "(decision R-75). The control is that it is a DIFFERENT person from the same warehouse.",
             action = "invoice.approve",
             effect = PolicyEffect.ALLOW,
             priority = 10,
@@ -79,8 +79,8 @@ object StockPolicies {
         ),
         Policy(
             id = 3,
-            name = "Gerencia aprueba discrepancias de cualquier bodega",
-            description = "El gerente de operaciones puede aprobar en todas las bodegas.",
+            name = "Management approves discrepancies in any warehouse",
+            description = "The operations manager can approve in all warehouses.",
             action = "invoice.approve",
             effect = PolicyEffect.ALLOW,
             priority = 10,
@@ -93,9 +93,9 @@ object StockPolicies {
 
         Policy(
             id = 4,
-            name = "El ajuste por robo requiere gerencia",
-            description = "Declarar un robo mueve inventario y tiene implicaciones legales. " +
-                "Solo gerencia y administración pueden hacerlo.",
+            name = "A theft adjustment requires management",
+            description = "Declaring a theft moves inventory and has legal implications. " +
+                "Only management and administration can do this.",
             action = "inventory.adjust_theft",
             effect = PolicyEffect.ALLOW,
             priority = 20,
@@ -104,9 +104,9 @@ object StockPolicies {
         ),
         Policy(
             id = 5,
-            name = "Ajustes de inventario solo en horario laboral",
-            description = "Los ajustes de inventario se realizan entre las 08:00 y las 18:00. " +
-                "Fuera de ese horario requieren autorización específica.",
+            name = "Inventory adjustments only during working hours",
+            description = "Inventory adjustments are made between 08:00 and 18:00. " +
+                "Outside those hours, specific authorization is required.",
             action = "inventory.adjust_shortage",
             effect = PolicyEffect.ALLOW,
             priority = 20,
@@ -118,8 +118,8 @@ object StockPolicies {
         ),
         Policy(
             id = 6,
-            name = "Ajustes de daño solo en horario laboral",
-            description = "Mismo criterio que los faltantes: fuera de horario, escala.",
+            name = "Damage adjustments only during working hours",
+            description = "Same criterion as shortages: outside working hours, it escalates.",
             action = "inventory.adjust_damage",
             effect = PolicyEffect.ALLOW,
             priority = 20,
@@ -131,9 +131,9 @@ object StockPolicies {
         ),
         Policy(
             id = 7,
-            name = "Ajustes de fin de semana escalan a gerencia",
-            description = "Sábado y domingo (weekday 6 y 0) el jefe de bodega no ajusta: " +
-                "lo hace gerencia, que sí tiene el permiso sin esta restricción.",
+            name = "Weekend adjustments escalate to management",
+            description = "Saturday and Sunday (weekday 6 and 0) the warehouse manager does not adjust: " +
+                "management does it, which does have the permission without this restriction.",
             action = "inventory.adjust_shortage",
             effect = PolicyEffect.DENY,
             priority = 30,
@@ -144,9 +144,9 @@ object StockPolicies {
         ),
         Policy(
             id = 8,
-            name = "Corrección de conteo siempre permitida en horario",
-            description = "Corregir un error de conteo es la operación de ajuste menos " +
-                "sensible: se permite sin restricción de día.",
+            name = "Count correction always allowed during working hours",
+            description = "Correcting a count error is the least risky adjustment operation " +
+                "sensitive: allowed without a day restriction.",
             action = "inventory.adjust_count_error",
             effect = PolicyEffect.ALLOW,
             priority = 10,
@@ -159,9 +159,9 @@ object StockPolicies {
 
         Policy(
             id = 9,
-            name = "Los productos de alto valor los mueve el jefe de bodega",
-            description = "Un operador no mueve producto cuyo costo unitario supera 5.000. " +
-                "Los productos caros requieren supervisión.",
+            name = "High-value products are moved by the warehouse manager",
+            description = "An operator does not move a product whose unit cost exceeds 5,000. " +
+                "Expensive products require supervision.",
             action = "inventory.move",
             effect = PolicyEffect.DENY,
             priority = 30,
@@ -177,10 +177,10 @@ object StockPolicies {
 
         Policy(
             id = 10,
-            name = "El operador ubica lo que él recibió, desde recepción",
-            description = "Ubicar mercancía recién recibida es la operación más frecuente " +
-                "del piso: no se estorba. Es la corrección del hueco del legacy, donde el " +
-                "rol de almacén no tenía permiso para ubicar (decisión R-77).",
+            name = "The operator locates what they received, from receiving",
+            description = "Locating freshly received goods is the most frequent operation " +
+                "of the floor: it is not in the way. It fixes the legacy gap, where the " +
+                "warehouse role had no permission to locate (decision R-77).",
             action = "invoice.locate",
             effect = PolicyEffect.ALLOW,
             priority = 20,
@@ -196,9 +196,9 @@ object StockPolicies {
 
         Policy(
             id = 11,
-            name = "Los traslados entre bodegas no son operación de piso",
-            description = "Despachar hacia otra bodega lo hacen jefatura y gerencia, " +
-                "no un operador.",
+            name = "Transfers between warehouses are not a floor operation",
+            description = "Dispatching to another warehouse is done by the warehouse manager and management, " +
+                "not an operator.",
             action = "transfer.dispatch",
             effect = PolicyEffect.ALLOW,
             priority = 20,
@@ -211,9 +211,9 @@ object StockPolicies {
 
         Policy(
             id = 12,
-            name = "La importación del ERP solo entra por el canal de servicio",
-            description = "La integración con el ERP usa una API key de servicio. " +
-                "Un usuario web o móvil no puede importar facturas externas.",
+            name = "The ERP import only comes through the service channel",
+            description = "The ERP integration uses a service API key. " +
+                "A web or mobile user cannot import external invoices.",
             action = "invoice.import_external",
             effect = PolicyEffect.ALLOW,
             priority = 20,

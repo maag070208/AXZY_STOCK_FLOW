@@ -102,7 +102,7 @@ class JdbcUserAdmin(private val jdbc: JdbcClient) : UserAdminStore, RoleAdminSto
         } catch (error: DataIntegrityViolationException) {
             // El índice único decide en una carrera; el caso normal lo atrapa el prechequeo.
             if (error.message?.contains(USERNAME_INDEX) == true) {
-                error("El usuario '$username' ya existe (lo comprobó el caso de uso y el índice lo confirmó).")
+                error("The user '$username' already exists (the use case checked it and the index confirmed it).")
             }
             throw error
         }

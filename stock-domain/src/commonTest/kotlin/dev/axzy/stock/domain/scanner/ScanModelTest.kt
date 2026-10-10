@@ -29,14 +29,14 @@ class ScanModelTest : DescribeSpec({
 
     val product = ProductCode.of("ABRAA1B")
     val shelf = LocationCode.of("04BCA")
-    val receiving = LocationCode.of("RECEPCION")
+    val receiving = LocationCode.of("RECEIVING")
 
     fun resolveProduct(code: String): ProductCode? =
         if (code == "ABRAA1B") product else null
 
     fun resolveLocation(code: String): LocationCode? = when (code) {
         "04BCA" -> shelf
-        "RECEPCION" -> receiving
+        "RECEIVING" -> receiving
         else -> null
     }
 
@@ -92,7 +92,7 @@ class ScanModelTest : DescribeSpec({
 
             val rejection = result.shouldBeInstanceOf<ScanOutcome.Rejected>()
             withClue("El mensaje debe decir QUÉ hacer, no solo que falló") {
-                (rejection.reason.contains("ventana")) shouldBe true
+                (rejection.reason.contains("window")) shouldBe true
             }
         }
 
@@ -205,7 +205,7 @@ class ScanModelTest : DescribeSpec({
 
             val rejection = result.shouldBeInstanceOf<ScanOutcome.Rejected>()
             withClue("Debe decir que ese código no es un producto") {
-                (rejection.reason.contains("no es un código de producto")) shouldBe true
+                (rejection.reason.contains("not a known product code")) shouldBe true
             }
         }
 
@@ -223,7 +223,7 @@ class ScanModelTest : DescribeSpec({
 
             val rejection = result.shouldBeInstanceOf<ScanOutcome.Rejected>()
             withClue("Sin unidades no se puede continuar, y el mensaje lo explica") {
-                (rejection.reason.contains("unidades")) shouldBe true
+                (rejection.reason.contains("units")) shouldBe true
             }
         }
 
@@ -240,7 +240,7 @@ class ScanModelTest : DescribeSpec({
 
             val rejection = result.shouldBeInstanceOf<ScanOutcome.Rejected>()
             withClue("Debe pedir confirmar o cancelar antes de seguir") {
-                (rejection.reason.contains("confirmar")) shouldBe true
+                (rejection.reason.contains("confirm")) shouldBe true
             }
         }
 
@@ -249,14 +249,14 @@ class ScanModelTest : DescribeSpec({
             val status = ScanState.ProductScanned(product, units = 50)
 
             val result = status.onScan(
-                ScanInput("RECEPCION", centered),
+                ScanInput("RECEIVING", centered),
                 resolveProduct = ::resolveProduct,
                 resolveLocation = ::resolveLocation,
             )
 
             val rejection = result.shouldBeInstanceOf<ScanOutcome.Rejected>()
             withClue("Mover a la misma ubicación de origen no es un movimiento") {
-                (rejection.reason.contains("misma ubicación")) shouldBe true
+                (rejection.reason.contains("receiving location")) shouldBe true
             }
         }
 

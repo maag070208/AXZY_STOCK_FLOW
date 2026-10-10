@@ -70,7 +70,7 @@ class LocationController(
             else -> LocationKind.parse(kind).getOrNull()
                 ?: return failure(
                     FailureKind.RULE_VIOLATION, "INVALID_LOCATION_KIND",
-                    "Tipo de ubicación inválido '$kind': debe ser SHELF o RECEIVING.",
+                    "Invalid location kind '$kind': it must be SHELF or RECEIVING.",
                     mapOf("kind" to kind),
                 ).toResponse()
         }

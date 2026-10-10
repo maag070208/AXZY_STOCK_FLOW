@@ -2,6 +2,7 @@ import axios, { AxiosError, type AxiosRequestConfig, type AxiosResponse, type In
 import { API_CONSTANTS, AUTH_PATHS } from "./constants/API_CONSTANTS";
 import { getSessionRefreshToken, getSessionToken, handleUnauthorized, updateSessionTokens } from "./session";
 import { ApiError, CLIENT_HEADERS, type ErrorBody } from "./types";
+import i18n from "@shared/i18n";
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -96,7 +97,7 @@ const normalize = (error: unknown): never => {
   const status = axiosError.response?.status ?? 0;
   const message =
     body?.message ??
-    (status === 0 ? "No se pudo contactar con la API. Revisa que esté levantada." : "Error inesperado.");
+    (status === 0 ? i18n.t("errors.apiUnreachable") : i18n.t("errors.unexpected"));
   throw new ApiError(status, message, body?.code, body?.details);
 };
 

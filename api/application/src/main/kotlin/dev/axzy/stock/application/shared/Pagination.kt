@@ -66,7 +66,7 @@ data class PageRequest(val page: Int, val size: Int, val sort: SortSpec) {
             if (page != null && page < 0) {
                 return failure(
                     FailureKind.INVALID_REQUEST, "INVALID_PAGINATION",
-                    "El número de página no puede ser negativo.",
+                    "The page number cannot be negative.",
                     mapOf("page" to "$page"),
                 )
             }
@@ -74,14 +74,14 @@ data class PageRequest(val page: Int, val size: Int, val sort: SortSpec) {
             if (effectiveSize !in 1..MAX_SIZE) {
                 return failure(
                     FailureKind.INVALID_REQUEST, "INVALID_PAGINATION",
-                    "El tamaño de página debe estar entre 1 y $MAX_SIZE.",
+                    "The page size must be between 1 and $MAX_SIZE.",
                     mapOf("size" to "$effectiveSize"),
                 )
             }
             val spec = parseSort(sort, allowedSorts, defaultSort)
                 ?: return failure(
                     FailureKind.INVALID_REQUEST, "INVALID_SORT",
-                    "Orden no admitido. Se admiten: ${allowedSorts.sorted().joinToString(", ")}.",
+                    "Sort not supported. Allowed: ${allowedSorts.sorted().joinToString(", ")}.",
                     mapOf("sort" to (sort ?: "")),
                 )
             return PageRequest(page ?: 0, effectiveSize, spec).asRight()

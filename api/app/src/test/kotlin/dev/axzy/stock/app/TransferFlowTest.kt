@@ -38,12 +38,12 @@ class TransferFlowTest : ApiTest() {
         // La bodega de destino necesita su ubicación de recepción, que siembra el
         // esquema para la principal pero no para una bodega nueva.
         destinationWarehouse = db.sql(
-            "INSERT INTO warehouses (code, name, is_default, active) VALUES ('SUCURSAL', 'Sucursal', FALSE, TRUE) RETURNING id",
+            "INSERT INTO warehouses (code, name, is_default, active) VALUES ('BRANCH', 'Sucursal', FALSE, TRUE) RETURNING id",
         ).query(Long::class.java).single()
         destination = db.sql(
             """
             INSERT INTO locations (warehouse_id, hall, code, position, levels, kind)
-            VALUES (:warehouse, 'RECEPCION', 'RECEPCION', 'RECEPCION', 1, 'RECEIVING') RETURNING id
+            VALUES (:warehouse, 'RECEIVING', 'RECEIVING', 'RECEIVING', 1, 'RECEIVING') RETURNING id
             """.trimIndent(),
         ).param("warehouse", destinationWarehouse).query(Long::class.java).single()
         origin = db.sql("SELECT id FROM locations WHERE kind = 'RECEIVING' AND warehouse_id = 1")
@@ -57,7 +57,7 @@ class TransferFlowTest : ApiTest() {
         post(
             "/v1/inventory/adjustments",
             mapOf(
-                "productCode" to "ABRAA1B", "locationCode" to "RECEPCION", "quantity" to quantity,
+                "productCode" to "ABRAA1B", "locationCode" to "RECEIVING", "quantity" to quantity,
                 "direction" to "INCREASE", "reason" to "COUNT_ERROR", "origin" to "MANUAL_COUNT",
                 "approverId" to who,
             ),
@@ -262,8 +262,8 @@ class TransferFlowTest : ApiTest() {
         // contenido tal cual, porque el contrato fija esa forma.
         assertThat(reporte.raw).startsWith("[")
         assertThat(reporte.raw).contains("\"code\":\"TR-2026-0001\"")
-        assertThat(reporte.raw).contains("\"fromWarehouseCode\":\"PRINCIPAL\"")
-        assertThat(reporte.raw).contains("\"toWarehouseCode\":\"SUCURSAL\"")
+        assertThat(reporte.raw).contains("\"fromWarehouseCode\":\"MAIN\"")
+        assertThat(reporte.raw).contains("\"toWarehouseCode\":\"BRANCH\"")
         // Los días los cuenta el servidor, no la pantalla.
         assertThat(reporte.raw).contains("\"daysInTransit\":0")
         assertThat(reporte.raw).contains("\"dispatchedByName\":\"Usuario jefa\"")

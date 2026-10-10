@@ -24,7 +24,7 @@ class IdentityPersistenceTest {
     private val users = JdbcUserAccounts(db.jdbc)
     private val hasher = FakePasswordHasher()
 
-    // Las claves de rol son las del dominio (`JEFE_BODEGA`, …): se toman de allí, no se escriben a mano.
+    // Las claves de rol son las del dominio (`WAREHOUSE_MANAGER`, …): se toman de allí, no se escriben a mano.
     private val manager = BaseRole.WAREHOUSE_MANAGER.key.value
     private val operations = BaseRole.OPERATIONS_MANAGER.key.value
     private val auditor = BaseRole.AUDITOR.key.value
