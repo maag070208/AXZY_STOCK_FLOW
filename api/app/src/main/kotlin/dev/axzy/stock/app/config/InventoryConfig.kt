@@ -11,7 +11,9 @@ import dev.axzy.stock.application.catalog.Locations
 import dev.axzy.stock.application.catalog.Products
 import dev.axzy.stock.application.catalog.Warehouses
 import dev.axzy.stock.application.inventory.AdjustStock
+import dev.axzy.stock.adapters.persistence.receiving.JdbcInvoices
 import dev.axzy.stock.application.inventory.InventoryCatalog
+import dev.axzy.stock.application.inventory.LocatingLines
 import dev.axzy.stock.application.inventory.KardexQueries
 import dev.axzy.stock.application.inventory.ListKardex
 import dev.axzy.stock.application.inventory.ListStock
@@ -23,6 +25,7 @@ import dev.axzy.stock.application.shared.TransactionRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.jdbc.core.simple.JdbcClient
+import java.time.Clock
 
 /**
  * Existencias (M02): el motor, las consultas y las rutas.
@@ -71,21 +74,25 @@ class InventoryConfig {
     fun locateStock(
         catalog: InventoryCatalog,
         ledger: StockLedger,
+        locatingLines: JdbcInvoices,
         audit: AuditRecorder,
         auditEvents: AuditEvents,
         access: AccessDecider,
         tx: TransactionRunner,
-    ) = LocateStock(catalog, ledger, audit, auditEvents, access, tx)
+        clock: Clock,
+    ) = LocateStock(catalog, ledger, locatingLines as LocatingLines, audit, auditEvents, access, tx, clock)
 
     @Bean
     fun moveStock(
         catalog: InventoryCatalog,
         ledger: StockLedger,
+        locatingLines: JdbcInvoices,
         audit: AuditRecorder,
         auditEvents: AuditEvents,
         access: AccessDecider,
         tx: TransactionRunner,
-    ) = MoveStock(catalog, ledger, audit, auditEvents, access, tx)
+        clock: Clock,
+    ) = MoveStock(catalog, ledger, locatingLines as LocatingLines, audit, auditEvents, access, tx, clock)
 
     @Bean
     fun inventoryController(

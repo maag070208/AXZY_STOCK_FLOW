@@ -11,19 +11,32 @@
 | 3. Identidad | **Cerrada** | `AuthFlowTest`: login, bloqueo, refresh con reuso, logout y cambio de contraseña, por HTTP real. I5 e I8 se cerraron con la fase 4 |
 | 4. Catálogo | **Cerrada salvo el Excel** | `CatalogFlowTest` K1–K6, I5 e I8; `CatalogPersistenceTest`; `RoutePermissionTest` |
 | 5. Existencias | **Cerrada** | `InventoryFlowTest` A1–A10 y `ReportFlowTest`; `InventoryEngineConcurrencyTest`; `InventoryWriteGuardTest`; presupuesto de consultas medido |
-| 6. Recepción | **En curso**: facturas, captura, aprobación, rechazo, cierre y bandeja cerradas; **falta el enganche de ubicar con la línea** (R1) | `ReceivingFlowTest` R2–R6 y R8 |
+| 6. Recepción | **Cerrada** | `ReceivingFlowTest` R1–R8 |
 | 11. Web | **Empezada** con el catálogo y la identidad, que son los módulos con contrato estable | `web/`: `tsc`, `eslint` y `vite build` en verde; 11 pruebas de Playwright |
-| 7–10 | No iniciadas | — |
+| 7. Surtido y ERP | **Cerrada** | `FulfillmentFlowTest` S1–S8; confirmación simultánea en `FulfillmentPersistenceTest` |
+| 8. Traslados | **Cerrada** | `TransferEngineTest` (motor e invariante) y `TransferFlowTest` T1–T8 |
+| 9. Etiquetas y auditoría | **Cerrada**: M06 con L1–L5 y M08 con U1–U5 en verde | `LabelFlowTest`, `PrintJobConfirmationTest` y `AuditFlowTest` |
+| 10. Migración | **En curso desde la fase 1**: importación del catálogo idempotente; falta el XLSX y el stock inicial | — |
 
-**622 pruebas, 0 fallos, 0 omitidas** (407 dominio, 11 aplicación, 72 persistencia, 13 web,
-11 criptografía, 108 flujo).
+**717 pruebas, 0 fallos, 0 omitidas** (408 dominio, 11 aplicación, 83 persistencia, 13 web,
+11 criptografía, 191 flujo), medidas con `./gradlew verify` el 2026-10-10. Esquema en
+**V14**.
+
+> `./gradlew test` **no ejecuta las pruebas del dominio**: el proyecto es
+> multiplataforma y su tarea se llama `jvmTest`, así que el `test` agregado lo dejaba
+> fuera y el informe parecía verde leyendo XML de una ejecución anterior. Para verificar
+> hay que usar **`./gradlew verify`**, que las incluye a todas.
 
 Lo que la fase 4 **no** entrega, y por qué:
 
 | Pendiente | Dónde se cierra | Por qué no bloquea |
 |---|---|---|
 | Lectura de XLSX en la importación | M10 (migración de datos) | El archivo trabajado del corte es un TSV; la ruta responde `IMPORT_FILE_FORMAT` diciéndolo |
-| Ubicar no conoce la línea de factura | Fase 6, siguiente paso | `LOCATED` y `locatedQuantity` no se alcanzan por ninguna ruta; la regla B1 solo se aplica en el dominio |
+| La intermitencia del `403` al asignar roles | Fase 9, investigado | Dejó de reproducirse al arreglar el cableado de la política de contraseñas, que dejaba el contexto a medias; con la ruta activada pasó **cinco ejecuciones seguidas** del módulo. El **cuerpo vacío del `403` original quedó sin explicación**: está anotado, no inventado. Si reaparece, mirar primero el sembrado de `role_permissions` al arrancar |
+| Eliminar roles | M07, decidido | Un rol no se borra: se **desactiva** (`active: false`), y eso le quita los permisos a quien lo tenga. Borrarlo dejaría usuarios sin rol y sin explicación |
+| Ninguna ruta asigna líneas de orden | Fase 7, siguiente paso | `order.assign` está en el catálogo y la tabla tiene `assigned_user_id` y `location_id`, pero ninguna ruta los escribe: la ubicación la anota el empaque |
+| No hay ERP | Fase 7, anotado | El intento falla con `ERP_NOT_CONNECTED` y el contador sube; falta el adaptador (ADR-0013) |
+| Ninguna ruta emite `RECEIPT_IN` | Fase 6, anotado | La entrada de mercancía por recepción no tiene paso propio: el saldo llega a `RECEPCION` por un ajuste o por la carga inicial (M10). El motor ya soporta el tipo de movimiento |
 | Pantallas de los módulos sin endpoint | Fases 6–9 | Una pantalla sin endpoint no dibuja filas inventadas: el inicio dice qué falta y por qué |
 | Despliegue de la web (nginx + servicio en Compose) | Cierre de la fase 11 | Hoy corre con `pnpm dev` contra la API; el proxy de Vite hace el mismo trabajo que hará nginx |
 | `stock` inicial a `SIN-UBICAR` con el movimiento `INITIAL` | Fase 5 (M02) | El informe ya publica `stockPersisted: false`: cargar 10.914.130 unidades sin desglose inventaría mal desde el día uno (ADR-0012) |
@@ -175,11 +188,12 @@ exista el HTTP:
 
 ## 7. Lo que sigue inmediatamente
 
-1. **Fase 6, recepción (M03), lo que queda:** el **enganche de la ubicación con la línea de factura**.
-   `POST /v1/inventory/locate` gana un `invoiceLineId` opcional; con él, el caso de uso carga la línea,
-   aplica la regla del dominio (`InvoiceLine.locate`: una discrepancia sin aprobar bloquea, R1) y, al
-   terminar, actualiza `located_quantity`, `location_id` y el estado `LOCATED` de la línea —que hoy no
-   se alcanza por ninguna ruta—. El resto del módulo está cerrado y probado.
+1. **El resto de M07 (usuarios y roles):** alta y gestión de usuarios y roles, que el flujo de la fase 3
+   dejó fuera. Hoy solo existe el administrador que siembra el arranque: los permisos `user.*` y
+   `role.*` están en el catálogo y **ninguna ruta los usa**.
+2. **El cierre de M10 (migración):** el stock inicial del legacy a `SIN-UBICAR` con el movimiento
+   `INITIAL` —que el motor ya soporta—, la lectura del Excel del catálogo (Apache POI ya está en el
+   proyecto por la exportación del kardex) y la conciliación con conteo.
 2. **M10, migración:** falta el stock inicial del legacy a `SIN-UBICAR` con el movimiento `INITIAL`
    —que el motor ya soporta—, la lectura de XLSX (Apache POI ya está en el proyecto por la
    exportación del kardex) y la conciliación con conteo.

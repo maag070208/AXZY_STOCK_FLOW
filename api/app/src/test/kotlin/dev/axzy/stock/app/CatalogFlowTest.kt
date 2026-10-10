@@ -388,4 +388,72 @@ class CatalogFlowTest : ApiTest() {
         assertThat(items).hasSize(1)
         assertThat(items.single()["isDefault"]).isEqualTo(true)
     }
+
+    // ── M10: la carga inicial de existencias ────────────────────────────────
+
+    private fun totalStock(productCode: String): String =
+        db.sql(
+            """
+            SELECT COALESCE(ps.quantity, 0) FROM products p
+            LEFT JOIN product_stock ps ON ps.product_id = p.id
+            WHERE p.product_code = :code
+            """.trimIndent(),
+        ).param("code", productCode).query(java.math.BigDecimal::class.java).single().setScale(3).toPlainString()
+
+    private fun kardexInitialRows(): List<String> =
+        db.sql(
+            """
+            SELECT l.hall FROM kardex k JOIN locations l ON l.id = k.to_location_id
+            WHERE k.move_type = 'INITIAL' ORDER BY k.id
+            """.trimIndent(),
+        ).query(String::class.java).list().filterNotNull()
+
+    @Test
+    fun `M10 - el stock del archivo se carga en SIN-UBICAR con un movimiento INITIAL`() {
+        val token = manager()
+
+        val response = postFile("/v1/products/import", validFile, token = token, query = "?dryRun=false")
+
+        assertThat(response.status).describedAs(response.raw).isEqualTo(200)
+        assertThat(response.at<Boolean>("stockPersisted")).isTrue()
+        assertThat(response.at<Int>("stockLoaded")).isEqualTo(2)
+        assertThat(response.at<Int>("stockSkipped")).isZero()
+        // El total heredado queda en el saldo sin ubicar: el archivo no dice en qué
+        // estantería está cada pieza (ADR-0012).
+        assertThat(totalStock("ABRAA1B")).isEqualTo("10.000")
+        assertThat(totalStock("ABRAA1C")).isEqualTo("5.000")
+        // La columna de la ubicación sin ubicar se llama SINUBICAR; su nombre visible es SIN-UBICAR.
+        assertThat(kardexInitialRows()).containsOnly("SINUBICAR")
+    }
+
+    @Test
+    fun `M10 - reimportar no duplica el stock`() {
+        val token = manager()
+        postFile("/v1/products/import", validFile, token = token, query = "?dryRun=false")
+
+        val segunda = postFile("/v1/products/import", validFile, token = token, query = "?dryRun=false")
+
+        assertThat(segunda.at<Int>("created")).isZero()
+        assertThat(segunda.at<Int>("skipped")).isEqualTo(2)
+        // Lo que ya tiene existencias no se vuelve a cargar: importar dos veces el mismo
+        // archivo no puede duplicar el inventario.
+        assertThat(segunda.at<Int>("stockLoaded")).isZero()
+        assertThat(segunda.at<Int>("stockSkipped")).isEqualTo(2)
+        assertThat(totalStock("ABRAA1B")).isEqualTo("10.000")
+        assertThat(kardexInitialRows()).hasSize(2)
+    }
+
+    @Test
+    fun `M10 - la simulacion no carga existencias`() {
+        val token = manager()
+
+        val response = postFile("/v1/products/import", validFile, token = token)
+
+        assertThat(response.at<Int>("stockLoaded")).isZero()
+        assertThat(response.at<Boolean>("stockPersisted")).isFalse()
+        // En simulación no se crea ni el producto, así que no hay existencias que mirar.
+        assertThat(response.at<Int>("created")).isZero()
+        assertThat(db.sql("SELECT count(*) FROM product_stock").query(Int::class.java).single()).isZero()
+        assertThat(kardexInitialRows()).isEmpty()
+    }
 }

@@ -1,11 +1,45 @@
 # Etiquetas
 > **Referencia.** Plantillas ZPL, previsualización, impresión, cola de trabajos y
-> reimpresión. Última verificación: 2026-10-09.
+> reimpresión. Última verificación: 2026-10-10 (M06 cerrado).
 
-Implementado en
-`backend/src/main/kotlin/dev/axzy/stock/backend/label/LabelRoutes.kt` y
-`LabelService.kt`, con los DTO en `LabelDtos.kt`. La paginación está en
-[convenciones.md](convenciones.md); los códigos, en [errores.md](errores.md).
+Implementado en capas, como el resto de la API:
+
+| Capa | Archivo |
+|---|---|
+| Rutas | `api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/labeling/LabelController.kt` y `LabelTemplateController.kt` |
+| Casos de uso y puertos | `api/application/src/main/kotlin/dev/axzy/stock/application/labeling/` |
+| Reglas de la etiqueta | `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/labeling/LabelTemplate.kt` |
+| Persistencia | `api/adapters-persistence/.../labeling/JdbcLabels.kt` |
+| Cableado | `api/app/src/main/kotlin/dev/axzy/stock/app/config/LabelConfig.kt` |
+
+**La confirmación de la impresora está implementada** (`PrintJobController`, en
+`/v1/print-jobs`): exige credencial de servicio en `X-Service-Key`, la comprueba **antes
+que nada** —incluso antes de mirar si el trabajo existe, porque un `404` a quien no tiene
+credencial le diría qué identificadores son válidos— y es **el único sitio donde una
+etiqueta pasa a impresa**. Ningún endpoint de usuario lo hace: el sistema no se
+autocertifica.
+
+El hash de la credencial es **SHA-256** y no Argon2id, que es el de las contraseñas: una
+contraseña de persona es corta y adivinable y hay que hacer cara cada prueba; un secreto
+de servicio son 32 bytes aleatorios, no hay nada que adivinar, y en cambio hay que poder
+**buscar por hash** en cada llamada de la impresora.
+
+Tres decisiones que la implementación dejó fijadas:
+
+- **La validación del ZPL ocurre al guardar** (`^XA` y `^XZ`), no al imprimir: sin el
+  cierre la impresora no da error, deja la etiqueta en blanco y se descubre gastando
+  papel.
+- **La reimpresión necesita un enlace que el esquema no tenía.** El contrato pide «un
+  trabajo nuevo enlazado al original», y no existía ninguna columna para ese enlace: la
+  migración **V14** añade `print_jobs.reprinted_from_id`. La reimpresión copia además el
+  payload del original, para que imprima lo mismo.
+- **El tamaño en milímetros se publica con un decimal.** El contrato dice `152.4` y el
+  cálculo desde pulgadas daba `152.39999999999998`, que es lo que da la coma flotante
+  con `6 × 25.4`. Una décima de milímetro es más precisión de la que tiene cualquier
+  etiqueta.
+
+La paginación está en [convenciones.md](convenciones.md); los códigos, en
+[errores.md](errores.md).
 
 ## `GET|POST /v1/label-templates`, `GET|PUT /v1/label-templates/{id}`
 
@@ -160,5 +194,5 @@ usuario lo hace: el sistema no se autocertifica.
 
 | Archivo | Qué cubre |
 |---|---|
-| `backend/src/test/kotlin/dev/axzy/stock/backend/label/LabelPrintQueueTest.kt` | la cola de impresión y el paso a `PRINTED` |
-| `backend/src/test/kotlin/dev/axzy/stock/backend/ApiE2ETest.kt` | las rutas de etiquetas contra la API montada |
+| `api/app/src/test/kotlin/dev/axzy/stock/app/LabelFlowTest.kt` | L1, L3 y L5 por HTTP real, la validación del ZPL, el tamaño en milímetros, el escapado de caracteres de control y los permisos por ruta |
+| `api/app/src/test/kotlin/dev/axzy/stock/app/PrintJobConfirmationTest.kt` | L2 y L4: la impresora confirma una sola vez, el fallo deja el trabajo localizable, la credencial no vale para nada más, la revocada deja de valer y la bitácora guarda el canal y la clave |

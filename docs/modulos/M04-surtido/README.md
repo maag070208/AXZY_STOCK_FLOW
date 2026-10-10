@@ -1,5 +1,5 @@
 # M04 — Surtido: órdenes y empaquetado
-> **Normativo.** Última verificación: 2026-10-09.
+> **Normativo.** Última verificación: 2026-10-10 (fase 7 cerrada).
 
 | | |
 |---|---|

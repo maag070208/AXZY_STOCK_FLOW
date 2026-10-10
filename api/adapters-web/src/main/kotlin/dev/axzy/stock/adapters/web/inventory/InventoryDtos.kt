@@ -104,6 +104,11 @@ data class MovementRequestDto(
     val fromLocationCode: String? = null,
     val toLocationCode: String? = null,
     val quantity: BigDecimal? = null,
+    /**
+     * La línea de factura de la que sale la mercancía, si viene de una recepción.
+     * Opcional: ubicar mercancía que no viene de una factura sigue siendo posible.
+     */
+    val invoiceLineId: Long? = null,
 )
 
 data class MovementResponseDto(

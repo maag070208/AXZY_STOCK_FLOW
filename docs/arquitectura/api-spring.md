@@ -61,6 +61,11 @@ Android (`stock-domain/build.gradle.kts`).
 | `InventoryConfig.kt` | Existencias (M02): el motor, las consultas y las rutas |
 | `ReportConfig.kt` | Los reportes de existencias y la exportación del kardex |
 | `ReceivingConfig.kt` | Recepción (M03): facturas, captura y decisiones sobre discrepancias |
+| `FulfillmentConfig.kt` | Surtido (M04) y el puerto del ERP (M09), hoy sin conexión |
+| `TransferConfig.kt` | Traslados (M05), sobre las funciones del motor de la migración V13 |
+| `LabelConfig.kt` | Etiquetas (M06): plantillas, previsualización, cola y reimpresión |
+| `AuditConfig.kt` | La consulta de la bitácora (M08), que además registra su propio acceso |
+| `UserAdminConfig.kt` | Usuarios y roles (M07): alta, consulta, edición y restablecimiento |
 | `RoutePermissionAudit.kt` | I5: una ruta sin declarar qué exige impide el arranque |
 
 Un caso de uso no sabe que existe Spring. `Login` se construye igual en una prueba que en producción:
@@ -170,13 +175,13 @@ dev.axzy.stock.app.config
 
 | Nivel | Qué prueba | Dónde | Base de datos |
 |---|---|---|---|
-| Dominio | Reglas, estados, errores (407 pruebas) | `stock-domain/src/commonTest`, `jvmTest` | No |
+| Dominio | Reglas, estados, errores (408 pruebas) | `stock-domain/src/commonTest`, `jvmTest` | No |
 | Aplicación | Casos de uso y reglas transversales (paginación, nombre visible de una ubicación; 11) | `api/application/src/test` | No |
-| Persistencia | Adaptadores, funciones SQL, permisos del rol, presupuesto de consultas, concurrencia, día operativo y guardias de escritura (72) | `api/adapters-persistence/src/test` | PostgreSQL real |
+| Persistencia | Adaptadores, funciones SQL, permisos del rol, presupuesto de consultas, concurrencia, día operativo, el motor de traslados y guardias de escritura (83) | `api/adapters-persistence/src/test` | PostgreSQL real |
 | Web | Controladores, contrato de error y la exportación a CSV/XLSX, sin arrancar el servidor (13) | `api/adapters-web/src/test` | No |
 | Criptografía | Argon2id, firma y verificación de tokens (11) | `api/adapters-security/src/test` | No |
 | Arquitectura | Las reglas de §1 y §2, y que toda ruta declare su permiso (I5) | `api/app/src/test/.../ArchitectureTest.kt`, `RoutePermissionTest.kt` | No |
-| Flujo completo | Los flujos de [flujos/](../flujos/README.md) por HTTP real (108) | `api/app/src/test` | PostgreSQL real |
+| Flujo completo | Los flujos de [flujos/](../flujos/README.md) por HTTP real (191) | `api/app/src/test` | PostgreSQL real |
 
 **La base de pruebas** es PostgreSQL 16 en Testcontainers con las migraciones reales
 (`api/adapters-persistence/src/testFixtures/.../TestDatabase.kt`). El código bajo prueba se conecta
@@ -190,7 +195,7 @@ tiempo.
 Testcontainers lanza un error y el build se rompe.
 
 ```bash
-GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew test    # 622 pruebas el 2026-10-10
+GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew verify  # 717 pruebas el 2026-10-10 (incluye jvmTest del dominio)
 ```
 
 El build detecta el socket del contexto de Docker activo (Colima, OrbStack, Docker Desktop), así que

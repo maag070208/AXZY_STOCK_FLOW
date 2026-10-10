@@ -98,10 +98,10 @@ alcances admitidos por cada permiso los declara
 | `GET /v1/reports/movements-summary` | `report.view` | `AREA` |
 | `GET /v1/reports/kardex/export` | `report.export` | `ALL` |
 | `GET /v1/reports/kardex-vs-projection` | `report.view` | `AREA` |
-| `GET /v1/users` | `user.view` | `ALL` |
-| `GET /v1/roles` | `role.manage` | `ALL` |
-| `GET /v1/permissions` | `role.manage` | `ALL` |
-| `GET /v1/audit/log` | `audit.view` | `ALL` |
+| `GET /v1/users` | `user.view` | `ALL` — [detalle](usuarios.md) |
+| `GET /v1/roles` | `role.manage` | `ALL` — [detalle](usuarios.md) |
+| `GET /v1/permissions` | `role.manage` | `ALL` — [detalle](usuarios.md) |
+| `GET /v1/audit/log` | `audit.view` | `ALL` — [detalle](auditoria.md) |
 | `GET /v1/health` | — | público |
 
 **Ningún endpoint queda sin permiso o sin credencial.** El legacy tenía permisos

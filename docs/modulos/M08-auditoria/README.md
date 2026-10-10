@@ -1,5 +1,5 @@
 # M08 — Auditoría: bitácora y trazabilidad
-> **Normativo.** Última verificación: 2026-10-09.
+> **Normativo.** Última verificación: 2026-10-10 (M08 cerrado).
 
 | | |
 |---|---|
@@ -41,8 +41,14 @@ Responder quién hizo qué, cuándo y por qué, sobre cualquier escritura del si
 
 ## 5. API
 
-Contrato en [api/contrato.md](../../api/contrato.md), sección de bitácora. Ruta:
-`audit/AuditRoutes.kt` (`GET /v1/audit/log`). No hay `PUT` ni `DELETE`, a propósito.
+Contrato en [api/auditoria.md](../../api/auditoria.md): `GET /v1/audit/log`, con filtros
+por entidad, actor, acción, nivel, resultado, canal y rango de fechas de negocio, y
+paginación con el total calculado con el mismo filtro. No hay `PUT` ni `DELETE`, a
+propósito: la tabla es inmutable por disparadores.
+
+**La consulta también se registra** (`AUDIT_QUERIED`, nivel `ACCESS`), y se registra
+**después** de leer: si el registro fallara, la consulta ya se hizo y lo que no puede
+quedar es el hecho sin rastro.
 
 ## 6. Permisos
 

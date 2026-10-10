@@ -2,6 +2,7 @@ package dev.axzy.stock.app.config
 
 import dev.axzy.stock.adapters.web.http.AuthenticatedOnly
 import dev.axzy.stock.adapters.web.http.PublicRoute
+import dev.axzy.stock.adapters.web.http.ServiceKeyOnly
 import dev.axzy.stock.adapters.web.http.RequiresPermission
 import dev.axzy.stock.domain.access.PermissionCatalog
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping
@@ -34,8 +35,11 @@ class RoutePermissionAudit(private val mapping: RequestMappingHandlerMapping) {
             val requires = method.getAnnotation(RequiresPermission::class.java)
             val authenticated = method.getAnnotation(AuthenticatedOnly::class.java) != null
             val public = method.getAnnotation(PublicRoute::class.java) != null
+            // Una ruta de servicio no es pública ni autenticada: la llama la impresora con
+            // su credencial, y decir «autenticada» haría creer que vale un token de usuario.
+            val service = method.getAnnotation(ServiceKeyOnly::class.java) != null
 
-            if (requires == null && !authenticated && !public) {
+            if (requires == null && !authenticated && !public && !service) {
                 undeclared += "${method.declaringClass.simpleName}.${method.name}"
             }
             requires?.value?.forEach { permission ->
@@ -46,8 +50,8 @@ class RoutePermissionAudit(private val mapping: RequestMappingHandlerMapping) {
         }
 
         check(undeclared.isEmpty()) {
-            "Rutas sin declarar qué exigen (I5). Añade @RequiresPermission, @AuthenticatedOnly o " +
-                "@PublicRoute: ${undeclared.sorted().joinToString(", ")}"
+            "Rutas sin declarar qué exigen (I5). Añade @RequiresPermission, @AuthenticatedOnly, " +
+                "@PublicRoute o @ServiceKeyOnly: ${undeclared.sorted().joinToString(", ")}"
         }
         check(unknown.isEmpty()) {
             "Rutas que declaran un permiso que no existe en el catálogo: ${unknown.sorted().joinToString(", ")}"

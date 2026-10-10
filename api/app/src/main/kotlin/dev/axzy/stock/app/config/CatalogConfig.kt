@@ -15,6 +15,8 @@ import dev.axzy.stock.application.catalog.DeactivateProduct
 import dev.axzy.stock.application.catalog.GetLocation
 import dev.axzy.stock.application.catalog.GetProduct
 import dev.axzy.stock.application.catalog.ImportCatalog
+import dev.axzy.stock.application.inventory.InventoryCatalog
+import dev.axzy.stock.application.inventory.StockLedger
 import dev.axzy.stock.application.catalog.ListLocations
 import dev.axzy.stock.application.catalog.ListProducts
 import dev.axzy.stock.application.catalog.ListWarehouses
@@ -139,11 +141,13 @@ class CatalogConfig {
     fun importCatalog(
         products: Products,
         units: UnitsOfMeasure,
+        ledger: StockLedger,
+        inventoryCatalog: InventoryCatalog,
         audit: AuditRecorder,
         auditEvents: AuditEvents,
         access: AccessDecider,
         tx: TransactionRunner,
-    ) = ImportCatalog(products, units, audit, auditEvents, access, tx)
+    ) = ImportCatalog(products, units, ledger, inventoryCatalog, audit, auditEvents, access, tx)
 
     // ── Rutas ───────────────────────────────────────────────────────────────
 

@@ -105,6 +105,18 @@ abstract class ApiTest {
     protected fun post(path: String, body: Any? = null, token: String? = null, headers: Map<String, String> = emptyMap()): ApiResponse =
         send("POST", path, body, token, headers)
 
+    /** `PUT`: la edición completa de un recurso. Las etiquetas son las primeras en usarlo. */
+    protected fun put(path: String, body: Any? = null, token: String? = null, headers: Map<String, String> = emptyMap()): ApiResponse =
+        send("PUT", path, body, token, headers)
+
+    /** `PATCH`: la actualización parcial de un recurso. La confirmación de la impresora la usa. */
+    protected fun patch(
+        path: String,
+        body: Any? = null,
+        token: String? = null,
+        headers: Map<String, String> = emptyMap(),
+    ): ApiResponse = send("PATCH", path, body, token, headers)
+
     protected fun send(method: String, path: String, body: Any?, token: String?, headers: Map<String, String>): ApiResponse {
         val payload = when (body) {
             null -> HttpRequest.BodyPublishers.noBody()

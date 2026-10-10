@@ -1,6 +1,10 @@
 package dev.axzy.stock.application.catalog
 
 import dev.axzy.stock.application.access.AccessDecider
+import dev.axzy.stock.application.inventory.InventoryCatalog
+import dev.axzy.stock.application.inventory.LocationRef
+import dev.axzy.stock.application.inventory.MovementCommand
+import dev.axzy.stock.application.inventory.StockLedger
 import dev.axzy.stock.application.access.Actor
 import dev.axzy.stock.application.access.authorizeOr
 import dev.axzy.stock.application.audit.AuditEvents
@@ -14,6 +18,8 @@ import dev.axzy.stock.domain.audit.AuditEntity
 import dev.axzy.stock.domain.audit.AuditLevel
 import dev.axzy.stock.domain.catalog.CatalogImporter
 import dev.axzy.stock.domain.catalog.CatalogRow
+import dev.axzy.stock.domain.catalog.ValidatedProduct
+import dev.axzy.stock.domain.inventory.MovementType
 import dev.axzy.stock.domain.catalog.ImportReport
 import dev.axzy.stock.domain.common.asLeft
 import dev.axzy.stock.domain.common.asRight
@@ -32,6 +38,16 @@ import dev.axzy.stock.domain.value.Quantity
  */
 data class CatalogImportResult(
     val dryRun: Boolean,
+    /**
+     * Cuántos productos **no** tenían existencias y recibieron su carga inicial.
+     *
+     * La carga inicial es el total heredado puesto en `SIN-UBICAR`: no dice en qué
+     * estantería está cada pieza, y eso se resuelve con conteo ([ADR-0012]). Solo se carga
+     * a quien no tiene nada: reimportar el archivo no puede duplicar el stock (K2).
+     */
+    val stockLoaded: Int,
+    /** Cuántos ya tenían existencias y se dejaron como estaban. */
+    val stockSkipped: Int,
     val totalRows: Int,
     val accepted: Int,
     val rejected: Int,
@@ -44,7 +60,7 @@ data class CatalogImportResult(
     val skipped: Int,
 ) {
     val persisted: Int get() = created + updated
-    val stockPersisted: Boolean get() = false
+    val stockPersisted: Boolean get() = stockLoaded > 0
 }
 
 /**
@@ -62,6 +78,8 @@ data class CatalogImportResult(
 class ImportCatalog(
     private val products: Products,
     private val units: UnitsOfMeasure,
+    private val ledger: StockLedger,
+    private val inventory: InventoryCatalog,
     private val audit: AuditRecorder,
     private val auditEvents: AuditEvents,
     private val access: AccessDecider,
@@ -95,6 +113,7 @@ class ImportCatalog(
 
                 else -> tx.inTransaction {
                     val summary = products.upsertAll(report.accepted)
+                    val stock = loadInitialStock(actor, report.accepted)
                     audit.record(
                         auditEvents.byActor(
                             actor = actor,
@@ -109,21 +128,78 @@ class ImportCatalog(
                                 "updated" to summary.updated,
                                 "skipped" to summary.skipped,
                                 "totalStock" to report.totalStock.toString(),
-                                "stockPersisted" to false,
+                                "stockLoaded" to stock.loaded,
+                                "stockSkipped" to stock.skipped,
+                                "stockLocation" to stock.location,
                             ),
                         ),
                     )
-                    resultOf(report, summary).asRight()
+                    resultOf(report, summary, stock).asRight()
                 }
             }
         }
 
-    private fun resultOf(report: ImportReport, summary: UpsertSummary) = CatalogImportResult(
+    /**
+     * La carga inicial de existencias: el total heredado, a `SIN-UBICAR`.
+     *
+     * **Solo a quien no tiene nada.** El archivo del legacy trae un total por producto y no
+     * dice en qué estantería está cada pieza ([ADR-0012]); lo que hace esta carga es dejar
+     * ese total en el saldo sin ubicar para que el conteo físico lo reparta. Cargarlo a un
+     * producto que **ya tiene existencias** duplicaría el inventario con solo reimportar el
+     * archivo, así que se salta y se cuenta aparte: el informe dice cuántos se saltaron, en
+     * lugar de esconderlo.
+     *
+     * El movimiento es `INITIAL` en el kardex, con la ubicación sin ubicar y el usuario que
+     * importó: queda con responsable y fecha.
+     */
+    private fun loadInitialStock(actor: Actor, accepted: List<ValidatedProduct>): StockLoad {
+        val conStock = accepted.filter { it.stock.isPositive }
+        if (conStock.isEmpty()) return StockLoad(0, 0, null)
+
+        val warehouseId = inventory.defaultWarehouseId()
+        val unassigned = inventory.activeLocation(warehouseId, LocationRef.Unassigned)
+            ?: error(
+                "No existe la ubicación SIN-UBICAR en la bodega $warehouseId. La siembra el esquema (V6); " +
+                    "sin ella no hay dónde dejar el stock heredado.",
+            )
+
+        var loaded = 0
+        var skipped = 0
+        conStock.forEach { product ->
+            val actual = products.findByCode(product.code)?.id
+            if (actual == null) {
+                skipped++
+                return@forEach
+            }
+            if (ledger.productTotal(actual).isPositive) {
+                skipped++
+                return@forEach
+            }
+            ledger.apply(
+                MovementCommand(
+                    productId = actual,
+                    warehouseId = warehouseId,
+                    moveType = MovementType.INITIAL,
+                    units = product.stock,
+                    toLocationId = unassigned.id,
+                    userId = actor.id,
+                ),
+            )
+            loaded++
+        }
+        return StockLoad(loaded, skipped, unassigned.displayName)
+    }
+
+    private data class StockLoad(val loaded: Int, val skipped: Int, val location: String?)
+
+    private fun resultOf(report: ImportReport, summary: UpsertSummary, stock: StockLoad = StockLoad(0, 0, null)) = CatalogImportResult(
         dryRun = report.isDryRun,
         totalRows = report.totalRows,
         accepted = report.acceptedCount,
         rejected = report.rejectedCount,
         totalStock = report.totalStock,
+        stockLoaded = stock.loaded,
+        stockSkipped = stock.skipped,
         zeroStockCount = report.zeroStockCount,
         unitMeasures = report.unitMeasures,
         rejections = report.rejected.map { DomainError.ImportInvalidRows.RejectedRow(it.rowNumber, it.reason) },

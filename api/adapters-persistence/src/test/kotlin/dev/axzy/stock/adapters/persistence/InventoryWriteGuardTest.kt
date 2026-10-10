@@ -34,6 +34,12 @@ class InventoryWriteGuardTest {
 
         persistenceRoot.walkTopDown().filter { it.extension == "kt" }.forEach { file ->
             file.readLines().forEachIndexed { index, line ->
+                // Se analiza el CÓDIGO, no la prosa: las líneas de un bloque de
+                // comentario (`/* … */`, que empiezan por `*`) hablan de escrituras
+                // sin serlo, y la primera versión de esta guardia acusaba a un
+                // comentario que explicaba justo lo que prohíbe.
+                val trimmed = line.trim()
+                if (trimmed.startsWith("*") || trimmed.startsWith("/*")) return@forEachIndexed
                 val code = line.substringBefore("//").lowercase()
                 val writes = code.contains("update ") || code.contains("delete from ") || code.contains("insert into ")
                 val touchesProtected = protectedTables.any { code.contains(it) }

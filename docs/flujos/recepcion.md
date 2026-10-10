@@ -1,5 +1,5 @@
 # Recepción: factura, captura física y ubicación
-> **Normativo.** Última revisión: 2026-10-10 (R2–R6 y R8 en verde; ver §6-bis). Reglas de origen: [ADR-0008](../adr/0008-discrepancias-y-merma.md), [ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md). Módulo: [M03](../modulos/M03-recepcion/README.md).
+> **Normativo.** Última revisión: 2026-10-10 (R1–R8 en verde; ver §6-bis). Reglas de origen: [ADR-0008](../adr/0008-discrepancias-y-merma.md), [ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md). Módulo: [M03](../modulos/M03-recepcion/README.md).
 
 ## 1. Objetivo y actores
 
@@ -69,10 +69,10 @@ sequenceDiagram
         UC->>DB: bitácora
     end
 
-    C->>API: POST /v1/invoices/{id}/lines/{lineId}/locate (estante)
-    API->>UC: LocateLine(actor, id, lineId, estante)
-    UC->>UC: ¿Línea CAPTURED o APPROVED?
-    UC->>DB: movimiento LOCATE: RECEIVING → estante (ver existencias)
+    C->>API: POST /v1/inventory/locate (estante, invoiceLineId)
+    API->>UC: ApplyStockMovement(actor, producto, RECEPCION, estante, cantidad, línea)
+    UC->>UC: ¿Línea CAPTURED o APPROVED? ¿Es del mismo producto?
+    UC->>DB: movimiento LOCATE: RECEPCION → estante (ver existencias)
     UC->>DB: línea → LOCATED
     UC->>DB: bitácora
 ```
@@ -137,14 +137,14 @@ R6 y R8. Las otras dos:
 
 - **R7** (ubicar mueve de recepción al estante y no cambia el total) está cubierta en
   el flujo de inventario: es `InventoryFlowTest` A1, con el mismo escenario.
-- **R1** (una línea en discrepancia no se puede ubicar) **todavía no se puede
-  comprobar**: la regla está en el dominio (`InvoiceLine.locate` devuelve
-  `DISCREPANCY_NOT_APPROVED` y su prueba unitaria lo verifica), pero la ruta que ubica
-  es `POST /v1/inventory/locate` y **no recibe la línea de factura**, así que mueve el
-  saldo sin saber de qué línea viene. Falta el enganche: un `invoiceLineId` opcional en
-  la ruta de ubicar que cargue la línea, aplique la regla del dominio y actualice
-  `located_quantity`, `location_id` y el estado `LOCATED`. Hasta entonces `LOCATED` no
-  se alcanza por ninguna ruta.
+- **R1** (una línea en discrepancia no se puede ubicar) está cubierta: la ruta de
+  ubicar recibe un `invoiceLineId` opcional, carga la línea, aplica la regla del
+  dominio **antes de mover nada** y, al terminar, anota lo ubicado y la deja `LOCATED`
+  cuando no queda nada pendiente.
+- **R7** (ubicar no cambia el total) está en la misma prueba, que además comprueba que
+  la mercancía sale de `RECEPCION` y entra en el estante.
+
+Tres cosas que el documento daba por hechas y no lo estaban:
 
 Dos cosas que el documento daba por hechas y no lo estaban:
 

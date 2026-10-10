@@ -73,6 +73,58 @@ class ReceivingFlowTest : ApiTest() {
     private fun decide(token: String, invoiceId: Long, route: String, reason: String = "SUPPLIER_ERROR") =
         post("/v1/invoices/$invoiceId/$route", mapOf("adjustmentReason" to reason, "note" to "Revisado"), token)
 
+    /** Deja saldo en la recepción: es de donde sale una ubicación. */
+    private fun stockInReceiving(token: String, quantity: Int, who: Long) =
+        post(
+            "/v1/inventory/adjustments",
+            mapOf(
+                "productCode" to "ABRAA1B", "locationCode" to "RECEPCION", "quantity" to quantity,
+                "direction" to "INCREASE", "reason" to "COUNT_ERROR", "origin" to "MANUAL_COUNT",
+                "approverId" to who,
+            ),
+            token,
+        )
+
+    /** Ubica mercancía de la recepción a un estante, diciendo de qué línea sale. */
+    private fun locate(
+        token: String,
+        lineId: Long?,
+        to: String = "04-B-C",
+        quantity: Int,
+        from: String = "RECEPCION",
+    ) = post(
+        "/v1/inventory/locate",
+        buildMap<String, Any?> {
+            put("productCode", "ABRAA1B")
+            put("fromLocationCode", from)
+            put("toLocationCode", to)
+            put("quantity", quantity)
+            if (lineId != null) put("invoiceLineId", lineId)
+        },
+        token,
+    )
+
+    private fun shelf(token: String) =
+        post("/v1/locations", mapOf("warehouseId" to 1, "hall" to "04", "code" to "B", "position" to "C"), token)
+
+    /** El aprobador de los aumentos: cualquier persona distinta de quien los pide. */
+    private fun approver(token: String): Long {
+        val existing = db.sql("SELECT id FROM users WHERE username = 'supervisor'").query(Long::class.java).list()
+        return existing.firstOrNull() ?: supervisor().let {
+            db.sql("SELECT id FROM users WHERE username = 'supervisor'").query(Long::class.java).single()
+        }
+    }
+
+    private fun quantityAt(token: String, location: String): String? {
+        val items = get("/v1/inventory/stock?onlyWithStock=false&locationCode=$location", token)
+            .at<List<Map<String, Any?>>>("items")
+        return items.firstOrNull()?.get("quantity") as String?
+    }
+
+    private fun line(token: String, invoiceId: Long, lineId: Long): Map<String, Any?> =
+        get("/v1/invoices/$invoiceId", token).at<List<Map<String, Any?>>>("lines")
+            .first { (it["id"] as Number).toLong() == lineId }
+
     // ── Alta y consulta ─────────────────────────────────────────────────────
 
     @Test
@@ -381,6 +433,121 @@ class ReceivingFlowTest : ApiTest() {
         assertThat(response.status).isEqualTo(400)
         assertThat(response.code).isEqualTo("INVALID_PARAMETER")
         assertThat(response.at<Map<String, String>>("details")["allowed"]).contains("IN_PROGRESS")
+    }
+
+    // ── R1 y R7: ubicar lo que viene de una factura ─────────────────────────
+
+    @Test
+    fun `R1 - una linea en discrepancia no se puede ubicar y el inventario no cambia`() {
+        val token = manager()
+        product(token)
+        shelf(token)
+        val id = invoice(token)
+        val lineId = lineIds(token, id).single()
+        // Se facturaron 10 y se contaron 9: discrepancia sin aprobar.
+        capture(token, id, lineId, quantity = 9, boxes = 1)
+        stockInReceiving(token, quantity = 9, who = approver(token))
+
+        val response = locate(token, lineId, quantity = 9)
+
+        assertThat(response.status).isEqualTo(409)
+        assertThat(response.code).isEqualTo("DISCREPANCY_NOT_APPROVED")
+        // El inventario no cambió: sigue todo en la recepción y nada en el estante.
+        assertThat(quantityAt(token, "RECEPCION")).isEqualTo("9.000")
+        assertThat(quantityAt(token, "04-B-C")).isNull()
+        // Y la línea sigue esperando decisión.
+        assertThat(line(token, id, lineId)["status"]).isEqualTo("DISCREPANCY")
+    }
+
+    @Test
+    fun `R7 - ubicar desde la factura deja la linea localizada y el total igual`() {
+        val token = manager()
+        product(token)
+        shelf(token)
+        val id = invoice(token)
+        val lineId = lineIds(token, id).single()
+        capture(token, id, lineId, quantity = 10, boxes = 2)
+        stockInReceiving(token, quantity = 10, who = approver(token))
+
+        val response = locate(token, lineId, quantity = 10)
+        val line = line(token, id, lineId)
+
+        assertThat(response.status).isEqualTo(201)
+        assertThat(line["status"]).isEqualTo("LOCATED")
+        assertThat(line["locatedQuantity"]).isEqualTo("10.000")
+        assertThat(line["locationDisplayName"]).isEqualTo("04-B-C")
+        // El total del producto no cambia: sale de la recepción y entra en el estante.
+        assertThat(quantityAt(token, "RECEPCION")).isEqualTo("0.000")
+        assertThat(quantityAt(token, "04-B-C")).isEqualTo("10.000")
+        // El catálogo manda las cantidades como número (su excepción documentada).
+        assertThat(
+            (get("/v1/products?q=ABRAA1B", token).at<List<Map<String, Any?>>>("items").single()["stock"] as Number).toDouble(),
+        ).isEqualTo(10.0)
+    }
+
+    @Test
+    fun `ubicar parcialmente no cierra la linea ni la aprueba`() {
+        val token = manager()
+        product(token)
+        shelf(token)
+        val id = invoice(token)
+        val lineId = lineIds(token, id).single()
+        capture(token, id, lineId, quantity = 10, boxes = 2)
+        stockInReceiving(token, quantity = 10, who = approver(token))
+
+        locate(token, lineId, quantity = 4)
+        val line = line(token, id, lineId)
+
+        // Sigue contada: no hubo discrepancia que aprobar, y la base prohíbe
+        // `APPROVED` sin aprobador.
+        assertThat(line["status"]).isEqualTo("CAPTURED")
+        assertThat(line["locatedQuantity"]).isEqualTo("4.000")
+    }
+
+    @Test
+    fun `no se puede ubicar una linea sin contar`() {
+        val token = manager()
+        product(token)
+        shelf(token)
+        val id = invoice(token)
+        val lineId = lineIds(token, id).single()
+        stockInReceiving(token, quantity = 10, who = approver(token))
+
+        val response = locate(token, lineId, quantity = 10)
+
+        assertThat(response.status).isEqualTo(409)
+        assertThat(response.code).isEqualTo("INVALID_TRANSITION")
+        assertThat(quantityAt(token, "04-B-C")).isNull()
+    }
+
+    @Test
+    fun `ubicar una linea que no existe o de otro producto se rechaza`() {
+        val token = manager()
+        product(token)
+        shelf(token)
+        val id = invoice(token)
+        val lineId = lineIds(token, id).single()
+        capture(token, id, lineId, quantity = 10, boxes = 2)
+        stockInReceiving(token, quantity = 10, who = approver(token))
+
+        val inexistente = locate(token, lineId = 999999, quantity = 1)
+        assertThat(inexistente.status).isEqualTo(404)
+        assertThat(inexistente.code).isEqualTo("LINE_NOT_FOUND")
+
+        // Mover el saldo de un producto mientras se anota la línea de otro dejaría la
+        // factura diciendo una cosa y el almacén otra.
+        product(token, code = "OTRO01")
+        stockInReceiving(token, quantity = 5, who = approver(token))
+        val otro = post(
+            "/v1/inventory/locate",
+            mapOf(
+                "productCode" to "OTRO01", "fromLocationCode" to "RECEPCION",
+                "toLocationCode" to "04-B-C", "quantity" to 1, "invoiceLineId" to lineId,
+            ),
+            token,
+        )
+        assertThat(otro.status).isEqualTo(400)
+        assertThat(otro.code).isEqualTo("INVALID_PARAMETER")
     }
 
     // ── Permisos por ruta ───────────────────────────────────────────────────

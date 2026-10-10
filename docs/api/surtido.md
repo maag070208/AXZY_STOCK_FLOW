@@ -1,11 +1,25 @@
 # Surtido
 > **Referencia.** Órdenes de surtido, empaque, confirmación, exportación al ERP y
-> faltantes. Última verificación: 2026-10-09.
+> faltantes. Última verificación: 2026-10-10 (fase 7, M04 y M09 cerradas).
 
-Implementado en
-`backend/src/main/kotlin/dev/axzy/stock/backend/order/OrderRoutes.kt` y
-`OrderService.kt`, con los DTO en `OrderDtos.kt`. La paginación está en
-[convenciones.md](convenciones.md); los códigos, en [errores.md](errores.md).
+Implementado en capas, como el resto de la API (docs/arquitectura/api-spring.md §1):
+
+| Capa | Archivo |
+|---|---|
+| Rutas | `api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/fulfillment/OrderController.kt` |
+| Casos de uso y puertos | `api/application/src/main/kotlin/dev/axzy/stock/application/fulfillment/` |
+| Reglas de la orden | `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/fulfillment/Order.kt` |
+| Persistencia | `api/adapters-persistence/.../fulfillment/JdbcOrders.kt` |
+| Cableado | `api/app/src/main/kotlin/dev/axzy/stock/app/config/FulfillmentConfig.kt` |
+
+La paginación está en [convenciones.md](convenciones.md); los códigos, en
+[errores.md](errores.md).
+
+**La confirmación se reclama con una sentencia condicional**: `UPDATE … WHERE status IN
+(estados que admiten empaque)`. Solo una transacción se lleva la fila, así que dos
+confirmaciones simultáneas no descuentan dos veces (S3); la que pierde recibe
+`409 ORDER_ALREADY_CONFIRMED`. La lista de estados se **compone desde el dominio**
+(`OrderStatus.allowsPackaging`).
 
 ## `GET|POST /v1/orders`
 
@@ -144,10 +158,18 @@ segunda salida y solo cuenta el intento.
 con `code = ORDER_NOT_CONVERTED` si aún no se confirmó: exportar algo que no se ha
 surtido mandaría al ERP una salida que no existe. `404 ORDER_NOT_FOUND`.
 
-> **Estado de la integración.** La conexión real con el ERP no existe todavía: el
-> intento se registra como enviado y el envío efectivo es la pieza que falta
+> **Estado de la integración.** La conexión real con el ERP **no existe**: el intento
+> falla con un motivo que empieza por `ERP_NOT_CONNECTED`, el contador sube y el error
+> queda guardado para el reintento (S5 y S6). No se registra como enviado —sería mentir
+> en la bitácora y en el estado de la orden—; lo que falta es el adaptador
 > ([lo-no-verificado.md](../guia/lo-no-verificado.md) y
-> [ADR-0013](../adr/0013-ordenes-al-erp-con-reintentos.md)). La respuesta no incluye `nextRetryAt`.
+> [ADR-0013](../adr/0013-ordenes-al-erp-con-reintentos.md)). La respuesta no incluye
+> `nextRetryAt`.
+
+> **Sin ruta de asignación.** `order.assign` está en el catálogo de permisos y la tabla
+> tiene `assigned_user_id` y `location_id`, pero **ninguna ruta los escribe**: la
+> ubicación de la línea la anota el empaque y el operador no tiene forma de asignarse
+> una línea. Está anotado en el plan.
 
 ## `POST /v1/orders/{id}/shortage`
 
@@ -158,8 +180,13 @@ Faltante durante el surtido: delega en la regla única de ajuste, con origen
 { "lineId": 55, "quantity": "3.000", "reason": "SHORTAGE", "note": "..." }
 ```
 
-`reason` es `SHORTAGE` por defecto. **200** con la orden actualizada. Errores: `422
-INVALID_QUANTITY`, `422 LOCATION_REQUIRED`, `404 ORDER_LINE_NOT_FOUND`.
+`reason` **no tiene valor por defecto**: un faltante es un ajuste y el motivo es
+obligatorio, igual que en cualquier merma (`422 REASON_REQUIRED` sin él, S8). Esta
+página decía «`SHORTAGE` por defecto», y eso hacía imposible la prueba de aceptación:
+el ajuste delegado nunca habría visto un motivo ausente. **200** con la orden
+actualizada. Errores: `422 REASON_REQUIRED`, `422 INVALID_QUANTITY`, `422
+LOCATION_REQUIRED`, `404 ORDER_LINE_NOT_FOUND`, `403 PERMISSION_DENIED` sin
+`inventory.adjust_shortage`.
 
 Duplicar la regla de ajuste aquí crearía una segunda forma de mover inventario, y
 con el tiempo una exigiría aprobación y la otra no.
@@ -168,5 +195,6 @@ con el tiempo una exigiría aprobación y la otra no.
 
 | Archivo | Qué cubre |
 |---|---|
-| `backend/src/test/kotlin/dev/axzy/stock/backend/order/OrderStockDeductionTest.kt` | el descuento de stock de empaque y confirmación |
-| `backend/src/test/kotlin/dev/axzy/stock/backend/ApiE2ETest.kt` | las rutas de órdenes contra la API montada |
+| `api/app/src/test/kotlin/dev/axzy/stock/app/FulfillmentFlowTest.kt` | S1–S8 por HTTP real: empaque, confirmación que descuenta solo lo que falta, doble confirmación, exportación sin ERP, reintento y faltante |
+| `api/adapters-persistence/src/test/.../FulfillmentPersistenceTest.kt` | el presupuesto de consultas y las **dos confirmaciones simultáneas** contra la base |
+| `stock-domain/src/commonTest/kotlin/dev/axzy/stock/domain/fulfillment/` | las transiciones de la orden y de la línea, sin base de datos (incluye S9: una orden exportada no se cancela) |

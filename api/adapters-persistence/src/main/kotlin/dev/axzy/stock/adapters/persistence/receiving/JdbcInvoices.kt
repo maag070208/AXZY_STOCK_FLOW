@@ -7,6 +7,7 @@ import dev.axzy.stock.application.receiving.InvoiceFilter
 import dev.axzy.stock.application.receiving.InvoiceHeader
 import dev.axzy.stock.application.receiving.InvoiceLineView
 import dev.axzy.stock.application.receiving.Invoices
+import dev.axzy.stock.application.inventory.LocatingLines
 import dev.axzy.stock.application.receiving.InsertResult
 import dev.axzy.stock.application.receiving.PendingApproval
 import dev.axzy.stock.application.receiving.ReceivingCatalog
@@ -41,7 +42,7 @@ import java.time.ZoneOffset
  *   aquí. `BLOQUEANTES` se compone desde `InvoiceLineStatus.blocksInvoiceClosing`, así
  *   que la lista y la acción de cerrar no pueden separarse.
  */
-class JdbcInvoices(private val jdbc: JdbcClient) : Invoices, ReceivingCatalog {
+class JdbcInvoices(private val jdbc: JdbcClient) : Invoices, ReceivingCatalog, LocatingLines {
 
     override fun page(filter: InvoiceFilter, request: PageRequest): Page<InvoiceHeader> {
         val where = mutableListOf("i.deleted = FALSE")
@@ -258,6 +259,33 @@ class JdbcInvoices(private val jdbc: JdbcClient) : Invoices, ReceivingCatalog {
                 totalDifference = rs.getBigDecimal("total_difference").toQuantity(),
             )
         }
+
+    // ── El enganche con la ubicación (M02) ──────────────────────────────────
+
+    override fun find(lineId: Long): InvoiceLine? =
+        query("$LINE_COLUMNS $LINE_FROM WHERE l.deleted = FALSE AND l.id = :line", mapOf("line" to lineId)) { rs, _ ->
+            rs.toLineView().line
+        }.firstOrNull()
+
+    override fun markLocated(lineId: Long, line: InvoiceLine, locationId: Long, at: Instant) {
+        update(
+            """
+            UPDATE invoice_lines SET
+                located_quantity = CAST(:located AS numeric),
+                status = CAST(:status AS invoice_line_status),
+                location_id = CAST(:location AS bigint),
+                updated_at = CAST(:at AS timestamptz)
+            WHERE id = CAST(:id AS bigint)
+            """.trimIndent(),
+            mapOf(
+                "located" to line.locatedQuantity.toSql(),
+                "status" to line.status.name,
+                "location" to locationId,
+                "at" to OffsetDateTime.ofInstant(at, ZoneOffset.UTC),
+                "id" to lineId,
+            ),
+        )
+    }
 
     // ── El catálogo que necesita el alta ────────────────────────────────────
 

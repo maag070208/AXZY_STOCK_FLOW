@@ -174,6 +174,28 @@ de ajuste; el surtido no reimplementa la suya.
 - Cuando se intenta cancelar.
 - Entonces responde `INVALID_TRANSITION`, sin cambios.
 
+### 7-bis. Estado de estas pruebas (2026-10-10)
+
+Ocho de las nueve están en verde: S1–S8 por HTTP real
+(`api/app/src/test/kotlin/dev/axzy/stock/app/FulfillmentFlowTest.kt`) y S3 además con
+**dos transacciones de verdad** contra la base
+(`FulfillmentPersistenceTest`), que es donde se demuestra que el reclamo condicional de
+la confirmación no se lo llevan las dos.
+
+- **S9** (una orden exportada no se cancela) está cubierta en el **dominio**:
+  `Order.cancel()` devuelve `INVALID_TRANSITION` cuando la orden está `COMPLETED`. No
+  hay prueba por HTTP porque **el contrato de M04 no define ninguna ruta de anulación**.
+
+Dos cosas que el contrato decía y no podían ser:
+
+- **El faltante exige motivo.** La tabla decía «`reason` es `SHORTAGE` por defecto» y
+  S8 exige `REASON_REQUIRED` sin él. Si hubiera defecto, el ajuste delegado nunca
+  vería un motivo ausente y la regla única de ajuste quedaría a medias. Corregido en
+  [api/surtido.md](../api/surtido.md).
+- **Sin ERP el intento falla, no se registra como enviado.** El contrato decía «el
+  intento se registra como enviado»; S5 y S6 dicen que queda `FAILED` con el motivo
+  `ERP_NOT_CONNECTED` y el contador subiendo. Se implementó lo que dicen las pruebas.
+
 ## 8. Errores
 
 | Código | Cuándo |

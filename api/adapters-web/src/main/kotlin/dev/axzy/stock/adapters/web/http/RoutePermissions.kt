@@ -40,3 +40,15 @@ annotation class AuthenticatedOnly
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class PublicRoute
+
+/**
+ * La ruta no la llama una persona: exige **credencial de servicio** (`X-Service-Key`).
+ *
+ * Existe para que la ruta sea declarable en la auditoría de rutas: sin ella habría que
+ * marcarla «autenticada» y diría algo falso —una petición con token de usuario no vale
+ * aquí, y una con credencial de servicio no es una persona—. La credencial la comprueba
+ * el caso de uso, que es quien puede hacerlo antes de mirar nada más.
+ */
+@Target(AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class ServiceKeyOnly

@@ -5,6 +5,7 @@ import com.tngtech.archunit.core.importer.ClassFileImporter
 import com.tngtech.archunit.core.importer.ImportOption
 import dev.axzy.stock.adapters.web.http.AuthenticatedOnly
 import dev.axzy.stock.adapters.web.http.PublicRoute
+import dev.axzy.stock.adapters.web.http.ServiceKeyOnly
 import dev.axzy.stock.adapters.web.http.RequiresPermission
 import dev.axzy.stock.domain.access.PermissionCatalog
 import org.assertj.core.api.Assertions.assertThat
@@ -55,6 +56,9 @@ class RoutePermissionTest {
                     RequiresPermission::class.java,
                     AuthenticatedOnly::class.java,
                     PublicRoute::class.java,
+                    // Una ruta de servicio (la impresora) declara que no la llama una
+                    // persona: es la cuarta forma de decir qué exige una ruta.
+                    ServiceKeyOnly::class.java,
                 ).count { method.isAnnotatedWith(it) }
                 if (declarations != 1) {
                     undeclared += "${controller.simpleName}.${method.name} ($declarations declaraciones)"

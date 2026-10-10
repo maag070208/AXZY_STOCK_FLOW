@@ -1,5 +1,5 @@
 # M03 — Recepción: facturas, captura física y discrepancias
-> **Normativo.** Última verificación: 2026-10-10 (fase 6: facturas, captura y decisiones; falta el enganche de ubicar con la línea).
+> **Normativo.** Última verificación: 2026-10-10 (fase 6 cerrada).
 
 | | |
 |---|---|
@@ -28,7 +28,7 @@ diferencias con un supervisor y dejar la mercancía ubicada.
 
 | # | Regla | Dónde vive |
 |---|---|---|
-| R1 | Una línea con diferencia respecto a lo facturado queda en `DISCREPANCY` y no se puede ubicar | [ADR-0008](../../adr/0008-discrepancias-y-merma.md); `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/receiving/InvoiceLine.kt` |
+| R1 | Una línea con diferencia respecto a lo facturado queda en `DISCREPANCY` y no se puede ubicar (la ruta de ubicar recibe `invoiceLineId` y aplica la regla del dominio **antes de mover nada**) | [ADR-0008](../../adr/0008-discrepancias-y-merma.md); `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/receiving/InvoiceLine.kt` |
 | R2 | Toda diferencia requiere aprobación de un supervisor, sin umbral | [ADR-0008](../../adr/0008-discrepancias-y-merma.md) |
 | R3 | La aprobación es por factura, no por línea | `ApproveInvoice` en `api/application/.../receiving/InvoiceUseCases.kt`, con una sola sentencia de escritura |
 | R4 | Quien captura una línea no puede aprobar su discrepancia | `SEGREGATION_OF_DUTIES` (403) en `ApproveInvoice`, con `details.lines` |

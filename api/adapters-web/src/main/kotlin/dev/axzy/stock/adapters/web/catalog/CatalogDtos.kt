@@ -101,6 +101,8 @@ data class ImportReportDto(
     val persisted: Int,
     /** Siempre `false` en esta fase: el archivo no dice en qué estantería está cada pieza. */
     val stockPersisted: Boolean,
+    val stockLoaded: Int,
+    val stockSkipped: Int,
 )
 
 fun CatalogImportResult.toDto(): ImportReportDto = ImportReportDto(
@@ -117,6 +119,8 @@ fun CatalogImportResult.toDto(): ImportReportDto = ImportReportDto(
     skipped = skipped,
     persisted = persisted,
     stockPersisted = stockPersisted,
+    stockLoaded = stockLoaded,
+    stockSkipped = stockSkipped,
 )
 
 /**

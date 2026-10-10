@@ -82,6 +82,22 @@ el inventario cambió y nadie puede decir quién lo cambió. Por eso el fallo de
 - Cuando se consulta por entidad y rango de fechas.
 - Entonces devuelve solo la página pedida, con el total calculado con el mismo filtro.
 
+### 5-bis. Estado de estas pruebas (2026-10-10)
+
+Las cinco están en verde, y **U5 es la que faltaba**: la bitácora se escribía en cada
+escritura desde la fase 3, pero no había forma de leerla.
+
+- **U5** (la consulta filtra y pagina): por HTTP real en
+  `api/app/src/test/kotlin/dev/axzy/stock/app/AuditFlowTest.kt`, con el filtro por entidad
+  y rango de fechas, la página pedida y el **total calculado con el mismo filtro**.
+- **U1–U4** están probadas donde les corresponde: la transaccionalidad y la inmutabilidad
+  en el módulo de persistencia y en el dominio, y la inmutabilidad **también por HTTP**
+  (un `UPDATE` sobre `audit_log` falla con «append-only», U2).
+
+Una cosa que la implementación dejó fijada: **la consulta de la bitácora se registra como
+acceso** (`AUDIT_QUERIED`, nivel `ACCESS`), con los filtros en el estado nuevo. Quien mira
+la bitácora está viendo quién hizo qué, y eso el módulo ya lo decía: aquí está hecho.
+
 ## 6. Errores
 
 | Código | HTTP | Cuándo |

@@ -66,6 +66,14 @@ class AuditEvents(private val clock: Clock) {
         entity: AuditEntity,
         permissionKey: String? = null,
         trace: AccessDecisionTrace? = null,
+        /**
+         * Qué credencial de servicio lo hizo.
+         *
+         * Un trabajo marcado como impreso sin usuario detrás tiene que poder distinguirse
+         * de uno hecho por una persona, y `null` no distingue «fue un sistema» de «no lo
+         * sabemos».
+         */
+        serviceKeyId: Long? = null,
         previousState: Map<String, Any?>? = null,
         newState: Map<String, Any?>? = null,
         reason: String? = null,
@@ -75,7 +83,7 @@ class AuditEvents(private val clock: Clock) {
         errorMessage: String? = null,
     ): AuditEvent = event(
         actor, origin, action, level, entity, permissionKey, trace, previousState, newState,
-        reason, note, null, result, errorCode, errorMessage,
+        reason, note, null, result, errorCode, errorMessage, serviceKeyId,
     )
 
     private fun event(
@@ -94,6 +102,7 @@ class AuditEvents(private val clock: Clock) {
         result: AuditResult,
         errorCode: String?,
         errorMessage: String?,
+        serviceKeyId: Long? = null,
     ): AuditEvent {
         val now = clock.instant()
         return AuditEvent(
@@ -108,6 +117,7 @@ class AuditEvents(private val clock: Clock) {
                 deviceId = origin.deviceId,
                 ip = origin.ip,
                 userAgent = origin.userAgent,
+                serviceKeyId = serviceKeyId,
             ),
             entity = entity,
             action = action,

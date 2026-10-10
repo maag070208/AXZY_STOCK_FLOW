@@ -1,0 +1,133 @@
+package dev.axzy.stock.app.config
+
+import dev.axzy.stock.adapters.persistence.identity.JdbcUserAdmin
+import dev.axzy.stock.adapters.web.identity.RoleController
+import dev.axzy.stock.adapters.web.identity.UserController
+import dev.axzy.stock.application.access.AccessDecider
+import dev.axzy.stock.application.audit.AuditEvents
+import dev.axzy.stock.application.audit.AuditRecorder
+import dev.axzy.stock.application.identity.CreateRole
+import dev.axzy.stock.application.identity.CreateUser
+import dev.axzy.stock.application.identity.GetRole
+import dev.axzy.stock.application.identity.GetUser
+import dev.axzy.stock.application.identity.ListPermissions
+import dev.axzy.stock.application.identity.ListRoles
+import dev.axzy.stock.application.identity.ListUsers
+import dev.axzy.stock.application.identity.ResetUserPassword
+import dev.axzy.stock.application.identity.RoleAdminStore
+import dev.axzy.stock.application.identity.SetRolePermissions
+import dev.axzy.stock.application.identity.UpdateRole
+import dev.axzy.stock.application.identity.UpdateUser
+import dev.axzy.stock.application.identity.UserAdminStore
+import dev.axzy.stock.application.shared.TransactionRunner
+import dev.axzy.stock.domain.identity.PasswordHasher
+import dev.axzy.stock.domain.identity.PasswordPolicy
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+import org.springframework.jdbc.core.simple.JdbcClient
+import java.time.Clock
+
+/**
+ * La administración de usuarios y roles (el resto de M07).
+ *
+ * El hasher y la política de contraseñas son los mismos que usa el inicio de sesión: una
+ * contraseña se valida igual se cree desde el arranque o desde esta ruta, y tener dos
+ * políticas sería tener una sola de verdad.
+ */
+@Configuration(proxyBeanMethods = false)
+class UserAdminConfig {
+
+    @Bean
+    fun userAdminStore(jdbc: JdbcClient): JdbcUserAdmin = JdbcUserAdmin(jdbc)
+
+    @Bean
+    fun listUsers(store: JdbcUserAdmin, access: AccessDecider) = ListUsers(store as UserAdminStore, access)
+
+    @Bean
+    fun getUser(store: JdbcUserAdmin, access: AccessDecider) = GetUser(store as UserAdminStore, access)
+
+    @Bean
+    fun listRoles(store: JdbcUserAdmin, access: AccessDecider) = ListRoles(store as UserAdminStore, access)
+
+    @Bean
+    fun listPermissions(store: JdbcUserAdmin, access: AccessDecider) = ListPermissions(store as UserAdminStore, access)
+
+    @Bean
+    fun createUser(
+        store: JdbcUserAdmin,
+        hasher: PasswordHasher,
+        audit: AuditRecorder,
+        auditEvents: AuditEvents,
+        access: AccessDecider,
+        tx: TransactionRunner,
+    ) = CreateUser(store as UserAdminStore, hasher, PasswordPolicy, audit, auditEvents, access, tx)
+
+    @Bean
+    fun updateUser(
+        store: JdbcUserAdmin,
+        audit: AuditRecorder,
+        auditEvents: AuditEvents,
+        access: AccessDecider,
+        tx: TransactionRunner,
+    ) = UpdateUser(store as UserAdminStore, audit, auditEvents, access, tx)
+
+    @Bean
+    fun resetUserPassword(
+        store: JdbcUserAdmin,
+        hasher: PasswordHasher,
+        audit: AuditRecorder,
+        auditEvents: AuditEvents,
+        access: AccessDecider,
+        tx: TransactionRunner,
+        clock: Clock,
+    ) = ResetUserPassword(store as UserAdminStore, hasher, PasswordPolicy, audit, auditEvents, access, tx, clock)
+
+    @Bean
+    fun userController(
+        listUsers: ListUsers,
+        getUser: GetUser,
+        createUser: CreateUser,
+        updateUser: UpdateUser,
+        resetUserPassword: ResetUserPassword,
+    ) = UserController(listUsers, getUser, createUser, updateUser, resetUserPassword)
+
+    @Bean
+    fun getRole(store: JdbcUserAdmin, access: AccessDecider) = GetRole(store as RoleAdminStore, access)
+
+    @Bean
+    fun createRole(
+        store: JdbcUserAdmin,
+        audit: AuditRecorder,
+        auditEvents: AuditEvents,
+        access: AccessDecider,
+        tx: TransactionRunner,
+    ) = CreateRole(store as RoleAdminStore, audit, auditEvents, access, tx)
+
+    @Bean
+    fun updateRole(
+        store: JdbcUserAdmin,
+        audit: AuditRecorder,
+        auditEvents: AuditEvents,
+        access: AccessDecider,
+        tx: TransactionRunner,
+    ) = UpdateRole(store as RoleAdminStore, audit, auditEvents, access, tx)
+
+    @Bean
+    fun setRolePermissions(
+        store: JdbcUserAdmin,
+        audit: AuditRecorder,
+        auditEvents: AuditEvents,
+        access: AccessDecider,
+        tx: TransactionRunner,
+    ) = SetRolePermissions(store as RoleAdminStore, audit, auditEvents, access, tx)
+
+    @Bean
+    fun roleController(
+        listRoles: ListRoles,
+        listPermissions: ListPermissions,
+        getRole: GetRole,
+        createRole: CreateRole,
+        updateRole: UpdateRole,
+        setRolePermissions: SetRolePermissions,
+    ) = RoleController(listRoles, listPermissions, getRole, createRole, updateRole, setRolePermissions)
+}

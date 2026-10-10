@@ -1,5 +1,5 @@
 # M05 — Traslados: entre ubicaciones y entre bodegas
-> **Normativo.** Última verificación: 2026-10-09.
+> **Normativo.** Última verificación: 2026-10-10 (fase 8 cerrada).
 
 | | |
 |---|---|

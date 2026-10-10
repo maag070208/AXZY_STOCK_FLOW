@@ -1,12 +1,12 @@
 # M07 — Usuarios y accesos: roles, permisos, sesiones
-> **Normativo.** Última verificación: 2026-10-09.
+> **Normativo.** Última verificación: 2026-10-10.
 
 | | |
 |---|---|
 | **Código** | M07 |
 | **Carpeta** | `docs/modulos/M07-usuarios-accesos/` |
 | **Documentado** | Sí |
-| **Terminado (backend)** | Parcial: sesiones y permisos, sí. Administración de usuarios, solo lectura |
+| **Terminado (backend)** | Sí: sesiones y permisos, usuarios con alta/consulta/edición/asignación/restablecimiento, y roles con su matriz (crear, editar, activar y conceder) |
 | **Web** | `UsersPage` |
 | **App** | `features/auth` |
 
@@ -19,7 +19,7 @@ Quién entra, con qué credenciales y qué puede hacer. Es la puerta de todo lo 
 | Dentro | Fuera |
 |---|---|
 | Login, refresh con rotación, logout y cambio de contraseña | Recuperación por correo |
-| Lectura de usuarios, roles y permisos | Altas, edición y asignación de roles de usuarios (pendiente: no hay rutas) |
+| Usuarios y roles: consulta, altas, edición, asignación y matriz de permisos | Eliminar roles (se desactivan) y la interfaz de políticas ABAC |
 | Alcances por bodega (`user_warehouse_scopes`) | Políticas ABAC con interfaz de edición (pendiente) |
 | Bloqueo por intentos fallidos | |
 

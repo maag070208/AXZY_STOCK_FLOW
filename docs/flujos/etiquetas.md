@@ -91,6 +91,31 @@ lleva permisos de usuario ni alcance de bodega; solo puede confirmar trabajos de
 - Cuando se reimprime.
 - Entonces hay un trabajo nuevo `PENDING` y el original no cambia.
 
+### 5-bis. Estado de estas pruebas (2026-10-10)
+
+Las cinco están en verde por HTTP real
+(`api/app/src/test/kotlin/dev/axzy/stock/app/LabelFlowTest.kt`):
+
+- **L1** (pedir una etiqueta no la marca como impresa): la impresión responde `202` y el
+  trabajo queda `PENDING` con `attempts = 0` y `printedAt = null`.
+- **L3** (impresora apagada: el trabajo espera y no se pierde): la cola lo encuentra por
+  estado, que es lo que hace útil `?status=`.
+- **L5** (reimprimir crea un trabajo nuevo): id nuevo, `PENDING`, y
+  `reprintedFromId` apuntando al original —la columna que añadió la migración V14—.
+
+- **L2** (la impresora confirma una vez): la primera confirmación pasa el trabajo a
+  `PRINTED` con su hora y **la segunda responde `LABEL_ALREADY_PRINTED` sin tocarlo**.
+- **L4** (la clave de servicio no sirve para otra cosa): sin credencial o con una que no
+  vale responde `401 INVALID_SERVICE_KEY` y el trabajo sigue pendiente; la credencial **no
+  autentica a una persona** como token de acceso; y un cliente no puede declararse canal
+  de servicio con una cabecera —el canal lo fija la credencial, y `X-Client-Channel:
+  SERVICE_PRINTER` responde `400`—.
+
+Ambas viven en
+`api/app/src/test/kotlin/dev/axzy/stock/app/PrintJobConfirmationTest.kt`, con la
+comprobación de que la bitácora guarda `SERVICE_PRINTER` como canal y el identificador de
+la clave: un trabajo marcado por un sistema se distingue de uno hecho por una persona.
+
 ## 6. Errores
 
 | Código | HTTP | Cuándo |

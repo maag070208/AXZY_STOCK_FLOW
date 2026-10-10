@@ -47,6 +47,14 @@ class SecurityConfig {
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests {
                 PUBLIC_ROUTES.forEach { (method, path) -> it.requestMatchers(method, path).permitAll() }
+                /*
+                 * La confirmación de la impresora no lleva token de usuario: lleva una
+                 * credencial de servicio. En la cadena se deja pasar y **la credencial la
+                 * comprueba el caso de uso**, que es quien puede hacerlo antes de mirar
+                 * nada más —ni siquiera si el trabajo existe, porque un `404` a quien no
+                 * tiene credencial le diría qué identificadores son válidos—.
+                 */
+                SERVICE_ROUTES.forEach { (method, path) -> it.requestMatchers(method, path).permitAll() }
                 it.anyRequest().authenticated()
             }
             .oauth2ResourceServer { server ->
@@ -93,6 +101,11 @@ class SecurityConfig {
 
     private companion object {
         /** Las únicas rutas sin identidad: la salud y las tres que permiten obtener o soltar una sesión. */
+        /** Rutas que se autentican con `X-Service-Key` y no con un token de usuario. */
+        val SERVICE_ROUTES = listOf(
+            HttpMethod.PATCH to "/v1/print-jobs/*",
+        )
+
         val PUBLIC_ROUTES = listOf(
             HttpMethod.GET to "/v1/health",
             HttpMethod.POST to "/v1/auth/login",

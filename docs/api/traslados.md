@@ -1,13 +1,41 @@
 # Traslados
 > **Referencia.** Traslados entre bodegas: creación, despacho, recepción,
-> cancelación y mercancía en tránsito. Última verificación: 2026-10-09.
+> cancelación y mercancía en tránsito. Última verificación: 2026-10-10 (fase 8 cerrada).
 
-Implementado en
-`backend/src/main/kotlin/dev/axzy/stock/backend/infrastructure/inbound/http/transfer/TransferRoutes.kt` y
-`TransferUseCases.kt`, con los DTO en `TransferDtos.kt`. La paginación está en
-[convenciones.md](convenciones.md); los códigos, en [errores.md](errores.md).
+**El motor de traslados vive en SQL** (`db/migrations/V13__transfer_engine.sql`) y ya
+está terminado y probado:
+
+| Función | Qué hace |
+|---|---|
+| `ubicacion_recepcion(warehouse_id)` | la ubicación de recepción de una bodega |
+| `despachar_traslado(transfer_id, user_id)` | resta del origen, abre el tránsito y recalcula |
+| `recibir_traslado(transfer_id, user_id)` | suma en la recepción del destino, cierra el tránsito y recalcula |
+| `cancelar_traslado(transfer_id, user_id)` | devuelve la mercancía de un despachado a su origen |
+
+Vive ahí y no en Kotlin porque un traslado **mueve saldo**, y el saldo lo mueve el
+motor: un `UPDATE stock_by_location` desde la API sería la segunda ruta de escritura
+que `InventoryWriteGuardTest` prohíbe. Las funciones reutilizan `registrar_movimiento`,
+así que las dos mitades quedan en el kardex con su tipo (`TRANSFER_OUT` y
+`TRANSFER_IN`) y el total se recalcula contando el tránsito.
+
+Implementado en capas, como el resto de la API:
+
+| Capa | Archivo |
+|---|---|
+| Rutas | `api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/transfer/TransferController.kt` |
+| Casos de uso y puertos | `api/application/src/main/kotlin/dev/axzy/stock/application/transfer/` |
+| Reglas del traslado | `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/transfer/Transfer.kt` |
+| Persistencia | `api/adapters-persistence/.../transfer/JdbcTransfers.kt` |
+| Cableado | `api/app/src/main/kotlin/dev/axzy/stock/app/config/TransferConfig.kt` |
+
+La paginación está en [convenciones.md](convenciones.md); los códigos, en
+[errores.md](errores.md).
 
 Estados: `DRAFT` → `DISPATCHED` → `IN_TRANSIT` → `RECEIVED`, con `CANCELLED`.
+
+> `IN_TRANSIT` **no lo escribe ninguna ruta**: el dominio despacha a `DISPATCHED` y el
+> informe de tránsito incluye los dos estados (`TransferStatus.isInTransit`). El estado
+> se conserva en el modelo porque «salió» y «va por el camino» son hechos distintos.
 
 ```json
 {
@@ -93,7 +121,7 @@ destino y **cierra la fila de tránsito**. El orden importa: primero se suma y
 después se cierra; al revés, un fallo entre las dos dejaría la mercancía fuera de
 las dos sumas y el total bajaría.
 
-**200** con el traslado recibido. `422 INVALID_TRANSITION` si nunca se despachó:
+**200** con el traslado recibido. **`409 INVALID_TRANSITION`** si nunca se despachó:
 llegaría mercancía que nunca salió y el inventario de destino crecería sin que el
 de origen bajara. `422 NO_RECEIVING_LOCATION` si la bodega de destino no tiene
 ubicación de recepción. `409 NOTHING_IN_TRANSIT` si no hay mercancía en tránsito
@@ -109,8 +137,12 @@ transacción**, para no dejarla en un limbo que ningún reporte explica.
 cancelarlo dejaría la mercancía contada en el sitio equivocado. Para deshacerlo se
 hace un traslado de vuelta, que deja rastro.
 
-**200** con el traslado cancelado. `422 INVALID_TRANSITION`, `404
+**200** con el traslado cancelado. **`409 INVALID_TRANSITION`**, `404
 TRANSFER_NOT_FOUND`.
+
+> `INVALID_TRANSITION` es **409** y no 422: es un conflicto con el estado actual del
+> recurso, y el catálogo de errores lo fija ahí ([errores.md](errores.md)). Esta página
+> decía 422 en las dos rutas y se corrigió.
 
 ## `GET /v1/transfers/in-transit`
 
@@ -152,5 +184,5 @@ mentirían. Lo verifica `TransferInvariantTest.kt`.
 
 | Archivo | Qué cubre |
 |---|---|
-| `backend/src/test/kotlin/dev/axzy/stock/backend/transfer/TransferInvariantTest.kt` | la conservación del total en cada transición |
-| `backend/src/test/kotlin/dev/axzy/stock/backend/ApiE2ETest.kt` | las rutas de traslados contra la API montada |
+| `api/adapters-persistence/src/test/kotlin/dev/axzy/stock/adapters/persistence/TransferEngineTest.kt` | T1, T2, T5 y T6 contra PostgreSQL real, la invariante en cada transición, el kardex con sus dos mitades y la atomicidad de un traslado de dos líneas |
+| `api/app/src/test/kotlin/dev/axzy/stock/app/TransferFlowTest.kt` | T1–T8 por HTTP real, con sus permisos y el informe de tránsito |

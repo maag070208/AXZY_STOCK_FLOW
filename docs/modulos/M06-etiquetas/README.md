@@ -1,5 +1,5 @@
 # M06 — Etiquetas: plantillas, impresión y reimpresión
-> **Normativo.** Última verificación: 2026-10-09.
+> **Normativo.** Última verificación: 2026-10-10 (M06 cerrado).
 
 | | |
 |---|---|

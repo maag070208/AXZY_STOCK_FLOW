@@ -61,7 +61,7 @@ Hace falta un JDK 17 o superior para arrancar Gradle; el JDK 25 de la API lo des
 pruebas de integración usan Testcontainers, así que Docker tiene que estar en marcha.
 
 ```bash
-GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew test
+GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew verify
 ```
 
 El recuento real está en los XML de `**/build/test-results/`, no en «BUILD SUCCESSFUL».
@@ -116,8 +116,12 @@ contenedores.
 
 ### Verificado ejecutándolo (2026-10-10)
 
-- **622 pruebas, 0 fallos, 0 omitidas**: 407 del dominio, 11 de la capa de aplicación, 72 de
-  persistencia, 13 de la capa web, 11 de criptografía y 108 de flujo completo por HTTP.
+- **717 pruebas, 0 fallos, 0 omitidas**: 408 del dominio, 11 de la capa de aplicación, 83 de
+  persistencia, 13 de la capa web, 11 de criptografía y 191 de flujo completo por HTTP, medidas con
+  `./gradlew verify` el 2026-10-10. Esquema en **V14**.
+  **`./gradlew test` no basta**: no ejecuta las pruebas del dominio (su tarea se llama `jvmTest`),
+  así que el informe puede parecer verde leyendo XML de una ejecución anterior. Por eso el comando
+  de verificación es `verify`.
 - La imagen de la API se construye y arranca en Compose; `/v1/health` responde `UP` con el esquema en V12.
 - Login, sesión actual, renovación con detección de reuso, cierre de sesión y cambio de contraseña.
 - El usuario de la API no puede crear tablas ni modificar el kardex o la bitácora.
@@ -130,9 +134,30 @@ contenedores.
   exportación del kardex a CSV y XLSX. Todo pasa por el motor SQL: una guardia de código impide que
   un adaptador escriba el inventario a mano. Las fechas de los reportes son **días operativos** en la
   zona del negocio, no días UTC.
-- **Recepción (fase 6, M03)**: facturas con líneas, captura física con su diferencia calculada por la
-  base, aprobación **por factura** (una sola acción, y quien capturó no puede aprobar), rechazo que
-  devuelve la línea a conteo, cierre que respeta el criterio del dominio y bandeja de pendientes.
+- **Recepción (fase 6, M03), cerrada**: facturas con líneas, captura física con su diferencia
+  calculada por la base, aprobación **por factura** (una sola acción, y quien capturó no puede
+  aprobar), rechazo que devuelve la línea a conteo, cierre que respeta el criterio del dominio,
+  bandeja de pendientes y la **ubicación que conoce la línea de factura**: ubicar aplica la regla B1
+  antes de mover nada y deja la línea `LOCATED`.
+- **Surtido y ERP (fase 7, M04 + M09), cerrada**: órdenes con líneas, empaque que descuenta lo empacado,
+  confirmación que descuenta **solo lo que falta** y se reclama con una sentencia condicional (dos
+  confirmaciones simultáneas no descuentan dos veces), faltantes por la regla única de ajuste y
+  exportación al ERP con contador de intentos y motivo del fallo.
+- **Traslados (fase 8, M05), cerrada**: creación, despacho, recepción, cancelación y el informe de
+  mercancía en tránsito con sus días contados por el servidor. Las funciones del motor SQL
+  (`despachar_traslado`, `recibir_traslado`, `cancelar_traslado`, migración V13) mueven el saldo, dejan
+  las dos mitades en el kardex y conservan la invariante: **la mercancía en el camión sigue contando**.
+- **Etiquetas (fase 9, M06), cerrada**: plantillas ZPL con validación al guardar, previsualización que
+  resuelve con la misma función que imprime, encolado que resuelve antes de encolar, cola por estado,
+  reimpresión enlazada al original y **la confirmación de la impresora** con credencial de servicio
+  —la única ruta sin usuario y la única que marca una etiqueta como impresa—.
+- **Auditoría (fase 9, M08), cerrada**: `GET /v1/audit/log` con filtros por entidad, actor, acción,
+  nivel, resultado, canal y rango de fechas de negocio, paginado con el total del mismo filtro. La
+  bitácora es inmutable por disparadores y **su propia consulta se registra como acceso**.
+- **Usuarios y roles (M07), cerrada**: alta, consulta, edición, asignación de roles y restablecimiento
+  de contraseña —que invalida las sesiones abiertas—, y **roles con su matriz de permisos**: crear,
+  editar, activar/desactivar y conceder. Un rol nuevo concede exactamente lo que dice su matriz, y
+  quitarlo o desactivarlo se nota de inmediato.
 - **Web (fase 11, empezada)**: entrada y cambio de contraseña obligatorio contra la API real;
   menú lateral con las entradas que permiten los permisos de la sesión; y las tres pantallas del
   catálogo (productos con alta/edición/baja e importación con simulación, ubicaciones y bodegas),
@@ -148,10 +173,13 @@ curl -s -X POST http://127.0.0.1:8081/v1/products/import   -H "Authorization: Be
 
 ### No construido todavía
 
-- **Dentro de recepción**: que ubicar conozca la línea de factura (regla B1 completa). Hoy
-  `POST /v1/inventory/locate` mueve el saldo sin saber de qué línea viene, así que `LOCATED` no se
-  alcanza por ninguna ruta.
-- Los módulos de negocio que siguen: surtido, traslados y etiquetas.
+- **Dentro de recepción**: ninguna ruta emite `RECEIPT_IN`, así que la entrada de mercancía por
+  recepción no tiene paso propio; el saldo llega a `RECEPCION` por un ajuste o por la carga inicial.
+- **Dentro de surtido**: ninguna ruta asigna líneas (`order.assign` sin ruta), así que la ubicación de
+  la línea solo la anota el empaque.
+- **La conexión con el ERP**: el intento falla con `ERP_NOT_CONNECTED`; falta el adaptador.
+- El resto de M07 (usuarios y roles): hoy solo existe el administrador del arranque.
+- El cierre de M10: el Excel del catálogo, el stock inicial a `SIN-UBICAR` y la conciliación.
 - **Dentro del catálogo**: la lectura de XLSX nativo (llega con la migración de datos, M10; hoy la
   importación acepta CSV y TSV).
 - **Dentro de la web**: las pantallas de los módulos que aún no tienen endpoint (existencias,

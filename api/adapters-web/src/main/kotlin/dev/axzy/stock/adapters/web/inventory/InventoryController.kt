@@ -145,7 +145,7 @@ class InventoryController(
         actor: Actor,
         origin: RequestOrigin,
     ): ResponseEntity<Any> {
-        val key = when (val parsed = idempotencyKey(idempotencyKey)) {
+        val key = when (val parsed = idempotencyKeyOf(idempotencyKey)) {
             is Either.Left -> return parsed.error.toResponse()
             is Either.Right -> parsed.value
         }
@@ -195,7 +195,7 @@ class InventoryController(
         idempotencyKey: String?,
         origin: RequestOrigin,
     ): ResponseEntity<Any> {
-        val key = when (val parsed = idempotencyKey(idempotencyKey)) {
+        val key = when (val parsed = idempotencyKeyOf(idempotencyKey)) {
             is Either.Left -> return parsed.error.toResponse()
             is Either.Right -> parsed.value
         }
@@ -203,7 +203,13 @@ class InventoryController(
             is Either.Left -> return parsed.error.toResponse()
             is Either.Right -> parsed.value
         }
-        val input = MovementInput(body.productCode, body.fromLocationCode, body.toLocationCode, quantity)
+        val input = MovementInput(
+            body.productCode,
+            body.fromLocationCode,
+            body.toLocationCode,
+            quantity,
+            body.invoiceLineId,
+        )
         return useCase.execute(actor, input, key, origin).toMovementResponse()
     }
 }
@@ -223,7 +229,7 @@ private fun Outcome<MovementResult>.toMovementResponse(): ResponseEntity<Any> =
  * Se valida aquí y **no** se deja al `CAST` de PostgreSQL: una clave mal formada
  * saldría como `500` por un dato del cliente (docs/api/convenciones.md §1.5).
  */
-private fun idempotencyKey(raw: String?): Outcome<UUID?> {
+internal fun idempotencyKeyOf(raw: String?): Outcome<UUID?> {
     if (raw.isNullOrBlank()) return null.asRight()
     return runCatching { UUID.fromString(raw.trim()) }.fold(
         onSuccess = { it.asRight() },

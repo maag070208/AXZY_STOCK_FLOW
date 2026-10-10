@@ -16,12 +16,10 @@ Implementado en capas, como el resto de la API (docs/arquitectura/api-spring.md 
 La paginación está en [convenciones.md](convenciones.md); los códigos, en
 [errores.md](errores.md).
 
-**Falta una pieza, y es la regla B1 completa.** Una línea en `DISCREPANCY` no se puede
-ubicar, y esa comprobación vive en `POST /v1/inventory/locate`, que hoy **no recibe la
-línea de factura**: la ruta de inventario mueve el saldo sin saber de qué línea viene.
-El caso de uso del dominio (`InvoiceLine.locate`) ya devuelve `DISCREPANCY_NOT_APPROVED`
-y está probado en el dominio; lo que falta es el enganche. Sin él, `LOCATED` y
-`locatedQuantity` no se alcanzan por ninguna ruta. Está anotado en el plan.
+**Ubicar** es `POST /v1/inventory/locate` con `invoiceLineId`
+([inventario.md](inventario.md#ubicar-mercancía-de-una-recepción)): es lo que completa
+la regla B1 —una línea con diferencia sin aprobar no se puede ubicar— y lo que lleva la
+línea a `LOCATED` con su `locationDisplayName`.
 
 ## `GET|POST /v1/invoices`
 
@@ -249,8 +247,7 @@ de la línea, que sí lleva signo.
 |---|---|
 | `api/app/src/test/kotlin/dev/axzy/stock/app/ReceivingFlowTest.kt` | R2–R6 y R8 por HTTP real: alta, captura con y sin diferencia, aprobación por factura, rechazo, cierre, bandeja y permisos por ruta |
 | `stock-domain/src/commonTest/kotlin/dev/axzy/stock/domain/receiving/InvoiceLineStateMachineTest.kt` | las transiciones de la línea, sin base de datos |
-| `api/adapters-persistence/src/test/.../ReceivingPersistenceTest.kt` (pendiente) | el presupuesto de consultas del listado y del detalle |
+| `api/app/src/test/kotlin/dev/axzy/stock/app/ReceivingFlowTest.kt` (R1 y R7) | que una discrepancia sin aprobar bloquee la ubicación sin tocar el inventario, y que ubicar deje la línea `LOCATED` con el total intacto |
 
-**R1** (una línea en discrepancia no se puede ubicar) y **R7** (ubicar no cambia el
-total) se comprueban en el flujo de inventario: R7 está cubierta por `InventoryFlowTest`
-(A1); R1 espera al enganche de la ubicación con la línea de factura.
+Las ocho pruebas del flujo están en verde: R1 y R7 cruzan con el módulo de inventario
+—la ruta que ubica es la suya— y las otras seis viven en las rutas de facturas.

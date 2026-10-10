@@ -36,6 +36,6 @@ class SchemaGuard {
          * La última migración de `db/migrations` que este código da por aplicada. Al añadir una
          * migración se sube aquí; una prueba comprueba que coincide con los archivos.
          */
-        const val REQUIRED_SCHEMA_VERSION = 12
+        const val REQUIRED_SCHEMA_VERSION = 14
     }
 }

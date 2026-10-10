@@ -144,6 +144,19 @@ open class ApplyStockMovement(
                             mapOf("lineId" to lineId.toString()),
                         )
                     }
+                    if (line != null && line.productCode != parsed.code) {
+                        // Mover el saldo de un producto mientras se anota la línea de
+                        // otro dejaría la factura diciendo una cosa y el almacén otra.
+                        return@authorizeOr failure(
+                            FailureKind.INVALID_REQUEST, "INVALID_PARAMETER",
+                            "La línea ${line.id} es de ${line.productCode.value}, no de ${parsed.code.value}.",
+                            mapOf(
+                                "invoiceLineId" to line.id.toString(),
+                                "productCode" to parsed.code.value,
+                                "lineProductCode" to line.productCode.value,
+                            ),
+                        )
+                    }
                     val located = line?.let { target ->
                         when (val result = target.locate(parsed.quantity)) {
                             is Either.Left -> return@authorizeOr result.error.toFailure().asLeft()
@@ -306,18 +319,26 @@ open class ApplyStockMovement(
 class LocateStock(
     catalog: InventoryCatalog,
     ledger: StockLedger,
+    locatingLines: LocatingLines,
     audit: AuditRecorder,
     auditEvents: AuditEvents,
     access: AccessDecider,
     tx: TransactionRunner,
-) : ApplyStockMovement(MovementKind.LOCATE, catalog, ledger, audit, auditEvents, access, tx)
+    clock: java.time.Clock,
+) : ApplyStockMovement(
+    MovementKind.LOCATE, catalog, ledger, locatingLines, audit, auditEvents, access, tx, clock,
+)
 
 /** Mover: reorganiza estantes de la misma bodega (`inventory.move`). */
 class MoveStock(
     catalog: InventoryCatalog,
     ledger: StockLedger,
+    locatingLines: LocatingLines,
     audit: AuditRecorder,
     auditEvents: AuditEvents,
     access: AccessDecider,
     tx: TransactionRunner,
-) : ApplyStockMovement(MovementKind.MOVE, catalog, ledger, audit, auditEvents, access, tx)
+    clock: java.time.Clock,
+) : ApplyStockMovement(
+    MovementKind.MOVE, catalog, ledger, locatingLines, audit, auditEvents, access, tx, clock,
+)

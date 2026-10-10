@@ -45,3 +45,78 @@ pueden tocar el mismo archivo**, nunca.
 
 Los niveles de prueba y cómo se ejecutan están en
 [estrategia-pruebas.md](estrategia-pruebas.md).
+
+## Un `./gradlew test` en verde no significa que se hayan ejecutado todas las pruebas
+
+Comprobado el 2026-10-10, y es la trampa más cara que ha aparecido: **`./gradlew test`
+no ejecuta `:stock-domain:jvmTest`**. El proyecto del dominio es multiplataforma
+(Kotlin Multiplatform) y su tarea de pruebas se llama `jvmTest`, así que el `test`
+agregado —que sí recorre los módulos JVM— lo dejaba fuera.
+
+El síntoma es exactamente el que este documento advierte en otro sitio: el informe
+salía `BUILD SUCCESSFUL`, y el recuento de pruebas del dominio se leía de los XML de
+una ejecución **anterior**. Durante dos vueltas se informó de «407 pruebas del dominio,
+0 fallos» mientras había una prueba del dominio en rojo que nadie ejecutaba
+(`AdjustmentTest` esperaba el código de ubicación del legacy, `04BCA`, después de que la
+etiqueta visible pasara a ser `04-B-C`).
+
+Lo que se hizo:
+
+- El comando de verificación es **`./gradlew verify`**, una tarea que depende de todas
+  las tareas de prueba de todos los módulos (`test` y `jvmTest`) y de las guardias de
+  arquitectura. Si un módulo cambia el nombre de su tarea, `verify` hay que actualizarlo.
+- **Borrar los XML antes de medir** (`rm -rf */build/test-results`). Un recuento sin
+  borrar es un recuento de la última vez que algo se ejecutó.
+
+La regla general que se suma a las de arriba: **un informe de pruebas solo vale si se
+sabe qué tarea lo produjo y cuándo**. `BUILD SUCCESSFUL` de una tarea que no incluye el
+módulo que se tocó no dice nada sobre ese módulo.
+
+## Una migración tiene que poder re-aplicarse
+
+Comprobado el 2026-10-10, y costó un despliegue en rojo: al escribir la migración `V14`
+la apliqué a mano contra la base para comprobar el SQL, y cuando Flyway la ejecutó se
+encontró la columna ya creada y **el servicio de migración falló con `exit 1`**. El
+síntoma fue peor de lo que parece: el API no arrancó y las comprobaciones por `curl`
+devolvían `000` (conexión rechazada) mientras el archivo de la respuesta anterior seguía
+en `/tmp`, así que el primer vistazo decía «403, todo bien».
+
+Dos reglas que salen de ahí:
+
+- **El DDL de una migración va con `IF NOT EXISTS`** (`ALTER TABLE … ADD COLUMN IF NOT
+  EXISTS`, `CREATE INDEX IF NOT EXISTS`). Flyway garantiza aplicarla una vez, pero un
+  humano puede haberla aplicado antes, y poder re-aplicarla no cuesta nada.
+- **Cuando una comprobación falla, mirar el código HTTP y no el cuerpo del archivo
+  anterior.** Un `000` no es un `403`: el primero significa que nadie contestó.
+
+## Un `docker compose build` puede salir entero de caché y dejar el jar viejo
+
+Comprobado el 2026-10-10, y es la trampa más silenciosa de todas las de este documento:
+`docker compose build api` respondió `Image stockflow-api Built` sin ejecutar **ni un paso
+de compilación** —todas las capas `CACHED`—, así que la imagen siguió con el jar anterior.
+El contenedor arrancó sano, `/v1/health` respondió `UP`, y la ruta nueva contestaba
+`401 UNAUTHENTICATED` como si no existiera. Casi lo doy por bueno.
+
+Lo que lo delató: la misma petición **pasaba** en las pruebas de integración, que arrancan
+la aplicación desde las clases recién compiladas. Si una prueba y una comprobación por
+`curl` dicen cosas distintas, el sospechoso es el artefacto que corre, no la prueba.
+
+Cómo comprobarlo sin adivinar: leer el jar **dentro de la imagen**.
+
+```bash
+docker run --rm --entrypoint sh stockflow-api -c \
+  'unzip -p /app/app.jar BOOT-INF/classes/dev/axzy/stock/app/config/SecurityConfig.class | strings | grep -c "print-jobs"'
+```
+
+Dos detalles que hacen falta para que eso funcione, y que también me costaron un rato:
+
+- Un jar de Spring Boot **no lleva las clases del proyecto sueltas**: van en jars anidados
+  (`BOOT-INF/lib/adapters-web-0.1.0.jar`). Un `unzip -l | grep PrintJobController` sobre el
+  jar exterior devuelve `0` aunque el código esté dentro, y parece que falta cuando está.
+- Por eso hay que mirar la clase del módulo `app` (que sí va suelta en
+  `BOOT-INF/classes/`) o extraer primero el jar anidado.
+
+Y lo que se hace cuando pasa: `docker compose up -d --force-recreate api`, y volver a
+comprobar la ruta contra el artefacto que corre. La regla de arriba sigue valiendo y ahora
+tiene nombre propio: **el artefacto que corre no es el código compilado**, y una imagen que
+se construyó «con éxito» sin compilar nada no es una imagen nueva.
