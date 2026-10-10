@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The StockFlow glyph, converted from web/src/shared/assets/brand/stockflow-glyph-light.svg.
+     The SVG's transform (translate, scale 2, translate) becomes the group below. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+    <group
+        android:scaleX="2"
+        android:scaleY="2"
+        android:translateX="-88"
+        android:translateY="272">
+        <path android:fillColor="#16315F" android:pathData="M165,58 V51 a9,9 0 0 1 9,-9 H210 a9,9 0 0 1 9,9 V58 Z" />
+        <path android:fillColor="#16315F" android:pathData="M165,65 H219 V87 a9,9 0 0 1 -9,9 H174 a9,9 0 0 1 -9,-9 Z" />
+        <path android:fillColor="#F28C28" android:pathData="M273,58 V51 a9,9 0 0 1 9,-9 H318 a9,9 0 0 1 9,9 V58 Z" />
+        <path android:fillColor="#F28C28" android:pathData="M273,65 H327 V87 a9,9 0 0 1 -9,9 H282 a9,9 0 0 1 -9,-9 Z" />
+        <path android:fillColor="#3A86A8" android:pathData="M381,58 V51 a9,9 0 0 1 9,-9 H426 a9,9 0 0 1 9,9 V58 Z" />
+        <path android:fillColor="#3A86A8" android:pathData="M381,65 H435 V87 a9,9 0 0 1 -9,9 H390 a9,9 0 0 1 -9,-9 Z" />
+        <path
+            android:strokeColor="#16315F"
+            android:strokeWidth="12"
+            android:pathData="M153,106 H447 A43,43 0 0 1 447,192 H153 A43,43 0 0 1 153,106 Z" />
+        <path
+            android:fillColor="#16315F"
+            android:fillType="evenOdd"
+            android:pathData="M136,149 a17,17 0 1,0 34,0 a17,17 0 1,0 -34,0 M147,149 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0Z" />
+        <path
+            android:fillColor="#16315F"
+            android:fillType="evenOdd"
+            android:pathData="M430,149 a17,17 0 1,0 34,0 a17,17 0 1,0 -34,0 M441,149 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0Z" />
+        <path
+            android:strokeColor="#F28C28"
+            android:strokeWidth="9"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M232,129 L252,149 L232,169" />
+        <path
+            android:strokeColor="#F28C28"
+            android:strokeWidth="9"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M290,129 L310,149 L290,169" />
+        <path
+            android:strokeColor="#F28C28"
+            android:strokeWidth="9"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M348,129 L368,149 L348,169" />
+    </group>
+</vector>

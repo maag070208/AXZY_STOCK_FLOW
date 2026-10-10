@@ -15,7 +15,7 @@ it shows what the API answers and sends what the operator does.
 A Gradle project with a `shared` module (KMP) and the Android and iOS targets.
 
 ```
-app/
+mobile-app/          Its own build: `settings.gradle.kts`, `gradlew` (ADR-0003)
   shared/
     commonMain/
       core/            Network, session, errors, settings. Shared by all features.
