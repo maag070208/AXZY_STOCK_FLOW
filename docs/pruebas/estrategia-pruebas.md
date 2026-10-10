@@ -54,16 +54,24 @@ GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew :backend:test --tests "*ApiE2ETes
 ./scripts/e2e-web.sh
 ```
 
-> ⚠️ **Sin PostgreSQL, el resultado engaña.** Los tests que lo necesitan **devuelven sin
-> ejecutarse** (`if (!thereIsBase) return`) y el motor los cuenta como **aprobados**, no como
-> saltados: un «0 fallos, 0 saltadas» con la base caída significa «no se probó nada». Antes de
-> dar por bueno un verde, comprueba que la base responde (`docker ps`) y mira el recuento de
-> los XML, no la palabra `BUILD SUCCESSFUL`. Verificado el 2026-10-09 con la base caída.
+> ⚠️ **Sin PostgreSQL, la suite FALLA, y es a propósito.** Los tests que necesitan la base
+> comprueban la conexión y **devuelven sin ejecutarse** (`if (!thereIsBase) return`), y el
+> motor los cuenta como **aprobados**, no como saltados. Durante un tiempo eso dio un verde
+> vacío: «0 fallos, 0 saltadas» con la base caída significaba «no se probó nada». Lo cierra
+> `backend/src/test/kotlin/dev/axzy/stock/backend/PostgresGuardTest.kt`, un **canario** que
+> falla con el motivo y la instrucción cuando la base no responde.
+>
+> Se intentaron antes dos vías y **ninguna vale**, comprobado el 2026-10-09: `@EnabledIf`
+> quita los tests del informe (292 → 128, `saltadas = 0`: desaparecen sin decirlo) y
+> `TestAbortedException` cuenta el salto pero deja el spec en rojo con un «Before Spec
+> Error». El canario es lo único que hace visible la falta de base sin tocar los trece specs
+> ni mentir en el recuento.
 
 ### Reglas de la casa para un test nuevo
 
-- **Un test que se salta solo es un test que no vigila.** Si falta la base, se imprime el
-  motivo; si falta una variable, el e2e **falla** diciendo qué ejecutar.
+- **Un test que se salta solo es un test que no vigila.** Si falta la base, el canario
+  (`PostgresGuardTest`) **falla** con el motivo y la instrucción, en lugar de dejar pasar un
+  verde que no probó nada; si falta una variable, el e2e **falla** diciendo qué ejecutar.
 - **Un test que nunca ha fallado no demuestra que vigile nada**
   ([verificacion.md](verificacion.md) §2). Antes de dar por buena una guardia, se revierte el
   defecto y se comprueba que sale roja.

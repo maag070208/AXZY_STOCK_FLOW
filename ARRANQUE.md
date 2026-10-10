@@ -136,7 +136,7 @@ Login por el proxy de la web     → 200
 APK de Android                   → 44 MB generado
 ```
 
-**684 pruebas** en `:backend:test` y `:stock-domain:jvmTest`, con la caché de compilación
+**685 pruebas** en `:backend:test` y `:stock-domain:jvmTest`, con la caché de compilación
 desactivada: 0 fallos, 0 saltadas (ejecutadas de verdad, no servidas desde caché). Para
 volver a medirlo:
 
@@ -147,9 +147,11 @@ GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew :backend:test :stock-domain:jvmTe
 #   backend/build/test-results/test/*.xml y stock-domain/build/test-results/jvmTest/*.xml
 ```
 
-**Ese número solo vale con PostgreSQL levantado.** Sin base, los tests que la necesitan
-devuelven sin ejecutarse y se cuentan como **aprobados**: un «0 fallos, 0 saltadas» con la base
-caída quiere decir «no se probó nada». Compruébalo con `docker ps` antes de fiarte del verde.
+**Ese número solo vale con PostgreSQL levantado, y la suite lo comprueba sola.** Los tests que
+necesitan la base devuelven sin ejecutarse cuando no la hay, y el motor los cuenta como
+**aprobados**: un «0 fallos, 0 saltadas» sin base querría decir «no se probó nada». Para que eso
+no pase, `PostgresGuardTest` **falla** con el motivo y la instrucción de arrancar la base. El
+recuento de arriba incluye ese canario.
 
 ### NO verificado
 

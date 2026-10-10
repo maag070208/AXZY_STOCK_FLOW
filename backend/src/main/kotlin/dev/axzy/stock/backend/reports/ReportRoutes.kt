@@ -3,7 +3,6 @@ package dev.axzy.stock.backend.reports
 import dev.axzy.stock.backend.error.BadRequestException
 import dev.axzy.stock.backend.error.ForbiddenException
 import dev.axzy.stock.backend.error.UnauthorizedException
-import dev.axzy.stock.backend.security.AllowAllPermissionChecker
 import dev.axzy.stock.backend.security.PermissionChecker
 import dev.axzy.stock.backend.security.PermissionDecision
 import io.ktor.http.ContentDisposition
