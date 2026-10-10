@@ -1,0 +1,47 @@
+# Entorno local de STOCK. Decisión: docs/adr/0016-docker-compose-para-el-entorno.md
+# Detalle: docs/arquitectura/infraestructura.md
+#
+# Las variables sin valor por defecto (?) hacen que `docker compose` falle si faltan:
+# ningún secreto tiene un valor de respaldo.
+
+name: stock
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Falta POSTGRES_DB en .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Falta POSTGRES_USER en .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env}
+    ports:
+      # Solo loopback: la base nunca se publica a la red.
+      - "127.0.0.1:${POSTGRES_PORT:?Falta POSTGRES_PORT en .env}:5432"
+    volumes:
+      - stock-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Aplica las migraciones y termina. La API depende de que termine con éxito (fase 2).
+  migrate:
+    image: flyway/flyway:11.3.4
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      FLYWAY_USER: ${POSTGRES_USER}
+      FLYWAY_PASSWORD: ${POSTGRES_PASSWORD}
+      FLYWAY_LOCATIONS: filesystem:/flyway/sql
+      FLYWAY_VALIDATE_ON_MIGRATE: "true"
+      FLYWAY_BASELINE_ON_MIGRATE: "false"
+      FLYWAY_CLEAN_DISABLED: "true"
+    command: migrate
+    volumes:
+      - ./db/migrations:/flyway/sql:ro
+    restart: "no"
+
+volumes:
+  stock-pgdata:

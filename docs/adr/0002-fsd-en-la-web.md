@@ -1,4 +1,5 @@
 # ADR-0002 — FSD en la web
+> **Vigente.** La web se construye con React y AXZY UI System; ver [arquitectura/web-react.md](../arquitectura/web-react.md) para las convenciones del kit.
 > **Normativo.** Decisión aceptada. Última verificación: 2026-10-09.
 
 | | |

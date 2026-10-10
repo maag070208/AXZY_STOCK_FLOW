@@ -15,9 +15,9 @@
 
 | Componente | Función | Versión | Fuente y fecha |
 |---|---|---|---|
-| JDK | Runtime y toolchain | *Pendiente* (LTS vigente) | — |
-| Kotlin | Lenguaje | *Pendiente* | — |
-| Spring Boot | Framework de la API | *Pendiente* (3.x LTS vigente) | — |
+| JDK | Runtime y toolchain | `25` (Temurin LTS) | [Adoptium](https://adoptium.net/) y [endoflife.ai](https://endoflife.ai/eclipse-temurin/25), consultados el 2026-10-10. Patch `25.0.3` según endoflife.ai |
+| Kotlin | Lenguaje | `2.4.20` | [Anuncio de JetBrains, sep. 2026](https://blog.jetbrains.com/kotlin/2026/09/kotlin-2-4-20-released/), consultado el 2026-10-10 |
+| Spring Boot | Framework de la API | `4.1.x` (último 4.1.1 según fuente consultada) | [spring.io](https://spring.io/blog/2026/06/25/spring-boot-3-5-16-available-now/) y [herodevs](https://www.herodevs.com/blog-posts/spring-boot-versions-eol-dates-and-latest-releases-april-2026), consultados el 2026-10-10. Requiere Java 17+. La línea 3.5 está fuera de soporte |
 | Spring JDBC (`JdbcClient`) | Acceso a PostgreSQL | Incluido en Spring Boot | — |
 | Flyway | Migraciones | *Pendiente* | — |
 | PostgreSQL | Base de datos | `16` (la versión menor se fija aquí) | — |
@@ -57,8 +57,8 @@
 | React / React DOM | Interfaz | *Pendiente* (19.x) | — |
 | TypeScript | Tipos | *Pendiente* | — |
 | Vite | Build y servidor de desarrollo | *Pendiente* | — |
-| AXZY UI System (`@axzydev/axzy_ui_system`) | Componentes y tema | *Pendiente* (última publicada) | — |
-| Tailwind CSS | Utilidades; se usa en capas (ver [web-fsd.md](web-fsd.md)) | *Pendiente* | — |
+| AXZY UI System (`@axzydev/axzy_ui_system`) | Componentes y tema | `^1.4.7` (en CYC, instalado `1.4.7`) | Uso real en `~/DEV/CYC/web/package.json` y `node_modules`, revisado el 2026-10-09 |
+| Tailwind CSS / `@tailwindcss/vite` | Utilidades; se usa en capas ([web-react.md](web-react.md) §5) | `4.3.3` / `^4.3.3` (como en CYC) | `~/DEV/CYC/web/package.json` |
 | React Router | Rutas | *Pendiente* | — |
 | Playwright | Pruebas de navegador | *Pendiente* | — |
 | ESLint con `eslint-plugin-boundaries` | Imponer las capas FSD | *Pendiente* | — |

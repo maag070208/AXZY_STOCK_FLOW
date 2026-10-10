@@ -65,7 +65,7 @@ que se comprueba.
 | 4 | **Seguridad frente a nulos**: `?.`, `?:`, smart casts | El `NullPointerException` en producción |
 | 5 | **`!!` prohibido** | Un `!!` es una **afirmación sin prueba**: convierte un dato ausente en una caída |
 | 6 | **Funciones de extensión** para utilidades | Utilidades sueltas en clases `Utils` que nadie sabe dónde viven |
-| 7 | **Inyección por constructor** ([api-ktor.md](../arquitectura/api-ktor.md) §1.8) | Dependencias escondidas y clases que no se pueden probar |
+| 7 | **Inyección por constructor** ([api-ktor.md](../historico/API-KTOR.md) §1.8) | Dependencias escondidas y clases que no se pueden probar |
 | 8 | **Todo tiene que ser testeable** | Código que solo se puede probar arrancando el servidor |
 
 ```kotlin

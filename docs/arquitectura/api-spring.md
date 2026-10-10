@@ -140,3 +140,22 @@ cuenta como aprobada en el recuento y eso ocultó huecos antes.
 - No hay capas de DTO que repitan el dominio sin necesidad: un DTO HTTP existe solo cuando el
   contrato público lo necesita.
 - No hay clases `Manager`, `Helper` ni `Util` con reglas de negocio.
+
+## 11. Rendimiento y consistencia: reglas verificables
+
+Estas reglas salen de los hallazgos del legacy ([analisis/legacy-entradas-salidas-ajustes-traslados.md](../analisis/legacy-entradas-salidas-ajustes-traslados.md)). Cada una tiene una prueba.
+
+| Regla | Forma incorrecta (legacy) | Forma correcta | Prueba |
+|---|---|---|---|
+| R-P1. Ninguna consulta dentro de un bucle | `findUnique` de usuario por línea (`invoice.service.ts:178`) | Una consulta con `JOIN` o `WHERE id IN (...)` y mapeo en memoria | Contador de sentencias por listado: número fijo, sin depender del tamaño |
+| R-P2. Ningún listado sin límite | `findMany()` de toda la tabla y filtro en JavaScript (`kardex.service.ts:587`) | Filtro y `LIMIT` en la consulta | Prueba de listado con 10 000 filas: solo devuelve la página pedida |
+| R-P3. El saldo no se recalcula desde el historial | Sumar todo el kardex en cada operación (`kardex.service.ts:408`) | Leer la proyección (`stock_by_location`, `product_stock`) | Prueba de rendimiento con 10 000 movimientos por producto |
+| R-P4. Toda escritura de varios pasos va en una transacción | `addKardex` escribe el kardex y después el stock (`kardex.service.ts:241-258`) | Un solo `TransactionRunner.inTransaction { }` | Prueba con fallo inyectado a mitad: no queda nada escrito |
+| R-P5. Ninguna operación asíncrona queda sin esperar | `orderDetail.map((item) => addKardexOut(...))` sin `await` (`order.service.ts:350`) | `coroutineScope { lines.map { async { … } }.awaitAll() }` o secuencial dentro de la transacción | Prueba que comprueba que el kardex está escrito al volver la llamada |
+| R-P6. El saldo lo cambia la base con bloqueo | Leer el saldo, calcular y escribir el valor absoluto | `UPDATE … SET quantity = quantity + :delta` dentro de la función SQL | Pruebas de concurrencia A3 y A4 de [existencias-y-ajustes.md](../flujos/existencias-y-ajustes.md) §7 |
+| R-P7. Un movimiento no se modifica | `kardex.update` y `updateMany` que cambian `moveType` y `moveDate` | Solo `INSERT`; un disparador en la base rechaza `UPDATE` y `DELETE` sobre `kardex` | Prueba A9 de [existencias-y-ajustes.md](../flujos/existencias-y-ajustes.md) §7 |
+| R-P8. Ningún log contiene existencias completas | `console.log` con el estado de existencias del producto (`order.service.ts:396`) | Log con identificadores y conteos, nunca con el detalle de inventario | Revisión de la fase 5 |
+
+**Criterio de aceptación de rendimiento.** Cada listado y cada operación de inventario tiene un presupuesto
+de sentencias SQL por llamada (se fija en la fase 5, a partir de la primera medición), y la prueba falla si lo
+supera. Las cifras de tiempo no se fijan antes de medir: un número inventado no sirve de criterio.

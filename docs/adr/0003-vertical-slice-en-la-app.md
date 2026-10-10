@@ -1,4 +1,5 @@
 # ADR-0003 — Vertical slice en la app móvil
+> **Vigente.** Se mantiene para la app KMP; ver [arquitectura/app-kmp.md](../arquitectura/app-kmp.md).
 > **Normativo.** Decisión aceptada. Última verificación: 2026-10-09.
 
 | | |

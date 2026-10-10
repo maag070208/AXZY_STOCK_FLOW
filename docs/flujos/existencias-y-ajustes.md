@@ -26,7 +26,7 @@ Saber cuánto hay de cada producto y en qué ubicación, y poder explicar cada c
 | `product_stock` | Total por producto | Proyección: suma de ubicaciones más tránsito no recibido |
 | `stock_in_transit` | Mercancía en traslado | Ver [traslados.md](traslados.md) |
 
-Toda cambio de existencias pasa por las funciones SQL del motor
+Todo cambio de existencias pasa por las funciones SQL del motor
 ([ADR-0015](../adr/0015-postgresql-flyway-motor-en-sql.md)): `aplicar_movimiento_a_ubicacion`,
 `recalcular_total_producto` y `registrar_movimiento`. La API no escribe esas tablas directamente.
 

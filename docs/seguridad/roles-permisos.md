@@ -22,7 +22,7 @@ Vive en el dominio, en `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain
 La API lo aplica con `AccessEnginePermissionChecker`
 (`backend/src/main/kotlin/dev/axzy/stock/backend/security/PermissionChecker.kt`), y el
 contexto autenticado viaja como objeto explícito, nunca en una thread-local
-([api-ktor.md](../arquitectura/api-ktor.md) §1.13).
+([api-ktor.md](../historico/API-KTOR.md) §1.13).
 
 ## Las tres reglas
 

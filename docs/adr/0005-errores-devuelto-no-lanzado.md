@@ -18,7 +18,7 @@ es un resultado esperado (`stock-domain/src/commonMain/kotlin/dev/axzy/stock/dom
 
 `kotlin.Result` no sirve para ese caso porque obliga a que el error sea un `Throwable`, y un
 resultado de negocio esperado no lo es (`Either.kt`). Hacía falta un tipo de resultado propio
-([api-ktor.md](../arquitectura/api-ktor.md) §1.11).
+([api-ktor.md](../historico/API-KTOR.md) §1.11).
 
 ## Decisión
 
@@ -28,12 +28,12 @@ resultado de negocio esperado no lo es (`Either.kt`). Hacía falta un tipo de re
   `message` legible. Un error nuevo se añade al catálogo antes de usarlo (`DomainError.kt`,
   [errores.md](../api/errores.md)).
 - La firma declara los fallos: `suspend fun execute(...): Either<DomainError, ...>`. Una
-  función que devuelve `Unit` esconde en el tipo lo que puede fallar ([api-ktor.md](../arquitectura/api-ktor.md) §1.11).
+  función que devuelve `Unit` esconde en el tipo lo que puede fallar ([api-ktor.md](../historico/API-KTOR.md) §1.11).
 - El `try/catch` se encapsula en el borde —el repositorio o el cliente externo— y allí se
   traduce a un fallo tipado. Un `SQLException` no sube a la aplicación
-  ([api-ktor.md](../arquitectura/api-ktor.md) §1.11).
+  ([api-ktor.md](../historico/API-KTOR.md) §1.11).
 - Un fallo de programación —estado imposible, `when` sin cubrir— sí se lanza: es un bug y
-  tiene que verse ([api-ktor.md](../arquitectura/api-ktor.md) §1.11).
+  tiene que verse ([api-ktor.md](../historico/API-KTOR.md) §1.11).
 
 ## Consecuencias
 
@@ -49,7 +49,7 @@ Estado real, que conviene no maquillar: la regla se cumple en el dominio y solo 
 la API. Las rutas y los servicios todavía lanzan excepciones HTTP —por ejemplo
 `backend/src/main/kotlin/dev/axzy/stock/backend/order/OrderService.kt`—, y el tipo de fallo
 de almacenamiento propio del backend (`DomainFailure`) todavía no existe, así que un fallo
-de base no tiene un sitio tipado donde vivir ([api-ktor.md](../arquitectura/api-ktor.md) §1.11, §1.18 y [lo-no-verificado.md](../guia/lo-no-verificado.md)). Mientras
+de base no tiene un sitio tipado donde vivir ([api-ktor.md](../historico/API-KTOR.md) §1.11, §1.18 y [lo-no-verificado.md](../guia/lo-no-verificado.md)). Mientras
 convivan el retorno y el lanzamiento, la firma de un caso de uso no dice toda la verdad.
 
 Reglas operativas que se derivan:
@@ -63,7 +63,7 @@ Reglas operativas que se derivan:
 ## Alternativas consideradas
 
 - **Excepciones con un manejador global (`StatusPages`).** La ruta no declara lo que puede
-  fallar, y el manejo queda fuera de la vista de quien la escribe ([api-ktor.md](../arquitectura/api-ktor.md) §1.11).
+  fallar, y el manejo queda fuera de la vista de quien la escribe ([api-ktor.md](../historico/API-KTOR.md) §1.11).
 - **`kotlin.Result`.** Obliga a que el error sea un `Throwable` (`Either.kt`).
 - **`arrow-kt`.** Añade una dependencia a un dominio que debe ser Kotlin puro
   (`Either.kt`, `stock-domain/build.gradle.kts`).
@@ -76,4 +76,4 @@ Reglas operativas que se derivan:
 - `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/receiving/InvoiceLine.kt`
 - `backend/src/main/kotlin/dev/axzy/stock/backend/order/OrderService.kt`
 - `backend/src/main/kotlin/dev/axzy/stock/backend/security/PermissionChecker.kt`
-- [api-ktor.md](../arquitectura/api-ktor.md) §1.11, §1.18 y [errores.md](../api/errores.md)
+- [api-ktor.md](../historico/API-KTOR.md) §1.11, §1.18 y [errores.md](../api/errores.md)

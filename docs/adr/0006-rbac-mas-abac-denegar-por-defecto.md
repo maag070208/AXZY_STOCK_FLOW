@@ -31,12 +31,12 @@ recibía un 403 ([roles-permisos.md](../seguridad/roles-permisos.md)).
 - El alcance es una escalera: `NONE < OWN < AREA < ALL`. Conceder `AREA` no concede `ALL`
   (`stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/access/AccessModel.kt`).
 - Cada endpoint exige el permiso que necesita, no el rol. El permiso de la ruta tiene que ser
-  el mismo que el del guard que protege su pantalla ([roles-permisos.md](../seguridad/roles-permisos.md) y [api-ktor.md](../arquitectura/api-ktor.md) §1.13).
+  el mismo que el del guard que protege su pantalla ([roles-permisos.md](../seguridad/roles-permisos.md) y [api-ktor.md](../historico/API-KTOR.md) §1.13).
 - ABAC no concede lo que RBAC no concedió: sube el listón, no lo baja
   (`stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/access/StockPolicies.kt`).
 - El usuario autenticado viaja como argumento explícito (`AccessUser`), nunca en una variable
   thread-local: una thread-local se pierde cuando el trabajo salta de hilo, y con coroutines
-  el salto es la norma ([api-ktor.md](../arquitectura/api-ktor.md) §1.13).
+  el salto es la norma ([api-ktor.md](../historico/API-KTOR.md) §1.13).
 - La implementación por defecto del verificador deniega todo (`DenyAllPermissionChecker`): un
   verificador permisivo convierte un olvido de configuración en un agujero de seguridad
   (`PermissionChecker.kt`).
@@ -88,4 +88,4 @@ Reglas operativas que se derivan:
 - `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/access/PermissionCatalog.kt`
 - `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/access/RoleDefinitions.kt`
 - `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/access/StockPolicies.kt`
-- [api-ktor.md](../arquitectura/api-ktor.md) §1.13, [auditoria.md](../seguridad/auditoria.md) y [roles-permisos.md](../seguridad/roles-permisos.md)
+- [api-ktor.md](../historico/API-KTOR.md) §1.13, [auditoria.md](../seguridad/auditoria.md) y [roles-permisos.md](../seguridad/roles-permisos.md)

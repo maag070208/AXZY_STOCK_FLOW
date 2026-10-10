@@ -43,6 +43,11 @@ tiene una prueba que lo impide:
 | Q3 | La confirmación de una orden bloquea la orden y usa una clave de idempotencia; un doble envío no descuenta dos veces. | Prueba de doble confirmación concurrente ([flujos/surtido-y-erp.md](../flujos/surtido-y-erp.md) §5) |
 | Q4 | Todas las migraciones se aplican en el mismo orden en todos los entornos; ningún entorno arranca con migraciones pendientes sin que se note. | Migración de arranque de Compose y comprobación de `flyway_schema_history` ([arquitectura/infraestructura.md](../arquitectura/infraestructura.md) §4) |
 | Q5 | Las pruebas de integración corren contra PostgreSQL real, no se saltan en silencio. | Una prueba que falla si no hay base (heredada del canario `PostgresGuardTest`) |
+| Q6 | El kardex solo crece: ninguna operación modifica ni borra un movimiento. Corregir es añadir un movimiento compensatorio. | Prueba A9 de [existencias-y-ajustes.md](../flujos/existencias-y-ajustes.md) §7; análisis de origen C1 en [analisis/legacy-entradas-salidas-ajustes-traslados.md](../analisis/legacy-entradas-salidas-ajustes-traslados.md) |
+| Q7 | El saldo lo cambia la base con bloqueo. Ninguna aplicación calcula un saldo absoluto y lo escribe (lectura-modificación-escritura). | Pruebas A3 y A4 de [existencias-y-ajustes.md](../flujos/existencias-y-ajustes.md) §7; análisis C2 y C5 |
+| Q8 | Una salida descuenta lo que falta por surtir (`quantity − supplied_quantity`), dentro de una transacción que bloquea la orden, con una sola operación de confirmación. Ninguna escritura queda sin `await`. | Prueba S2 y S3 de [surtido-y-erp.md](../flujos/surtido-y-erp.md) §7; análisis C3 y C6 |
+| Q9 | La disponibilidad se comprueba dentro de la misma transacción que escribe, con el saldo bloqueado. Nunca con una lectura previa. | Prueba A3 de [existencias-y-ajustes.md](../flujos/existencias-y-ajustes.md) §7; análisis C4 |
+| Q10 | El saldo sale de la proyección, no del historial. Un listado hace un número fijo de consultas, sin N+1. | Pruebas de rendimiento de la fase 5; análisis A1 a A4 |
 
 ## 4. Decisiones
 
@@ -56,9 +61,9 @@ confirmación antes de la fase donde se aplican.
 | D3 | PostgreSQL 16 con Flyway; el motor de inventario sigue en funciones SQL | Tomada | [ADR-0015](../adr/0015-postgresql-flyway-motor-en-sql.md) |
 | D4 | Despliegue local con Docker Compose | Tomada | [ADR-0016](../adr/0016-docker-compose-para-el-entorno.md) |
 | D5 | ERP: sin cliente, la exportación falla con motivo; no se simula el éxito | Tomada (Q2) | [flujos/surtido-y-erp.md](../flujos/surtido-y-erp.md) |
-| D6 | **Dominio compartido** entre la API y la app (módulo KMP con las reglas) | **Propuesta: sí** | [arquitectura/dominio-kmp.md](../arquitectura/dominio-kmp.md) |
-| D7 | Reutilizar las migraciones `V1`–`V10` como esquema inicial de Flyway, en lugar de rediseñar el esquema | **Propuesta: sí** | §5, fase 1 |
-| D8 | Versiones exactas (Spring Boot, Kotlin, JDK, Compose Multiplatform, React) | **Pendiente**: se fijan en la fase 0 comprobándolas en su fuente oficial | [arquitectura/stack.md](../arquitectura/stack.md) |
+| D6 | **Dominio compartido** entre la API y la app (módulo KMP con las reglas) | **Tomada (2026-10-10): sí** | [arquitectura/dominio-kmp.md](../arquitectura/dominio-kmp.md) |
+| D7 | Reutilizar las migraciones `V1`–`V10` como esquema inicial de Flyway, en lugar de rediseñar el esquema | **Tomada (2026-10-10): sí** | §5, fase 1 |
+| D8 | Versiones de la API: Spring Boot 4.1.x, Kotlin 2.4.20, JDK 25 LTS | **Tomada (2026-10-10)**; confirmar en la fuente oficial antes de fijar el lockfile | [arquitectura/stack.md](../arquitectura/stack.md) |
 | D9 | La web mantiene FSD | **Propuesta: sí** | [arquitectura/web-fsd.md](../arquitectura/web-fsd.md) |
 | D10 | Identificador del ERP (`external_id`) | **Pendiente**: depende de lo que el ERP acepte | [ADR-0013](../adr/0013-ordenes-al-erp-con-reintentos.md) |
 

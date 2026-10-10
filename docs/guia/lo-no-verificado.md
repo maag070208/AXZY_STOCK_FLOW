@@ -4,11 +4,11 @@
 
 | Qué | Estado |
 |---|---|
-| **Migración a capas de la API** | **A medias.** `inventory/`, `receiving/` y `transfer/` ya están en capas (`application/` + `infrastructure/`), y `catalog/` está partido por recurso con sus servicios. Siguen en la raíz del paquete `identity/`, `audit/`, `health/`, `tools/`, `order/`, `label/` y `reports/`, y falta la guardia de dependencias ([migracion-capas.md](../arquitectura/migracion-capas.md)) |
-| **Regla de dependencias, sin guardia** | Nada impide hoy que `application/` importe Ktor, Exposed o JDBC. Se comprueba a mano con el `grep` de [api-ktor.md](../arquitectura/api-ktor.md) §1.3 |
-| **`Dispatchers.IO` / `withContext`** | **0 usos** en `backend/src`. Todo el JDBC bloquea el hilo de Netty ([api-ktor.md](../arquitectura/api-ktor.md) §1.10) |
-| **MDC, métricas y trazas** | **0 `MDC`, 0 Micrometer, 0 OpenTelemetry.** El logging es plano; el `X-Request-Id` está prometido en el documento OpenAPI y **no se propaga** ([api-ktor.md](../arquitectura/api-ktor.md) §1.14) |
-| **Resiliencia** | **0** timeouts, circuit breaker, reintentos y rate limiter. El `429 RATE_LIMITED` existe **solo en el catálogo de errores**, sin nada que lo emita ([api-ktor.md](../arquitectura/api-ktor.md) §1.15) |
+| **Migración a capas de la API** | **A medias.** `inventory/`, `receiving/` y `transfer/` ya están en capas (`application/` + `infrastructure/`), y `catalog/` está partido por recurso con sus servicios. Siguen en la raíz del paquete `identity/`, `audit/`, `health/`, `tools/`, `order/`, `label/` y `reports/`, y falta la guardia de dependencias ([migracion-capas.md](../historico/MIGRACION-CAPAS-KTOR.md)) |
+| **Regla de dependencias, sin guardia** | Nada impide hoy que `application/` importe Ktor, Exposed o JDBC. Se comprueba a mano con el `grep` de [api-ktor.md](../historico/API-KTOR.md) §1.3 |
+| **`Dispatchers.IO` / `withContext`** | **0 usos** en `backend/src`. Todo el JDBC bloquea el hilo de Netty ([api-ktor.md](../historico/API-KTOR.md) §1.10) |
+| **MDC, métricas y trazas** | **0 `MDC`, 0 Micrometer, 0 OpenTelemetry.** El logging es plano; el `X-Request-Id` está prometido en el documento OpenAPI y **no se propaga** ([api-ktor.md](../historico/API-KTOR.md) §1.14) |
+| **Resiliencia** | **0** timeouts, circuit breaker, reintentos y rate limiter. El `429 RATE_LIMITED` existe **solo en el catálogo de errores**, sin nada que lo emita ([api-ktor.md](../historico/API-KTOR.md) §1.15) |
 | **`domain/` propio del backend** | `domain/error/DomainFailure` **todavía no existe**; el catálogo de errores vive en `stock-domain` (`DomainError`) |
 | **Auditoría de escrituras** | Inventario, recepción y **traslados** escriben su auditoría, y las **denegaciones de acceso** también. Faltan las de **catálogo, surtido y etiquetas** ([auditoria.md](../seguridad/auditoria.md)) |
 | **Administración de acceso por interfaz** | `GET /v1/users`, `/v1/roles` y `/v1/permissions` existen y la pantalla los consulta. **No hay rutas de escritura**: crear un usuario o cambiarle los roles se hace por SQL |
