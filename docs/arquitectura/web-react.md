@@ -195,7 +195,7 @@ Las pruebas de navegador se dividen en dos clases:
 | Archivo | API | Qué afirma |
 |---|---|---|
 | `tests/login.spec.ts` | Real (`127.0.0.1:8081`) | Que la web y la API se entienden: la entrada, el error de credenciales y la pantalla que decide la API |
-| `tests/catalog.spec.ts`, `tests/modules.spec.ts` | Simulada con `page.route` | La interfaz y la **petición exacta** que hace la web |
+| `tests/catalog.spec.ts`, `tests/modules.spec.ts`, `tests/receiving.spec.ts`, `tests/transfers.spec.ts`, `tests/orders.spec.ts`, `tests/labels.spec.ts` | Simulada con `page.route` | La interfaz, la **petición exacta** que hace la web y lo que muestra ante cada error de la API |
 
 Cuatro cosas que se aprendieron al escribirlas:
 
@@ -209,3 +209,21 @@ Cuatro cosas que se aprendieron al escribirlas:
   etiquetas comprueba la ruta real para que la regresión vuelva a fallar en la suite.
 - **Las credenciales de la prueba de entrada son propias** (`E2E_ADMIN_PASSWORD`): ver ARRANQUE.md.
 
+
+### 8.1 Escrituras: cómo se reparten las acciones
+
+Una acción de escritura vive en su pantalla de detalle (`/invoices/:id`, `/transfers/:id`, `/orders/:id`)
+o en la cola (reimprimir). El patrón es el mismo en todas:
+
+- **El botón se ofrece según permiso y estado**, pero la API decide igual. Si el estado no admite la
+  acción, la API responde su código (`INVALID_TRANSITION`, `LINE_ALREADY_RESOLVED`, …) y la web lo muestra
+  tal cual, sin inventar un mensaje.
+- **Lo que la web sabe que va a fallar, no se envía.** Un faltante sin motivo, un conteo con cajas con
+  fracción o un motivo de decisión vacío se detectan en el diálogo; la prueba afirma que **no sale ninguna
+  petición**.
+- **Tras cada acción se vuelve a pedir el recurso** (o se usa la respuesta si trae el recurso completo). Lo
+  que se pinta es lo que el servidor tiene.
+- **Las acciones que mueven stock o escriben en el ERP piden confirmación** cuando no se pueden deshacer
+  desde la pantalla: cancelar un traslado despachado devuelve mercancía a origen.
+- **La lista de motivos de ajuste** vive en `shared/lib/adjustmentReasons.ts`. La API no la expone; espeja
+  el enum del dominio y hay que actualizarla si el dominio gana un motivo.

@@ -91,7 +91,7 @@ async function signIn(page: Page) {
   await page.locator('input[name="username"]').fill("jefa");
   await page.locator('input[name="password"]').fill("lo-que-sea");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page.getByText("Estado del sistema y accesos del catálogo")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Inicio", exact: true })).toBeVisible();
 }
 
 test.describe("catálogo (API simulada)", () => {
@@ -99,7 +99,8 @@ test.describe("catálogo (API simulada)", () => {
     await signIn(page);
 
     // La prueba del §5 de web-react.md: el menú tiene que VERSE, no solo existir.
-    const menuItem = page.getByText("Productos", { exact: true }).first();
+    // Dentro del `nav`: el inicio también tiene un indicador llamado «Productos».
+    const menuItem = page.getByRole("navigation").getByText("Productos", { exact: true });
     await expect(menuItem).toBeVisible();
     expect((await menuItem.boundingBox())?.width ?? 0).toBeGreaterThan(0);
   });
@@ -205,7 +206,7 @@ test.describe("catálogo (API simulada)", () => {
     await page.locator('input[name="password"]').fill("lo-que-sea");
     await page.getByRole("button", { name: "Entrar" }).click();
 
-    await expect(page.getByText("Estado del sistema y accesos del catálogo")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Inicio", exact: true })).toBeVisible();
     await expect(page.getByText("Productos", { exact: true })).toHaveCount(0);
   });
 });

@@ -86,7 +86,7 @@ test.describe("entrada", () => {
      * cuenta, y afirmar uno solo la volvería frágil sin ganar nada.
      */
     await expect(
-      page.getByText(/Estado del sistema y accesos del catálogo|Cambio de contraseña/),
+      page.getByText(/Inicio|Cambio de contraseña/),
     ).toBeVisible();
   });
 });

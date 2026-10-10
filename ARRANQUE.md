@@ -89,7 +89,7 @@ no está en el puerto por defecto: `STOCK_API_URL=http://127.0.0.1:9090 pnpm dev
 | `pnpm typecheck` | `tsc --noEmit` |
 | `pnpm lint` | `eslint . --max-warnings=0`: impone las capas FSD y los envoltorios del UI system |
 | `pnpm build` | `tsc --noEmit && vite build` |
-| `pnpm test:e2e` | Playwright (17 pruebas). La entrada necesita la API levantada; el catálogo y los módulos usan la API simulada |
+| `pnpm test:e2e` | Playwright (30 pruebas). La entrada necesita la API levantada; el resto usa la API simulada |
 
 **La primera vez te obliga a cambiar la contraseña**, y es el comportamiento documentado (I8):
 mientras no la cambies, la API responde `PASSWORD_CHANGE_REQUIRED` a todo lo demás y la web solo
@@ -169,8 +169,9 @@ contenedores.
   catálogo (productos con alta/edición/baja e importación con simulación, ubicaciones y bodegas),
   con la marca del paquete de iconos (favicon, manifiesto, glifo del armazón) y el loader de Lottie
   mientras la importación trabaja. `tsc`, `eslint` (con las guardias de capas y de envoltorios
-  **probadas fallando**) y `vite build` en verde, y 17 pruebas de navegador: 12 con la API simulada (6 del
-  catálogo y 6 de los módulos de lectura), y 5 contra la API real (entrada y sesión).
+  **probadas fallando**) y `vite build` en verde, y 30 pruebas de navegador: 25 con la API simulada (6 del
+  catálogo, 6 de los módulos de lectura y 13 de las acciones de escritura), y 5 contra la API real
+  (entrada y sesión).
 
 ```bash
 # El catálogo, de punta a punta (necesita una sesión con permisos de catálogo)

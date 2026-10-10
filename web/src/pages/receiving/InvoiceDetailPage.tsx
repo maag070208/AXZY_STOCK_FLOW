@@ -29,6 +29,7 @@ export default function InvoiceDetailPage() {
   const [invoice, setInvoice] = useState<InvoiceDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [version, setVersion] = useState(0);
   const [counting, setCounting] = useState<InvoiceLine | null>(null);
   const [deciding, setDeciding] = useState<"approve" | "reject" | null>(null);
@@ -75,6 +76,21 @@ export default function InvoiceDetailPage() {
     }
     setDeciding(null);
     refresh();
+  };
+
+  /** Asignarse una línea: la API la deja a nombre de quien llama y responde la línea actualizada. */
+  const assignToMe = async (line: InvoiceLine) => {
+    setBusy(true);
+    setActionError(null);
+    try {
+      await receivingApi.assign(invoiceId, line.id, {});
+      dispatch(showToast("Línea asignada.", "success"));
+      refresh();
+    } catch (caught) {
+      setActionError(caught instanceof ApiError ? caught.message : "No se pudo asignar la línea.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const close = async () => {
@@ -125,7 +141,7 @@ export default function InvoiceDetailPage() {
         </ITText>
       </ITFlex>
 
-      {actionError && <ITAlert variant="error" title="No se pudo cerrar la factura">{actionError}</ITAlert>}
+      {actionError && <ITAlert variant="error" title="No se pudo completar la acción">{actionError}</ITAlert>}
 
       <ITFlex gap={2} wrap="wrap" className="mb-4">
         <ITButton label="Volver a recepción" variant="outline" onClick={() => navigate("/invoices")} />
@@ -166,9 +182,14 @@ export default function InvoiceDetailPage() {
                   <ITBadget label={line.status} color="secondary" size="sm" />
                 </td>
                 <td className="py-2 pr-3 text-right">
-                  {can(user, "invoice.capture") && isCountable(line.status) && (
-                    <ITButton label="Contar" size="sm" variant="outline" onClick={() => setCounting(line)} />
-                  )}
+                  <ITFlex gap={2} justify="end" wrap="wrap">
+                    {can(user, "invoice.assign") && line.status === "PENDING" && (
+                      <ITButton label="Asignarme" size="sm" variant="outline" disabled={busy} onClick={() => void assignToMe(line)} />
+                    )}
+                    {can(user, "invoice.capture") && isCountable(line.status) && (
+                      <ITButton label="Contar" size="sm" variant="outline" onClick={() => setCounting(line)} />
+                    )}
+                  </ITFlex>
                 </td>
               </tr>
             ))}

@@ -12,7 +12,7 @@
 | 4. Catálogo | **Cerrada salvo el Excel** | `CatalogFlowTest` K1–K6, I5 e I8; `CatalogPersistenceTest`; `RoutePermissionTest` |
 | 5. Existencias | **Cerrada** | `InventoryFlowTest` A1–A10 y `ReportFlowTest`; `InventoryEngineConcurrencyTest`; `InventoryWriteGuardTest`; presupuesto de consultas medido |
 | 6. Recepción | **Cerrada** | `ReceivingFlowTest` R1–R8 |
-| 11. Web | **Entrada, catálogo y los siete módulos de lectura** (Existencias, Kardex, Recepción, Surtido, Traslados, Etiquetas, Auditoría), con el servicio `web` en Compose | `web/`: `tsc`, `eslint` y `vite build` en verde; 17 pruebas de Playwright. Las acciones de escritura de los módulos (crear, capturar, aprobar, empacar, despachar, imprimir) siguen pendientes |
+| 11. Web | **Entrada, catálogo, los siete módulos de lectura y las escrituras de recepción, traslados, surtido y reimpresión**, con el servicio `web` en Compose | `web/`: `tsc`, `eslint` en verde; 30 pruebas de Playwright. Pendientes: crear orden y ubicar desde la web |
 | 7. Surtido y ERP | **Cerrada** | `FulfillmentFlowTest` S1–S8; confirmación simultánea en `FulfillmentPersistenceTest` |
 | 8. Traslados | **Cerrada** | `TransferEngineTest` (motor e invariante) y `TransferFlowTest` T1–T8 |
 | 9. Etiquetas y auditoría | **Cerrada**: M06 con L1–L5 y M08 con U1–U5 en verde | `LabelFlowTest`, `PrintJobConfirmationTest` y `AuditFlowTest` |
@@ -216,7 +216,9 @@ exista el HTTP:
 2. **M10, migración:** falta el stock inicial del legacy a `SIN-UBICAR` con el movimiento `INITIAL`
    —que el motor ya soporta—, la lectura de XLSX (Apache POI ya está en el proyecto por la
    exportación del kardex) y la conciliación con conteo.
-3. **Fase 11, web:** las pantallas de lectura de los siete módulos están hechas y probadas con la API
-   simulada. Falta lo que escribe: crear factura, capturar, aprobar, empacar, confirmar, despachar,
-   recibir, imprimir y reimprimir. Cada acción va con su prueba de navegador, y solo cuando su
-   endpoint y sus errores estén en el contrato.
+3. **Fase 11, web:** hechas las pantallas de lectura y las escrituras de recepción (alta, captura,
+   aprobar, rechazar, cerrar), traslados (despachar, recibir, cancelar), surtido (asignarme, empacar,
+   faltante, confirmar, exportar) y reimpresión de etiquetas. Pendientes: crear orden (necesita su
+   contrato de líneas en la web) y ubicar mercancía de una factura desde la web (hoy lo hace la app de
+   piso). Asignar una línea de factura a uno mismo ya está; asignarla a otro capturista, no. Cada acción nueva va con su prueba de
+   navegador, y solo cuando su endpoint y sus errores estén en el contrato.

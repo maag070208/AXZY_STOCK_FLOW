@@ -83,7 +83,7 @@ Se compila a bytecode de Java 17 para que lo carguen la API y Android
 | Tailwind CSS / `@tailwindcss/vite` | Utilidades; se usa en capas ([web-react.md](web-react.md) §5) | `4.3.3` / `^4.3.3` | `web/package.json` |
 | React Router | Rutas | `^7.2.0` | `web/package.json` |
 | Redux Toolkit / React Redux | Estado de la sesión | `^2.5.1` / `^9.2.0` | `web/package.json` |
-| Playwright | Pruebas de navegador | `^1.64.0` | `web/package.json`; 17 pruebas en verde el 2026-10-10 |
+| Playwright | Pruebas de navegador | `^1.64.0` | `web/package.json`; 30 pruebas en verde el 2026-10-10 |
 | ESLint con `eslint-plugin-boundaries` | Imponer las capas FSD | `^9.19.0` / `^7.2.0` | `web/package.json`; la guardia se verificó haciéndola fallar |
 
 Las versiones de la web se fijan **al empezar su fase** (2026-10-10), como manda §«Qué se decide en

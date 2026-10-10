@@ -43,7 +43,7 @@ async function signIn(page: Page) {
   await page.locator('input[name="username"]').fill("etiquetas");
   await page.locator('input[name="password"]').fill("lo-que-sea");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page.getByText("Estado del sistema y accesos del catálogo")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Inicio", exact: true })).toBeVisible();
 }
 
 test.describe("etiquetas: reimpresión (API simulada)", () => {

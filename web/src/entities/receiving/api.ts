@@ -1,4 +1,4 @@
-import { get, post } from "@shared/api/client";
+import { get, post, put } from "@shared/api/client";
 import { compactParams, toQueryParams } from "@shared/api/query";
 import type { Page, PageQuery } from "@shared/api/types";
 import type {
@@ -28,6 +28,10 @@ export const receivingApi = {
   /** Responde la línea, no la factura. */
   capture: (invoiceId: number, lineId: number, body: CaptureBody): Promise<InvoiceLine> =>
     post<InvoiceLine>(`/invoices/${invoiceId}/lines/${lineId}/capture`, body),
+
+  /** Sin `userId` la línea queda a nombre de quien llama. Solo se puede desde `PENDING`. */
+  assign: (invoiceId: number, lineId: number, body: { userId?: number }): Promise<InvoiceLine> =>
+    put<InvoiceLine>(`/invoices/${invoiceId}/lines/${lineId}/assign`, body),
 
   approve: (id: number, body: DecisionBody): Promise<InvoiceDetail> =>
     post<InvoiceDetail>(`/invoices/${id}/approve`, body),

@@ -15,6 +15,7 @@ const PERMISSIONS = [
   "invoice.approve",
   "invoice.reject",
   "invoice.close",
+  "invoice.assign",
 ];
 
 const USER = {
@@ -75,7 +76,7 @@ async function signIn(page: Page) {
   await page.locator('input[name="username"]').fill("capturista");
   await page.locator('input[name="password"]').fill("lo-que-sea");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page.getByText("Estado del sistema y accesos del catálogo")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Inicio", exact: true })).toBeVisible();
 }
 
 /** Entra a Recepción desde el menú: un clic dentro de la app, sin recargar (la sesión vive en memoria). */
@@ -177,5 +178,24 @@ test.describe("recepción: escrituras (API simulada)", () => {
     expect((await request).postDataJSON()).toEqual({ adjustmentReason: "SUPPLIER_ERROR" });
 
     await expect(page.getByText("Quien capturó una línea no puede aprobar su discrepancia.")).toBeVisible();
+  });
+
+  test("asignarse una línea pendiente envía la asignación sin cuerpo y la línea queda a nombre del usuario", async ({ page }) => {
+    let current = invoice([LINE_PENDING]);
+    await mockList(page, current.lines);
+    await page.route("**/v1/invoices/15", (route) => route.fulfill({ json: current }));
+    await page.route("**/v1/invoices/15/lines/88/assign", (route) => {
+      current = invoice([{ ...LINE_PENDING, status: "ASSIGNED", capturedByName: null }], "IN_PROGRESS");
+      return route.fulfill({ json: current.lines[0] });
+    });
+    await signIn(page);
+    await openReceiving(page);
+
+    await page.getByText("F-2024-0158").first().click();
+    const request = page.waitForRequest((req) => req.url().endsWith("/lines/88/assign"));
+    await page.getByRole("button", { name: "Asignarme" }).click();
+    // Sin userId: la API asigna a quien llama.
+    expect((await request).postDataJSON()).toEqual({});
+    await expect(page.getByText("ASSIGNED").first()).toBeVisible();
   });
 });
