@@ -74,17 +74,6 @@ class ReceivingFlowTest : ApiTest() {
         post("/v1/invoices/$invoiceId/$route", mapOf("adjustmentReason" to reason, "note" to "Revisado"), token)
 
     /** Deja saldo en la recepción: es de donde sale una ubicación. */
-    private fun stockInReceiving(token: String, quantity: Int, who: Long) =
-        post(
-            "/v1/inventory/adjustments",
-            mapOf(
-                "productCode" to "ABRAA1B", "locationCode" to "RECEPCION", "quantity" to quantity,
-                "direction" to "INCREASE", "reason" to "COUNT_ERROR", "origin" to "MANUAL_COUNT",
-                "approverId" to who,
-            ),
-            token,
-        )
-
     /** Ubica mercancía de la recepción a un estante, diciendo de qué línea sale. */
     private fun locate(
         token: String,
@@ -446,7 +435,6 @@ class ReceivingFlowTest : ApiTest() {
         val lineId = lineIds(token, id).single()
         // Se facturaron 10 y se contaron 9: discrepancia sin aprobar.
         capture(token, id, lineId, quantity = 9, boxes = 1)
-        stockInReceiving(token, quantity = 9, who = approver(token))
 
         val response = locate(token, lineId, quantity = 9)
 
@@ -467,7 +455,6 @@ class ReceivingFlowTest : ApiTest() {
         val id = invoice(token)
         val lineId = lineIds(token, id).single()
         capture(token, id, lineId, quantity = 10, boxes = 2)
-        stockInReceiving(token, quantity = 10, who = approver(token))
 
         val response = locate(token, lineId, quantity = 10)
         val line = line(token, id, lineId)
@@ -493,7 +480,6 @@ class ReceivingFlowTest : ApiTest() {
         val id = invoice(token)
         val lineId = lineIds(token, id).single()
         capture(token, id, lineId, quantity = 10, boxes = 2)
-        stockInReceiving(token, quantity = 10, who = approver(token))
 
         locate(token, lineId, quantity = 4)
         val line = line(token, id, lineId)
@@ -511,7 +497,6 @@ class ReceivingFlowTest : ApiTest() {
         shelf(token)
         val id = invoice(token)
         val lineId = lineIds(token, id).single()
-        stockInReceiving(token, quantity = 10, who = approver(token))
 
         val response = locate(token, lineId, quantity = 10)
 
@@ -528,7 +513,6 @@ class ReceivingFlowTest : ApiTest() {
         val id = invoice(token)
         val lineId = lineIds(token, id).single()
         capture(token, id, lineId, quantity = 10, boxes = 2)
-        stockInReceiving(token, quantity = 10, who = approver(token))
 
         val inexistente = locate(token, lineId = 999999, quantity = 1)
         assertThat(inexistente.status).isEqualTo(404)
@@ -537,7 +521,6 @@ class ReceivingFlowTest : ApiTest() {
         // Mover el saldo de un producto mientras se anota la línea de otro dejaría la
         // factura diciendo una cosa y el almacén otra.
         product(token, code = "OTRO01")
-        stockInReceiving(token, quantity = 5, who = approver(token))
         val otro = post(
             "/v1/inventory/locate",
             mapOf(
@@ -562,5 +545,144 @@ class ReceivingFlowTest : ApiTest() {
         assertThat(get("/v1/invoices", token).status).isEqualTo(200)
         assertThat(post("/v1/invoices", mapOf("invoiceNumber" to "F-X"), token).code).isEqualTo("PERMISSION_DENIED")
         assertThat(post("/v1/invoices/1/close", emptyMap<String, Any>(), token).code).isEqualTo("PERMISSION_DENIED")
+    }
+
+    // ── M10/M03: la mercancía entra al contar ───────────────────────────────
+
+    private fun kardexOf(token: String, moveType: String): List<Map<String, Any?>> =
+        get("/v1/inventory/kardex?moveType=$moveType", token).at<List<Map<String, Any?>>>("items")
+
+    @Test
+    fun `al contar, la mercancia entra en RECEPCION`() {
+        val token = manager()
+        product(token)
+        val factura = invoice(token)
+        val linea = lineIds(token, factura).single()
+
+        val response = capture(token, factura, linea, quantity = 10, boxes = 2)
+
+        assertThat(response.status).describedAs(response.raw).isEqualTo(200)
+        // Antes de esto, contar no metía nada: el saldo tenía que aparecer por un ajuste a
+        // mano y ubicar desde RECEPCION se encontraba cero.
+        assertThat(quantityAt(token, "RECEPCION")).isEqualTo("10.000")
+        val entradas = kardexOf(token, "RECEIPT_IN")
+        assertThat(entradas).hasSize(1)
+        assertThat(entradas.single()["units"]).isEqualTo("10.000")
+    }
+
+    @Test
+    fun `volver a contar no suma dos veces`() {
+        val token = manager()
+        val jefe = supervisor()
+        product(token)
+        val factura = invoice(token)
+        val linea = lineIds(token, factura).single()
+        // Se contaron 9 de 10 facturadas: discrepancia, que el supervisor manda a recuento.
+        capture(token, factura, linea, quantity = 9, boxes = 1)
+        val rechazo = post(
+            "/v1/invoices/$factura/reject-discrepancy",
+            mapOf("adjustmentReason" to "COUNT_ERROR", "note" to "Recuento pedido"),
+            jefe,
+        )
+        assertThat(rechazo.status).describedAs(rechazo.raw).isEqualTo(200)
+
+        val response = capture(token, factura, linea, quantity = 8, boxes = 1)
+
+        assertThat(response.status).describedAs(response.raw).isEqualTo(200)
+        // Quedan 8: entraron 9 y el recuento sacó 1 con un ajuste por error de conteo. Sin
+        // la cuenta de lo ya ingresado, el kardex tendría 17 y el stock no cuadraría con nada.
+        assertThat(quantityAt(token, "RECEPCION")).isEqualTo("8.000")
+        assertThat(kardexOf(token, "RECEIPT_IN")).hasSize(1)
+        val ajustes = kardexOf(token, "ADJUSTMENT_OUT")
+        assertThat(ajustes.single()["units"]).isEqualTo("1.000")
+    }
+
+    @Test
+    fun `contar de mas ingresa la diferencia, no el total`() {
+        val token = manager()
+        val jefe = supervisor()
+        product(token)
+        val factura = invoice(token)
+        val linea = lineIds(token, factura).single()
+        capture(token, factura, linea, quantity = 9, boxes = 1)
+        post(
+            "/v1/invoices/$factura/reject-discrepancy",
+            mapOf("adjustmentReason" to "COUNT_ERROR", "note" to "Recuento pedido"),
+            jefe,
+        )
+
+        val response = capture(token, factura, linea, quantity = 14, boxes = 2)
+
+        assertThat(response.status).describedAs(response.raw).isEqualTo(200)
+        // 9 + 5: la segunda entrada es la diferencia, no los 14 otra vez.
+        assertThat(quantityAt(token, "RECEPCION")).isEqualTo("14.000")
+        assertThat(kardexOf(token, "RECEIPT_IN").map { it["units"] }).containsExactly("9.000", "5.000")
+    }
+
+    // ── Asignar el conteo a una persona (M03) ───────────────────────────────
+
+    @Test
+    fun `asignar una linea deja quien la cuenta y se ve en el detalle`() {
+        val token = manager()
+        product(token)
+        val factura = invoice(token)
+        val linea = lineIds(token, factura).single()
+        val capturista = createUser("capturista", USER_PASSWORD, BaseRole.WAREHOUSE_OPERATOR.key.value)
+
+        val response = put("/v1/invoices/$factura/lines/$linea/assign", mapOf("userId" to capturista), token)
+
+        assertThat(response.status).describedAs(response.raw).isEqualTo(200)
+        assertThat(response.at<String>("status")).isEqualTo("ASSIGNED")
+        assertThat((response.at<Number>("assignedUserId")).toLong()).isEqualTo(capturista)
+        // El nombre visible, para que el cliente no tenga que resolverlo.
+        assertThat(response.at<String>("assignedUserName")).isEqualTo("Usuario capturista")
+        // Y el detalle de la factura lo publica.
+        assertThat(line(token, factura, linea)["assignedUserName"]).isEqualTo("Usuario capturista")
+    }
+
+    @Test
+    fun `sin userId la asignacion es a quien llama`() {
+        val token = manager()
+        product(token)
+        val factura = invoice(token)
+        val linea = lineIds(token, factura).single()
+        val jefa = db.sql("SELECT id FROM users WHERE username = 'jefa'").query(Long::class.java).single()
+
+        val response = put("/v1/invoices/$factura/lines/$linea/assign", mapOf<String, Any?>(), token)
+
+        assertThat(response.status).describedAs(response.raw).isEqualTo(200)
+        assertThat((response.at<Number>("assignedUserId")).toLong()).isEqualTo(jefa)
+    }
+
+    @Test
+    fun `no se reasigna una linea ya contada`() {
+        val token = manager()
+        product(token)
+        val factura = invoice(token)
+        val linea = lineIds(token, factura).single()
+        capture(token, factura, linea, quantity = 10, boxes = 2)
+
+        val response = put("/v1/invoices/$factura/lines/$linea/assign", mapOf<String, Any?>(), token)
+
+        // El conteo tiene responsable: cambiarlo después sería reescribir quién hizo el trabajo.
+        assertThat(response.status).isEqualTo(409)
+        assertThat(response.code).isEqualTo("INVALID_TRANSITION")
+    }
+
+    @Test
+    fun `asignar exige el permiso y un usuario que exista`() {
+        val token = manager()
+        product(token)
+        val factura = invoice(token)
+        val linea = lineIds(token, factura).single()
+        createUser("operador", USER_PASSWORD, BaseRole.WAREHOUSE_OPERATOR.key.value)
+        val suToken = accessTokenOf("operador", USER_PASSWORD)
+
+        val sinPermiso = put("/v1/invoices/$factura/lines/$linea/assign", mapOf<String, Any?>(), suToken)
+        val inventado = put("/v1/invoices/$factura/lines/$linea/assign", mapOf("userId" to 999999), token)
+
+        assertThat(sinPermiso.code).isEqualTo("PERMISSION_DENIED")
+        assertThat(inventado.status).isEqualTo(422)
+        assertThat(inventado.code).isEqualTo("ASSIGNEE_NOT_FOUND")
     }
 }

@@ -177,6 +177,25 @@ class JdbcOrders(private val jdbc: JdbcClient) : Orders, OrderCatalog {
         )
     }
 
+    override fun assignLine(lineId: Long, userId: Long, locationId: Long?, at: Instant): Int =
+        update(
+            """
+            UPDATE order_lines SET
+                assigned_user_id = CAST(:user AS bigint),
+                location_id = COALESCE(CAST(:location AS bigint), location_id),
+                status = 'ASSIGNED',
+                updated_at = CAST(:at AS timestamptz)
+            WHERE id = CAST(:line AS bigint)
+              AND status IN ('PENDING', 'ASSIGNED')
+            """.trimIndent(),
+            mapOf(
+                "user" to userId,
+                "location" to locationId,
+                "at" to OffsetDateTime.ofInstant(at, ZoneOffset.UTC),
+                "line" to lineId,
+            ),
+        )
+
     override fun setStatus(orderId: Long, status: String, at: Instant) {
         update(
             "UPDATE orders SET status = CAST(:status AS order_status), updated_at = CAST(:at AS timestamptz) " +

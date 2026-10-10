@@ -2,6 +2,11 @@ package dev.axzy.stock.application.receiving
 
 import dev.axzy.stock.application.access.AccessDecider
 import dev.axzy.stock.application.access.Actor
+import dev.axzy.stock.domain.inventory.MovementType
+import dev.axzy.stock.application.inventory.StockLedger
+import dev.axzy.stock.application.inventory.MovementCommand
+import dev.axzy.stock.application.inventory.LocationRef
+import dev.axzy.stock.application.inventory.InventoryCatalog
 import dev.axzy.stock.application.access.authorizeOr
 import dev.axzy.stock.application.audit.AuditEvents
 import dev.axzy.stock.application.audit.AuditRecorder
@@ -290,6 +295,8 @@ data class CaptureInput(val physicalQuantity: Quantity?, val physicalBoxQuantity
  */
 class CaptureLine(
     private val invoices: Invoices,
+    private val ledger: StockLedger,
+    private val catalog: InventoryCatalog,
     private val audit: AuditRecorder,
     private val auditEvents: AuditEvents,
     private val access: AccessDecider,
@@ -335,8 +342,30 @@ class CaptureLine(
             when (val captured = line.capture(quantity, boxes, actor.id)) {
                 is Either.Left -> captured.error.toFailure().asLeft()
                 is Either.Right -> {
-                    invoices.replaceLine(captured.value, clock.instant())
-                    val updated = detail.lines.map { if (it.line.id == lineId) captured.value else it.line }
+                    // **La mercancía entra al contar, y solo la diferencia.** El conteo es el
+                    // momento en que el almacén toma posesión de lo que de verdad llegó —lo
+                    // contado, no lo facturado—, y hasta aquí nadie la metía: el saldo tenía que
+                    // aparecer por un ajuste a mano, así que ubicar desde RECEPCION se encontraba
+                    // cero. Se ingresa la diferencia contra lo ya ingresado por la línea porque
+                    // una línea descartada por el supervisor se recuenta (`rejectDiscrepancy`) y
+                    // la entrada a ciegas contaría la mercancía dos veces.
+                    val yaIngresado = line.receivedQuantity
+                    val delta = (captured.value.physicalQuantity ?: Quantity.ZERO) - yaIngresado
+                    val persisted = captured.value.copy(receivedQuantity = yaIngresado + delta)
+                    // **Se reclama antes de mover.** Dos capturas simultáneas de la misma línea
+                    // leerían el mismo saldo ingresado e ingresarían la misma diferencia: el
+                    // stock se duplicaría. La condición sobre `received_quantity` hace que solo
+                    // una gane; la otra no escribe ni el movimiento.
+                    if (invoices.claimCapture(persisted, yaIngresado, clock.instant()) == 0) {
+                        return@inTransaction failure(
+                            FailureKind.CONFLICT, "LINE_CHANGED",
+                            "Otra persona contó esta línea mientras tanto. Vuelve a consultarla " +
+                                "antes de contarla otra vez.",
+                            mapOf("lineId" to lineId.toString()),
+                        )
+                    }
+                    if (!delta.isZero) enterReceiving(actor, lineId, persisted, delta)
+                    val updated = detail.lines.map { if (it.line.id == lineId) persisted else it.line }
                     val status = invoiceStatusFor(updated, detail.header.status)
                     if (status != detail.header.status) invoices.setStatus(invoiceId, status, clock.instant())
 
@@ -347,24 +376,68 @@ class CaptureLine(
                             action = "INVOICE_LINE_CAPTURED",
                             level = AuditLevel.RELEVANT,
                             entity = AuditEntity("invoice_line", lineId.toString(), detail.header.invoiceNumber),
-                            previousState = mapOf("status" to line.status.name),
+                            previousState = mapOf(
+                                "status" to line.status.name,
+                                "receivedQuantity" to yaIngresado.toPlainString(),
+                            ),
                             newState = mapOf(
-                                "status" to captured.value.status.name,
-                                "physicalQuantity" to captured.value.physicalQuantity?.toPlainString(),
-                                "difference" to captured.value.difference?.toPlainString(),
+                                "status" to persisted.status.name,
+                                "physicalQuantity" to persisted.physicalQuantity?.toPlainString(),
+                                "difference" to persisted.difference?.toPlainString(),
                                 "invoiceStatus" to status,
+                                "enteredNow" to delta.toPlainString(),
                             ),
                         ),
                     )
                     // La respuesta es la LÍNEA capturada, no la factura.
                     view.copy(
-                        line = captured.value,
-                        difference = captured.value.difference,
+                        line = persisted,
+                        difference = persisted.difference,
                         capturedByName = actor.displayName,
                         capturedAt = clock.instant(),
                     ).asRight()
                 }
             }
+        }
+    }
+
+    /**
+     * Mete en `RECEPCION` lo que se acaba de contar de más, o saca lo que ya no está.
+     *
+     * · Si lo contado es **más** que lo ingresado, entra la diferencia con `RECEIPT_IN`.
+     * · Si es **menos**, la diferencia sale con un ajuste por **error de conteo**: el conteo
+     *   anterior estaba alto, y decirlo con el motivo correcto es lo que permite auditar por
+     *   qué bajó el inventario en lugar de dejarlo como una entrada que nunca existió.
+     */
+    private fun enterReceiving(actor: Actor, lineId: Long, line: InvoiceLine, delta: Quantity) {
+        val productId = catalog.activeProduct(line.productCode)?.id ?: return
+        val warehouseId = actor.user.warehouseIds.singleOrNull() ?: catalog.defaultWarehouseId()
+        val receiving = catalog.activeLocation(warehouseId, LocationRef.Receiving)
+            ?: error("No existe la ubicación RECEPCION en la bodega $warehouseId.")
+
+        if (delta.isPositive) {
+            ledger.apply(
+                MovementCommand(
+                    productId = productId,
+                    warehouseId = warehouseId,
+                    moveType = MovementType.RECEIPT_IN,
+                    units = delta,
+                    toLocationId = receiving.id,
+                    userId = actor.id,
+                ),
+            )
+        } else {
+            ledger.apply(
+                MovementCommand(
+                    productId = productId,
+                    warehouseId = warehouseId,
+                    moveType = MovementType.ADJUSTMENT_OUT,
+                    units = Quantity.ofScaled(-delta.value),
+                    fromLocationId = receiving.id,
+                    userId = actor.id,
+                    adjustmentReason = AdjustmentReason.COUNT_ERROR,
+                ),
+            )
         }
     }
 }

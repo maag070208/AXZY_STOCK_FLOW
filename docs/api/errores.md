@@ -40,6 +40,8 @@ usuario es distinta:
 | `SCOPE_INSUFFICIENT` | tiene el permiso, pero no alcanza este recurso | pedir acceso a esa bodega |
 | `POLICY_DENIED` | una política lo prohíbe | cambiar **cuándo** o **cómo** lo hace |
 | `SEGREGATION_OF_DUTIES` | no puede aprobar lo que él mismo capturó | que lo apruebe otra persona |
+| `APPROVER_NOT_AUTHORIZED` | 403 | quien aprueba el ajuste no tiene `inventory.approve_adjustment` en esa bodega |
+| `APPROVER_NOT_FOUND` | 422 | el `approverId` no corresponde a ningún usuario |
 
 Colapsar los cinco en un `403` genérico es el defecto del legacy: el usuario recibe
 «no autorizado» y no sabe si pedir un permiso, esperar, o llamar a otra persona.

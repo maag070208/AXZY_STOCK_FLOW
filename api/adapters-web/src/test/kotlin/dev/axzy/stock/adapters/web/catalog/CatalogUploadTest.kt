@@ -144,7 +144,7 @@ class CatalogUploadTest {
         )
 
         val delCsv = rows(csv(listOf(headers) + datos))
-        val delExcel = rows(readXlsx(xlsx(listOf(headers) + datos)))
+        val delExcel = rows(xlsx(listOf(headers) + datos))
 
         assertThat(delExcel).isEqualTo(delCsv)
         // El nombre lleva una coma: si la conversión no la entrecomillara, el campo se
@@ -158,7 +158,7 @@ class CatalogUploadTest {
         // Un `double` imprimiría `1.091413E7` y el parseo del stock fallaría.
         val bytes = xlsx(listOf(headers, listOf("1", "ABRAA1B", "ABRAZADERA", "PZA", "10914130")))
 
-        val parsed = rows(readXlsx(bytes))
+        val parsed = rows(bytes)
 
         assertThat(parsed.single().stock).isEqualTo("10914130")
     }

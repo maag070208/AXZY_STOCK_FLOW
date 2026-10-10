@@ -5,7 +5,7 @@
 
 1. Conteo físico de los 1.398 productos y reconciliación contra el total heredado
    ([ADR-0012](../adr/0012-conciliar-stock-heredado-con-conteo.md)). **Pendiente.**
-2. Recorrido de los flujos de la web y de la app contra el backend ([roadmap](../guia/roadmap.md)).
+2. Recorrido de los flujos de la web y de la app contra el backend ([roadmap](../historico/ROADMAP-ANTERIOR.md)).
    **Pendiente.**
 3. Respaldo verificado de la base, con restauración probada ([operacion/respaldos.md](../operacion/respaldos.md)).
    **Pendiente: no existe mecanismo de respaldo en el repo.**
@@ -16,7 +16,8 @@
 
 1. Congelar el legacy: sin altas nuevas en `BASE/` desde el inicio del conteo.
 2. Importar el catálogo ([catalogo-excel.md](catalogo-excel.md)) en modo estricto.
-3. Cargar el stock inicial a `SIN-UBICAR`.
+3. Cargar el stock inicial a `SIN-UBICAR` (lo hace la propia importación, con el
+   movimiento `INITIAL` de cada producto sin existencias).
 4. Ejecutar el conteo y los ajustes con motivo para llevar el stock a su valor contado.
 5. Verificar con `comprobar_proyecciones()` que la proyección cuadra con el kardex.
 6. Abrir el sistema nuevo a los operadores por rol ([M07](../modulos/M07-usuarios-accesos/README.md)).

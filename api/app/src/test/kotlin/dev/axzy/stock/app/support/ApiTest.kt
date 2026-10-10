@@ -8,6 +8,7 @@ import dev.axzy.stock.domain.identity.PasswordHasher
 import dev.axzy.stock.testing.MutableClock
 import dev.axzy.stock.testing.TestDatabase
 import org.junit.jupiter.api.BeforeEach
+import dev.axzy.stock.app.config.StockProperties
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.context.TestConfiguration
@@ -24,6 +25,7 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.time.Instant
+import java.time.LocalDate
 
 /** Una respuesta de la API, con el cuerpo ya leído como mapa. */
 data class ApiResponse(val status: Int, val body: Map<String, Any?>, val headers: java.net.http.HttpHeaders, val raw: String) {
@@ -60,7 +62,18 @@ abstract class ApiTest {
     protected var port: Int = 0
 
     @Autowired protected lateinit var clock: MutableClock
+
+    /**
+     * El día operativo, **en la zona de negocio y no en la de la máquina**.
+     *
+     * La API fecha los movimientos con `stock.business-zone`, así que un test que pregunte por
+     * «hoy» con `LocalDate.now()` falla la hora al día en que la máquina y la zona de negocio
+     * están en días distintos (en la costa oeste de EE. UU., de 23:00 a 00:00). La regla es la
+     * misma para los dos, así que el test la pide de la misma configuración.
+     */
+    protected fun businessToday(): LocalDate = LocalDate.now(properties.businessZone)
     @Autowired protected lateinit var json: JsonMapper
+    @Autowired protected lateinit var properties: StockProperties
     @Autowired private lateinit var bootstrap: BootstrapIdentity
     @Autowired private lateinit var tx: TransactionRunner
     @Autowired private lateinit var catalog: AccessCatalogStore

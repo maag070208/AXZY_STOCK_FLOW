@@ -1,6 +1,7 @@
 # Catálogo del Excel inicial
 > **Referencia.** Qué trae el inventario real que se importa al sistema nuevo y cómo se
 > importa. Última verificación: 2026-10-09.
+> **Nota de reconstrucción (2026-10-10).** Los datos y las reglas de importación vigen; los scripts `scripts/` son del sistema anterior. Las reglas siguen vigentes; las rutas de código que cita pertenecen al sistema anterior y se remapean al código nuevo (ver [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
 
 ## Fuente
 
@@ -25,7 +26,13 @@ El total es fiable. El desglose por ubicación no viene en el archivo: ver
 
 - **Estricta.** Una fila inválida rechaza el archivo entero (`catalog/CatalogImportService.kt`).
   No se corrige adivinando.
-- **Stock inicial a `SIN-UBICAR`** ([ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md)).
+- **Stock inicial a `SIN-UBICAR`** ([ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md)),
+  ya implementado: cada producto **sin existencias** recibe su total heredado con un
+  movimiento `INITIAL` en el kardex, con el usuario que importó y su fecha. Un producto que
+  ya tenga saldo se salta —reimportar no puede duplicar el inventario— y el informe dice
+  cuántos se saltaron.
+- **Acepta CSV, TSV y XLSX.** El Excel se lee con Apache POI y se convierte a CSV antes de
+  parsearlo, así que las dos vías validan igual.
 - **Códigos `X` y `XN` son dos productos** (R-71; [ADR-0011](../adr/0011-catalogo-fuente-maestra.md)).
   Son 201 pares, 180 con el mismo nombre. Antes de dar el corte, comparar en cada par si
   ambos tienen stock alto: si es así, hay que revisar la decisión.

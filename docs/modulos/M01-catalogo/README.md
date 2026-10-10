@@ -68,7 +68,7 @@ Toda alta, cambio y baja escribe en `audit_log` con estado anterior y nuevo
 Reglas en `stock-domain/src/commonTest/.../catalog/` (con `CatalogImporterTest`); SQL y paginación
 en `api/adapters-persistence/src/test/.../CatalogPersistenceTest.kt`; flujo por HTTP en
 `api/app/src/test/.../CatalogFlowTest.kt` (K1–K6, I5 e I8). Estrategia en
-[pruebas/estrategia-pruebas.md](../../pruebas/estrategia-pruebas.md).
+[pruebas/estrategia-pruebas.md](../../historico/ESTRATEGIA-PRUEBAS-ANTERIOR.md).
 
 ## 9. Criterios de aceptación
 

@@ -1,6 +1,7 @@
 # Catálogo
 > **Referencia.** Productos, ubicaciones, bodegas e importación del catálogo.
 > Última verificación: 2026-10-10 (fase 4, M01).
+> **Nota de reconstrucción (2026-10-10).** Contrato vigente. Las referencias de código apuntan al backend anterior. Las reglas siguen vigentes; las rutas de código que cita pertenecen al sistema anterior y se remapean al código nuevo (ver [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
 
 Implementado en capas, como el resto de la API (docs/arquitectura/api-spring.md §1):
 
@@ -130,11 +131,18 @@ vuelta atrás.
 
 El informe real añade `created`, `updated` y `skipped` —importar dos veces el
 mismo archivo dice `created: 0` y `skipped: 1398`, que es lo que hace visible que
-no se hizo nada—, `persisted` (filas escritas de verdad, `0` en simulación) y
-`stockPersisted` (siempre `false` en esta fase: el stock del archivo es el total
-del legacy y no dice en qué estantería está cada pieza; la carga inicial de
-existencias es una decisión de negocio con su propio movimiento `INITIAL` en el
-kardex, fase 5).
+no se hizo nada—, `persisted` (filas escritas de verdad, `0` en simulación) y la
+carga de existencias: `stockPersisted`, `stockLoaded` y `stockSkipped`.
+
+**El stock del archivo se carga en `SIN-UBICAR` con un movimiento `INITIAL`**, con el
+usuario que importó y su fecha. El archivo trae el total del legacy y **no dice en qué
+estantería está cada pieza**: lo que hace la carga es dejar ese total en el saldo sin ubicar
+para que el conteo físico lo reparta ([ADR-0012](../adr/0012-conciliar-stock-heredado-con-conteo.md)).
+
+**Solo se carga a quien no tiene existencias.** Un producto que ya tiene saldo se salta y se
+cuenta en `stockSkipped`: reimportar el mismo archivo no puede duplicar el inventario (K2),
+y el informe dice cuántos se saltaron en lugar de esconderlo. En una simulación no se carga
+nada.
 
 **`rejections` con el número de fila es obligatorio**: sin él, el usuario no puede
 corregir el archivo. Se usa el número de fila **físico** del archivo (la cabecera
@@ -152,12 +160,17 @@ Otros errores: `400 FILE_REQUIRED`, `FILE_TOO_LARGE`, `EMPTY_FILE`,
 `IMPORT_FILE_FORMAT`, `INVALID_DRY_RUN`; `422 INVALID_PRODUCT_CODE`,
 `UNKNOWN_UNIT_MEASURE`, `IMPORT_INVALID_EXTERNAL_ID`.
 
-**Formatos: CSV y TSV.** El delimitador se decide por la cabecera, no por la
+**Formatos: CSV, TSV y XLSX.** El delimitador se decide por la **cabecera**, no por la
 extensión: el archivo trabajado de la migración es un TSV
-(`scripts/catalogo-existencias.tsv`). **XLSX todavía no se lee**: responde
-`IMPORT_FILE_FORMAT` diciendo que la lectura del Excel llega con la migración de
-datos (M10). Es un hueco declarado, no un fallo silencioso: exportar la hoja a CSV
-es el camino de hoy.
+(`scripts/catalogo-existencias.tsv`), y renombrar un archivo no cambia su formato.
+
+**El XLSX se lee con Apache POI y se convierte a CSV antes de parsearlo**, con el mismo
+lector que los archivos de texto. Leerlo por separado sería tener dos caminos de validación
+para el mismo dato, y el día que uno cambiara el Excel y el CSV darían resultados distintos
+sin que nadie lo notara; hay una prueba que compara las filas de los dos. Los números se
+leen **como se ven en la hoja** (`10914130`, no `1.091413E7`) y un campo con coma va
+entrecomillado. Un libro corrupto responde `IMPORT_FILE_FORMAT` con el motivo, no un `500`:
+es un error del archivo, y quien lo subió puede arreglarlo.
 
 ## `GET|POST /v1/locations`, `GET|PUT|DELETE /v1/locations/{id}`
 

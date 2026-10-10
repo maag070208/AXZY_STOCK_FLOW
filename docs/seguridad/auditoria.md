@@ -1,5 +1,6 @@
 # Auditoría
 > **Normativo.** Qué se registra, con qué garantías, y qué falta. Última verificación: 2026-10-09.
+> **Nota de reconstrucción (2026-10-10).** Reglas de la bitácora vigentes; las rutas son del backend anterior. Las reglas siguen vigentes; las rutas de código que cita pertenecen al sistema anterior y se remapean al código nuevo (ver [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
 
 **Todo cambio de estado registra quién, qué, sobre qué, cuándo, desde dónde y con qué
 permiso.** La tabla `audit_log` tiene las seis dimensiones, particiones mensuales, cadena de
@@ -54,5 +55,5 @@ veces se intentó y desde dónde—, y un ataque contra permisos es indistinguib
 que se equivocó de pantalla.
 
 El detalle de qué falta está en
-[lo-no-verificado.md](../guia/lo-no-verificado.md). Los permisos y la decisión de acceso
+[lo-no-verificado.md](../historico/LO-NO-VERIFICADO-ANTERIOR.md). Los permisos y la decisión de acceso
 están en [roles-permisos.md](roles-permisos.md).

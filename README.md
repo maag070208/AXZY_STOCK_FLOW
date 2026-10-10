@@ -16,8 +16,8 @@ Un comando: **[ARRANQUE.md](ARRANQUE.md)**.
 | Parte | Carpeta | Qué es | Estado |
 |---|---|---|---|
 | Dominio | `stock-domain/` | Reglas de negocio puras, Kotlin Multiplatform, sin frameworks | Construido |
-| API | `api/` | Kotlin + Spring Boot sobre PostgreSQL, en capas | Identidad y catálogo construidos; negocio en curso |
-| Base de datos | `db/` | Migraciones Flyway `V1`–`V12`, y el rol de la API | Construida |
+| API | `api/` | Kotlin + Spring Boot sobre PostgreSQL, en capas | Fases 0 a 10 cerradas; el ERP sin adaptador |
+| Base de datos | `db/` | Migraciones Flyway `V1`–`V15`, y el rol de la API | Construida |
 | Entorno | `docker-compose.yml` | PostgreSQL, migraciones y API | Construido |
 | Web | `web/` | React 19 + Vite + Tailwind + AXZY UI System, en capas FSD | Entrada y catálogo; crece con cada módulo |
 | Marca | `brand/` | Iconos de la app (Android e iOS) y el manifiesto del paquete de arte | Versionado; la web ya lo usa ([identidad visual](docs/guia/identidad-visual.md)) |

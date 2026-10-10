@@ -2,6 +2,7 @@
 > **Normativo.** Cómo se construyen las rutas, los estados, la paginación, la
 > idempotencia, las cabeceras y los formatos de esta API. Manda sobre el contrato
 > de cada recurso. Última verificación: 2026-10-10.
+> **Nota de reconstrucción (2026-10-10).** Contrato vigente. Las referencias de código apuntan al backend anterior. Las reglas siguen vigentes; las rutas de código que cita pertenecen al sistema anterior y se remapean al código nuevo (ver [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
 
 Este documento define las reglas transversales. El contrato por recurso está en
 [contrato.md](contrato.md); el cuerpo de error y su catálogo, en

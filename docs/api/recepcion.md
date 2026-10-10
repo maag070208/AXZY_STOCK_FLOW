@@ -132,6 +132,23 @@ el identificador no es un número.
 
 ## `POST /v1/invoices/{id}/lines/{lineId}/capture`
 
+**Contar mete la mercancía en `RECEPCION`.** El conteo es el momento en que el almacén toma
+posesión de lo que de verdad llegó —lo contado, no lo facturado—, y el movimiento es un
+`RECEIPT_IN` por la **diferencia** entre lo contado y lo ya ingresado por esa línea. Si lo
+contado es **menos** que lo ya ingresado, la diferencia sale con un ajuste por **error de
+conteo**: el conteo anterior estaba alto, y decirlo con el motivo correcto permite auditar
+por qué bajó el inventario.
+
+Lo ya ingresado vive en la línea (`received_quantity`, V15). Es lo que hace que un recuento
+no sume dos veces: una línea con discrepancia que el supervisor descarta vuelve a `PENDING`
+y se recuenta.
+
+**Y la captura se reclama antes de mover.** Como la entrada es la *diferencia* contra lo ya
+ingresado, dos capturas simultáneas de la misma línea leerían el mismo saldo e ingresarían la
+misma diferencia dos veces: el stock se duplicaría. La reclamación es una sentencia condicional
+sobre `received_quantity` —la primera gana y la segunda cambia cero filas— y la que pierde
+responde `409 LINE_CHANGED` sin escribir ningún movimiento.
+
 Permiso: `invoice.capture`.
 
 ```json
@@ -149,6 +166,29 @@ en lugar de redondearse a espaldas del cliente.
 Errores: `422 INVALID_QUANTITY`, `422 INCONSISTENT_BOX_COUNT`, `422 FIELD_REQUIRED` si
 falta la cantidad o las cajas contadas, `409 LINE_ALREADY_RESOLVED` si la línea ya está
 aprobada o ubicada, `404 LINE_NOT_FOUND`, `400 INVALID_ID`.
+
+## `PUT /v1/invoices/{id}/lines/{lineId}/assign`
+
+Asigna la línea a quien la va a contar. Permiso: `invoice.assign`.
+
+```json
+{ "userId": 7 }
+```
+
+**`userId` es opcional**: sin él, quien llama **se asigna a sí mismo**, que es el caso diario del
+capturista. Con él, un supervisor reparte el conteo de un camión entre varias personas.
+
+- **Solo desde `PENDING`**: una línea ya contada responde `409 INVALID_TRANSITION`. El conteo
+  tiene responsable (`capturedBy`) y cambiarlo después sería reescribir quién hizo el trabajo;
+  una línea en `DISCREPANCY` espera una decisión, no un capturista.
+- Si otra persona contó la línea entre la lectura y la escritura, responde `409 LINE_CHANGED` en
+  vez de asignar trabajo ya hecho.
+- `422 ASSIGNEE_NOT_FOUND` si el usuario no existe; `404 INVOICE_NOT_FOUND` o
+  `404 INVOICE_LINE_NOT_FOUND` si la factura o la línea no existen.
+
+> **Antes no existía.** La columna `assigned_user_id` está en la base desde la primera migración
+> —y la consulta la leía— pero **ninguna ruta la escribía**: el estado `ASSIGNED` decía «alguien
+> la tiene» sin decir quién. Corregido el 2026-10-10.
 
 ## `POST /v1/invoices/{id}/approve`
 

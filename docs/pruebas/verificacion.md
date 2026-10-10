@@ -1,6 +1,7 @@
 # Verificación: las reglas que impiden el autoengaño
 > **Normativo.** No son recomendaciones. Son la respuesta a errores concretos que ya se
 > cometieron. Última verificación: 2026-10-09.
+> **Nota de reconstrucción (2026-10-10).** Las reglas de verificación siguen valiendo; los comandos citan el backend anterior. El comando vigente es `./gradlew verify`. Las reglas siguen vigentes; las rutas de código que cita pertenecen al sistema anterior y se remapean al código nuevo (ver [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
 
 **1. Lee los XML de los tests, nunca «BUILD SUCCESSFUL».**
 Gradle reporta éxito con 0 tests ejecutados.
@@ -44,7 +45,7 @@ sobre una clase compilada). **Los que compilan Gradle se serializan**, y **dos a
 pueden tocar el mismo archivo**, nunca.
 
 Los niveles de prueba y cómo se ejecutan están en
-[estrategia-pruebas.md](estrategia-pruebas.md).
+[estrategia-pruebas.md](../historico/ESTRATEGIA-PRUEBAS-ANTERIOR.md).
 
 ## Un `./gradlew test` en verde no significa que se hayan ejecutado todas las pruebas
 
@@ -120,3 +121,42 @@ Y lo que se hace cuando pasa: `docker compose up -d --force-recreate api`, y vol
 comprobar la ruta contra el artefacto que corre. La regla de arriba sigue valiendo y ahora
 tiene nombre propio: **el artefacto que corre no es el código compilado**, y una imagen que
 se construyó «con éxito» sin compilar nada no es una imagen nueva.
+
+## `write` sobre un archivo de pruebas que ya existía borra lo que había
+
+Comprobado el 2026-10-10, y es un error mío que merece quedar escrito: al escribir las
+pruebas de la lectura de XLSX, **escribí `CatalogUploadTest.kt` sin comprobar que ya
+existía**, y las ocho pruebas del lector de CSV/TSV que había dentro desaparecieron. Lo
+delató `git status`, que marcaba el archivo como `M` (modificado) en vez de nuevo, y el
+recuento del módulo: la capa web pasó de 13 pruebas a 11 **después** de añadir seis.
+
+Dos reglas que salen de ahí:
+
+- **Antes de escribir un archivo de pruebas, `git status` o un `glob`.** Si existe, se lee y
+  se amplía; sobrescribirlo es borrar trabajo que ya estaba verificado.
+- **El recuento de pruebas por módulo es una guardia.** Un módulo que gana pruebas y baja de
+  número tiene un problema, aunque la suite esté en verde. Se mira el número antes y después.
+
+Lo que se hizo: recuperar el archivo del repositorio y **fusionarlo** con las pruebas nuevas,
+después de sustituir la única que quedaba obsoleta (la que comprobaba que el XLSX se
+rechazaba, porque ya se lee). El recuento volvió a subir y las ocho originales siguen ahí,
+con las cuatro nuevas que no repetían nada.
+
+## Un test que falla una hora al día: «hoy» no es la fecha de la máquina
+
+Comprobado el 2026-10-10, y costó un rato de confusión: dos pruebas de reportes empezaron a
+fallar con el resumen de movimientos **vacío**. No era el cambio que acababa de hacer: era la
+hora. La máquina estaba en `PDT` (9 de octubre, 23:02) y la zona de negocio de la API es
+`America/Mexico_City` (UTC-6), donde ya era **10 de octubre**. La prueba pedía
+`from=hoy&to=hoy` con `LocalDate.now()` —la fecha **de la máquina**— mientras la API fecha los
+movimientos en la zona de negocio, así que buscaba en el día equivocado.
+
+Es un fallo de una hora al día, la peor clase: invisible casi siempre y desconcertante cuando
+aparece. La regla que sale de ahí:
+
+- **Una prueba que pregunta por «hoy» tiene que calcularlo como lo calcula la API**, con la
+  misma zona y de la misma configuración. En este proyecto eso es
+  `businessToday()` (`LocalDate.now(properties.businessZone)`), que vive en `ApiTest` para que
+  no haya dos formas de decirlo.
+- Vale para cualquier filtro por fecha: reportes, kardex y auditoría. Si una prueba construye
+  una fecha con `LocalDate.now()` a secas, está en hora de la máquina y algún día fallará.

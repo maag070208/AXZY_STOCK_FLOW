@@ -40,6 +40,11 @@ stateDiagram-v2
 
 Línea: `PENDING` → `ASSIGNED` → `SUPPLIED`, o `CANCELLED` desde `PENDING` o `ASSIGNED`.
 
+**`PENDING` → `ASSIGNED` lo escribe `PUT /v1/orders/{id}/lines/{lineId}/assign`** (permiso
+`order.assign`), que asigna la línea a una persona y, si se indica, a una estantería. El
+empaque también deja la línea en `ASSIGNED` cuando surte una parte. Reasignar mientras está en
+curso se permite; sobre una línea ya surtida o anulada responde `INVALID_TRANSITION`.
+
 **Regla del descuento.** `supplied_quantity` es **siempre** lo ya descontado del inventario. Empacar
 descuenta lo empacado. Confirmar descuenta **lo que falta**: `quantity − supplied_quantity`. Si
 confirmara `quantity` entera, una línea de 10 con 7 empacadas descontaría 17.

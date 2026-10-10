@@ -2,6 +2,8 @@ package dev.axzy.stock.application.fulfillment
 
 import dev.axzy.stock.application.access.AccessDecider
 import dev.axzy.stock.application.access.Actor
+import dev.axzy.stock.application.identity.UserAccounts
+import dev.axzy.stock.application.catalog.Locations
 import dev.axzy.stock.application.access.authorizeOr
 import dev.axzy.stock.application.audit.AuditEvents
 import dev.axzy.stock.application.audit.AuditRecorder
@@ -635,15 +637,6 @@ class RegisterShortage(
     }
 }
 
-// ── Común ───────────────────────────────────────────────────────────────────
-
-/**
- * El estado que le corresponde a la cabecera según sus líneas.
- *
- * El criterio es **uno** ([Order.recalculatedStatus]) y no una lista por ruta: un
- * estado que cada endpoint asigna a mano acaba diciendo cosas distintas según por
- * dónde se entró, que es exactamente el defecto del legacy.
- */
 internal fun recalculatedStatusOf(detail: OrderDetail, lines: List<OrderLine>): String =
     Order(
         id = detail.header.id,
@@ -676,3 +669,98 @@ internal fun duplicateNumber(number: String): Outcome<Nothing> = failure(
     "Ya existe una orden con el número '$number'.",
     mapOf("orderNumber" to number),
 )
+
+/**
+ * Asigna una línea de una orden a quien la va a surtir (M04, `order.assign`).
+ *
+ * Es la ruta que faltaba: la tabla y la respuesta tenían `assigned_user_id` y `location_id`
+ * desde el principio, y **nada los escribía**, así que el operador no tenía forma de saber qué
+ * le tocaba ni de anotar en qué estantería estaba la mercancía.
+ *
+ * `userId` es opcional a propósito: sin él, quien llama **se asigna a sí mismo**, que es el
+ * caso diario del operador. Con él, un supervisor reparte el trabajo. Asignar a otro no es un
+ * privilegio aparte: el permiso es el mismo, y quien lo tiene puede repartir.
+ */
+class AssignOrderLine(
+    private val orders: Orders,
+    private val accounts: UserAccounts,
+    private val locations: Locations,
+    private val audit: AuditRecorder,
+    private val auditEvents: AuditEvents,
+    private val access: AccessDecider,
+    private val tx: TransactionRunner,
+    private val clock: Clock,
+) {
+
+    fun execute(
+        actor: Actor,
+        orderId: Long,
+        lineId: Long,
+        assigneeId: Long?,
+        locationId: Long?,
+        origin: RequestOrigin,
+    ): Outcome<OrderLineView> = access.authorizeOr(actor, "order.assign", origin) { grant ->
+        tx.inTransaction {
+            val view = orders.lineOf(orderId, lineId) ?: return@inTransaction lineNotFound(orderId, lineId)
+            val userId = assigneeId ?: actor.id
+            val assignee = accounts.loadActor(userId)?.actor
+                ?: return@inTransaction failure(
+                    FailureKind.RULE_VIOLATION, "ASSIGNEE_NOT_FOUND",
+                    "No existe el usuario $userId al que se quiere asignar la línea.",
+                    mapOf("userId" to userId.toString()),
+                )
+            // Una ubicación que no existe se rechaza antes de escribir: asignar una estantería
+            // inventada mandaría al operador a buscar mercancía a un sitio que no está.
+            locationId?.let { id ->
+                locations.findById(id)
+                    ?: return@inTransaction failure(
+                        FailureKind.RULE_VIOLATION, "LOCATION_NOT_FOUND",
+                        "No existe la ubicación $id.",
+                        mapOf("locationId" to id.toString()),
+                    )
+            }
+
+            when (val assigned = view.line.assign(userId, locationId)) {
+                is Either.Left -> assigned.error.toFailure().asLeft()
+                is Either.Right -> {
+                    val changed = orders.assignLine(lineId, userId, locationId, clock.instant())
+                    if (changed == 0) {
+                        // El empaque la surtió entre la lectura y la escritura.
+                        return@inTransaction failure(
+                            FailureKind.CONFLICT, "LINE_CHANGED",
+                            "La línea cambió mientras se asignaba. Vuelve a consultarla.",
+                            mapOf("lineId" to lineId.toString()),
+                        )
+                    }
+                    audit.record(
+                        auditEvents.byActor(
+                            actor = actor,
+                            origin = origin,
+                            action = "ORDER_LINE_ASSIGNED",
+                            level = AuditLevel.RELEVANT,
+                            entity = AuditEntity("order_line", lineId.toString(), "Orden $orderId"),
+                            grant = grant,
+                            previousState = mapOf(
+                                "status" to view.line.status.name,
+                                "assignedUserId" to view.line.assignedUserId?.toString().orEmpty(),
+                                "locationId" to view.line.locationId?.toString().orEmpty(),
+                            ),
+                            newState = mapOf(
+                                "status" to assigned.value.status.name,
+                                "assignedUserId" to userId.toString(),
+                                "locationId" to locationId?.toString().orEmpty(),
+                            ),
+                        ),
+                    )
+                    (orders.lineOf(orderId, lineId) ?: view.copy(line = assigned.value)).asRight()
+                }
+            }
+        }
+    }
+
+    private fun lineNotFound(orderId: Long, lineId: Long): Outcome<Nothing> = failure(
+        FailureKind.NOT_FOUND, "ORDER_LINE_NOT_FOUND",
+        "La orden $orderId no tiene la línea $lineId.",
+        mapOf("orderId" to orderId.toString(), "lineId" to lineId.toString()),
+    )
+}

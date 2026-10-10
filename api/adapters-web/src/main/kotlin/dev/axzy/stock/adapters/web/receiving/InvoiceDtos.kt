@@ -69,6 +69,9 @@ data class InvoiceLineDto(
     val approvedAt: String?,
     val adjustmentReason: String?,
     val locationDisplayName: String?,
+    /** Quién tiene la línea asignada para contarla, y su nombre visible. */
+    val assignedUserId: Long?,
+    val assignedUserName: String?,
 )
 
 fun InvoiceLineView.toDto(): InvoiceLineDto = InvoiceLineDto(
@@ -92,6 +95,8 @@ fun InvoiceLineView.toDto(): InvoiceLineDto = InvoiceLineDto(
     approvedByName = approvedByName,
     approvedAt = approvedAt?.toIso(),
     adjustmentReason = line.adjustmentReason,
+    assignedUserId = line.assignedUserId,
+    assignedUserName = assignedUserName,
     locationDisplayName = locationDisplayName,
 )
 

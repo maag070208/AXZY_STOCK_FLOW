@@ -9,7 +9,7 @@ docker compose up -d --build
 
 ```bash
 curl -s http://127.0.0.1:8081/v1/health
-# {"status":"UP","schemaVersion":"12","version":"dev","database":{"status":"UP",...}}
+# {"status":"UP","schemaVersion":"15","version":"dev","database":{"status":"UP",...}}
 ```
 
 El detalle de cada servicio, puerto y variable está en
@@ -116,13 +116,13 @@ contenedores.
 
 ### Verificado ejecutándolo (2026-10-10)
 
-- **717 pruebas, 0 fallos, 0 omitidas**: 408 del dominio, 11 de la capa de aplicación, 83 de
-  persistencia, 13 de la capa web, 11 de criptografía y 191 de flujo completo por HTTP, medidas con
-  `./gradlew verify` el 2026-10-10. Esquema en **V14**.
+- **752 pruebas, 0 fallos, 0 omitidas**: 412 del dominio, 11 de la capa de aplicación, 91 de
+  persistencia, 17 de la capa web, 11 de criptografía y 210 de flujo completo por HTTP, medidas con
+  `./gradlew verify` el 2026-10-10. Esquema en **V15**.
   **`./gradlew test` no basta**: no ejecuta las pruebas del dominio (su tarea se llama `jvmTest`),
   así que el informe puede parecer verde leyendo XML de una ejecución anterior. Por eso el comando
   de verificación es `verify`.
-- La imagen de la API se construye y arranca en Compose; `/v1/health` responde `UP` con el esquema en V12.
+- La imagen de la API se construye y arranca en Compose; `/v1/health` responde `UP` con el esquema en V15.
 - Login, sesión actual, renovación con detección de reuso, cierre de sesión y cambio de contraseña.
 - El usuario de la API no puede crear tablas ni modificar el kardex o la bitácora.
 - **Catálogo (fase 4)**: productos con alta, edición y baja lógica; ubicaciones con la de recepción
@@ -158,6 +158,10 @@ contenedores.
   de contraseña —que invalida las sesiones abiertas—, y **roles con su matriz de permisos**: crear,
   editar, activar/desactivar y conceder. Un rol nuevo concede exactamente lo que dice su matriz, y
   quitarlo o desactivarlo se nota de inmediato.
+- **Migración (M10)**, en lo que es código: la importación del catálogo es estricta e idempotente,
+  acepta **CSV, TSV y XLSX** por el mismo lector, y carga el stock heredado a `SIN-UBICAR` con un
+  movimiento `INITIAL` por producto —solo a quien no tenía existencias, para que reimportar no
+  duplique nada—.
 - **Web (fase 11, empezada)**: entrada y cambio de contraseña obligatorio contra la API real;
   menú lateral con las entradas que permiten los permisos de la sesión; y las tres pantallas del
   catálogo (productos con alta/edición/baja e importación con simulación, ubicaciones y bodegas),
@@ -173,20 +177,15 @@ curl -s -X POST http://127.0.0.1:8081/v1/products/import   -H "Authorization: Be
 
 ### No construido todavía
 
-- **Dentro de recepción**: ninguna ruta emite `RECEIPT_IN`, así que la entrada de mercancía por
-  recepción no tiene paso propio; el saldo llega a `RECEPCION` por un ajuste o por la carga inicial.
-- **Dentro de surtido**: ninguna ruta asigna líneas (`order.assign` sin ruta), así que la ubicación de
-  la línea solo la anota el empaque.
-- **La conexión con el ERP**: el intento falla con `ERP_NOT_CONNECTED`; falta el adaptador.
-- El resto de M07 (usuarios y roles): hoy solo existe el administrador del arranque.
-- El cierre de M10: el Excel del catálogo, el stock inicial a `SIN-UBICAR` y la conciliación.
-- **Dentro del catálogo**: la lectura de XLSX nativo (llega con la migración de datos, M10; hoy la
-  importación acepta CSV y TSV).
-- **Dentro de la web**: las pantallas de los módulos que aún no tienen endpoint (existencias,
-  recepción, surtido, traslados y etiquetas) no se dibujan; el inicio dice cuáles faltan. Tampoco
-  está el despliegue de la web (Dockerfile con nginx y su servicio en Compose). La marca sí: el
-  paquete de iconos está versionado y conectado (favicon, manifiesto y el glifo del armazón).
-- La app (Kotlin Multiplatform).
+- **La conexión con el ERP**: el intento de exportación falla con `ERP_NOT_CONNECTED` y el contador
+  sube; falta el adaptador del ERP (ADR-0013), que depende de conocer su contrato (D10).
+- **Dentro de la web**: las pantallas de los módulos que aún no tienen pantalla (existencias,
+  recepción, surtido, traslados, etiquetas y auditoría) no se dibujan, y el inicio dice cuáles faltan.
+  Tampoco está el despliegue de la web (Dockerfile con nginx y su servicio en Compose). La marca sí:
+  el paquete de iconos está versionado y conectado (favicon, manifiesto y el glifo del armazón).
+- **La app** (Kotlin Multiplatform).
+- **El conteo físico y el corte** del stock heredado: son trabajo del negocio, no de código
+  ([cutover.md](docs/migracion/cutover.md)).
 
 El orden y el criterio de terminado de cada uno están en
 [docs/plan/PLAN-IMPLEMENTACION.md](docs/plan/PLAN-IMPLEMENTACION.md).

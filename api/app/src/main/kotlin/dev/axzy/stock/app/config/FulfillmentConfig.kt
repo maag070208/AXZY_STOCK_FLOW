@@ -5,6 +5,9 @@ import dev.axzy.stock.adapters.web.fulfillment.OrderController
 import dev.axzy.stock.application.access.AccessDecider
 import dev.axzy.stock.application.audit.AuditEvents
 import dev.axzy.stock.application.audit.AuditRecorder
+import dev.axzy.stock.application.catalog.Locations
+import dev.axzy.stock.application.identity.UserAccounts
+import dev.axzy.stock.application.fulfillment.AssignOrderLine
 import dev.axzy.stock.application.fulfillment.ConfirmOrder
 import dev.axzy.stock.application.fulfillment.CreateOrder
 import dev.axzy.stock.application.fulfillment.ErpClient
@@ -101,6 +104,18 @@ class FulfillmentConfig {
     ) = RegisterShortage(orders as Orders, adjustStock, audit, auditEvents, access, tx)
 
     @Bean
+    fun assignOrderLine(
+        orders: JdbcOrders,
+        accounts: UserAccounts,
+        locations: Locations,
+        audit: AuditRecorder,
+        auditEvents: AuditEvents,
+        access: AccessDecider,
+        tx: TransactionRunner,
+        clock: Clock,
+    ) = AssignOrderLine(orders as Orders, accounts, locations, audit, auditEvents, access, tx, clock)
+
+    @Bean
     fun orderController(
         listOrders: ListOrders,
         getOrder: GetOrder,
@@ -109,8 +124,9 @@ class FulfillmentConfig {
         confirmOrder: ConfirmOrder,
         exportOrder: ExportOrder,
         registerShortage: RegisterShortage,
+        assignOrderLine: AssignOrderLine,
     ) = OrderController(
-        listOrders, getOrder, createOrder, packageLine, confirmOrder, exportOrder, registerShortage,
+        listOrders, getOrder, createOrder, packageLine, confirmOrder, exportOrder, registerShortage, assignOrderLine,
     )
 
     /**

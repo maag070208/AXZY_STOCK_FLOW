@@ -1,5 +1,6 @@
 # Convenciones transversales: idioma, comentarios y estándares
 > **Normativo.** Obligatorias en las cuatro partes del monorepo. Última verificación: 2026-10-09.
+> **Nota de reconstrucción (2026-10-10).** Convenciones vigentes; las rutas son del backend anterior. Las reglas siguen vigentes; las rutas de código que cita pertenecen al sistema anterior y se remapean al código nuevo (ver [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
 
 La decisión sobre el idioma está en
 [ADR 0004](../adr/0004-nombres-en-ingles-comentarios-en-espanol.md).

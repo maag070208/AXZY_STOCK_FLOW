@@ -455,4 +455,95 @@ class InventoryFlowTest : ApiTest() {
         assertThat(response.at<List<Map<String, Any?>>>("items").single()["locationDisplayName"]).isEqualTo("SIN-UBICAR")
         assertThat(response.at<List<Map<String, Any?>>>("items").single()["quantity"]).isEqualTo("250.000")
     }
+
+    // ── Aprobación: el permiso se comprueba, no se supone ───────────────────
+
+    /**
+     * Un rol a medida: puede ajustar, **no puede aprobar**.
+     *
+     * Es la forma de comprobar el hueco sin depender de qué permisos tenga hoy cada rol base.
+     */
+    private fun ajustador(token: String, key: String, quien: String): Long {
+        val rol = post(
+            "/v1/roles",
+            mapOf(
+                "key" to key,
+                "name" to "Ajustador",
+                "permissions" to listOf(
+                    mapOf("permissionKey" to "inventory.adjust_count_error", "scope" to "ALL"),
+                    mapOf("permissionKey" to "inventory.adjust_theft", "scope" to "ALL"),
+                ),
+            ),
+            token,
+        )
+        assertThat(rol.status).describedAs(rol.raw).isEqualTo(201)
+        return createUser(quien, USER_PASSWORD, key)
+    }
+
+    @Test
+    fun `un aprobador sin el permiso de aprobar no aprueba nada`() {
+        val token = manager()
+        createProduct(token)
+        ajustador(token, "AJUSTADOR", "operador")
+        val compinche = ajustador(token, "AJUSTADOR2", "compinche")
+        val suToken = accessTokenOf("operador", USER_PASSWORD)
+
+        // El operador firma su propio robo con el identificador de otro ajustador: ninguno de
+        // los dos tiene `inventory.approve_adjustment`, que es lo que el catálogo exige para
+        // aprobar. Antes esto se aplicaba.
+        val response = post(
+            "/v1/inventory/adjustments",
+            mapOf(
+                "productCode" to "ABRAA1B",
+                "locationCode" to "RECEPCION",
+                "quantity" to 5,
+                "direction" to "DECREASE",
+                "reason" to "THEFT",
+                "origin" to "MANUAL_COUNT",
+                "note" to "Faltó mercancía del anaquel 04",
+                "approverId" to compinche,
+            ),
+            suToken,
+        )
+
+        assertThat(response.status).describedAs(response.raw).isEqualTo(403)
+        assertThat(response.code).isEqualTo("APPROVER_NOT_AUTHORIZED")
+        assertThat(response.at<Map<String, String>>("details")["permission"]).isEqualTo("inventory.approve_adjustment")
+        // Y no se movió nada: la aprobación que falta no deja rastro en el kardex.
+        val kardex = get("/v1/inventory/kardex?moveType=ADJUSTMENT_OUT", token)
+        assertThat(kardex.status).describedAs(kardex.raw).isEqualTo(200)
+        assertThat(kardex.at<Int>("totalItems")).isZero()
+    }
+
+    @Test
+    fun `con un aprobador que si puede, el ajuste se aplica`() {
+        val token = manager()
+        val supervisora = approver()
+        createProduct(token)
+        ajustador(token, "AJUSTADOR", "operador")
+        val suToken = accessTokenOf("operador", USER_PASSWORD)
+        // Deja existencias quien pide, y las aprueba otra persona: la jefa pide, la
+        // supervisora aprueba.
+        assertThat(stockIn(token, "RECEPCION", 50, supervisora).status).isEqualTo(201)
+
+        val response = post(
+            "/v1/inventory/adjustments",
+            mapOf(
+                "productCode" to "ABRAA1B",
+                "locationCode" to "RECEPCION",
+                "quantity" to 5,
+                "direction" to "DECREASE",
+                "reason" to "THEFT",
+                "origin" to "MANUAL_COUNT",
+                "note" to "Faltó mercancía del anaquel 04",
+                "approverId" to supervisora,
+            ),
+            suToken,
+        )
+
+        // La operadora pide y la supervisora —que sí tiene el permiso— aprueba.
+        assertThat(response.status).describedAs(response.raw).isEqualTo(201)
+        assertThat(response.at<String>("status")).isEqualTo("APPLIED")
+        assertThat(quantityAt(token, "RECEPCION")).isEqualTo("45.000")
+    }
 }

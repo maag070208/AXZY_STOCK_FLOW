@@ -46,7 +46,7 @@ class ReportFlowTest : ApiTest() {
             token,
         )
 
-    private fun today(): String = LocalDate.now().toString()
+    private fun today(): String = businessToday().toString()
 
     // ── Existencias ─────────────────────────────────────────────────────────
 

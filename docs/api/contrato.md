@@ -56,7 +56,9 @@ alcances admitidos por cada permiso los declara
 | `POST /v1/locations` | `location.create` | `ALL` |
 | `PUT /v1/locations/{id}` | `location.edit` | `ALL` |
 | `DELETE /v1/locations/{id}` | `location.delete` | `ALL` |
-| `GET /v1/warehouses` | `location.view` | `ALL` |
+| `GET /v1/warehouses` | `location.view` | `ALL` — [detalle](catalogo.md) |
+| `POST /v1/warehouses` | `location.create` | `ALL` — [detalle](catalogo.md) |
+| `PUT /v1/warehouses/{id}` | `location.edit` | `ALL` — [detalle](catalogo.md) |
 | `GET /v1/inventory/stock` | `inventory.view` | `AREA` |
 | `GET /v1/inventory/kardex` | `kardex.view` | `AREA` |
 | `POST /v1/inventory/adjustments` | `inventory.adjust_increase` · `inventory.adjust_theft` · `inventory.adjust_damage` · `inventory.adjust_shortage` · `inventory.adjust_count_error` | `AREA` |
@@ -77,6 +79,8 @@ alcances admitidos por cada permiso los declara
 | `POST /v1/orders/{id}/confirm` | `order.confirm` | `AREA` |
 | `POST /v1/orders/{id}/export` | `order.convert` | `AREA` |
 | `POST /v1/orders/{id}/shortage` | `order.package` | `AREA` |
+| `PUT /v1/orders/{id}/lines/{lineId}/assign` | `order.assign` | `ALL` — [detalle](surtido.md) |
+| `PUT /v1/invoices/{id}/lines/{lineId}/assign` | `invoice.assign` | `ALL` — [detalle](recepcion.md) |
 | `GET /v1/transfers` | `transfer.view` | `AREA` |
 | `POST /v1/transfers` | `transfer.create` | `AREA` |
 | `GET /v1/transfers/{id}` | `transfer.view` | `AREA` |
@@ -99,7 +103,16 @@ alcances admitidos por cada permiso los declara
 | `GET /v1/reports/kardex/export` | `report.export` | `ALL` |
 | `GET /v1/reports/kardex-vs-projection` | `report.view` | `AREA` |
 | `GET /v1/users` | `user.view` | `ALL` — [detalle](usuarios.md) |
+| `POST /v1/users` | `user.create` | `ALL` — [detalle](usuarios.md) |
+| `GET /v1/users/{id}` | `user.view` | `ALL` — [detalle](usuarios.md) |
+| `PUT /v1/users/{id}` | `user.edit` / `role.assign` | `ALL` — [detalle](usuarios.md) |
+| `POST /v1/users/{id}/reset-password` | `user.reset_password` | `ALL` — [detalle](usuarios.md) |
+| `POST /v1/users/{id}/revoke-sessions` | `session.revoke` | `ALL` — [detalle](usuarios.md) |
 | `GET /v1/roles` | `role.manage` | `ALL` — [detalle](usuarios.md) |
+| `POST /v1/roles` | `role.manage` | `ALL` — [detalle](usuarios.md) |
+| `GET /v1/roles/{key}` | `role.manage` | `ALL` — [detalle](usuarios.md) |
+| `PUT /v1/roles/{key}` | `role.manage` | `ALL` — [detalle](usuarios.md) |
+| `PUT /v1/roles/{key}/permissions` | `role.manage` | `ALL` — [detalle](usuarios.md) |
 | `GET /v1/permissions` | `role.manage` | `ALL` — [detalle](usuarios.md) |
 | `GET /v1/audit/log` | `audit.view` | `ALL` — [detalle](auditoria.md) |
 | `GET /v1/health` | — | público |

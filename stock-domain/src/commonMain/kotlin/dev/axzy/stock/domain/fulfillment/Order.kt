@@ -159,6 +159,32 @@ data class OrderLine(
             status = if (nextSupplied >= quantity) OrderLineStatus.SUPPLIED else OrderLineStatus.ASSIGNED,
         ).asRight()
     }
+
+    /**
+     * Asigna la línea a quien la va a surtir, y opcionalmente en qué estantería.
+     *
+     * **Solo desde `PENDING` o `ASSIGNED`.** Una línea ya surtida o anulada no se reasigna:
+     * asignar trabajo sobre mercancía que ya salió sería decir que alguien la va a sacar dos
+     * veces. Reasignar mientras está en curso sí se permite —el turno cambia, alguien se pone
+     * malo— y por eso no es una transición de un solo uso.
+     *
+     * El estado va a `ASSIGNED` aunque la línea se quede sin ubicación: lo que dice el estado
+     * es que **hay alguien a cargo**, no dónde está la mercancía.
+     */
+    fun assign(userId: Long, locationId: Long?): Either<DomainError, OrderLine> {
+        if (status != OrderLineStatus.PENDING && status != OrderLineStatus.ASSIGNED) {
+            return DomainError.InvalidTransition(
+                entity = "Línea de orden",
+                from = status.name,
+                action = "asignar",
+            ).asLeft()
+        }
+        return copy(
+            status = OrderLineStatus.ASSIGNED,
+            assignedUserId = userId,
+            locationId = locationId ?: this.locationId,
+        ).asRight()
+    }
 }
 
 /** Una orden con su cabecera y sus líneas. */

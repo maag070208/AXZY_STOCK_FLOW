@@ -54,7 +54,7 @@ que todavía no termina. El árbol objetivo de [api-ktor.md](../historico/API-KT
 **existe ya para `inventory/`, `receiving/` y `transfer/`**, y `catalog/` está partido por
 recurso con sus servicios; el resto de features sigue `package-by-feature`
 ([migracion-capas.md](../historico/MIGRACION-CAPAS-KTOR.md) y
-[lo-no-verificado.md](../guia/lo-no-verificado.md)).
+[lo-no-verificado.md](../historico/LO-NO-VERIFICADO-ANTERIOR.md)).
 
 Reglas operativas que se derivan:
 

@@ -1,6 +1,7 @@
 # Dominio — KMP puro (`stock-domain/`)
 > **Normativo.** Reglas de pureza, contenido y por qué las reglas de negocio viven aquí.
 > Última verificación: 2026-10-09.
+> **Nota de reconstrucción (2026-10-10).** Dominio compartido vigente (plan D6). Las rutas del texto son del código anterior. Las reglas siguen vigentes; las rutas de código que cita pertenecen al sistema anterior y se remapean al código nuevo (ver [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
 
 ## 4.1 La regla: KMP puro, sin dependencias
 

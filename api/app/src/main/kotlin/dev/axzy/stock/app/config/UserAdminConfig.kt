@@ -14,12 +14,15 @@ import dev.axzy.stock.application.identity.ListPermissions
 import dev.axzy.stock.application.identity.ListRoles
 import dev.axzy.stock.application.identity.ListUsers
 import dev.axzy.stock.application.identity.ResetUserPassword
+import dev.axzy.stock.application.identity.RevokeUserSessions
 import dev.axzy.stock.application.identity.RoleAdminStore
 import dev.axzy.stock.application.identity.SetRolePermissions
 import dev.axzy.stock.application.identity.UpdateRole
 import dev.axzy.stock.application.identity.UpdateUser
 import dev.axzy.stock.application.identity.UserAdminStore
 import dev.axzy.stock.application.shared.TransactionRunner
+import dev.axzy.stock.application.identity.RefreshTokens
+import dev.axzy.stock.application.identity.UserAccounts
 import dev.axzy.stock.domain.identity.PasswordHasher
 import dev.axzy.stock.domain.identity.PasswordPolicy
 import org.springframework.context.annotation.Bean
@@ -63,6 +66,16 @@ class UserAdminConfig {
     ) = CreateUser(store as UserAdminStore, hasher, PasswordPolicy, audit, auditEvents, access, tx)
 
     @Bean
+    fun revokeUserSessions(
+        accounts: UserAccounts,
+        refreshTokens: RefreshTokens,
+        audit: AuditRecorder,
+        auditEvents: AuditEvents,
+        access: AccessDecider,
+        tx: TransactionRunner,
+    ) = RevokeUserSessions(accounts, refreshTokens, audit, auditEvents, access, tx)
+
+    @Bean
     fun updateUser(
         store: JdbcUserAdmin,
         audit: AuditRecorder,
@@ -89,7 +102,8 @@ class UserAdminConfig {
         createUser: CreateUser,
         updateUser: UpdateUser,
         resetUserPassword: ResetUserPassword,
-    ) = UserController(listUsers, getUser, createUser, updateUser, resetUserPassword)
+        revokeUserSessions: RevokeUserSessions,
+    ) = UserController(listUsers, getUser, createUser, updateUser, resetUserPassword, revokeUserSessions)
 
     @Bean
     fun getRole(store: JdbcUserAdmin, access: AccessDecider) = GetRole(store as RoleAdminStore, access)

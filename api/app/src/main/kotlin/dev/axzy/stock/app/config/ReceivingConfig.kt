@@ -6,6 +6,10 @@ import dev.axzy.stock.application.access.AccessDecider
 import dev.axzy.stock.application.audit.AuditEvents
 import dev.axzy.stock.application.audit.AuditRecorder
 import dev.axzy.stock.application.receiving.ApproveInvoice
+import dev.axzy.stock.application.inventory.InventoryCatalog
+import dev.axzy.stock.application.inventory.StockLedger
+import dev.axzy.stock.application.identity.UserAccounts
+import dev.axzy.stock.application.receiving.AssignInvoiceLine
 import dev.axzy.stock.application.receiving.CaptureLine
 import dev.axzy.stock.application.receiving.CloseInvoice
 import dev.axzy.stock.application.receiving.CreateInvoice
@@ -56,12 +60,25 @@ class ReceivingConfig {
     @Bean
     fun captureLine(
         invoices: JdbcInvoices,
+        ledger: StockLedger,
+        inventoryCatalog: InventoryCatalog,
         audit: AuditRecorder,
         auditEvents: AuditEvents,
         access: AccessDecider,
         tx: TransactionRunner,
         clock: Clock,
-    ) = CaptureLine(invoices as Invoices, audit, auditEvents, access, tx, clock)
+    ) = CaptureLine(invoices as Invoices, ledger, inventoryCatalog, audit, auditEvents, access, tx, clock)
+
+    @Bean
+    fun assignInvoiceLine(
+        invoices: JdbcInvoices,
+        accounts: UserAccounts,
+        audit: AuditRecorder,
+        auditEvents: AuditEvents,
+        access: AccessDecider,
+        tx: TransactionRunner,
+        clock: Clock,
+    ) = AssignInvoiceLine(invoices as Invoices, accounts, audit, auditEvents, access, tx, clock)
 
     @Bean
     fun approveInvoice(
@@ -103,11 +120,13 @@ class ReceivingConfig {
         rejectInvoiceDiscrepancy: RejectInvoiceDiscrepancy,
         closeInvoice: CloseInvoice,
         pendingApprovalInbox: PendingApprovalInbox,
+        assignInvoiceLine: AssignInvoiceLine,
     ) = InvoiceController(
         listInvoices,
         getInvoice,
         createInvoice,
         captureLine,
+        assignInvoiceLine,
         approveInvoice,
         rejectInvoiceDiscrepancy,
         closeInvoice,

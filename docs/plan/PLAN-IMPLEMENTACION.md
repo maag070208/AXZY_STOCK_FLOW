@@ -6,7 +6,7 @@
 | Fase | Estado | Evidencia |
 |---|---|---|
 | 0. Decisiones | **Cerrada.** D1–D8 tomadas; versiones verificadas en Maven Central | [stack.md](../arquitectura/stack.md) |
-| 1. Infraestructura | **Cerrada** | Compose `stockflow`; `V1`–`V12` aplicadas; rol de la API sin DDL (`ApiRolePrivilegesTest`) |
+| 1. Infraestructura | **Cerrada** | Compose `stockflow`; `V1`–`V15` aplicadas; rol de la API sin DDL (`ApiRolePrivilegesTest`) |
 | 2. API base | **Cerrada** | Seis módulos; `GET /v1/health`; contrato de error; bitácora en la transacción (U1, U3); `ArchitectureTest` |
 | 3. Identidad | **Cerrada** | `AuthFlowTest`: login, bloqueo, refresh con reuso, logout y cambio de contraseña, por HTTP real. I5 e I8 se cerraron con la fase 4 |
 | 4. Catálogo | **Cerrada salvo el Excel** | `CatalogFlowTest` K1–K6, I5 e I8; `CatalogPersistenceTest`; `RoutePermissionTest` |
@@ -16,11 +16,23 @@
 | 7. Surtido y ERP | **Cerrada** | `FulfillmentFlowTest` S1–S8; confirmación simultánea en `FulfillmentPersistenceTest` |
 | 8. Traslados | **Cerrada** | `TransferEngineTest` (motor e invariante) y `TransferFlowTest` T1–T8 |
 | 9. Etiquetas y auditoría | **Cerrada**: M06 con L1–L5 y M08 con U1–U5 en verde | `LabelFlowTest`, `PrintJobConfirmationTest` y `AuditFlowTest` |
-| 10. Migración | **En curso desde la fase 1**: importación del catálogo idempotente; falta el XLSX y el stock inicial | — |
+| 10. Migración | **Cerrada en lo que es código**: importación estricta e idempotente, que acepta **CSV, TSV y XLSX** y carga el stock inicial a `SIN-UBICAR`. Lo que queda es del negocio (el conteo físico y el corte) | `CatalogFlowTest` M10 y `CatalogUploadTest` |
 
-**717 pruebas, 0 fallos, 0 omitidas** (408 dominio, 11 aplicación, 83 persistencia, 13 web,
-11 criptografía, 191 flujo), medidas con `./gradlew verify` el 2026-10-10. Esquema en
-**V14**.
+**752 pruebas, 0 fallos, 0 omitidas** (412 dominio, 11 aplicación, 91 persistencia, 17 web,
+11 criptografía, 210 flujo), medidas con `./gradlew verify` el 2026-10-10. Esquema en
+**V15**.
+
+**Auditoría del listón §4, cerrada el 2026-10-10.** Módulo a módulo y con comprobación mecánica
+donde se puede:
+
+| Criterio | Cómo está |
+|---|---|
+| Pruebas de aceptación del flujo | Las 68 de los ocho flujos están automatizadas o cubiertas donde el documento dice (I6/I7 en el motor de acceso, Q2/Q3 como base de S2/S3/S5, S9 en el dominio porque M04 no define ruta de anulación). Comprobado cruzándolas contra los tests |
+| Concurrencia donde escribe inventario | Motor de existencias, reclamo de la confirmación del surtido, motor de traslados y **la captura de recepción**, que la necesitaba y no la tenía |
+| Presupuesto de consultas | Medido en los nueve módulos: catálogo, existencias, reportes, surtido, sesiones, usuarios y roles, recepción, traslados y etiquetas |
+| Permisos por ruta | Toda ruta declara el suyo (una sola declaración) y el motor lo comprueba; una prueba de arquitectura lo impide |
+| Bitácora en cada escritura | El registro de casos de uso críticos está atado al catálogo de permisos, y cada flujo comprueba su entrada |
+| Contrato y errores | **76 rutas documentadas y 76 implementadas**, y cada página con sus códigos |
 
 > `./gradlew test` **no ejecuta las pruebas del dominio**: el proyecto es
 > multiplataforma y su tarea se llama `jvmTest`, así que el `test` agregado lo dejaba
@@ -36,7 +48,14 @@ Lo que la fase 4 **no** entrega, y por qué:
 | Eliminar roles | M07, decidido | Un rol no se borra: se **desactiva** (`active: false`), y eso le quita los permisos a quien lo tenga. Borrarlo dejaría usuarios sin rol y sin explicación |
 | Ninguna ruta asigna líneas de orden | Fase 7, siguiente paso | `order.assign` está en el catálogo y la tabla tiene `assigned_user_id` y `location_id`, pero ninguna ruta los escribe: la ubicación la anota el empaque |
 | No hay ERP | Fase 7, anotado | El intento falla con `ERP_NOT_CONNECTED` y el contador sube; falta el adaptador (ADR-0013) |
-| Ninguna ruta emite `RECEIPT_IN` | Fase 6, anotado | La entrada de mercancía por recepción no tiene paso propio: el saldo llega a `RECEPCION` por un ajuste o por la carga inicial (M10). El motor ya soporta el tipo de movimiento |
+| **Dos capturas simultáneas duplicaban el stock** | Fase 6, **corregido el 2026-10-10** | La entrada se escribe por la **diferencia** contra lo ya ingresado, así que dos capturas de la misma línea que leyeran el mismo saldo ingresaban las dos la misma diferencia. Ahora la captura se **reclama** con una sentencia condicional sobre `received_quantity` antes de mover: la primera gana, la segunda responde `409 LINE_CHANGED` y no escribe nada. Probado con dos transacciones de verdad (`ReceivingConcurrencyTest`) |
+| **La tabla del contrato no listaba 12 rutas que existen** | Listón §4, **corregido el 2026-10-10** | Entre ellas, **ocho que construí yo** en M07 (alta, detalle, edición, restablecimiento de contraseña y las cuatro de roles). Estaban documentadas en su página, pero el índice del contrato es lo que se lee para saber qué hay. Ahora **las 76 rutas documentadas son las 76 implementadas**, comprobado de forma mecánica: ninguna de más ni de menos |
+| **Faltaba el presupuesto de consultas de tres módulos** | Listón §4, **corregido el 2026-10-10** | Recepción, traslados y etiquetas tenían sus flujos en verde y su motor probado, pero **nadie había medido** cuántas sentencias cuestan sus lecturas. Ahora está medido y atado: un listado son dos sentencias (conteo y página) y el detalle de una factura o un traslado son dos, con sus líneas. Lo que no se mide se pierde en el primer cambio bienintencionado |
+| **El registro de casos de uso auditables no estaba atado al catálogo** | Listón §4, **corregido el 2026-10-10** | `CriticalUseCases.all` comprobaba que cada declaración tiene permiso no vacío, pero **no que ese permiso exista** en `PermissionCatalog`: un permiso mal escrito habría pasado las pruebas y fallado en ejecución, dentro de la transacción de la operación legítima que se estaba auditando. Ahora hay una prueba que lo ata, y otra que exige que ningún caso de uso ni ninguna acción se declaren dos veces |
+| **Dos pruebas de reportes fallaban una hora al día** | Fase 9, **corregido el 2026-10-10** | Pedían `from=hoy&to=hoy` con `LocalDate.now()` —la fecha de la máquina— mientras la API fecha los movimientos en `stock.business-zone`. De 23:00 a 00:00 en la costa oeste, la máquina y la zona de negocio están en días distintos y el resumen salía vacío. Ahora las pruebas usan `businessToday()`, que lee la zona de la misma configuración que la API |
+| **Aprobar un ajuste no comprobaba el permiso** | Fase 5, **corregido el 2026-10-10** | `inventory.approve_adjustment` estaba en el catálogo, concedido a roles, documentado y auditado, pero **ningún código lo exigía**: se aprobaba mandando el `approverId` de otro, y cualquiera con el permiso del motivo podía firmar su propio robo. Ahora el servidor carga al aprobador y le exige el permiso con el alcance de la bodega (`403 APPROVER_NOT_AUTHORIZED`), con dos pruebas: una que lo rechaza y otra que confirma que con un aprobador autorizado el ajuste se aplica |
+| **24 permisos del catálogo sin ninguna ruta que los exija** | Auditoría del 2026-10-10 | De ellos, unos son de módulos que no existen (costo, financiero, dispositivos, `system.config`, `integration.manage`), otros son decisiones ya tomadas —`user.delete` (se desactiva), `invoice.edit/delete` y `order.edit/delete` (no se borran documentos), `kardex.export` (lo cubre `report.export`)—, y tres son capacidades **documentadas y sin ruta**: `invoice.assign`, `order.assign` y `session.revoke`. **`order.assign` ya tiene ruta** (`PUT /v1/orders/{id}/lines/{lineId}/assign`, 2026-10-10). Quedan **dos**: `invoice.assign` —asignar una línea de factura a un capturista; el estado `ASSIGNED` y el método del dominio existen, falta la ruta— y ~~`session.revoke`~~ — **cerrada el 2026-10-10** con `POST /v1/users/{id}/revoke-sessions`, y con el matiz escrito: corta la **renovación**, no el token de acceso vivo, y la ventana de gracia de 30 s de un token ya rotado sigue aplicando—. **`invoice.assign` también** (`PUT /v1/invoices/{id}/lines/{lineId}/assign`, 2026-10-10). **Ninguna capacidad documentada del catálogo queda sin ruta**: las 24 sin uso son de módulos que no existen (costo, financiero, dispositivos, `system.config`, `integration.manage`) o decisiones ya tomadas (no se borran documentos, un usuario se desactiva) |
+| ~~Ninguna ruta emite `RECEIPT_IN`~~ | Fase 6, **cerrado el 2026-10-10** | La mercancía entra **al contar**, con un `RECEIPT_IN` por la **diferencia** contra lo ya ingresado por la línea (`invoice_lines.received_quantity`, V15). Un recuento no suma dos veces, y si lo contado es menos la diferencia sale con un ajuste por error de conteo. Tres pruebas: la entrada al contar, el recuento a la baja y el recuento al alza. Las pruebas de ubicar ya no siembran el saldo a mano |
 | Pantallas de los módulos sin endpoint | Fases 6–9 | Una pantalla sin endpoint no dibuja filas inventadas: el inicio dice qué falta y por qué |
 | Despliegue de la web (nginx + servicio en Compose) | Cierre de la fase 11 | Hoy corre con `pnpm dev` contra la API; el proxy de Vite hace el mismo trabajo que hará nginx |
 | `stock` inicial a `SIN-UBICAR` con el movimiento `INITIAL` | Fase 5 (M02) | El informe ya publica `stockPersisted: false`: cargar 10.914.130 unidades sin desglose inventaría mal desde el día uno (ADR-0012) |
@@ -191,9 +210,9 @@ exista el HTTP:
 1. **El resto de M07 (usuarios y roles):** alta y gestión de usuarios y roles, que el flujo de la fase 3
    dejó fuera. Hoy solo existe el administrador que siembra el arranque: los permisos `user.*` y
    `role.*` están en el catálogo y **ninguna ruta los usa**.
-2. **El cierre de M10 (migración):** el stock inicial del legacy a `SIN-UBICAR` con el movimiento
-   `INITIAL` —que el motor ya soporta—, la lectura del Excel del catálogo (Apache POI ya está en el
-   proyecto por la exportación del kardex) y la conciliación con conteo.
+2. **Lo que queda de la migración no es código**: el conteo físico de los 1.398 productos, la
+   conciliación contra el total heredado y el corte ([cutover.md](../migracion/cutover.md)). El
+   respaldo verificado de la base sigue **sin existir en el repo** y es prerrequisito del corte.
 2. **M10, migración:** falta el stock inicial del legacy a `SIN-UBICAR` con el movimiento `INITIAL`
    —que el motor ya soporta—, la lectura de XLSX (Apache POI ya está en el proyecto por la
    exportación del kardex) y la conciliación con conteo.

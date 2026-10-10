@@ -2,9 +2,11 @@ package dev.axzy.stock.application.inventory
 
 import dev.axzy.stock.application.access.AccessDecider
 import dev.axzy.stock.application.access.Actor
+import dev.axzy.stock.application.identity.UserAccounts
 import dev.axzy.stock.application.access.authorizeOr
 import dev.axzy.stock.application.audit.AuditEvents
 import dev.axzy.stock.application.audit.AuditRecorder
+import dev.axzy.stock.application.shared.Failure
 import dev.axzy.stock.application.shared.FailureKind
 import dev.axzy.stock.application.shared.Outcome
 import dev.axzy.stock.application.shared.RequestOrigin
@@ -88,6 +90,7 @@ fun adjustmentPermission(direction: AdjustmentDirection, reason: AdjustmentReaso
 class AdjustStock(
     private val catalog: InventoryCatalog,
     private val ledger: StockLedger,
+    private val accounts: UserAccounts,
     private val audit: AuditRecorder,
     private val auditEvents: AuditEvents,
     private val access: AccessDecider,
@@ -176,7 +179,15 @@ class AdjustStock(
             requestedBy = actor.id,
             idempotencyKey = idempotencyKey?.toString(),
         ).toOutcome().flatMap { request ->
-            when (val decision = AdjustmentPolicy.decide(request, parsed.approverId, available)) {
+            // **Quien aprueba tiene que poder aprobar.** Hasta ahora bastaba con mandar el
+            // `approverId` de otro: cualquiera con el permiso del motivo podía firmar su propio
+            // ajuste con el identificador de un supervisor, y el permiso
+            // `inventory.approve_adjustment` —que el catálogo concede, documenta y audita— no lo
+            // comprobaba nadie. Un permiso que no se comprueba es un permiso que no existe.
+            val sinPermisoDeAprobar = approverDenial(parsed.approverId, location.warehouseId, origin)
+            if (sinPermisoDeAprobar != null) {
+                sinPermisoDeAprobar.asLeft()
+            } else when (val decision = AdjustmentPolicy.decide(request, parsed.approverId, available)) {
                 is AdjustmentPolicy.Decision.Reject -> decision.error.toFailure().asLeft()
 
                 // Pendiente de aprobación: NO se escribe nada, ni kardex ni bitácora.
@@ -305,5 +316,42 @@ class AdjustStock(
                 mapOf(field to raw, "allowed" to allowed),
             )
         return value.asRight()
+    }
+
+    /**
+     * El fallo del aprobador, si lo hay.
+     *
+     * Devuelve `null` cuando no hace falta aprobador o cuando el que viene puede aprobar. El
+     * alcance se comprueba **en la bodega de la ubicación del ajuste**: un `AREA` solo aprueba
+     * en la suya.
+     */
+    private fun approverDenial(approverId: Long?, warehouseId: Long, origin: RequestOrigin): Failure? {
+        if (approverId == null) return null
+        val approver = accounts.loadActor(approverId)?.actor
+            ?: return Failure(
+                FailureKind.RULE_VIOLATION, "APPROVER_NOT_FOUND",
+                "El aprobador $approverId no existe.",
+                mapOf("approverId" to approverId.toString()),
+            )
+        val decision = access.authorize(
+            actor = approver,
+            permission = "inventory.approve_adjustment",
+            origin = origin,
+            resource = ResourceContext(warehouseId = warehouseId),
+            entity = AuditEntity("user", approverId.toString(), approver.username),
+        )
+        return if (decision is Either.Left) {
+            Failure(
+                FailureKind.FORBIDDEN, "APPROVER_NOT_AUTHORIZED",
+                "El aprobador ${approver.username} no tiene permiso para aprobar ajustes en esta bodega.",
+                mapOf(
+                    "approverId" to approverId.toString(),
+                    "approver" to approver.username,
+                    "permission" to "inventory.approve_adjustment",
+                ),
+            )
+        } else {
+            null
+        }
     }
 }

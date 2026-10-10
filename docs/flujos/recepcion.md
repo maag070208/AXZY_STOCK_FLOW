@@ -51,6 +51,8 @@ sequenceDiagram
 
     C->>API: POST /v1/invoices/{id}/lines/{lineId}/capture (cantidad física)
     API->>UC: CaptureLine(actor, id, lineId, cantidad)
+    UC->>DB: movimiento RECEIPT_IN: lo contado, a RECEPCION
+    Note over UC,DB: La mercancía entra AL CONTAR, y solo la diferencia<br/>contra lo ya ingresado por la línea: un recuento no suma dos veces.
     UC->>UC: ¿Igual a lo facturado?
     alt Igual
         UC->>DB: línea → CAPTURED, captured_by = actor
@@ -131,22 +133,28 @@ difícil sin resolver.
 
 ### 6-bis. Estado de estas pruebas (2026-10-10)
 
-Cinco de las ocho están automatizadas y en verde por HTTP real
-(`api/app/src/test/kotlin/dev/axzy/stock/app/ReceivingFlowTest.kt`): R2, R3, R4, R5,
-R6 y R8. Las otras dos:
+**Quién mete la mercancía en `RECEPCION` es la captura** (2026-10-10). Antes no lo hacía
+nadie: el saldo aparecía por un ajuste a mano o por la carga inicial de M10, así que ubicar
+desde `RECEPCION` se encontraba cero. Ahora el conteo escribe un `RECEIPT_IN` por **la
+diferencia** entre lo contado y lo ya ingresado por esa línea, y si lo contado es menos, la
+diferencia sale con un ajuste por error de conteo: el conteo anterior estaba alto. Es lo que
+hace que un recuento —una línea descartada por el supervisor vuelve a `PENDING`— no sume la
+mercancía dos veces.
 
-- **R7** (ubicar mueve de recepción al estante y no cambia el total) está cubierta en
-  el flujo de inventario: es `InventoryFlowTest` A1, con el mismo escenario.
-- **R1** (una línea en discrepancia no se puede ubicar) está cubierta: la ruta de
-  ubicar recibe un `invoiceLineId` opcional, carga la línea, aplica la regla del
-  dominio **antes de mover nada** y, al terminar, anota lo ubicado y la deja `LOCATED`
-  cuando no queda nada pendiente.
-- **R7** (ubicar no cambia el total) está en la misma prueba, que además comprueba que
-  la mercancía sale de `RECEPCION` y entra en el estante.
+**Las ocho están automatizadas y en verde por HTTP real**
+(`api/app/src/test/kotlin/dev/axzy/stock/app/ReceivingFlowTest.kt`): R1 a R8, con R7 en
+`InventoryFlowTest` A1 (ubicar mueve de recepción al estante y no cambia el total) y R1 en la
+misma prueba de la ruta de ubicar, que carga la línea, aplica la regla del dominio **antes de
+mover nada** y al terminar anota lo ubicado.
 
-Tres cosas que el documento daba por hechas y no lo estaban:
+Además, por lo que este módulo escribe:
 
-Dos cosas que el documento daba por hechas y no lo estaban:
+- **La mercancía entra al contar**, y con ella el módulo se volvió el segundo que mueve
+  inventario: tiene sus propias pruebas de concurrencia
+  (`ReceivingConcurrencyTest`) y su presupuesto de consultas medido —un listado son dos
+  sentencias y el detalle de una factura son dos, con sus líneas—.
+
+Una cosa que el documento daba por hecha y no lo estaba:
 
 - **Rechazar no cancela la línea: la devuelve a `PENDING`.** El diagrama de estados
   dice `DISCREPANCY --> REJECTED`, pero no existe el estado `REJECTED` en la base ni en

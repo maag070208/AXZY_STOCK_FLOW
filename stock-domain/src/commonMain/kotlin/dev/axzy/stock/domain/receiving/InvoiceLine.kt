@@ -115,6 +115,23 @@ data class InvoiceLine(
     val adjustmentReason: String? = null,
     /** Ubicación de destino. */
     val location: LocationCode? = null,
+    /**
+     * Unidades ya **ingresadas** en `RECEPCION` por esta línea.
+     *
+     * Es lo que hace que contar dos veces no sume dos veces: la entrada se escribe por la
+     * diferencia entre lo contado ahora y lo que ya se ingresó. Existe porque una línea con
+     * discrepancia que el supervisor descarta vuelve a `PENDING` y se recuenta
+     * ([rejectDiscrepancy]), y sin este número el kardex contaría la mercancía dos veces.
+     */
+    val receivedQuantity: Quantity = Quantity.ZERO,
+    /**
+     * Quién tiene la línea asignada para contarla.
+     *
+     * La columna existe en la base desde la primera migración y **nadie la escribía**: la ruta de
+     * asignación era la que faltaba. El estado `ASSIGNED` solo decía «alguien la tiene», sin
+     * decir quién.
+     */
+    val assignedUserId: Long? = null,
 ) {
 
     /**
@@ -342,12 +359,18 @@ data class InvoiceLine(
         return copy(status = InvoiceLineStatus.CANCELLED).asRight()
     }
 
-    /** Asigna la línea a un operador para que la cuente. */
-    fun assign(): DomainResult<InvoiceLine> {
+    /**
+     * Asigna la línea a un operador para que la cuente.
+     *
+     * **Solo desde `PENDING`.** Una línea ya contada no se reasigna: el conteo tiene responsable
+     * ([capturedBy]) y cambiarlo después sería reescribir quién hizo el trabajo. Tampoco desde
+     * `DISCREPANCY`: esa línea espera una decisión, no un capturista.
+     */
+    fun assign(userId: Long): DomainResult<InvoiceLine> {
         if (status != InvoiceLineStatus.PENDING) {
             return DomainError.InvalidTransition("línea de factura", status.name, "asignar").asLeft()
         }
-        return copy(status = InvoiceLineStatus.ASSIGNED).asRight()
+        return copy(status = InvoiceLineStatus.ASSIGNED, assignedUserId = userId).asRight()
     }
 
     companion object {

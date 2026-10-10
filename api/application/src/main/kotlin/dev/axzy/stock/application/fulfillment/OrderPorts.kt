@@ -101,6 +101,15 @@ interface Orders {
 
     fun replaceLine(line: OrderLine, locationId: Long?, at: Instant): Unit
 
+    /**
+     * Asigna la línea en **una sola sentencia condicional**.
+     *
+     * El `WHERE` exige que la línea siga en un estado asignable, así que si el empaque la
+     * surtió entre la lectura y la escritura, no se le asigna trabajo a nadie sobre mercancía
+     * que ya salió: devuelve cuántas filas cambió, y cero significa que cambió por debajo.
+     */
+    fun assignLine(lineId: Long, userId: Long, locationId: Long?, at: Instant): Int
+
     fun setStatus(orderId: Long, status: String, at: Instant): Unit
 
     /**

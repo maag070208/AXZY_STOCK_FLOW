@@ -1,5 +1,6 @@
 package dev.axzy.stock.domain.fulfillment
 
+import dev.axzy.stock.domain.common.Either
 import dev.axzy.stock.domain.error.DomainError
 import dev.axzy.stock.domain.value.Quantity
 import io.kotest.core.spec.style.DescribeSpec
@@ -147,6 +148,36 @@ class OrderStateMachineTest : DescribeSpec({
 
             error.shouldBeInstanceOf<DomainError.OrderNotConverted>()
             (error as DomainError.OrderNotConverted).code shouldBe "ORDER_NOT_CONVERTED"
+        }
+    }
+
+    describe("asignar la línea") {
+
+        it("deja la línea a cargo y permite reasignar mientras está en curso") {
+            val pendiente = line()
+
+            val primera = pendiente.assign(userId = 7, locationId = 3).shouldBeInstanceOf<Either.Right<OrderLine>>().value
+            val segunda = primera.assign(userId = 9, locationId = null).shouldBeInstanceOf<Either.Right<OrderLine>>().value
+
+            primera.status shouldBe OrderLineStatus.ASSIGNED
+            primera.assignedUserId shouldBe 7L
+            primera.locationId shouldBe 3L
+            // Reasignar es del día a día: cambia el turno o alguien se pone malo.
+            segunda.assignedUserId shouldBe 9L
+            // Sin ubicación nueva se conserva la que tenía: `ASSIGNED` dice quién, no dónde.
+            segunda.locationId shouldBe 3L
+        }
+
+        it("no se asigna una línea ya surtida ni una anulada") {
+            val surtida = line(quantity = 10_000)
+                .packageQuantity(Quantity.of(10))
+                .shouldBeInstanceOf<Either.Right<OrderLine>>().value
+            val anulada = line(status = OrderLineStatus.CANCELLED)
+
+            // Asignar trabajo sobre mercancía que ya salió sería decir que alguien la va a
+            // sacar dos veces.
+            surtida.assign(userId = 7, locationId = null).isLeft shouldBe true
+            anulada.assign(userId = 7, locationId = null).isLeft shouldBe true
         }
     }
 

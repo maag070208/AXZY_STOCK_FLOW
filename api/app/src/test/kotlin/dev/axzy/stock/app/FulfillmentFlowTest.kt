@@ -414,4 +414,84 @@ class FulfillmentFlowTest : ApiTest() {
         assertThat(post("/v1/orders/1/export", emptyMap<String, Any>(), token).code).isEqualTo("PERMISSION_DENIED")
         assertThat(post("/v1/orders", mapOf("lines" to emptyList<Any>()), token).code).isEqualTo("PERMISSION_DENIED")
     }
+
+    // ── Asignación de la línea (M04) ────────────────────────────────────────
+
+    @Test
+    fun `asignar una linea la deja a cargo de alguien y con su estanteria`() {
+        val token = manager()
+        product(token)
+        val estante = shelf(token)
+        val pedido = order(token)
+        val linea = lineId(token, pedido)
+        val operador = createUser("operador", USER_PASSWORD, BaseRole.WAREHOUSE_OPERATOR.key.value)
+
+        val response = put(
+            "/v1/orders/$pedido/lines/$linea/assign",
+            mapOf("userId" to operador, "locationId" to estante),
+            token,
+        )
+
+        assertThat(response.status).describedAs(response.raw).isEqualTo(200)
+        assertThat(response.at<String>("status")).isEqualTo("ASSIGNED")
+        assertThat((response.at<Number>("assignedUserId")).toLong()).isEqualTo(operador)
+        assertThat((response.at<Number>("locationId")).toLong()).isEqualTo(estante)
+        // Y el detalle lo publica, que es lo que el operador consulta para saber qué le toca.
+        val detalle = get("/v1/orders/$pedido", token).at<List<Map<String, Any?>>>("lines").single()
+        // El nombre visible de la persona, no su usuario: es lo que se lee en pantalla.
+        assertThat(detalle["assignedUserName"]).isEqualTo("Usuario operador")
+        assertThat(detalle["locationDisplayName"]).isEqualTo("04-B-C")
+    }
+
+    @Test
+    fun `sin userId la asignacion es a quien llama`() {
+        val token = manager()
+        product(token)
+        val pedido = order(token)
+        val linea = lineId(token, pedido)
+        val jefa = db.sql("SELECT id FROM users WHERE username = 'jefa'").query(Long::class.java).single()
+
+        val response = put("/v1/orders/$pedido/lines/$linea/assign", mapOf<String, Any?>(), token)
+
+        assertThat(response.status).describedAs(response.raw).isEqualTo(200)
+        assertThat((response.at<Number>("assignedUserId")).toLong()).isEqualTo(jefa)
+    }
+
+    @Test
+    fun `no se asigna una linea ya surtida`() {
+        val token = manager()
+        val quien = approver() as Long
+        product(token)
+        val estante = shelf(token)
+        stockIn(token, "04", 10, quien)
+        val pedido = order(token)
+        val linea = lineId(token, pedido)
+        packageLine(token, pedido, linea, 10, estante)
+
+        val response = put("/v1/orders/$pedido/lines/$linea/assign", mapOf<String, Any?>(), token)
+
+        // Asignar trabajo sobre mercancía que ya salió sería decir que alguien la va a sacar
+        // dos veces.
+        assertThat(response.status).isEqualTo(409)
+        assertThat(response.code).isEqualTo("INVALID_TRANSITION")
+    }
+
+    @Test
+    fun `asignar exige el permiso y un usuario y una ubicacion que existan`() {
+        val token = manager()
+        product(token)
+        val pedido = order(token)
+        val linea = lineId(token, pedido)
+        createUser("operador", USER_PASSWORD, BaseRole.WAREHOUSE_OPERATOR.key.value)
+        val suToken = accessTokenOf("operador", USER_PASSWORD)
+
+        val sinPermiso = put("/v1/orders/$pedido/lines/$linea/assign", mapOf<String, Any?>(), suToken)
+        val usuarioInventado = put("/v1/orders/$pedido/lines/$linea/assign", mapOf("userId" to 999999), token)
+        val ubicacionInventada = put("/v1/orders/$pedido/lines/$linea/assign", mapOf("locationId" to 999999), token)
+
+        assertThat(sinPermiso.code).isEqualTo("PERMISSION_DENIED")
+        assertThat(usuarioInventado.status).isEqualTo(422)
+        assertThat(usuarioInventado.code).isEqualTo("ASSIGNEE_NOT_FOUND")
+        assertThat(ubicacionInventada.code).isEqualTo("LOCATION_NOT_FOUND")
+    }
 }

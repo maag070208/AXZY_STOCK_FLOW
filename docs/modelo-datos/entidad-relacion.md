@@ -2,6 +2,7 @@
 > **Referencia.** Qué tablas hay, en qué migración nacen y cómo se relacionan. El detalle de
 > columnas está en las propias migraciones: `backend/src/main/resources/db/migration/`.
 > Última verificación: 2026-10-09.
+> **Nota de reconstrucción (2026-10-10).** El esquema vigente son las migraciones de `db/migrations/` (V1 a V15). Las reglas siguen vigentes; las rutas de código que cita pertenecen al sistema anterior y se remapean al código nuevo (ver [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
 
 ## Tablas por dominio
 

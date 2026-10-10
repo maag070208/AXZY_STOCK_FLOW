@@ -47,7 +47,7 @@ Se gana localidad y un test que corre en JVM en segundos, sin emulador: es lo qu
 código común de la app ([app-kmp.md](../arquitectura/app-kmp.md) §3.2).
 
 Se paga que los comandos no se lancen desde la raíz, que iOS exija recordar el flag y que el
-`.xcodeproj` no esté verificado en Xcode ([app-kmp.md](../arquitectura/app-kmp.md) §3.2 y [lo-no-verificado.md](../guia/lo-no-verificado.md)).
+`.xcodeproj` no esté verificado en Xcode ([app-kmp.md](../arquitectura/app-kmp.md) §3.2 y [lo-no-verificado.md](../historico/LO-NO-VERIFICADO-ANTERIOR.md)).
 
 Reglas operativas que se derivan:
 

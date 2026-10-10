@@ -1,6 +1,7 @@
 # Web — Feature-Sliced Design (`web/`)
 > **Normativo.** Arquitectura de la web React y sus límites de importación.
 > Última verificación: 2026-10-09.
+> **Nota de reconstrucción (2026-10-10).** Capas FSD vigentes para la web nueva ([web-react.md](web-react.md)). Las reglas siguen vigentes; las rutas de código que cita pertenecen al sistema anterior y se remapean al código nuevo (ver [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
 
 La decisión está en [ADR 0002](../adr/0002-fsd-en-la-web.md).
 

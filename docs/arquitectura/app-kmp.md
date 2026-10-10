@@ -70,7 +70,7 @@ propio. Hasta entonces, si no hay red, la app muestra el estado y no encola escr
 |---|---|---|
 | Unidad | Formularios, estados, mapeo de respuestas | `commonTest` |
 | Red | Contrato contra la API en Compose | `commonTest` con servidor simulado generado desde el contrato |
-| Dispositivo | Escáner, cámara, flujo de recepción completo | Manual, documentado en [guia/lo-no-verificado.md](../guia/lo-no-verificado.md) |
+| Dispositivo | Escáner, cámara, flujo de recepción completo | Manual, documentado en [guia/lo-no-verificado.md](../historico/LO-NO-VERIFICADO-ANTERIOR.md) |
 
 ## 8. Lo que no hace la app
 

@@ -10,6 +10,7 @@ import dev.axzy.stock.application.audit.AuditRecorder
 import dev.axzy.stock.application.catalog.Locations
 import dev.axzy.stock.application.catalog.Products
 import dev.axzy.stock.application.catalog.Warehouses
+import dev.axzy.stock.application.identity.UserAccounts
 import dev.axzy.stock.application.inventory.AdjustStock
 import dev.axzy.stock.adapters.persistence.receiving.JdbcInvoices
 import dev.axzy.stock.application.inventory.InventoryCatalog
@@ -64,11 +65,12 @@ class InventoryConfig {
     fun adjustStock(
         catalog: InventoryCatalog,
         ledger: StockLedger,
+        accounts: UserAccounts,
         audit: AuditRecorder,
         auditEvents: AuditEvents,
         access: AccessDecider,
         tx: TransactionRunner,
-    ) = AdjustStock(catalog, ledger, audit, auditEvents, access, tx)
+    ) = AdjustStock(catalog, ledger, accounts, audit, auditEvents, access, tx)
 
     @Bean
     fun locateStock(

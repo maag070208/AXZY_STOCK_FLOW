@@ -36,7 +36,7 @@ class AuditFlowTest : ApiTest() {
     private fun today(): String = LocalDate.now(java.time.ZoneOffset.UTC).toString()
 
     private fun log(token: String, query: String = ""): dev.axzy.stock.app.support.ApiResponse =
-        get("/v1/audit/log?from=${LocalDate.now().minusDays(1)}&to=${LocalDate.now().plusDays(1)}$query", token)
+        get("/v1/audit/log?from=${businessToday().minusDays(1)}&to=${businessToday().plusDays(1)}$query", token)
 
     // ── U5: la consulta filtra y pagina ─────────────────────────────────────
 

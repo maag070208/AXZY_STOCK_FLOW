@@ -49,7 +49,7 @@ Estado real, que conviene no maquillar: la regla se cumple en el dominio y solo 
 la API. Las rutas y los servicios todavía lanzan excepciones HTTP —por ejemplo
 `backend/src/main/kotlin/dev/axzy/stock/backend/order/OrderService.kt`—, y el tipo de fallo
 de almacenamiento propio del backend (`DomainFailure`) todavía no existe, así que un fallo
-de base no tiene un sitio tipado donde vivir ([api-ktor.md](../historico/API-KTOR.md) §1.11, §1.18 y [lo-no-verificado.md](../guia/lo-no-verificado.md)). Mientras
+de base no tiene un sitio tipado donde vivir ([api-ktor.md](../historico/API-KTOR.md) §1.11, §1.18 y [lo-no-verificado.md](../historico/LO-NO-VERIFICADO-ANTERIOR.md)). Mientras
 convivan el retorno y el lanzamiento, la firma de un caso de uso no dice toda la verdad.
 
 Reglas operativas que se derivan:

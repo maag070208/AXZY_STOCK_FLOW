@@ -205,10 +205,18 @@ Cuatro cosas que el documento no fijaba y quedaron decididas al construir:
 | Merma por faltante | `inventory.adjust_shortage` |
 | Merma por daño | `inventory.adjust_damage` |
 | Merma por robo | `inventory.adjust_theft` |
-| Aprobar ajuste | `inventory.approve_adjustment` |
+| Aprobar ajuste | `inventory.approve_adjustment` (lo comprueba el servidor sobre el usuario del `approverId`) |
 
 No existe un permiso genérico de «ajustar»: un robo no es un error de conteo, y un permiso único
 permitiría tapar un robo con un ajuste firmado por quien lo hizo.
+
+**Y el permiso de aprobar se comprueba de verdad.** El ajuste que requiere aprobación lleva el
+`approverId` en la petición, así que el servidor carga a ese usuario y le exige
+`inventory.approve_adjustment` **con el alcance de la bodega de la ubicación**; si no lo tiene,
+responde `403 APPROVER_NOT_AUTHORIZED` y no escribe nada. Sin esta comprobación bastaba con mandar
+el identificador de un supervisor para firmar el propio ajuste: el permiso existía en el catálogo,
+en los roles y en la bitácora, pero no lo comprobaba nadie. Ver
+[PLAN-IMPLEMENTACION §6](../plan/PLAN-IMPLEMENTACION.md).
 
 ## 10. Bitácora
 

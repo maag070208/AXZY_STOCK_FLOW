@@ -1,5 +1,6 @@
 # Roles y permisos
 > **Normativo.** Modelo de acceso: RBAC + ABAC, denegación por defecto. Última verificación: 2026-10-09.
+> **Nota de reconstrucción (2026-10-10).** Matriz de permisos vigente; la fuente de código es `api/` y `stock-domain/`. Las reglas siguen vigentes; las rutas de código que cita pertenecen al sistema anterior y se remapean al código nuevo (ver [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
 
 La decisión está en [ADR 0006](../adr/0006-rbac-mas-abac-denegar-por-defecto.md).
 

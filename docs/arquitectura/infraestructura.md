@@ -66,7 +66,7 @@ error nombra la variable.
 
 ```
 db/
-  migrations/   V1__… a V12__…   Las migraciones versionadas
+  migrations/   V1__… a V15__…   Las migraciones versionadas
   callbacks/    afterMigrate.sql  Se ejecuta después de cada `migrate`
   init/         01-rol-de-la-api.sh  Crea el usuario de la API al inicializar el volumen
 ```
@@ -88,6 +88,9 @@ db/
 | `V10` | El total por producto se recalcula con el producto bloqueado. Sin eso, dos movimientos simultáneos perdían una escritura (205 en lugar de 215) |
 | `V11` | El rol `stock_api`; las particiones de la bitácora (función con `SECURITY DEFINER`); el índice de la cadena de hash |
 | `V12` | `audit_log_record` acepta la traza de la decisión de acceso. Sin eso, un registro `CRITICAL` no se podía guardar |
+| `V13` | El motor de traslados: despachar, recibir y cancelar mueven el saldo y dejan las dos mitades en el kardex |
+| `V14` | El enlace de una reimpresión con el trabajo original |
+| `V15` | Lo ya ingresado en recepción por línea de factura. Sin eso, ubicar desde recepción encontraba cero |
 
 **El índice de V11, medido.** Cada escritura de la bitácora busca el eslabón anterior de la cadena
 (`ORDER BY sequence_no DESC LIMIT 1`). Sin índice, eso leía todas las filas de todas las particiones
@@ -110,7 +113,7 @@ fallar.
 SELECT version, description, success
 FROM flyway_schema_history
 ORDER BY installed_rank;
--- Doce filas, todas con success = true.
+-- Quince filas, todas con success = true.
 ```
 
 ## 5. La imagen de la API

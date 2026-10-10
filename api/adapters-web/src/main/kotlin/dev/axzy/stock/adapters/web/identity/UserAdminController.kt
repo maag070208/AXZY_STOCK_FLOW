@@ -16,6 +16,8 @@ import dev.axzy.stock.application.identity.NewRole
 import dev.axzy.stock.application.identity.NewUser
 import dev.axzy.stock.application.identity.PermissionView
 import dev.axzy.stock.application.identity.ResetUserPassword
+import dev.axzy.stock.application.identity.RevokeUserSessions
+import dev.axzy.stock.application.identity.SessionsRevoked
 import dev.axzy.stock.application.identity.RoleDetail
 import dev.axzy.stock.application.identity.RoleGrantView
 import dev.axzy.stock.application.identity.RoleView
@@ -59,6 +61,7 @@ class UserController(
     private val createUser: CreateUser,
     private val updateUser: UpdateUser,
     private val resetPassword: ResetUserPassword,
+    private val revokeUserSessions: RevokeUserSessions,
 ) {
 
     @GetMapping
@@ -142,6 +145,22 @@ class UserController(
     ): ResponseEntity<Any> = resetPassword
         .execute(actor, id, body.password, body.mustChangePassword, origin)
         .toResponse { it.toDto() }
+
+    /**
+     * Cierra todas las sesiones de un usuario.
+     *
+     * **Corta la renovación, no el token vivo**: el acceso ya emitido es un JWT firmado y vale
+     * hasta que expire por su cuenta; lo que se revoca son los tokens de refresco. Para cortar
+     * el acceso de inmediato está restablecer la contraseña, que sí mueve el sello de
+     * credenciales.
+     */
+    @PostMapping("/{id}/revoke-sessions")
+    @RequiresPermission("session.revoke")
+    fun revokeSessions(
+        @PathVariable id: Long,
+        actor: Actor,
+        origin: RequestOrigin,
+    ): ResponseEntity<Any> = revokeUserSessions.execute(actor, id, origin).toResponse { it.toDto() }
 }
 
 /**
@@ -290,6 +309,10 @@ data class UserPatchDto(
 )
 
 data class ResetPasswordDto(val password: String? = null, val mustChangePassword: Boolean? = null)
+
+data class SessionsRevokedDto(val userId: Long, val username: String, val revokedSessions: Int)
+
+fun SessionsRevoked.toDto(): SessionsRevokedDto = SessionsRevokedDto(userId, username, revoked)
 
 data class RoleDto(val key: String, val name: String, val description: String?, val permissions: Int)
 

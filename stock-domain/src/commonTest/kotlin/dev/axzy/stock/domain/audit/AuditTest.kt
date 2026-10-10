@@ -49,6 +49,31 @@ class AuditTest : DescribeSpec({
     )
 
     // ═════════════════════════════════════════════════════════════════════════
+    describe("el registro de casos de uso auditables") {
+
+        // El registro es documentación **ejecutable**: dice de cada caso de uso qué escribe, con
+        // qué nivel y bajo qué permiso. Nada lo ataba al catálogo, así que un permiso mal escrito
+        // aquí no se notaría hasta que ese caso de uso escribiera de verdad… dentro de una
+        // transacción, donde el fallo se lleva por delante la operación legítima que se estaba
+        // auditando. Estas tres reglas lo atan.
+
+        it("cada permiso declarado existe en el catálogo") {
+            val desconocidos = CriticalUseCases.all
+                .map { it.permission }
+                .distinct()
+                .filter { PermissionCatalog.find(it) == null }
+
+            desconocidos shouldBe emptyList()
+        }
+
+        it("cada caso de uso y cada acción se declaran una sola vez") {
+            // Dos casos de uso con la misma acción harían ambigua la bitácora: no se podría
+            // responder quién hizo qué.
+            CriticalUseCases.all.map { it.useCase }.distinct() shouldBe CriticalUseCases.all.map { it.useCase }
+            CriticalUseCases.all.map { it.action }.distinct() shouldBe CriticalUseCases.all.map { it.action }
+        }
+    }
+
     describe("U1 — COBERTURA ESTRUCTURAL: el test que evita que la auditoría se degrade") {
 
         it("toda acción declarada tiene permiso, entidad, nivel y categoría") {

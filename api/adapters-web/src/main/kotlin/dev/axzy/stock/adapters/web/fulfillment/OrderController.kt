@@ -15,6 +15,7 @@ import dev.axzy.stock.application.fulfillment.NewOrderLine
 import dev.axzy.stock.application.fulfillment.OrderFilter
 import dev.axzy.stock.application.fulfillment.PackageInput
 import dev.axzy.stock.application.fulfillment.PackageLine
+import dev.axzy.stock.application.fulfillment.AssignOrderLine
 import dev.axzy.stock.application.fulfillment.RegisterShortage
 import dev.axzy.stock.application.fulfillment.ShortageInput
 import dev.axzy.stock.application.shared.Failure
@@ -32,6 +33,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
@@ -57,6 +59,7 @@ class OrderController(
     private val confirmOrder: ConfirmOrder,
     private val exportOrder: ExportOrder,
     private val registerShortage: RegisterShortage,
+    private val assignOrderLine: AssignOrderLine,
 ) {
 
     @GetMapping
@@ -156,6 +159,24 @@ class OrderController(
      * ajuste** (`inventory.adjust_shortage`): el caso de uso delegado lo comprueba. Sin
      * él, cualquiera que pudiera empacar podría mover inventario por merma.
      */
+    /**
+     * Asigna la línea a quien la va a surtir (M04).
+     *
+     * `userId` es opcional: sin él, quien llama **se asigna a sí mismo**, que es el caso diario
+     * del operador. Con él, un supervisor reparte el trabajo.
+     */
+    @PutMapping("/{id}/lines/{lineId}/assign")
+    @RequiresPermission("order.assign")
+    fun assign(
+        @PathVariable id: Long,
+        @PathVariable lineId: Long,
+        @RequestBody body: AssignLineDto,
+        actor: Actor,
+        origin: RequestOrigin,
+    ): ResponseEntity<Any> = assignOrderLine
+        .execute(actor, id, lineId, body.userId, body.locationId, origin)
+        .toResponse { it.toDto() }
+
     @PostMapping("/{id}/shortage")
     @RequiresPermission("order.package", "inventory.adjust_shortage")
     fun shortage(
@@ -211,3 +232,5 @@ private fun quantityOf(raw: BigDecimal): Quantity =
         )
     }
 
+/** Sin `userId`, la asignación es a quien llama. */
+data class AssignLineDto(val userId: Long? = null, val locationId: Long? = null)

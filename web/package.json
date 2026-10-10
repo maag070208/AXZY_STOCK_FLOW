@@ -1,6 +1,7 @@
 {
   "name": "stockflow-web",
   "private": true,
+  "packageManager": "pnpm@10.34.0",
   "license": "MIT",
   "version": "0.1.0",
   "productName": "StockFlow",

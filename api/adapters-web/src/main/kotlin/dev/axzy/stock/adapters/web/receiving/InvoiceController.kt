@@ -7,6 +7,7 @@ import dev.axzy.stock.adapters.web.http.toResponse
 import dev.axzy.stock.application.access.Actor
 import dev.axzy.stock.application.receiving.ApproveInvoice
 import dev.axzy.stock.application.receiving.CaptureInput
+import dev.axzy.stock.application.receiving.AssignInvoiceLine
 import dev.axzy.stock.application.receiving.CaptureLine
 import dev.axzy.stock.application.receiving.CloseInvoice
 import dev.axzy.stock.application.receiving.CreateInvoice
@@ -36,6 +37,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -56,6 +58,7 @@ class InvoiceController(
     private val getInvoice: GetInvoice,
     private val createInvoice: CreateInvoice,
     private val captureLine: CaptureLine,
+    private val assignInvoiceLine: AssignInvoiceLine,
     private val approveInvoice: ApproveInvoice,
     private val rejectDiscrepancy: RejectInvoiceDiscrepancy,
     private val closeInvoice: CloseInvoice,
@@ -162,6 +165,24 @@ class InvoiceController(
             .toResponse { it.toDto() }
     }
 
+    /**
+     * Asigna la línea a quien la va a contar.
+     *
+     * `userId` es opcional: sin él, quien llama **se asigna a sí mismo**, que es el caso diario
+     * del capturista. Con él, un supervisor reparte el conteo.
+     */
+    @PutMapping("/{id}/lines/{lineId}/assign")
+    @RequiresPermission("invoice.assign")
+    fun assign(
+        @PathVariable id: Long,
+        @PathVariable lineId: Long,
+        @RequestBody body: AssignLineDto,
+        actor: Actor,
+        origin: RequestOrigin,
+    ): ResponseEntity<Any> = assignInvoiceLine
+        .execute(actor, id, lineId, body.userId, origin)
+        .toResponse { it.toDto() }
+
     @PostMapping("/{id}/approve")
     @RequiresPermission("invoice.approve")
     fun approve(
@@ -245,3 +266,6 @@ private fun boxesOf(raw: BigDecimal?): Outcome<BoxQuantity?> {
     }
     return BoxQuantity.of(quantity.units).asRight()
 }
+
+/** Sin `userId`, la asignación es a quien llama. */
+data class AssignLineDto(val userId: Long? = null)

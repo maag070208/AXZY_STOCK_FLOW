@@ -162,14 +162,35 @@ surtido mandaría al ERP una salida que no existe. `404 ORDER_NOT_FOUND`.
 > falla con un motivo que empieza por `ERP_NOT_CONNECTED`, el contador sube y el error
 > queda guardado para el reintento (S5 y S6). No se registra como enviado —sería mentir
 > en la bitácora y en el estado de la orden—; lo que falta es el adaptador
-> ([lo-no-verificado.md](../guia/lo-no-verificado.md) y
+> ([lo-no-verificado.md](../historico/LO-NO-VERIFICADO-ANTERIOR.md) y
 > [ADR-0013](../adr/0013-ordenes-al-erp-con-reintentos.md)). La respuesta no incluye
 > `nextRetryAt`.
 
-> **Sin ruta de asignación.** `order.assign` está en el catálogo de permisos y la tabla
-> tiene `assigned_user_id` y `location_id`, pero **ninguna ruta los escribe**: la
-> ubicación de la línea la anota el empaque y el operador no tiene forma de asignarse
-> una línea. Está anotado en el plan.
+## `PUT /v1/orders/{id}/lines/{lineId}/assign`
+
+Asigna la línea a quien la va a surtir. Permiso: `order.assign`.
+
+```json
+{ "userId": 7, "locationId": 2 }
+```
+
+**`userId` es opcional**: sin él, quien llama **se asigna a sí mismo**, que es el caso diario
+del operador. Con él, un supervisor reparte el trabajo. Asignar a otro no es un privilegio
+aparte: el permiso es el mismo.
+
+- **`locationId` es opcional** y, si no viene, se conserva la que tuviera: lo que dice el
+  estado `ASSIGNED` es que **hay alguien a cargo**, no dónde está la mercancía.
+- **Solo desde `PENDING` o `ASSIGNED`.** Una línea ya surtida o anulada responde
+  `409 INVALID_TRANSITION`: asignar trabajo sobre mercancía que ya salió sería decir que
+  alguien la va a sacar dos veces. Reasignar mientras está en curso **sí** se permite —el
+  turno cambia, alguien se pone malo—.
+- Si el empaque surtió la línea entre la lectura y la escritura, responde
+  `409 LINE_CHANGED` en vez de asignar trabajo sobre algo que ya no está.
+- `422 ASSIGNEE_NOT_FOUND` y `422 LOCATION_NOT_FOUND` si el usuario o la ubicación no existen.
+
+> **Antes no existía.** La tabla y la respuesta tenían `assigned_user_id` y `location_id`
+> desde el principio y **ninguna ruta los escribía**: el operador no tenía forma de
+> asignarse una línea. Corregido el 2026-10-10.
 
 ## `POST /v1/orders/{id}/shortage`
 

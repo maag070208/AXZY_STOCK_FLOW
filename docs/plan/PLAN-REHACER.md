@@ -7,19 +7,23 @@
 
 ## 1. Punto de partida
 
-El repositorio quedó solo con documentación y el legacy (`BASE/`). El código anterior (Ktor,
-Exposed, Compose) está en el historial de git y sirve de **referencia de comportamiento**, no
-de base de código. Lo que se conserva es:
+Al empezar, el repositorio tenía solo documentación y el legacy (`BASE/`). El código anterior (Ktor,
+Exposed, Compose) estaba en el historial de git y sirvió de **referencia de comportamiento**, no de
+base de código. Lo que se conservó:
 
 | Se conserva | Dónde está | Por qué |
 |---|---|---|
 | Reglas de negocio (invariantes, estados, permisos) | `docs/adr/0005`–`0013`, `docs/modulos/` | Son decisiones del negocio, no del framework |
-| Esquema de datos y motor SQL (funciones de inventario) | historial git, `V1`–`V10` | Probado con 685 pruebas; el motor vive en la base |
-| Contrato HTTP | `docs/api/` | Lo consumen la app y la web; cambia solo si hace falta |
+| Esquema de datos y motor SQL (funciones de inventario) | `db/migrations/V1`–`V15` | El motor vive en la base; V1–V9 vienen del historial y V10–V15 se escribieron después |
+| Contrato HTTP | `docs/api/` | Lo consumen la app y la web |
 | Diseño visual | `docs/guia/identidad-visual.md` | Sigue siendo la referencia de la web |
 
-Lo que **no** se conserva es la arquitectura de Ktor (`docs/historico/`): el cableado a mano,
-el stack de versiones y las decisiones tomadas por el framework anterior.
+Lo que **no** se conservó es la arquitectura de Ktor (`docs/historico/`): el cableado a mano, el stack
+de versiones y las decisiones tomadas por el framework anterior.
+
+**Estado al 2026-10-10.** La API existe y corre en Compose, con 752 pruebas en verde y el esquema en
+V15. El avance módulo a módulo está en [PLAN-IMPLEMENTACION.md](PLAN-IMPLEMENTACION.md). La app y la web
+siguen en curso.
 
 ## 2. Destino
 

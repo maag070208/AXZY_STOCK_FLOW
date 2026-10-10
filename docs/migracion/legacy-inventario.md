@@ -18,7 +18,7 @@ Ninguno de los tres tenía pruebas automatizadas en ese momento.
 ## Qué se conserva
 
 - Los flujos de negocio: recepción de facturas, ubicación, surtido, etiquetas, existencias.
-  La lista de rutas está en [mapa-legacy-nuevo.md](mapa-legacy-nuevo.md).
+  La lista de rutas está en [mapa-legacy-nuevo.md](../historico/MAPA-LEGACY-NUEVO-ANTERIOR.md).
 - Las reglas de negocio que el código ya cumplía bien: los estados de factura y de orden, y
   la forma de capturar cajas y unidades.
 

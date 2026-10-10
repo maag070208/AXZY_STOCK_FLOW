@@ -256,4 +256,53 @@ class UserAdminFlowTest : ApiTest() {
         assertThat(get("/v1/roles", token).code).isEqualTo("PERMISSION_DENIED")
         assertThat(get("/v1/permissions", token).code).isEqualTo("PERMISSION_DENIED")
     }
+
+    // ── Revocar las sesiones de otro ────────────────────────────────────────
+
+    @Test
+    fun `revocar las sesiones deja a la persona sin poder renovar`() {
+        val token = manager()
+        create(token, "ana", roles = listOf(almacen))
+        val ana = userIdOf("ana")
+        val sesion = post("/v1/auth/login", mapOf("username" to "ana", "password" to USER_PASSWORD))
+        val suRefresh = sesion.at<String>("refreshToken")
+
+        val response = post("/v1/users/$ana/revoke-sessions", null, token)
+
+        assertThat(response.status).describedAs(response.raw).isEqualTo(200)
+        assertThat(response.at<Int>("revokedSessions")).isGreaterThanOrEqualTo(1)
+        // Lo que se corta es la renovación: el refresco vivo ya no vale y hay que volver a entrar.
+        // (Se prueba con el token sin rotar: rotarlo antes metería en medio la detección de reuso,
+        // que es otra regla y tiene sus propias pruebas.)
+        assertThat(post("/v1/auth/refresh", mapOf("refreshToken" to suRefresh)).status).isEqualTo(401)
+        // Y puede volver a entrar: revocar no es bloquear la cuenta.
+        assertThat(post("/v1/auth/login", mapOf("username" to "ana", "password" to USER_PASSWORD)).status)
+            .isEqualTo(200)
+    }
+
+    @Test
+    fun `revocar sin sesiones abiertas no inventa nada`() {
+        val token = manager()
+        create(token, "ana", roles = listOf(almacen))
+
+        val response = post("/v1/users/${userIdOf("ana")}/revoke-sessions", null, token)
+
+        assertThat(response.status).describedAs(response.raw).isEqualTo(200)
+        // Cero no es un error: la persona no tenía la sesión abierta, que es lo que se quería.
+        assertThat(response.at<Int>("revokedSessions")).isZero()
+    }
+
+    @Test
+    fun `revocar exige el permiso y un usuario que exista`() {
+        createUser("operador", USER_PASSWORD, BaseRole.WAREHOUSE_OPERATOR.key.value)
+        val suToken = accessTokenOf("operador", USER_PASSWORD)
+        val token = manager()
+        create(token, "ana", roles = listOf(almacen))
+
+        val sinPermiso = post("/v1/users/${userIdOf("ana")}/revoke-sessions", null, suToken)
+        val inventado = post("/v1/users/999999/revoke-sessions", null, token)
+
+        assertThat(sinPermiso.code).isEqualTo("PERMISSION_DENIED")
+        assertThat(inventado.code).isEqualTo("USER_NOT_FOUND")
+    }
 }

@@ -376,8 +376,8 @@ class InvoiceLineStateMachineTest : DescribeSpec({
         }
 
         it("solo se puede asignar una línea pendiente") {
-            lineNew().assign().isRight shouldBe true
-            val result = lineCaptured(100).assign()
+            lineNew().assign(userId = 7).isRight shouldBe true
+            val result = lineCaptured(100).assign(userId = 7)
             result.isLeft shouldBe true
         }
     }

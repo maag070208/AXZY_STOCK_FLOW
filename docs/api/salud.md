@@ -10,7 +10,7 @@ el caso de uso en `api/application/.../health/CheckHealth.kt` y la consulta a la
 
 ```json
 {
-  "status": "UP", "schemaVersion": "12", "version": "1.0.0",
+  "status": "UP", "schemaVersion": "15", "version": "1.0.0",
   "database": { "status": "UP", "latencyMs": 3, "error": null }
 }
 ```

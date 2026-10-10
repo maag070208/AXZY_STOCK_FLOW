@@ -1,5 +1,6 @@
 # Visión y alcance
 > **Normativo.** Qué construye StockFlow, para quién y qué queda fuera. Última verificación: 2026-10-09.
+> **Nota de reconstrucción (2026-10-10).** Alcance vigente; la app y la web se reconstruyen en las fases 10 y 11. Las reglas siguen vigentes; las rutas de código que cita pertenecen al sistema anterior y se remapean al código nuevo (ver [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
 
 ## Problema
 

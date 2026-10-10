@@ -19,6 +19,7 @@ permiso**. Por eso todo lo que se escribe aquí queda en la bitácora con nivel 
 | `GET /v1/users/{id}` | `user.view` | Detalle: roles, bodegas y cuándo cambió la contraseña |
 | `PUT /v1/users/{id}` | `user.edit` / `role.assign` | Edición parcial; lo que no viene queda igual. **Mandar `roles` exige `role.assign`**: decidir qué puede hacer alguien no es lo mismo que corregir su nombre |
 | `POST /v1/users/{id}/reset-password` | `user.reset_password` | Contraseña nueva y, por defecto, cambio obligatorio |
+| `POST /v1/users/{id}/revoke-sessions` | `session.revoke` | Cierra **todas** las sesiones abiertas de esa persona |
 | `GET /v1/roles` | `role.manage` | Los roles con cuántos permisos tiene cada uno |
 | `POST /v1/roles` | `role.manage` | Alta de un rol con su matriz. **201** |
 | `GET /v1/roles/{key}` | `role.manage` | El rol con **su matriz** y cuántas personas lo tienen |
@@ -39,6 +40,27 @@ permiso**. Por eso todo lo que se escribe aquí queda en la bitácora con nivel 
 - **Un usuario sin roles no se admite**: no podría hacer nada y lo descubriría al entrar.
 - La contraseña se valida con la **misma política** que el inicio de sesión (NIST SP
   800-63B): `422 WEAK_PASSWORD`.
+
+## Revocar las sesiones de otro
+
+`POST /v1/users/{id}/revoke-sessions` responde `200` con `revokedSessions` (cuántos tokens de
+refresco se revocaron). Cero **no es un error**: la persona no tenía la sesión abierta, que es
+justo lo que se quería. `404 USER_NOT_FOUND` si el usuario no existe.
+
+Es la respuesta a «le robaron el portátil» o «se va hoy» sin tener que cambiarle la contraseña,
+que es una decisión mucho más grande: se la comunicas, la cambia, y con eso invalidas también lo
+que estaba haciendo.
+
+**Lo que corta es la renovación, y conviene decirlo con precisión.** El token de acceso ya
+emitido es un JWT firmado que no se consulta en la base en cada petición, así que vive hasta que
+expira por su cuenta. Lo que se revoca son los tokens de refresco, que son los que mantienen la
+sesión viva. Quedan dos matices, ambos por diseño:
+
+- Un token de refresco **ya rotado** sigue siendo aceptado durante su **ventana de gracia de 30
+  segundos**, pensada para el reintento de un cliente al que se le cayó la red. Revocar no la
+  cambia: la ventana es de la rotación, no de la sesión.
+- Para cortar el acceso **de inmediato** está restablecer la contraseña, que sí mueve el sello de
+  credenciales (`password_changed_at`) e invalida todo lo emitido.
 
 ## La matriz de un rol
 

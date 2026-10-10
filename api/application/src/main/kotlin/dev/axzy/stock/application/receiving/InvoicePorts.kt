@@ -50,6 +50,8 @@ data class InvoiceLineView(
     val approvedByName: String?,
     val approvedAt: Instant?,
     val locationDisplayName: String?,
+    /** El nombre visible de quien tiene la línea asignada, para no obligar al cliente a resolverlo. */
+    val assignedUserName: String? = null,
 )
 
 data class InvoiceDetail(val header: InvoiceHeader, val lines: List<InvoiceLineView>)
@@ -132,6 +134,28 @@ interface Invoices {
 
     /** Escribe una línea: captura, aprobación o rechazo ya decididos por el dominio. */
     fun replaceLine(line: InvoiceLine, at: Instant): Unit
+
+    /**
+     * Reclama la captura de la línea **contra el saldo ingresado que se leyó**.
+     *
+     * Es un *compare-and-set*, y existe por lo que escribe: contar mete mercancía en
+     * `RECEPCION` por la **diferencia** contra lo ya ingresado, así que si dos capturas de la
+     * misma línea leen el mismo saldo, las dos ingresan la misma diferencia y **el stock se
+     * duplica**. El `WHERE` exige que `received_quantity` siga siendo el que se leyó: la
+     * primera gana y la segunda cambia cero filas.
+     *
+     * Devolver cero **no es un error del usuario**: significa que otra persona contó esa línea
+     * mientras tanto, y el caso de uso lo dice con un código propio.
+     */
+    fun claimCapture(line: InvoiceLine, expectedReceived: Quantity, at: Instant): Int
+
+    /**
+     * Asigna la línea a un capturista en **una sola sentencia condicional**.
+     *
+     * El `WHERE` exige que la línea siga en `PENDING`: si otra persona la contó entre la lectura
+     * y la escritura, no se le asigna trabajo ya hecho. Devuelve cuántas filas cambió.
+     */
+    fun assignLine(lineId: Long, userId: Long, at: Instant): Int
 
     fun setStatus(invoiceId: Long, status: String, at: Instant): Unit
 

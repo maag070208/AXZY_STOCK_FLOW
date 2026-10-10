@@ -154,6 +154,7 @@ class JdbcInvoices(private val jdbc: JdbcClient) : Invoices, ReceivingCatalog, L
                 physical_quantity = CAST(:physical AS numeric),
                 physical_box_quantity = CAST(:physicalBoxes AS numeric),
                 located_quantity = CAST(:located AS numeric),
+                received_quantity = CAST(:received AS numeric),
                 status = CAST(:status AS invoice_line_status),
                 captured_by = CAST(:capturedBy AS bigint),
                 captured_at = CASE WHEN CAST(:capturedBy AS bigint) IS NULL THEN NULL
@@ -169,6 +170,7 @@ class JdbcInvoices(private val jdbc: JdbcClient) : Invoices, ReceivingCatalog, L
                 "physical" to line.physicalQuantity?.toSql(),
                 "physicalBoxes" to line.physicalBoxQuantity?.value?.toBigDecimal(),
                 "located" to line.locatedQuantity.toSql(),
+                "received" to line.receivedQuantity.toSql(),
                 "status" to line.status.name,
                 "capturedBy" to line.capturedBy,
                 "approvedBy" to line.approvedBy,
@@ -178,6 +180,64 @@ class JdbcInvoices(private val jdbc: JdbcClient) : Invoices, ReceivingCatalog, L
             ),
         )
     }
+
+    /**
+     * La captura, reclamada contra el saldo ingresado que se leyó.
+     *
+     * Es el mismo `UPDATE` de [replaceLine] con una condición más: `received_quantity` tiene que
+     * seguir siendo el que se leyó. Sin ella, dos capturas simultáneas de la misma línea
+     * ingresarían la misma diferencia dos veces.
+     */
+    override fun claimCapture(line: InvoiceLine, expectedReceived: Quantity, at: Instant): Int =
+        update(
+            """
+            UPDATE invoice_lines SET
+                physical_quantity = CAST(:physical AS numeric),
+                physical_box_quantity = CAST(:physicalBoxes AS numeric),
+                located_quantity = CAST(:located AS numeric),
+                received_quantity = CAST(:received AS numeric),
+                status = CAST(:status AS invoice_line_status),
+                captured_by = CAST(:capturedBy AS bigint),
+                captured_at = CASE WHEN CAST(:capturedBy AS bigint) IS NULL THEN NULL
+                                   ELSE CAST(:at AS timestamptz) END,
+                approved_by = CAST(:approvedBy AS bigint),
+                approved_at = CASE WHEN CAST(:approvedBy AS bigint) IS NULL THEN NULL
+                                   ELSE CAST(:at AS timestamptz) END,
+                adjustment_reason = CAST(CAST(:reason AS text) AS adjustment_reason),
+                updated_at = CAST(:at AS timestamptz)
+            WHERE id = CAST(:id AS bigint)
+              AND received_quantity = CAST(:expected AS numeric)
+            """.trimIndent(),
+            mapOf(
+                "physical" to line.physicalQuantity?.toSql(),
+                "physicalBoxes" to line.physicalBoxQuantity?.value?.toBigDecimal(),
+                "located" to line.locatedQuantity.toSql(),
+                "received" to line.receivedQuantity.toSql(),
+                "expected" to expectedReceived.toSql(),
+                "status" to line.status.name,
+                "capturedBy" to line.capturedBy,
+                "approvedBy" to line.approvedBy,
+                "reason" to line.adjustmentReason,
+                "at" to OffsetDateTime.ofInstant(at, ZoneOffset.UTC),
+                "id" to line.id,
+            ),
+        )
+
+    override fun assignLine(lineId: Long, userId: Long, at: Instant): Int =
+        update(
+            """
+            UPDATE invoice_lines SET
+                assigned_user_id = CAST(:user AS bigint),
+                status = 'ASSIGNED',
+                updated_at = CAST(:at AS timestamptz)
+            WHERE id = CAST(:line AS bigint) AND status = 'PENDING'
+            """.trimIndent(),
+            mapOf(
+                "user" to userId,
+                "at" to OffsetDateTime.ofInstant(at, ZoneOffset.UTC),
+                "line" to lineId,
+            ),
+        )
 
     override fun setStatus(invoiceId: Long, status: String, at: Instant) {
         update(
@@ -272,6 +332,7 @@ class JdbcInvoices(private val jdbc: JdbcClient) : Invoices, ReceivingCatalog, L
             """
             UPDATE invoice_lines SET
                 located_quantity = CAST(:located AS numeric),
+                received_quantity = CAST(:received AS numeric),
                 status = CAST(:status AS invoice_line_status),
                 location_id = CAST(:location AS bigint),
                 updated_at = CAST(:at AS timestamptz)
@@ -279,6 +340,7 @@ class JdbcInvoices(private val jdbc: JdbcClient) : Invoices, ReceivingCatalog, L
             """.trimIndent(),
             mapOf(
                 "located" to line.locatedQuantity.toSql(),
+                "received" to line.receivedQuantity.toSql(),
                 "status" to line.status.name,
                 "location" to locationId,
                 "at" to OffsetDateTime.ofInstant(at, ZoneOffset.UTC),
@@ -326,6 +388,9 @@ class JdbcInvoices(private val jdbc: JdbcClient) : Invoices, ReceivingCatalog, L
         val physical = getBigDecimal("physical_quantity").toQuantity().takeIf { !wasNull() }
         val physicalBoxes = getBigDecimal("physical_box_quantity")?.longValueExact()?.let(BoxQuantity::of)
         val located = getBigDecimal("located_quantity").toQuantity()
+        val received = getBigDecimal("received_quantity").toQuantity()
+        val assignedUser = getLong("assigned_user_id").takeUnless { wasNull() }
+        val assignedUserName = getString("assigned_user_name")
 
         val location = getLong("location_id").takeUnless { wasNull() }?.let {
             Location(
@@ -347,6 +412,8 @@ class JdbcInvoices(private val jdbc: JdbcClient) : Invoices, ReceivingCatalog, L
             physicalQuantity = physical,
             physicalBoxQuantity = physicalBoxes,
             locatedQuantity = located,
+            receivedQuantity = received,
+            assignedUserId = assignedUser,
             capturedBy = getLong("captured_by").takeUnless { wasNull() },
             approvedBy = getLong("approved_by").takeUnless { wasNull() },
             adjustmentReason = getString("adjustment_reason"),
@@ -374,6 +441,7 @@ class JdbcInvoices(private val jdbc: JdbcClient) : Invoices, ReceivingCatalog, L
             approvedByName = getString("approved_by_name"),
             approvedAt = getObject("approved_at", OffsetDateTime::class.java)?.toInstant(),
             locationDisplayName = location?.displayName,
+            assignedUserName = assignedUserName,
         )
     }
 
@@ -437,10 +505,11 @@ class JdbcInvoices(private val jdbc: JdbcClient) : Invoices, ReceivingCatalog, L
             """
             SELECT l.id, l.product_id, p.product_code, p.name AS product_name, l.container,
                    l.quantity, l.box_quantity, l.units_per_box, l.physical_quantity,
-                   l.physical_box_quantity, l.located_quantity, l.difference,
+                   l.physical_box_quantity, l.located_quantity, l.received_quantity, l.difference,
                    l.status::text AS status, l.captured_by, cu.name AS captured_by_name,
                    l.captured_at, l.approved_by, au.name AS approved_by_name, l.approved_at,
                    l.adjustment_reason::text AS adjustment_reason, l.assigned_user_id,
+                   asg.name AS assigned_user_name,
                    l.location_id, ll.hall AS location_hall, ll.code AS location_code,
                    ll.position AS location_position, ll.kind::text AS location_kind
             """.trimIndent()
@@ -451,6 +520,7 @@ class JdbcInvoices(private val jdbc: JdbcClient) : Invoices, ReceivingCatalog, L
             JOIN products p ON p.id = l.product_id
             LEFT JOIN users cu ON cu.id = l.captured_by
             LEFT JOIN users au ON au.id = l.approved_by
+            LEFT JOIN users asg ON asg.id = l.assigned_user_id
             LEFT JOIN locations ll ON ll.id = l.location_id
             """.trimIndent()
     }
