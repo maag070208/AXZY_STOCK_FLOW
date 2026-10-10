@@ -15,7 +15,7 @@ export type InventoryListParams = StockParams;
 /** Filtros del kardex. `from`/`to` son fechas operativas (`YYYY-MM-DD`). */
 export type KardexListParams = KardexParams;
 
-/** Cuerpo del ajuste. Incluye `idempotencyKey`, que el contrato admite en el cuerpo. */
+/** Cuerpo del ajuste. La idempotencia va en la cabecera `Idempotency-Key`, no aquí. */
 export type AdjustmentRequestDto = AdjustmentRequest;
 
 /** Cuerpo de ubicar mercancía. */

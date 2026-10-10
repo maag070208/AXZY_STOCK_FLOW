@@ -194,59 +194,80 @@ export interface Warehouse {
 export interface StockItem {
   productId: number;
   productCode: string;
+  productName: string;
   locationId: number;
   locationDisplayName: string;
   warehouseId: number;
-  quantity: number;
+  warehouseCode: string;
+  /**
+   * **Cadena** con 3 decimales (`"5193.000"`), no `number`: la API manda las
+   * cantidades de existencias como texto (contrato §1.7). Tiparlo como `number`
+   * compila y rompe al formatear.
+   */
+  quantity: string;
 }
 
+/** Filtros de `GET /v1/inventory/stock`: códigos, no identificadores. */
 export interface StockParams extends PageParams {
-  productId?: number;
-  locationId?: number;
-  warehouseId?: number;
+  productCode?: string;
+  locationCode?: string;
+  /** Por defecto `true`: solo lo que tiene saldo. */
   onlyWithStock?: boolean;
 }
 
+/**
+ * Tipos de movimiento. **Copiados de `MovementType`**
+ * (`stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/inventory/StockMovement.kt`),
+ * no inventados: el servidor castea el valor a `movement_type`, así que uno
+ * desconocido no da `400`, da `500`.
+ */
 export type MoveType =
+  | "INITIAL"
   | "RECEIPT_IN"
-  | "LOCATE"
-  | "MOVE"
   | "ADJUSTMENT_IN"
-  | "ADJUSTMENT_OUT"
   | "FULFILLMENT_OUT"
+  | "ADJUSTMENT_OUT"
+  | "LOCATE"
+  | "MOVE_WITHIN_WAREHOUSE"
   | "TRANSFER_OUT"
-  | "TRANSFER_IN";
+  | "TRANSFER_IN"
+  | "PENDING_OUT";
 
-/** Asiento del kardex. El ledger es append-only: no hay `PUT` ni `DELETE`. */
+/**
+ * Asiento del kardex. El ledger es append-only: no hay `PUT` ni `DELETE`.
+ *
+ * Los campos que el servidor **omite** cuando son nulos van opcionales: un
+ * movimiento `INITIAL` no trae `fromLocationDisplayName` ni `adjustmentReason`.
+ */
 export interface KardexEntry {
   id: number;
   movedAt: Instant;
   productCode: string;
+  productName: string;
   moveType: MoveType;
-  units: number;
-  quantityAfter: number;
-  fromLocationId: number | null;
-  fromLocationDisplayName: string | null;
-  toLocationId: number | null;
-  toLocationDisplayName: string | null;
-  container: string | null;
-  orderNumber: string | null;
-  adjustmentReason: AdjustmentReason | null;
-  userId: number | null;
-  userName: string | null;
-  note: string | null;
+  /** Cadena con 3 decimales, como el resto de cantidades. */
+  units: string;
+  quantityAfter: string;
+  fromLocationDisplayName?: string | null;
+  toLocationDisplayName?: string | null;
+  container?: string | null;
+  orderNumber?: string | null;
+  adjustmentReason?: AdjustmentReason | null;
+  adjustmentOrigin?: AdjustmentOrigin | null;
+  userId?: number | null;
+  userName?: string | null;
+  note?: string | null;
 }
 
 export interface KardexParams extends PageParams {
   productCode?: string;
-  productId?: number;
-  locationId?: number;
+  moveType?: MoveType;
   from?: OperationalDate;
   to?: OperationalDate;
-  moveType?: MoveType;
 }
 
-export type AdjustmentDirection = "IN" | "OUT";
+/** `INCREASE` suma y `DECREASE` resta. `IN`/`OUT` los rechaza la API. */
+export type AdjustmentDirection = "INCREASE" | "DECREASE";
 
 /**
  * Motivo del ajuste. **Obligatorio siempre** (§4): un ajuste sin motivo no es
@@ -274,56 +295,47 @@ export type AdjustmentOrigin =
 
 export type AdjustmentStatus = "APPLIED" | "PENDING_APPROVAL";
 
+/** Cuerpo real de `POST /v1/inventory/adjustments`: códigos, no identificadores. */
 export interface AdjustmentRequest {
-  productId: number;
-  locationId: number;
+  productCode: string;
+  locationCode: string;
+  /** Número decimal con 3 decimales. La dirección dice si suma o resta. */
   quantity: number;
   direction: AdjustmentDirection;
   reason: AdjustmentReason;
   origin: AdjustmentOrigin;
   note?: string | null;
-  /** Alternativa en cuerpo a la cabecera `Idempotency-Key`. */
-  idempotencyKey?: string;
+  /** Quién aprueba, si el ajuste lo requiere. */
+  approverId?: number | null;
 }
 
+/**
+ * Resultado de un ajuste, de ubicar o de mover: **la misma forma**.
+ *
+ * `MovementResponse` (`application/inventory/InventoryDtos.kt`): los identificadores de
+ * los asientos escritos, el estado y el saldo resultante como cadena. Un ajuste que
+ * exige aprobación responde `202` con `status = "PENDING_APPROVAL"`.
+ */
 export interface AdjustmentResult {
-  id: number;
-  productId: number;
-  locationId: number;
-  quantity: number;
-  direction: AdjustmentDirection;
-  reason: AdjustmentReason;
-  origin: AdjustmentOrigin;
-  /** `PENDING_APPROVAL` cuando el ajuste supera el umbral y exige aprobación. */
+  kardexIds: number[];
   status: AdjustmentStatus;
-  movedAt: Instant;
+  /** Saldo resultante, cadena con 3 decimales. */
+  total: string;
+  message?: string | null;
 }
 
+/** Cuerpo real de `POST /v1/inventory/locate` y `/move`. */
 export interface LocateRequest {
-  invoiceLineId: number;
-  toLocationId: number;
+  productCode: string;
+  fromLocationCode: string;
+  toLocationCode: string;
   quantity: number;
-  idempotencyKey?: string;
 }
 
-export interface MoveRequest {
-  productId: number;
-  fromLocationId: number;
-  toLocationId: number;
-  quantity: number;
-  idempotencyKey?: string;
-}
+export type MoveRequest = LocateRequest;
 
-/** Resultado de ubicar o mover: un traslado no cambia el total. */
-export interface StockMovementResult {
-  id: number;
-  moveType: MoveType;
-  units: number;
-  quantityAfter: number;
-  fromLocationId: number | null;
-  toLocationId: number | null;
-  movedAt: Instant;
-}
+/** Ver `AdjustmentResult`: ubicar y mover devuelven la misma forma. */
+export type StockMovementResult = AdjustmentResult;
 
 /* ---------------------------------------------------------------- recepción */
 
@@ -370,17 +382,16 @@ export interface InvoiceLine {
   productCode: string;
   productName: string;
   container: string | null;
-  unitMeasure: string;
-  /** Cantidad según el documento. */
-  quantity: number;
-  boxQuantity: number;
-  unitsPerBox: number;
+  /** Cantidad según el documento. **Cadena** de 3 decimales. */
+  quantity: string;
+  boxQuantity: string;
+  unitsPerBox: string | null;
   /** Cantidad contada físicamente; `null` mientras no se capture. */
-  physicalQuantity: number | null;
-  physicalBoxQuantity: number | null;
-  locatedQuantity: number;
+  physicalQuantity: string | null;
+  physicalBoxQuantity: string | null;
+  locatedQuantity: string;
   /** `physicalQuantity - quantity`, calculada por el servidor (columna generada). */
-  difference: number;
+  difference: string | null;
   status: InvoiceLineStatus;
   capturedBy: number | null;
   capturedByName: string | null;
@@ -778,32 +789,50 @@ export interface InventoryReportItem {
   productCode: string;
   name: string;
   locationDisplayName: string;
-  quantity: number;
+  /** Cadena de 3 decimales, como el resto de cantidades. */
+  quantity: string;
   warehouseCode: string;
 }
 
 export interface InventoryReport extends Page<InventoryReportItem> {
   totals: {
+    /** Productos DISTINTOS con existencia, no filas. */
     distinctProducts: number;
-    totalUnits: number;
+    totalUnits: string;
   };
 }
 
 export type ReportFormat = "xlsx" | "csv";
 export type MovementsGroupBy = "day" | "week" | "month" | "product" | "location";
 
+/**
+ * Una fila del resumen de movimientos, agrupada por `groupBy`.
+ *
+ * **El servidor NO devuelve `period`/`moveType`/`units`**: devuelve `key` y `keyLabel`
+ * (la clave por la que se agrupó y su etiqueta legible) y los tres totales como cadena.
+ */
 export interface MovementsSummaryItem {
-  period: string;
-  moveType: MoveType;
-  units: number;
+  key: string;
+  keyLabel: string;
+  inUnits: string;
+  outUnits: string;
+  netUnits: string;
+  movements: number;
+}
+
+export interface MovementsSummaryTotals {
+  inUnits: string;
+  outUnits: string;
+  netUnits: string;
   movements: number;
 }
 
 export interface MovementsSummary {
-  items: MovementsSummaryItem[];
-  groupBy: MovementsGroupBy;
   from: OperationalDate;
   to: OperationalDate;
+  groupBy: MovementsGroupBy;
+  totals: MovementsSummaryTotals;
+  items: MovementsSummaryItem[];
 }
 
 /**

@@ -36,12 +36,24 @@ export const fetchKardex = (params: KardexListParams = {}): Promise<Page<KardexE
  * aquí: no hay un segundo flujo por origen. `reason` es obligatorio siempre.
  * Un ajuste por encima del umbral devuelve `status = PENDING_APPROVAL`.
  */
-export const createAdjustment = (body: AdjustmentRequestDto): Promise<AdjustmentResult> =>
-  api.post<AdjustmentResult>("/inventory/adjustments", body, {
-    idempotencyKey: body.idempotencyKey,
-  });
+export const createAdjustment = (
+  body: AdjustmentRequestDto,
+  idempotencyKey?: string,
+): Promise<AdjustmentResult> =>
+  api.post<AdjustmentResult>("/inventory/adjustments", body, { idempotencyKey });
 
-/** Bandeja de ajustes pendientes de aprobación (`inventory.approve_adjustment`). */
+/**
+ * ⚠️ **Estas dos funciones apuntan a rutas que la API NO expone.**
+ *
+ * El backend solo tiene el alta (`POST /v1/inventory/adjustments`): no hay
+ * bandeja de pendientes ni ruta de aprobación, y el contrato tampoco las
+ * documenta ([api/inventario.md §4](../../../../../docs/api/inventario.md)). Se
+ * dejan como superficie prevista, pero **hoy fallarían con `404`**. La pantalla
+ * de ajustes ya lo dice en su aviso; si se implementa el flujo, empieza por el
+ * backend y por el contrato.
+ */
+
+/** Bandeja de ajustes pendientes de aprobación. **No existe en la API.** */
 export const fetchPendingAdjustments = (
   params: AdjustmentListParams = {}
 ): Promise<Page<AdjustmentResult>> =>
@@ -49,20 +61,26 @@ export const fetchPendingAdjustments = (
     params: { size: 50, ...params },
   });
 
+/** Aprueba un ajuste pendiente. **No existe en la API.** */
 export const approveAdjustment = (id: number, note?: string): Promise<AdjustmentResult> =>
   api.post<AdjustmentResult>(`/inventory/adjustments/${id}/approve`, { note });
 
 /**
  * Ubicar mercancía: recepción → estante. **El total no cambia**: es un traslado.
  * Una línea en `DISCREPANCY` responde `409 DISCREPANCY_NOT_APPROVED` (regla B1).
+ *
+ * La idempotencia viaja en la **cabecera `Idempotency-Key`** (nunca en el
+ * cuerpo): se pasa como segundo argumento.
  */
-export const locateStock = (body: LocateRequestDto): Promise<StockMovementResult> =>
-  api.post<StockMovementResult>("/inventory/locate", body, {
-    idempotencyKey: body.idempotencyKey,
-  });
+export const locateStock = (
+  body: LocateRequestDto,
+  idempotencyKey?: string,
+): Promise<StockMovementResult> =>
+  api.post<StockMovementResult>("/inventory/locate", body, { idempotencyKey });
 
-/** Traslado entre estantes de la misma bodega. */
-export const moveStock = (body: MoveRequest): Promise<StockMovementResult> =>
-  api.post<StockMovementResult>("/inventory/move", body, {
-    idempotencyKey: body.idempotencyKey,
-  });
+/** Traslado entre estantes de la misma bodega. Idempotencia por cabecera. */
+export const moveStock = (
+  body: MoveRequest,
+  idempotencyKey?: string,
+): Promise<StockMovementResult> =>
+  api.post<StockMovementResult>("/inventory/move", body, { idempotencyKey });
