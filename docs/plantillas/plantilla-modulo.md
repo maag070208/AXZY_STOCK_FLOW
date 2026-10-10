@@ -1,74 +1,73 @@
-# M0X — Nombre de la capacidad
-> **Normativo.** Un documento por módulo de negocio. Estado y fecha en la tabla de
-> abajo. Última verificación: AAAA-MM-DD.
+# M0X — Capability name
+> **Normative.** One document per business module. Status and date in the table below. Last verified: YYYY-MM-DD.
 
 | | |
 |---|---|
-| **Código** | M0X |
-| **Carpeta** | `docs/modulos/M0X-nombre/` |
-| **Documentado** | No |
-| **Terminado** | No |
-| **Responsable** | — |
+| **Code** | M0X |
+| **Folder** | `docs/modulos/M0X-name/` |
+| **Documented** | No |
+| **Finished** | No |
+| **Owner** | — |
 
-## 1. Objetivo
+## 1. Objective
 
-Qué problema de negocio resuelve este módulo, en dos o tres frases. Sin historia ni
-narración de conversaciones: qué hace hoy, no cómo se llegó hasta aquí.
+What business problem this module solves, in two or three sentences. No history or narration of conversations:
+what it does today, not how it got here.
 
-## 2. Alcance
+## 2. Scope
 
-| Dentro | Fuera |
+| Inside | Outside |
 |---|---|
-| Lo que el módulo hace | Lo que parece de este módulo y no lo es |
+| What the module does | What looks like part of this module and is not |
 
-## 3. Reglas de negocio
+## 3. Business rules
 
-Una regla por fila. **Cada regla cita el archivo donde vive**, y vive solo ahí: si
-otro documento necesita la regla, la enlaza.
+One rule per row. **Each rule cites the file where it lives**, and it lives only there: if
+another document needs the rule, it links to it.
 
-| # | Regla | Dónde vive |
+| # | Rule | Where it lives |
 |---|---|---|
 | R1 | | `stock-domain/src/...` |
 
-## 4. Modelo de datos
+## 4. Data model
 
-Tablas que usa o posee, y qué es de quién.
+Tables that it uses or owns, and what belongs to whom.
 
-| Tabla | Migración | Qué guarda |
+| Table | Migration | What it holds |
 |---|---|---|
 | | `V…__*.sql` | |
 
 ## 5. API
 
-| Método y ruta | Qué hace | Permiso |
+| Method and route | What it does | Permission |
 |---|---|---|
 | | | |
 
-El detalle de cada endpoint está en `docs/api/`, no aquí.
+The detail of each endpoint is in `docs/api/`, not here.
 
-## 6. Permisos
+## 6. Permissions
 
-Qué permisos gobiernan el módulo y con qué alcance (bodega, ubicación, propio).
+Which permissions govern the module and with which scope (warehouse, location, own).
 
-## 7. Bitácora
+## 7. Audit log
 
-Qué escribe este módulo en `audit_log` y en qué transacción. Si no escribe nada, dilo.
+What this module writes to `audit_log` and in which transaction. If it writes nothing, say so.
 
-## 8. Pruebas
+## 8. Tests
 
-Qué se prueba y a qué nivel. Enlaza a `docs/pruebas/estrategia-pruebas.md` para los
-niveles, no los repitas.
+What is tested and at which level. Link to `docs/pruebas/estrategia-pruebas.md` for the
+levels; do not repeat them.
 
-| Nivel | Archivo | Qué cubre |
+| Level | File | What it covers |
 |---|---|---|
 | | | |
 
-## 9. Criterios de aceptación
+## 9. Acceptance criteria
 
-Lista verificable: qué tiene que ser cierto para dar el módulo por terminado.
+Verifiable list: what has to be true for the module to be considered finished.
 
 - [ ]
 
-Las **pantallas** del módulo y las **decisiones** que lo gobiernan no llevan sección propia:
-las pantallas están en la tabla de [modulos/README.md](../modulos/README.md) y cada decisión
-se enlaza a su ADR en la regla que la usa.
+The **screens** of the module and the **decisions** that govern it do not have their own section:
+the screens are in the table of [modulos/README.md](../modulos/README.md) and each decision
+is linked to its ADR in the rule that uses it.

@@ -1,45 +1,43 @@
-# Inventario del legacy (`BASE/`)
-> **Referencia.** Qué había en el sistema anterior y qué problemas tenía. Las cifras vienen del
-> análisis de 2026-10-07 ([historico/PLAN_ALMACEN_INTEGRAL.md](../historico/PLAN_ALMACEN_INTEGRAL.md)
-> §0 y §1); el código de `BASE/` no se ha vuelto a contar. Última verificación: 2026-10-09.
+# Legacy inventory (`BASE/`)
+> **Reference.** What was in the previous system and what problems it had. The figures come from the analysis of 2026-10-07 ([historico/PLAN_ALMACEN_INTEGRAL.md](../historico/PLAN_ALMACEN_INTEGRAL.md)
+> §0 and §1); the code of `BASE/` has not been counted again. Last verified: 2026-10-09.
 
-## Qué es
+## What it is
 
-Tres repos bajo `BASE/`, todos del mismo sistema de almacén, con clientes sobre una sola API:
+Three repos under `BASE/`, all of the same warehouse system, with clients on a single API:
 
-| Repo | Stack | Tamaño (plan de 2026-10-07) | Rol |
+| Repo | Stack | Size (plan of 2026-10-07) | Role |
 |---|---|---|---|
-| `BASE/backend` | Node 16, Express 4, Prisma 4, MySQL (y SQL Server para la sincronización) | ~4.000 LOC TS, 9 routers, 60 rutas | API única |
-| `BASE/frontend` | React 18, Vite 3, Chakra 2, Redux | 4.833 LOC TSX, 13 páginas | Web administrativa |
-| `BASE/mobile-app` | Expo 47, React Native 0.70, JS puro | 8.754 LOC JS, 26 pantallas | Operación en piso (escáner) |
+| `BASE/backend` | Node 16, Express 4, Prisma 4, MySQL (and SQL Server for synchronization) | ~4,000 LOC TS, 9 routers, 60 routes | Single API |
+| `BASE/frontend` | React 18, Vite 3, Chakra 2, Redux | 4,833 LOC TSX, 13 pages | Administrative web |
+| `BASE/mobile-app` | Expo 47, React Native 0.70, pure JS | 8,754 LOC JS, 26 screens | Floor operation (scanner) |
 
-Ninguno de los tres tenía pruebas automatizadas en ese momento.
+None of the three had automated tests at that time.
 
-## Qué se conserva
+## What is kept
 
-- Los flujos de negocio: recepción de facturas, ubicación, surtido, etiquetas, existencias.
-  La lista de rutas está en [mapa-legacy-nuevo.md](../historico/MAPA-LEGACY-NUEVO-ANTERIOR.md).
-- Las reglas de negocio que el código ya cumplía bien: los estados de factura y de orden, y
-  la forma de capturar cajas y unidades.
+- The business flows: invoice receiving, location, picking, labels, stock.
+  The list of routes is in [mapa-legacy-nuevo.md](../historico/MAPA-LEGACY-NUEVO-ANTERIOR.md).
+- The business rules that the code already fulfilled well: the invoice and order states, and
+  the way boxes and units are captured.
 
-## Qué se descarta
+## What is discarded
 
-- Los hallazgos de seguridad S1 a S8: rutas sin autenticación, bypass `role === 1`, JWT no
-  revocable, SQL por concatenación, credenciales en el código, `console.log` de datos
-  sensibles, errores de autorización con 401, y login sin límite de intentos. Cada uno tiene
-  su corrección en el sistema nuevo ([seguridad/owasp.md](../seguridad/owasp.md)).
-- El borrado físico de facturas y ubicaciones que se llamaba «lógico».
-- El libro que se mutaba al ubicar ([ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md)).
+- The security findings S1 to S8: routes without authentication, `role === 1` bypass, non-revocable JWT,
+  SQL by concatenation, credentials in the code, `console.log` of sensitive data, authorization errors
+  with 401, and login without an attempt limit. Each one has its correction in the new system ([seguridad/owasp.md](../seguridad/owasp.md)).
+- The physical deletion of invoices and locations that was called "logical".
+- The ledger that was mutated when locating ([ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md)).
 
-## Defectos de modelo que el sistema nuevo corrige
+## Model defects that the new system corrects
 
-1. **Un solo número por producto.** El legacy no sabe en qué ubicación está el stock. El sistema
-   nuevo lo guarda por ubicación ([ADR-0007](../adr/0007-multi-bodega-desde-el-esquema.md)).
-2. **Dos fuentes de existencias sin transacción.** `Store.stock` y el kardex se actualizaban en
-   pasos separados. El sistema nuevo deriva el total de la proyección.
-3. **El campo de diferencia nunca se calcula.** Las discrepancias no tenían un número que
-   auditar ([ADR-0008](../adr/0008-discrepancias-y-merma.md)).
+1. **A single number per product.** The legacy does not know in which location the stock is. The new
+   system keeps it per location ([ADR-0007](../adr/0007-multi-bodega-desde-el-esquema.md)).
+2. **Two stock sources without a transaction.** `Store.stock` and the ledger were updated in
+   separate steps. The new system derives the total from the projection.
+3. **The difference field is never calculated.** The discrepancies had no number to audit
+   ([ADR-0008](../adr/0008-discrepancias-y-merma.md)).
 
-Una corrección del análisis original: el total del legacy **no** descuadraba al ubicar. Lo que
-fallaba era el registro histórico, que se mutaba. El detalle está en
+A correction to the original analysis: the legacy total **did not** become unbalanced when locating. What failed
+was the historical record, which was mutated. The detail is in
 [historico/PLAN_ALMACEN_INTEGRAL.md](../historico/PLAN_ALMACEN_INTEGRAL.md) §2.7.

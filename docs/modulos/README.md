@@ -1,51 +1,51 @@
-# Módulos de negocio
-> **Normativo.** Índice y estado de cada capacidad de StockFlow. Última verificación: 2026-10-09.
-> El estado sale del código, no de tablas de progreso antiguas.
+# Business modules
+> **Normative.** Index and status of each capability of StockFlow. Last verified: 2026-10-09.
+> The status comes from the code, not from old progress tables.
 
-## Qué significa cada columna
+## What each column means
 
-- **Documentado**: el módulo tiene su README con la plantilla.
-- **Backend**: las reglas, las rutas y las pruebas existen en el repo.
-- **Web / App**: existe la pantalla. No significa que el flujo esté recorrido contra el backend.
+- **Documented**: the module has its README with the template.
+- **Backend**: the rules, the routes and the tests exist in the repo.
+- **Web / App**: the screen exists. It does not mean that the flow has been walked through against the backend.
 
-## Estado
+## Status
 
-| Módulo | Capacidad | Documentado | Backend | Web | App |
+| Module | Capability | Documented | Backend | Web | App |
 |---|---|---|---|---|---|
-| [M01](M01-catalogo/README.md) | Catálogo: productos, ubicaciones, bodegas | Sí | Sí | `ProductsPage`, `LocationsPage` | `locations` |
-| [M02](M02-existencias/README.md) | Existencias, kardex, ajustes y reportes | Sí | Sí | `InventoryPage`, `KardexPage`, `ReportsPage` | `inventory` |
-| [M03](M03-recepcion/README.md) | Recepción: facturas y discrepancias | Sí | Sí | `InvoicesPage`, `InvoiceDetailPage`, `PendingApprovalPage` | `invoices` |
-| [M04](M04-surtido/README.md) | Surtido: órdenes y empaquetado | Sí | Sí, salvo el envío al ERP | `OrdersPage`, `OrderDetailPage` | `orders` |
-| [M05](M05-traslados/README.md) | Traslados | Sí | Sí | `TransfersPage` | No hay |
-| [M06](M06-etiquetas/README.md) | Etiquetas e impresión | Sí | Sí | `LabelsPage` | `labels` |
-| [M07](M07-usuarios-accesos/README.md) | Usuarios y accesos | Sí | Parcial: sesiones y permisos sí; usuarios, solo lectura | `UsersPage` | `auth` |
-| [M08](M08-auditoria/README.md) | Auditoría | Sí | Sí | `AuditPage` | No hay |
-| [M09](M09-integracion-externa/README.md) | Integración externa: ERP y `kardo` | Parcial | No | No aplica | No aplica |
+| [M01](M01-catalogo/README.md) | Catalog: products, locations, warehouses | Yes | Yes | `ProductsPage`, `LocationsPage` | `locations` |
+| [M02](M02-existencias/README.md) | Stock, ledger, adjustments and reports | Yes | Yes | `InventoryPage`, `KardexPage`, `ReportsPage` | `inventory` |
+| [M03](M03-recepcion/README.md) | Receiving: invoices and discrepancies | Yes | Yes | `InvoicesPage`, `InvoiceDetailPage`, `PendingApprovalPage` | `invoices` |
+| [M04](M04-surtido/README.md) | Picking: orders and packing | Yes | Yes, except the dispatch to the ERP | `OrdersPage`, `OrderDetailPage` | `orders` |
+| [M05](M05-traslados/README.md) | Transfers | Yes | Yes | `TransfersPage` | None |
+| [M06](M06-etiquetas/README.md) | Labels and printing | Yes | Yes | `LabelsPage` | `labels` |
+| [M07](M07-usuarios-accesos/README.md) | Users and access | Yes | Partial: sessions and permissions yes; users, read-only | `UsersPage` | `auth` |
+| [M08](M08-auditoria/README.md) | Audit | Yes | Yes | `AuditPage` | None |
+| [M09](M09-integracion-externa/README.md) | External integration: ERP and `kardo` | Partial | No | Not applicable | Not applicable |
 
-## Cobertura en navegador
+## Browser coverage
 
-`web/e2e/flow.spec.ts` tiene pruebas contra el backend real, repartidas por módulo en la
-tabla de abajo. No están en CI y no se ejecutaron al escribir esto.
+`web/e2e/flow.spec.ts` has browser tests against the real backend, distributed by module in the
+table below. They are not in CI and were not run when this was written.
 
-| Módulo | Pruebas | Qué cubren |
+| Module | Tests | What they cover |
 |---|---|---|
-| M02 | 2 | Reportes con datos del servidor; alarma de descuadre |
-| M04 | 4 | Listado, alta de orden, empaque sin tocar inventario |
-| M05 | 2 | Deuda visible en tránsito; traslado despachado |
-| M06 | 3 | Cola de etiquetas; validación de plantilla; previsualización |
-| M07 | 1 | Usuarios en modo consulta |
-| M08 | 2 | Bitácora con canal y permiso; filtro |
-| Acceso | 4 | Sesión, credenciales, recarga |
+| M02 | 2 | Reports with server data; discrepancy alarm |
+| M04 | 4 | Listing, order creation, packing without touching the inventory |
+| M05 | 2 | Visible debt in transit; dispatched transfer |
+| M06 | 3 | Label queue; template validation; preview |
+| M07 | 1 | Users in read-only mode |
+| M08 | 2 | Log with channel and permission; filter |
+| Access | 4 | Session, credentials, reload |
 
-M01 (catálogo) y M03 (recepción) no tienen prueba de navegador.
+M01 (catalog) and M03 (receiving) have no browser test.
 
-## Lo que no está en esta tabla
+## What is not in this table
 
-- **Salud del sistema** (`GET /v1/health`): infraestructura, no un módulo. Ver [api/salud.md](../api/salud.md).
-- **Reportes** (`/v1/reports/*`): viven en M02 porque leen de sus existencias y su kardex.
-- **Configuración de acceso** (roles, matriz, políticas): [seguridad/roles-permisos.md](../seguridad/roles-permisos.md).
+- **System health** (`GET /v1/health`): infrastructure, not a module. See [api/salud.md](../api/salud.md).
+- **Reports** (`/v1/reports/*`): they live in M02 because they read from its stock and its ledger.
+- **Access configuration** (roles, matrix, policies): [seguridad/roles-permisos.md](../seguridad/roles-permisos.md).
 
-## Plantilla
+## Template
 
-Cada módulo sigue [plantillas/plantilla-modulo.md](../plantillas/plantilla-modulo.md): objetivo,
-alcance, reglas con su archivo, modelo de datos, API, permisos, bitácora, pruebas y criterios de aceptación.
+Each module follows [plantillas/plantilla-modulo.md](../plantillas/plantilla-modulo.md): objective,
+scope, rules with their file, data model, API, permissions, audit log, tests and acceptance criteria.

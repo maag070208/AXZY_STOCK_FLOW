@@ -1,70 +1,69 @@
-# Identidad visual: colores, iconos y animaciones
-> **Referencia.** Dónde vive cada recurso visual de StockFlow y qué está conectado.
-> Última verificación: 2026-10-10 (el paquete de marca entra al repositorio).
+# Visual identity: colors, icons and animations
+> **Reference.** Where each visual resource of StockFlow lives and what is connected.
+> Last verified: 2026-10-10 (the brand package enters the repository).
 
-## Colores
+## Colors
 
-| Uso | Color | Dónde aparece |
+| Use | Color | Where it appears |
 |---|---|---|
-| Azul marino | `#16315F` | Glifo y fondo del icono; `primary` del tema; `theme_color` del manifiesto |
-| Naranja | `#F28C28` | Iconos; `alert` del tema |
-| Turquesa | `#3A86A8` | Iconos; `secondary` e `info` del tema |
-| Fondo claro | `#F2F6FC` | Fondo de la aplicación (`app/index.css`), `background_color` del manifiesto, `theme-color` en claro |
-| Fondo oscuro | `#0C1730` | `theme-color` en oscuro. El modo oscuro **no** está activo: `app/main.tsx` lo fija en `light` |
+| Navy blue | `#16315F` | Icon glyph and background; `primary` of the theme; `theme_color` of the manifest |
+| Orange | `#F28C28` | Icons; `alert` of the theme |
+| Turquoise | `#3A86A8` | Icons; `secondary` and `info` of the theme |
+| Light background | `#F2F6FC` | Application background (`app/index.css`), `background_color` of the manifest, `theme-color` in light |
+| Dark background | `#0C1730` | `theme-color` in dark. Dark mode is **not** active: `app/main.tsx` sets it to `light` |
 
-Los colores del tema se declaran **una sola vez** en `web/src/app/main.tsx`; el CSS solo ajusta el
-fondo de la página y los bordes del armazón.
+The theme colors are declared **only once** in `web/src/app/main.tsx`; the CSS only adjusts the
+page background and the borders of the shell.
 
-## El paquete de marca
+## The brand package
 
-Todo el arte está **versionado**, en un solo sitio por plataforma. El paquete original
-(`Downloads/stockflow-icons 2/`) ya no hace falta para construir ni para regenerar: lo que se
-consumiría en una regeneración futura también está dentro.
+All the artwork is **versioned**, in a single place per platform. The original package
+(`Downloads/stockflow-icons 2/`) is no longer needed to build or to regenerate: what a future regeneration would consume is also inside.
 
-| Ruta | Qué es | Quién lo usa |
+| Path | What it is | Who uses it |
 |---|---|---|
-| `web/public/` | `favicon.ico`, `favicon.svg` (cambia con el tema del sistema), `favicon-16/32.png`, `apple-touch-icon.png`, `icon-192/512`, `icon-maskable-192/512`, `site.webmanifest` | `web/index.html`. **Una prueba de navegador comprueba que cada archivo declarado se sirve de verdad** |
-| `web/public/dark/` | Las mismas versiones PNG en oscuro | **Nadie todavía.** El `<link rel="apple-touch-icon">` no admite variante por preferencia; se usarían si algún día se sirve un manifiesto oscuro |
-| `web/src/shared/assets/brand/` | Los cuatro SVG fuente: glifo e icono, claro y oscuro | El **glifo claro** en la barra superior (`app/guards/PrivateRoutes.tsx`) y el **icono claro** en la entrada y el cambio de contraseña |
-| `web/src/shared/assets/lottie/` | Cuatro JSON de Lottie de 512 × 512 px | El **loader claro**, mientras la importación del catálogo trabaja (`features/catalog/ImportProductsDialog`) |
-| `brand/android/` | `light/res` y `dark/res` con `mipmap-*` en cinco densidades, `foreground` adaptativo, `monochrome` (Android 13+) y el color de fondo; `playstore-icon-*-512.png` | **Fase 10.** Se copia a `app/src/main/res` cuando exista la app |
-| `brand/ios/` | `AppIcon.appiconset` con Light, Dark y Tinted de 1024 px y `Contents.json` | **Fase 10.** Se arrastra a `Assets.xcassets` |
-| `brand/LEEME.txt` | El manifiesto del paquete, tal como lo entregó el diseñador | Documentación |
+| `web/public/` | `favicon.ico`, `favicon.svg` (changes with the system theme), `favicon-16/32.png`, `apple-touch-icon.png`, `icon-192/512`, `icon-maskable-192/512`, `site.webmanifest` | `web/index.html`. **A browser test checks that each declared file is actually served** |
+| `web/public/dark/` | The same PNG versions in dark | **Nobody yet.** The `<link rel="apple-touch-icon">` does not support a variant by preference; they would be used if a dark manifest were ever served |
+| `web/src/shared/assets/brand/` | The four source SVGs: glyph and icon, light and dark | The **light glyph** in the top bar (`app/guards/PrivateRoutes.tsx`) and the **light icon** on sign-in and the password change |
+| `web/src/shared/assets/lottie/` | Four Lottie JSON files of 512 × 512 px | The **light loader**, while the catalog import works (`features/catalog/ImportProductsDialog`) |
+| `brand/android/` | `light/res` and `dark/res` with `mipmap-*` in five densities, adaptive `foreground`, `monochrome` (Android 13+) and the background color; `playstore-icon-*-512.png` | **Phase 10.** It is copied to `app/src/main/res` when the app exists |
+| `brand/ios/` | `AppIcon.appiconset` with Light, Dark and Tinted at 1024 px and `Contents.json` | **Phase 10.** It is dragged into `Assets.xcassets` |
+| `brand/LEEME.txt` | The package manifest, as delivered by the designer | Documentation |
 
-**Por qué se usa el arte claro y no el oscuro.** El modo oscuro está fijado en `light`
-(`app/main.tsx`), así que el tema oscuro no se puede activar: usar el glifo oscuro sobre un fondo
-blanco sería un error de contraste. Las variantes oscuras están versionadas para cuando se active.
+**Why the light artwork is used and not the dark.** Dark mode is fixed to `light`
+(`app/main.tsx`), so the dark theme cannot be activated: using the dark glyph on a white background
+would be a contrast error. The dark variants are versioned for when it is activated.
 
-**El SVG del favicon cambia de color solo** (lleva un `@media (prefers-color-scheme: dark)` dentro),
-y por eso la barra del navegador sí respeta el tema del sistema aunque la aplicación no lo haga.
+**The favicon SVG changes color on its own** (it carries a `@media (prefers-color-scheme: dark)` inside),
+and that is why the browser bar does respect the system theme even though the application does not.
 
-## Animaciones: el loader sí, la intro no
+## Animations: the loader yes, the intro no
 
-| Archivo | Uso | Estado |
+| File | Use | Status |
 |---|---|---|
-| `stockflow-loader-light.json` | La importación del catálogo, mientras la API lee el archivo | **En uso** |
-| `stockflow-loader-dark.json` | — | Versionado; el modo oscuro está apagado |
-| `stockflow-intro-*.json` | — | **Sin uso**: alarga el camino a la pantalla de trabajo y no se pone sin decidirlo |
+| `stockflow-loader-light.json` | The catalog import, while the API reads the file | **In use** |
+| `stockflow-loader-dark.json` | — | Versioned; dark mode is off |
+| `stockflow-intro-*.json` | — | **Unused**: it lengthens the path to the work screen and is not added without deciding to |
 
-**El loader se carga aparte y con el motor ligero.** Las dos cosas están medidas con `vite build`:
+**The loader is loaded separately and with the lightweight engine.** Both things are measured with `vite build`:
 
-| Qué | Tamaño | Comprimido |
+| What | Size | Compressed |
 |---|---|---|
-| Paquete inicial (sin el loader) | 617 kB | **187 kB** |
-| Envoltorio del loader, en el inicial | 2 kB | 1 kB |
-| Motor ligero + animación, en un fragmento aparte | 201 kB | **50 kB** |
+| Initial bundle (without the loader) | 617 kB | **187 kB** |
+| Loader wrapper, in the initial bundle | 2 kB | 1 kB |
+| Lightweight engine + animation, in a separate chunk | 201 kB | **50 kB** |
 
-`web/src/shared/ui/loader/Loader.tsx` usa `import()` dinámico, así que el motor y los 33 kB de la
-animación **solo se descargan cuando el loader aparece**, y una sola vez.
+`web/src/shared/ui/loader/Loader.tsx` uses dynamic `import()`, so the engine and the 33 kB of the
+animation **are only downloaded when the loader appears**, and only once.
 
-**Por qué `lottie-web` y no `lottie-react`, que es lo que usa CYC.** Porque se midió. `lottie-react`
-deja un fragmento de **762 kB (204 kB comprimidos)**: arrastra el motor completo, con expresiones,
-controles y superposiciones, sin que la compilación ligera lo reduzca (las tres variantes —
-`Lottie`, `LottieSvg`, `LottieLight`— dan el mismo tamaño). El motor ligero de `lottie-web`
-(`build/player/lottie_light.min.js`, solo SVG) son **167 kB (47,5 kB comprimidos)**: **157 kB
-comprimidos menos para el mismo resultado visible**.
+**Why `lottie-web` and not `lottie-react`, which is what CYC uses.** Because it was measured. `lottie-react`
+produces a chunk of **762 kB (204 kB compressed)**: it drags in the full engine, with expressions,
+controls and overlays, without the lightweight build reducing it (the three variants —
+`Lottie`, `LottieSvg`, `LottieLight`— give the same size). The lightweight engine of `lottie-web`
+(`build/player/lottie_light.min.js`, SVG only) is **167 kB (47.5 kB compressed)**: **157 kB
+compressed less for the same visible result**.
 
-El precio es que la API es imperativa —se crea la animación en un `useEffect` y **se destruye** al
-desmontar— y que hay que declarar los tipos del motor ligero a mano
-(`web/src/types/lottie-web-light.d.ts`), porque el paquete solo publica los de su entrada principal.
-Está en `Loader.tsx`, con el porqué.
+The price is that the API is imperative —the animation is created in a `useEffect` and **destroyed** on
+unmount— and that the lightweight engine's types have to be declared by hand
+(`web/src/types/lottie-web-light.d.ts`), because the package only publishes those of its main entry.
+It is in `Loader.tsx`, with the reason.

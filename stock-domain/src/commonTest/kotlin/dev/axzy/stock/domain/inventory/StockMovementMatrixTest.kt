@@ -16,8 +16,8 @@ import io.kotest.matchers.types.shouldBeInstanceOf
  * These tests are the safety net against the most serious defect of the legacy:
  * the double deduction when locating goods (docs/historico/PLAN_ALMACEN_INTEGRAL.md §2.7).
  *
- * The most important test is `the total only changes through inflows and
- * authorized outflows`, because it pins the structural property that makes the bug impossible:
+ * The most important test is `the total changes ONLY through authorised entries and exits`,
+ * because it pins the structural property that makes the bug impossible:
  * **only two effects can move the total**, and one adds and the other subtracts.
  * If someone adds a movement that subtracts from the total, that test fails.
  * ═══════════════════════════════════════════════════════════════════════════

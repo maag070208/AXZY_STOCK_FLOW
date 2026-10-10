@@ -1,232 +1,231 @@
-# Existencias y ajustes
-> **Normativo.** Última revisión: 2026-10-10 (A1–A10 en verde; ver §7-bis). Reglas de origen: [ADR-0007](../adr/0007-multi-bodega-desde-el-esquema.md), [ADR-0008](../adr/0008-discrepancias-y-merma.md), [ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md). Módulo: [M02](../modulos/M02-existencias/README.md).
+# Stock and adjustments
+> **Normative.** Last revised: 2026-10-10 (A1–A10 green; see §7-bis). Origin rules: [ADR-0007](../adr/0007-multi-bodega-desde-el-esquema.md), [ADR-0008](../adr/0008-discrepancias-y-merma.md), [ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md). Module: [M02](../modulos/M02-existencias/README.md).
 
-## 1. Objetivo y actores
+## 1. Objective and actors
 
-Saber cuánto hay de cada producto y en qué ubicación, y poder explicar cada cambio.
+Know how much there is of each product and in which location, and be able to explain each change.
 
-| Actor | Qué hace |
+| Actor | What it does |
 |---|---|
-| Operador de piso (app) | Ubica mercancía recibida, mueve entre estantes, registra mermas con motivo |
-| Supervisor (web) | Aprueba ajustes que lo requieren; consulta existencias y kardex |
-| Sistemas (otros flujos) | Recepción, surtido y traslados llaman a este flujo; nadie escribe existencias por fuera |
+| Floor operator (app) | Locates received goods, moves between shelves, records shrinkage with a reason |
+| Supervisor (web) | Approves adjustments that require it; queries stock and the ledger |
+| Systems (other flows) | Receiving, picking and transfers call this flow; nobody writes stock from outside |
 
-## 2. Precondiciones
+## 2. Preconditions
 
-- El producto y la ubicación existen y están activos ([catalogo.md](catalogo.md)).
-- La ubicación pertenece a una bodega.
-- Quien llama tiene el permiso del tipo de movimiento ([autenticacion-y-permisos.md](autenticacion-y-permisos.md) §5).
+- The product and the location exist and are active ([catalogo.md](catalogo.md)).
+- The location belongs to a warehouse.
+- The caller has the permission for the movement type ([autenticacion-y-permisos.md](autenticacion-y-permisos.md) §5).
 
-## 3. Modelo de datos (resumen)
+## 3. Data model (summary)
 
-| Tabla | Qué guarda | Regla |
+| Table | What it holds | Rule |
 |---|---|---|
-| `kardex` | Libro de movimientos | Solo se inserta. Nunca se edita ni se borra |
-| `stock_by_location` | Existencias por ubicación | Proyección; `quantity >= 0` |
-| `product_stock` | Total por producto | Proyección: suma de ubicaciones más tránsito no recibido |
-| `stock_in_transit` | Mercancía en traslado | Ver [traslados.md](traslados.md) |
+| `kardex` | Movement ledger | Only inserted. Never edited or deleted |
+| `stock_by_location` | Stock per location | Projection; `quantity >= 0` |
+| `product_stock` | Total per product | Projection: sum of locations plus unreceived transit |
+| `stock_in_transit` | Goods in transfer | See [traslados.md](traslados.md) |
 
-Todo cambio de existencias pasa por las funciones SQL del motor
+Every change to stock goes through the SQL engine functions
 ([ADR-0015](../adr/0015-postgresql-flyway-motor-en-sql.md)): `aplicar_movimiento_a_ubicacion`,
-`recalcular_total_producto` y `registrar_movimiento`. La API no escribe esas tablas directamente.
+`recalcular_total_producto` and `registrar_movimiento`. The API does not write those tables directly.
 
-## 4. Flujo: aplicar un movimiento
+## 4. Flow: apply a movement
 
-Un movimiento puede ser un ajuste (aumento o merma), un ubicar (de recepción a estante) o un mover
-(de un estante a otro). Los tres siguen el mismo camino dentro del motor.
+A movement can be an adjustment (increase or shrinkage), a locate (from receiving to shelf) or a move
+(from one shelf to another). The three follow the same path inside the engine.
 
 ```mermaid
 sequenceDiagram
-    participant Op as Operador
+    participant Op as Operator
     participant API
-    participant UC as Caso de uso
-    participant DB as Base
+    participant UC as Use case
+    participant DB as Database
 
     Op->>API: POST /v1/inventory/adjustments (Idempotency-Key)
     API->>UC: ApplyAdjustment(actor, request)
-    UC->>UC: Permiso del motivo (adjust_increase, adjust_theft, …)
+    UC->>UC: Permission for the reason (adjust_increase, adjust_theft, …)
     UC->>DB: BEGIN
-    UC->>DB: Producto y ubicación activos
-    UC->>DB: Saldo disponible (lectura)
-    alt Requiere aprobación y no hay aprobador
-        UC-->>API: PENDING_APPROVAL (no escribe nada)
-    else Se aplica
-        UC->>DB: aplicar_movimiento_a_ubicacion(producto, ubicación, delta)
-        Note over DB: UPDATE con bloqueo de la fila de la ubicación.<br/>Si el saldo queda negativo, RAISE (check_violation).
-        UC->>DB: recalcular_total_producto(producto)
-        Note over DB: Bloquea la fila del producto ANTES del SUM (V10).
-        UC->>DB: registrar_movimiento → kardex (insert)
-        UC->>DB: Bitácora (audit_log)
+    UC->>DB: Active product and location
+    UC->>DB: Available balance (read)
+    alt Requires approval and there is no approver
+        UC-->>API: PENDING_APPROVAL (writes nothing)
+    else Applied
+        UC->>DB: aplicar_movimiento_a_ubicacion(product, location, delta)
+        Note over DB: UPDATE with a lock on the location row.<br/>If the balance goes negative, RAISE (check_violation).
+        UC->>DB: recalcular_total_producto(product)
+        Note over DB: Locks the product row BEFORE the SUM (V10).
+        UC->>DB: registrar_movimiento → ledger (insert)
+        UC->>DB: Audit log (audit_log)
         UC->>DB: COMMIT
-        UC-->>API: APPLIED, total nuevo
+        UC-->>API: APPLIED, new total
     end
     API-->>Op: 200 / 422 / 409
 ```
 
-**Por qué el orden importa.** Primero se decide (permiso, aprobación, saldo), luego se escribe.
-Un movimiento que espera aprobación **no toca** el inventario: un cambio de stock sin autorizar es
-justo lo que la aprobación evita.
+**Why the order matters.** First it decides (permission, approval, balance), then it writes.
+A movement that awaits approval **does not touch** the inventory: an unauthorized stock change is
+exactly what approval prevents.
 
-## 5. Concurrencia: el total por producto (Q1)
+## 5. Concurrency: the total per product (Q1)
 
-Dos movimientos del mismo producto en ubicaciones distintas pueden correr a la vez. Sin bloqueo del
-producto, el segundo recálculo no ve el cambio del primero y escribe un total que lo ignora.
+Two movements of the same product in different locations can run at the same time. Without locking the product, the
+second recalculation does not see the change of the first and writes a total that ignores it.
 
 ```mermaid
 sequenceDiagram
-    participant T1 as Transacción 1
-    participant T2 as Transacción 2
-    participant DB as Base
+    participant T1 as Transaction 1
+    participant T2 as Transaction 2
+    participant DB as Database
 
-    T1->>DB: UPDATE ubicación A (+10)
-    T1->>DB: FOR UPDATE producto (obtiene el bloqueo)
-    T1->>DB: SUM ubicaciones → 210, escribe product_stock = 210
-    T2->>DB: UPDATE ubicación B (+5)
-    T2->>DB: FOR UPDATE producto → ESPERA a T1
-    T1->>DB: COMMIT (libera el bloqueo)
-    T2->>DB: obtiene el bloqueo, SUM → 215, escribe product_stock = 215
+    T1->>DB: UPDATE location A (+10)
+    T1->>DB: FOR UPDATE product (obtains the lock)
+    T1->>DB: SUM locations → 210, writes product_stock = 210
+    T2->>DB: UPDATE location B (+5)
+    T2->>DB: FOR UPDATE product → WAITS for T1
+    T1->>DB: COMMIT (releases the lock)
+    T2->>DB: obtains the lock, SUM → 215, writes product_stock = 215
     T2->>DB: COMMIT
 ```
 
-Sin el `FOR UPDATE` de la línea 3, T2 escribiría 205. Esa era la pérdida reproducida.
+Without the `FOR UPDATE` on line 3, T2 would write 205. That was the reproduced loss.
 
-## 6. Estados
+## 6. States
 
-El movimiento no tiene estados: se inserta o no se inserta. Un ajuste tiene dos resultados:
+The movement has no states: it is inserted or it is not inserted. An adjustment has two outcomes:
 
-| Resultado | Cuándo | Qué se escribe |
+| Outcome | When | What is written |
 |---|---|---|
-| `APPLIED` | El permiso alcanza, no requiere aprobación o ya fue aprobado, y el saldo alcanza | Kardex, existencias, total, bitácora |
-| `PENDING_APPROVAL` | El motivo lo exige y no hay aprobador | Nada |
+| `APPLIED` | The permission reaches, it does not require approval or it was already approved, and the balance is enough | Ledger, stock, total, audit log |
+| `PENDING_APPROVAL` | The reason requires it and there is no approver | Nothing |
 
-Un ajuste `PENDING_APPROVAL` no tiene transición automática: el supervisor lo aprueba con su propia
-petición, que vuelve a pasar por el flujo completo.
+An adjustment `PENDING_APPROVAL` has no automatic transition: the supervisor approves it with their own
+request, which goes through the complete flow again.
 
-## 7. Pruebas de aceptación
+## 7. Acceptance tests
 
-**A1. Ubicar no cambia el total**
-- Dado un producto con 1.000 unidades en recepción.
-- Cuando se ubican 300 en un estante.
-- Entonces el total sigue en 1.000, el estante tiene 300 y el kardex tiene un movimiento `LOCATE`.
+**A1. Locating does not change the total**
+- Given a product with 1,000 units in receiving.
+- When 300 are located on a shelf.
+- Then the total remains at 1,000, the shelf has 300 and the ledger has a `LOCATE` movement.
 
-**A2. No se saca más de lo que hay**
-- Dado un estante con 100 unidades.
-- Cuando se pide una merma de 150.
-- Entonces responde `INSUFFICIENT_STOCK` con `available = 100`, y el saldo sigue en 100.
+**A2. You cannot take out more than there is**
+- Given a shelf with 100 units.
+- When a shrinkage of 150 is requested.
+- Then it answers `INSUFFICIENT_STOCK` with `available = 100`, and the balance remains at 100.
 
-**A3. El stock negativo lo impide la base**
-- Dado que dos transacciones intentan sacar 60 cada una de un estante con 100.
-- Cuando corren a la vez.
-- Entonces una se aplica y la otra falla con `INSUFFICIENT_STOCK`; el saldo final es 40, nunca negativo.
+**A3. The database prevents negative stock**
+- Given two transactions that try to take 60 each from a shelf with 100.
+- When they run at the same time.
+- Then one is applied and the other fails with `INSUFFICIENT_STOCK`; the final balance is 40, never negative.
 
-**A4. Concurrencia del total (Q1)**
-- Dado un producto con 100 en el estante A y 100 en el B.
-- Cuando dos transacciones suman 10 en A y 5 en B, y la primera mantiene su transacción abierta.
-- Entonces `product_stock` queda en 215, igual que la suma de ubicaciones, y `comprobar_proyecciones()` no devuelve filas.
+**A4. Concurrency of the total (Q1)**
+- Given a product with 100 on shelf A and 100 on B.
+- When two transactions add 10 on A and 5 on B, and the first keeps its transaction open.
+- Then `product_stock` remains at 215, the same as the sum of the locations, and `comprobar_proyecciones()` returns no rows.
 
-**A5. Una merma exige su motivo**
-- Dado un ajuste de disminución sin motivo.
-- Cuando se envía.
-- Entonces responde `REASON_REQUIRED`, y no se escribe nada.
+**A5. A shrinkage requires its reason**
+- Given a decrease adjustment without a reason.
+- When it is sent.
+- Then it answers `REASON_REQUIRED`, and nothing is written.
 
-**A6. El permiso depende del motivo**
-- Dado un usuario con `inventory.adjust_count_error` pero sin `inventory.adjust_theft`.
-- Cuando registra una merma por robo.
-- Entonces responde 403; un error de conteo sí se aplica.
+**A6. The permission depends on the reason**
+- Given a user with `inventory.adjust_count_error` but without `inventory.adjust_theft`.
+- When they record a shrinkage due to theft.
+- Then it answers 403; a count error is applied.
 
-**A7. Origen y destino distintos**
-- Dado un movimiento de ubicar donde origen y destino son el mismo estante.
-- Cuando se envía.
-- Entonces responde `SAME_SOURCE_AND_DESTINATION` y no se escribe nada.
+**A7. Different origin and destination**
+- Given a locate movement where origin and destination are the same shelf.
+- When it is sent.
+- Then it answers `SAME_SOURCE_AND_DESTINATION` and nothing is written.
 
-**A8. Idempotencia**
-- Dado un ajuste enviado con una `Idempotency-Key`.
-- Cuando se reenvía con la misma clave.
-- Entonces el kardex tiene un solo movimiento y la respuesta es la misma.
+**A8. Idempotency**
+- Given an adjustment sent with an `Idempotency-Key`.
+- When it is resent with the same key.
+- Then the ledger has a single movement and the response is the same.
 
-**A9. Kardex solo crece**
-- Dado un movimiento ya registrado.
-- Cuando cualquier flujo intenta modificarlo o borrarlo.
-- Entonces la base lo rechaza (disparador de inmutabilidad).
+**A9. The ledger only grows**
+- Given an already recorded movement.
+- When any flow attempts to modify or delete it.
+- Then the database rejects it (immutability trigger).
 
-**A10. Conteo y listado usan el mismo filtro**
-- Dado un rango de fechas sin movimientos.
-- Cuando se consulta el kardex.
-- Entonces `items` está vacío y `totalItems` es 0.
+**A10. Count and listing use the same filter**
+- Given a date range with no movements.
+- When the ledger is queried.
+- Then `items` is empty and `totalItems` is 0.
 
-### 7-bis. Estado de estas pruebas (2026-10-10)
+### 7-bis. Status of these tests (2026-10-10)
 
-Las diez están automatizadas y en verde. Ocho por HTTP real en
+All ten are automated and green. Eight over real HTTP in
 `api/app/src/test/kotlin/dev/axzy/stock/app/InventoryFlowTest.kt` (A1, A2, A5, A6,
-A7, A8, A10 y la aprobación), y **A3, A4 y A9 contra la base con dos transacciones
-de verdad** en `InventoryEngineConcurrencyTest`: son las que no se pueden demostrar
-por HTTP sin dejar de ser deterministas.
+A7, A8, A10 and the approval), and **A3, A4 and A9 against the database with two real transactions**
+in `InventoryEngineConcurrencyTest`: they are the ones that cannot be demonstrated
+over HTTP without ceasing to be deterministic.
 
-Cuatro cosas que el documento no fijaba y quedaron decididas al construir:
+Four things the document did not state and were decided when building:
 
-- **`SEGREGATION_OF_DUTIES` responde `403`, no `422`.** El catálogo de errores la
-  agrupa con la familia de autorización y el cliente hace lo mismo que ante
-  cualquier denegación: que lo apruebe otra persona. La tabla de
-  [api/inventario.md](../api/inventario.md) decía `422` y se corrigió allí.
-- **Ubicar exige que el origen sea la recepción y el destino un estante; mover,
-  que los dos sean estantes.** Sin esa comprobación, quien puede ubicar
-  (`invoice.locate`) podría reorganizar el almacén entero llamando a `locate` con
-  dos estantes, que es lo que el permiso distinto de `inventory.move` pretende
-  evitar.
-- **Un movimiento no cambia de bodega.** Para eso está el traslado (M05), que es el
-  único que sabe poner mercancía en tránsito. Si origen y destino están en bodegas
-  distintas, se rechaza con `INVALID_PARAMETER` y la regla en `details`.
-- **`DISCREPANCY_NOT_APPROVED` no lo emite esta ruta.** El contrato lo listaba en
-  `locate`, pero el cuerpo no lleva ninguna línea de factura —«No existe
-  `invoiceLineId`»— y sin ella no hay discrepancia que consultar. Lo emite M03, que
-  es quien conoce la línea.
+- **`SEGREGATION_OF_DUTIES` answers `403`, not `422`.** The error catalog
+  groups it with the authorization family and the client does the same as with
+  any denial: have it approved by another person. The table in
+  [api/inventario.md](../api/inventario.md) said `422` and it was corrected there.
+- **Locating requires the origin to be receiving and the destination a shelf; moving,
+  that both are shelves.** Without that check, whoever can locate
+  (`invoice.locate`) could reorganize the entire warehouse by calling `locate` with
+  two shelves, which is what the separate permission from `inventory.move` aims to
+  avoid.
+- **A movement does not change warehouse.** That is what the transfer (M05) is for, the
+  only one that knows how to put goods in transit. If origin and destination are in different
+  warehouses, it is rejected with `INVALID_PARAMETER` and the rule in `details`.
+- **`DISCREPANCY_NOT_APPROVED` is not emitted by this route.** The contract listed it in
+  `locate`, but the body carries no invoice line —"There is no `invoiceLineId`"— and without it there is no
+  discrepancy to consult. M03 emits it, since it is the one that knows the line.
 
-## 8. Errores
+## 8. Errors
 
-| Código | Cuándo |
+| Code | When |
 |---|---|
-| `PRODUCT_NOT_FOUND` | El producto no existe o está inactivo |
-| `LOCATION_NOT_FOUND` | La ubicación no existe o está inactiva |
-| `INSUFFICIENT_STOCK` | No hay saldo suficiente; incluye `available` |
-| `REASON_REQUIRED` | Falta el motivo que la regla exige |
-| `SAME_SOURCE_AND_DESTINATION` | Origen y destino son la misma ubicación |
-| `PENDING_APPROVAL` | Resultado no error: el ajuste espera aprobación |
+| `PRODUCT_NOT_FOUND` | The product does not exist or is inactive |
+| `LOCATION_NOT_FOUND` | The location does not exist or is inactive |
+| `INSUFFICIENT_STOCK` | Not enough balance; includes `available` |
+| `REASON_REQUIRED` | The reason the rule requires is missing |
+| `SAME_SOURCE_AND_DESTINATION` | Origin and destination are the same location |
+| `PENDING_APPROVAL` | Not an error outcome: the adjustment awaits approval |
 
-## 9. Permisos
+## 9. Permissions
 
-| Acción | Permiso |
+| Action | Permission |
 |---|---|
-| Ver existencias | `inventory.view` |
-| Ver costo | `inventory.view_cost` (distinto de `inventory.view`) |
-| Ver kardex | `kardex.view` |
-| Ubicar y mover | `inventory.move` y `invoice.locate` (ver [autenticacion-y-permisos.md](autenticacion-y-permisos.md)) |
-| Aumento | `inventory.adjust_increase` |
-| Merma por conteo | `inventory.adjust_count_error` |
-| Merma por faltante | `inventory.adjust_shortage` |
-| Merma por daño | `inventory.adjust_damage` |
-| Merma por robo | `inventory.adjust_theft` |
-| Aprobar ajuste | `inventory.approve_adjustment` (lo comprueba el servidor sobre el usuario del `approverId`) |
+| View stock | `inventory.view` |
+| View cost | `inventory.view_cost` (different from `inventory.view`) |
+| View ledger | `kardex.view` |
+| Locate and move | `inventory.move` and `invoice.locate` (see [autenticacion-y-permisos.md](autenticacion-y-permisos.md)) |
+| Increase | `inventory.adjust_increase` |
+| Shrinkage due to count | `inventory.adjust_count_error` |
+| Shrinkage due to shortage | `inventory.adjust_shortage` |
+| Shrinkage due to damage | `inventory.adjust_damage` |
+| Shrinkage due to theft | `inventory.adjust_theft` |
+| Approve adjustment | `inventory.approve_adjustment` (the server checks it on the user of the `approverId`) |
 
-No existe un permiso genérico de «ajustar»: un robo no es un error de conteo, y un permiso único
-permitiría tapar un robo con un ajuste firmado por quien lo hizo.
+There is no generic "adjust" permission: a theft is not a count error, and a single permission
+would allow covering a theft with an adjustment signed by whoever did it.
 
-**Y el permiso de aprobar se comprueba de verdad.** El ajuste que requiere aprobación lleva el
-`approverId` en la petición, así que el servidor carga a ese usuario y le exige
-`inventory.approve_adjustment` **con el alcance de la bodega de la ubicación**; si no lo tiene,
-responde `403 APPROVER_NOT_AUTHORIZED` y no escribe nada. Sin esta comprobación bastaba con mandar
-el identificador de un supervisor para firmar el propio ajuste: el permiso existía en el catálogo,
-en los roles y en la bitácora, pero no lo comprobaba nadie. Ver
+**And the approval permission is really checked.** The adjustment that requires approval carries the
+`approverId` in the request, so the server loads that user and requires
+`inventory.approve_adjustment` **with the scope of the location's warehouse**; if they do not have it,
+it answers `403 APPROVER_NOT_AUTHORIZED` and writes nothing. Without this check it was enough to send
+the identifier of a supervisor to sign one's own adjustment: the permission existed in the catalog,
+in the roles and in the audit log, but nobody checked it. See
 [PLAN-IMPLEMENTACION §6](../plan/PLAN-IMPLEMENTACION.md).
 
-## 10. Bitácora
+## 10. Audit log
 
-Cada ajuste aplicado escribe en `audit_log`: actor, canal, IP, entidad (producto), estado anterior y
-nuevo (total antes y después), motivo, permiso usado y clave de idempotencia. Ver
+Each applied adjustment writes to `audit_log`: actor, channel, IP, entity (product), previous and
+new state (total before and after), reason, permission used and idempotency key. See
 [auditoria.md](auditoria.md).
 
-## 11. Reglas y decisiones
+## 11. Rules and decisions
 
-- Toda diferencia es un ajuste con motivo y usuario, nunca un borrado: [ADR-0008](../adr/0008-discrepancias-y-merma.md).
-- Ubicar es un movimiento nuevo; la recepción es una ubicación real: [ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md).
-- El stock inicial del Excel entra a `SIN-UBICAR` y se concilia con conteo antes del corte: [ADR-0012](../adr/0012-conciliar-stock-heredado-con-conteo.md).
-- Multi-bodega desde el esquema: [ADR-0007](../adr/0007-multi-bodega-desde-el-esquema.md).
+- Every difference is an adjustment with a reason and user, never a deletion: [ADR-0008](../adr/0008-discrepancias-y-merma.md).
+- Locating is a new movement; receiving is a real location: [ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md).
+- The initial stock from the Excel enters `SIN-UBICAR` and is reconciled with a count before the cutover: [ADR-0012](../adr/0012-conciliar-stock-heredado-con-conteo.md).
+- Multi-warehouse from the schema: [ADR-0007](../adr/0007-multi-bodega-desde-el-esquema.md).

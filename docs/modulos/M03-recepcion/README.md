@@ -1,69 +1,69 @@
-# M03 — Recepción: facturas, captura física y discrepancias
-> **Normativo.** Última verificación: 2026-10-10 (fase 6 cerrada).
+# M03 — Receiving: invoices, physical count and discrepancies
+> **Normative.** Last verified: 2026-10-10 (phase 6 closed).
 
 | | |
 |---|---|
-| **Código** | M03 |
-| **Carpeta** | `docs/modulos/M03-recepcion/` |
-| **Documentado** | Sí |
-| **Terminado (backend)** | Sí |
+| **Code** | M03 |
+| **Folder** | `docs/modulos/M03-recepcion/` |
+| **Documented** | Yes |
+| **Finished (backend)** | Yes |
 | **Web** | `InvoicesPage`, `InvoiceDetailPage`, `PendingApprovalPage` |
 | **App** | `features/invoices` |
 
-## 1. Objetivo
+## 1. Objective
 
-Registrar lo que llega en una factura, contar físicamente cada línea, resolver las
-diferencias con un supervisor y dejar la mercancía ubicada.
+Record what arrives on an invoice, physically count each line, resolve the
+differences with a supervisor and leave the goods located.
 
-## 2. Alcance
+## 2. Scope
 
-| Dentro | Fuera |
+| Inside | Outside |
 |---|---|
-| Alta de facturas y líneas | Facturación electrónica |
-| Captura física de cada línea | Ubicación en estantería (M02, con `invoice.locate`) |
-| Bandeja de discrepancias y aprobación por factura | Surtido (M04) |
-| Cierre de factura | |
+| Creation of invoices and lines | Electronic invoicing |
+| Physical count of each line | Shelf location (M02, with `invoice.locate`) |
+| Discrepancy inbox and approval per invoice | Picking (M04) |
+| Invoice closing | |
 
-## 3. Reglas de negocio
+## 3. Business rules
 
-| # | Regla | Dónde vive |
+| # | Rule | Where it lives |
 |---|---|---|
-| R1 | Una línea con diferencia respecto a lo facturado queda en `DISCREPANCY` y no se puede ubicar (la ruta de ubicar recibe `invoiceLineId` y aplica la regla del dominio **antes de mover nada**) | [ADR-0008](../../adr/0008-discrepancias-y-merma.md); `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/receiving/InvoiceLine.kt` |
-| R2 | Toda diferencia requiere aprobación de un supervisor, sin umbral | [ADR-0008](../../adr/0008-discrepancias-y-merma.md) |
-| R3 | La aprobación es por factura, no por línea | `ApproveInvoice` en `api/application/.../receiving/InvoiceUseCases.kt`, con una sola sentencia de escritura |
-| R4 | Quien captura una línea no puede aprobar su discrepancia | `SEGREGATION_OF_DUTIES` (403) en `ApproveInvoice`, con `details.lines` |
-| R5 | Una factura no se cierra con líneas en discrepancia | `INVOICE_HAS_PENDING_LINES` en `CloseInvoice`, con el criterio de `InvoiceLineStatus.blocksInvoiceClosing` |
-| R6 | Si nada está pendiente de aprobar, responde `NO_PENDING_APPROVAL` (409) | `application/receiving/ReceivingUseCases.kt` |
-| R7 | El listado de facturas rechaza `page` negativa en lugar de recortarla | `PageRequest.analyze` (regla transversal), comprobada en `ReceivingFlowTest` |
+| R1 | A line with a difference from what was invoiced stays in `DISCREPANCY` and cannot be located (the locate route receives `invoiceLineId` and applies the domain rule **before moving anything**) | [ADR-0008](../../adr/0008-discrepancias-y-merma.md); `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/receiving/InvoiceLine.kt` |
+| R2 | Every difference requires a supervisor's approval, with no threshold | [ADR-0008](../../adr/0008-discrepancias-y-merma.md) |
+| R3 | Approval is per invoice, not per line | `ApproveInvoice` in `api/application/.../receiving/InvoiceUseCases.kt`, with a single write statement |
+| R4 | Whoever captures a line cannot approve its discrepancy | `SEGREGATION_OF_DUTIES` (403) in `ApproveInvoice`, with `details.lines` |
+| R5 | An invoice is not closed with lines in discrepancy | `INVOICE_HAS_PENDING_LINES` in `CloseInvoice`, with the criterion of `InvoiceLineStatus.blocksInvoiceClosing` |
+| R6 | If nothing is pending approval, it answers `NO_PENDING_APPROVAL` (409) | `application/receiving/ReceivingUseCases.kt` |
+| R7 | The invoice listing rejects a negative `page` instead of trimming it | `PageRequest.analyze` (cross-cutting rule), checked in `ReceivingFlowTest` |
 
-## 4. Modelo de datos
+## 4. Data model
 
-| Tabla | Migración | Qué guarda |
+| Table | Migration | What it holds |
 |---|---|---|
-| `invoices` | `V3` | Facturas, con su estado |
-| `invoice_lines` | `V3` | Líneas, con su estado y el `CHECK` de aprobación |
+| `invoices` | `V3` | Invoices, with their state |
+| `invoice_lines` | `V3` | Lines, with their state and the approval `CHECK` |
 
 ## 5. API
 
-Contrato en [api/recepcion.md](../../api/recepcion.md). Rutas en
+Contract in [api/recepcion.md](../../api/recepcion.md). Routes in
 `infrastructure/inbound/http/receiving/ReceivingRoutes.kt`.
 
-## 6. Permisos
+## 6. Permissions
 
 `invoice.view`, `invoice.create`, `invoice.capture`, `invoice.approve`, `invoice.reject`,
-`invoice.close`, `invoice.locate`. El operador ubica con alcance `OWN` (decisión R-77, en
-`docs/historico/PLAN_ALMACEN_INTEGRAL.md`). Ver
+`invoice.close`, `invoice.locate`. The operator locates with scope `OWN` (decision R-77, in
+`docs/historico/PLAN_ALMACEN_INTEGRAL.md`). See
 [seguridad/roles-permisos.md](../../seguridad/roles-permisos.md).
 
-## 7. Bitácora
+## 7. Audit log
 
-Captura, aprobación, rechazo y cierre escriben en `audit_log`.
+Capture, approval, rejection and closing write to `audit_log`.
 
-## 8. Pruebas
+## 8. Tests
 
-`InvoiceLineStateMachineTest` en `stock-domain`, y pruebas de rutas en el backend.
+`InvoiceLineStateMachineTest` in `stock-domain`, and route tests in the backend.
 
-## 9. Criterios de aceptación
+## 9. Acceptance criteria
 
-- [x] Una línea en discrepancia no se puede ubicar (`InvoiceLineStateMachineTest`).
-- [ ] Prueba de navegador de captura, aprobación y cierre. No existe.
+- [x] A line in discrepancy cannot be located (`InvoiceLineStateMachineTest`).
+- [ ] Browser test of capture, approval and closing. It does not exist.

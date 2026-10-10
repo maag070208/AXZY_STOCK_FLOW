@@ -1,35 +1,35 @@
-# Corte al sistema nuevo
-> **Plan.** Pasos del corte y de su reversión. Estado: pendiente de ejecutar. Última verificación: 2026-10-09.
+# Cutover to the new system
+> **Plan.** Steps of the cutover and of its reversal. Status: pending execution. Last verified: 2026-10-09.
 
-## Prerrequisitos
+## Prerequisites
 
-1. Conteo físico de los 1.398 productos y reconciliación contra el total heredado
-   ([ADR-0012](../adr/0012-conciliar-stock-heredado-con-conteo.md)). **Pendiente.**
-2. Recorrido de los flujos de la web y de la app contra el backend ([roadmap](../historico/ROADMAP-ANTERIOR.md)).
-   **Pendiente.**
-3. Respaldo verificado de la base, con restauración probada ([operacion/respaldos.md](../operacion/respaldos.md)).
-   **Pendiente: no existe mecanismo de respaldo en el repo.**
-4. Decisiones abiertas cerradas: el ERP (`external_id`, D10), y el módulo `kardo`
+1. Physical count of the 1,398 products and reconciliation against the inherited total
+   ([ADR-0012](../adr/0012-conciliar-stock-heredado-con-conteo.md)). **Pending.**
+2. Walkthrough of the web and app flows against the backend ([roadmap](../historico/ROADMAP-ANTERIOR.md)).
+   **Pending.**
+3. Verified database backup, with a tested restore ([operacion/respaldos.md](../operacion/respaldos.md)).
+   **Pending: there is no backup mechanism in the repo.**
+4. Open decisions closed: the ERP (`external_id`, D10), and the `kardo` module
    ([M09](../modulos/M09-integracion-externa/README.md)).
 
-## Pasos
+## Steps
 
-1. Congelar el legacy: sin altas nuevas en `BASE/` desde el inicio del conteo.
-2. Importar el catálogo ([catalogo-excel.md](catalogo-excel.md)) en modo estricto.
-3. Cargar el stock inicial a `SIN-UBICAR` (lo hace la propia importación, con el
-   movimiento `INITIAL` de cada producto sin existencias).
-4. Ejecutar el conteo y los ajustes con motivo para llevar el stock a su valor contado.
-5. Verificar con `comprobar_proyecciones()` que la proyección cuadra con el kardex.
-6. Abrir el sistema nuevo a los operadores por rol ([M07](../modulos/M07-usuarios-accesos/README.md)).
+1. Freeze the legacy: no new records in `BASE/` from the start of the count.
+2. Import the catalog ([catalogo-excel.md](catalogo-excel.md)) in strict mode.
+3. Load the initial stock to `SIN-UBICAR` (the import itself does it, with the
+   `INITIAL` movement of each product without stock).
+4. Run the count and the adjustments with a reason to bring the stock to its counted value.
+5. Verify with `comprobar_proyecciones()` that the projection balances with the ledger.
+6. Open the new system to operators by role ([M07](../modulos/M07-usuarios-accesos/README.md)).
 
-## Reversión
+## Reversal
 
-- Hasta el paso 6, el legacy sigue en servicio y se puede volver a él sin pérdida.
-- Después del paso 6, la reversión es **restaurar el respaldo de antes del corte**. Las
-  escrituras hechas en el sistema nuevo entre el corte y la reversión se pierden, por eso el
-  corte se hace con un periodo de observación corto.
+- Until step 6, the legacy remains in service and it is possible to go back to it without loss.
+- After step 6, the reversal is **restoring the backup from before the cutover**. The writes made in the new
+  system between the cutover and the reversal are lost, which is why the cutover is done with a short
+  observation period.
 
-## Lo que este documento no decide
+## What this document does not decide
 
-- Duración del periodo de observación.
-- Quién firma el corte. Es una decisión de negocio, no técnica.
+- The length of the observation period.
+- Who signs the cutover. It is a business decision, not a technical one.

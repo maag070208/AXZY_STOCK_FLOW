@@ -1,14 +1,15 @@
-# Convenciones transversales: idioma, comentarios y estándares
-> **Normativo.** Obligatorias en las cuatro partes del monorepo. Última verificación: 2026-10-09.
-> **Nota de reconstrucción (2026-10-10).** Convenciones vigentes; las rutas son del backend anterior. Las reglas siguen vigentes; las rutas de código que cita pertenecen al sistema anterior y se remapean al código nuevo (ver [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
+# Cross-cutting conventions: language, comments and standards
+> **Normative.** Mandatory in the four parts of the monorepo. Last verified: 2026-10-09.
+> **Reconstruction note (2026-10-10).** Conventions in force; the paths are from the previous backend. The rules remain in force; the code paths it cites belong to the previous system and are remapped to the new code (see [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
+> **Update (2026-10-10).** Section 1 is updated to [ADR 0018](../adr/0018-todo-en-ingles.md), which replaces ADR 0004 and ADR 0017: everything in the project is in English.
 
-La decisión sobre el idioma está en
-[ADR 0004](../adr/0004-nombres-en-ingles-comentarios-en-espanol.md).
+The decision about the language is in
+[ADR 0018](../adr/0018-todo-en-ingles.md) (which replaces [ADR 0004](../adr/0004-nombres-en-ingles-comentarios-en-espanol.md)).
 
-## 1. Idioma
+## 1. Language
 
-> **Variables, métodos, constantes, clases, tablas y propiedades: en inglés.
-> Solo los comentarios en español.**
+> **Everything in English: identifiers, comments, test names, error messages, interface text,
+> data codes and documentation.**
 
 ```kotlin
 // ✅
@@ -18,67 +19,62 @@ fun approveInvoice(invoiceId: Long, reason: AdjustmentReason)
 fun aprobarFactura(facturaId: Long, motivo: AdjustmentReason)
 ```
 
-**Lo que no se traduce nunca:**
+**The only exceptions, because they are data and not text (ADR 0018):**
 
-| Qué | Por qué |
+| What | Why |
 |---|---|
-| **Los comentarios** | Son para el equipo, y el equipo piensa en español |
-| **Los mensajes de error** | `"El producto no existe"` **lo lee el operador** |
-| **Los `displayName`** | Es texto de interfaz |
-| **Los valores de enum** | Están en la base y en el contrato (`SHORTAGE`, `PENDING`) |
-| **Los códigos de error** | `INSUFFICIENT_STOCK` es **API pública** |
+| The unit of measure `PZA` of the legacy catalog | It is a data value that comes from the legacy catalog |
+| The letter `Ñ` of the product code alphabet | It is part of the code alphabet, not translatable text |
 
-**Los nombres de tabla y columna ya están en inglés** y no se tocan. La excepción consciente
-son los nombres de las funciones PL/pgSQL del motor de inventario
+**The table and column names are already in English** and are not touched. The SQL engine functions
 (`aplicar_movimiento_a_ubicacion`, `recalcular_total_producto`, `registrar_movimiento`,
-`comprobar_proyecciones`), que son un detalle interno de la base y no se filtran al contrato
-HTTP (`backend/src/main/resources/db/migration/`).
+`comprobar_proyecciones`) are still in Spanish: that is a pending step of migration V17 (ADR 0018),
+and they are an internal detail of the database that does not leak into the HTTP contract
+(`backend/src/main/resources/db/migration/`).
 
-## 2. Comentarios: el estilo de la casa
+## 2. Comments: the house style
 
-**Explican el por qué, no el qué.** El qué ya lo dice el código.
+**They explain the why, not the what.** The what is already said by the code.
 
 ```kotlin
-// ❌ No aporta nada
-// Suma la cantidad al saldo
+// ❌ Adds nothing
+// Adds the quantity to the balance
 quantity = quantity + delta
 
-// ✅ Explica la decisión y el tropiezo
-// La cualificación es OBLIGATORIA: en `DO UPDATE`, un nombre sin cualificar se
-// resuelve a la fila PROPUESTA, así que `quantity + delta` calculaba
-// `delta + delta` y el saldo NUNCA se acumulaba.
+// ✅ Explains the decision and the pitfall
+// The qualification is MANDATORY: in `DO UPDATE`, an unqualified name resolves to the
+// PROPOSED row, so `quantity + delta` computed `delta + delta` and the balance
+// NEVER accumulated.
 quantity = stock_by_location.quantity + delta
 ```
 
-**Se documentan los tropiezos.** Un comentario que dice «esto se intentó y rompía X» vale más
-que diez que describen lo obvio: evita que el siguiente lo repita.
+**Pitfalls are documented.** A comment that says "this was tried and it broke X" is worth more than ten that describe the obvious: it keeps the next person from repeating it.
 
-## 3. Estándares de código — la checklist obligatoria
+## 3. Code standards — the mandatory checklist
 
-**Cada punto se revisa antes de dar una tarea por terminada.** No es una guía de estilo: es lo
-que se comprueba.
+**Each point is checked before a task is considered finished.** It is not a style guide: it is what is verified.
 
-| # | Regla | El fallo que evita |
+| # | Rule | The failure it prevents |
 |---|---|---|
-| 1 | **Visibilidad explícita** (`private`, `internal`, `public`) | Todo es `public` por defecto y cualquier archivo puede tocar cualquier cosa |
-| 2 | **Inmutabilidad por defecto**: `val`, colecciones de **solo lectura** | Un `MutableList` compartido cambia «solo» desde otro sitio |
-| 3 | **Tipo de retorno explícito en lo público** | Cambiar el tipo de retorno de una `fun` pública **sin tocar la firma** rompe a quien la llama |
-| 4 | **Seguridad frente a nulos**: `?.`, `?:`, smart casts | El `NullPointerException` en producción |
-| 5 | **`!!` prohibido** | Un `!!` es una **afirmación sin prueba**: convierte un dato ausente en una caída |
-| 6 | **Funciones de extensión** para utilidades | Utilidades sueltas en clases `Utils` que nadie sabe dónde viven |
-| 7 | **Inyección por constructor** ([api-ktor.md](../historico/API-KTOR.md) §1.8) | Dependencias escondidas y clases que no se pueden probar |
-| 8 | **Todo tiene que ser testeable** | Código que solo se puede probar arrancando el servidor |
+| 1 | **Explicit visibility** (`private`, `internal`, `public`) | Everything is `public` by default and any file can touch anything |
+| 2 | **Immutability by default**: `val`, **read-only** collections | A shared `MutableList` changes "by itself" from another place |
+| 3 | **Explicit return type in public API** | Changing the return type of a public `fun` **without touching the signature** breaks its callers |
+| 4 | **Null safety**: `?.`, `?:`, smart casts | The `NullPointerException` in production |
+| 5 | **`!!` forbidden** | A `!!` is an **assertion without proof**: it turns a missing datum into a crash |
+| 6 | **Extension functions** for utilities | Loose utilities in `Utils` classes that nobody knows where they live |
+| 7 | **Constructor injection** ([api-ktor.md](../historico/API-KTOR.md) §1.8) | Hidden dependencies and classes that cannot be tested |
+| 8 | **Everything has to be testable** | Code that can only be tested by starting the server |
 
 ```kotlin
-// ✅ Las ocho reglas, en una función: `internal`, `val`, retorno explícito,
-//    null-safe, sin `!!`, y como función de extensión.
+// ✅ The eight rules, in one function: `internal`, `val`, explicit return,
+//    null-safe, no `!!`, and as an extension function.
 internal fun ResultSet.toStockByLocationDto(): StockByLocationDto? {
     val code: String = getString("product_code") ?: return null
     val quantity: String = getBigDecimal("quantity")?.toPlainString() ?: "0.000"
     return StockByLocationDto(productCode = code, quantity = quantity)
 }
 
-// ❌ Tres reglas incumplidas en una línea: pública sin tipo de retorno,
-//    `var` que no hace falta y `!!` en lugar de `?:`.
+// ❌ Three rules broken on one line: public without return type,
+//    a `var` that is not needed and `!!` instead of `?:`.
 fun toCode(rs: ResultSet) { var code = rs.getString("product_code")!! }
 ```

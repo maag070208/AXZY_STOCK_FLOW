@@ -1,20 +1,20 @@
-# Respaldos
-> **Plan.** Estado: **no existe mecanismo de respaldo en el repo.** Última verificación: 2026-10-09.
+# Backups
+> **Plan.** Status: **there is no backup mechanism in the repo.** Last verified: 2026-10-09.
 
-## Qué se comprobó
+## What was checked
 
-Búsqueda de `backup`, `respaldo` y `pg_dump` en `infra/`, `scripts/` y `.github/`: sin resultados.
-Tampoco hay un procedimiento de restauración probado.
+Search for `backup`, `respaldo` and `pg_dump` in `infra/`, `scripts/` and `.github/`: no results.
+There is no tested restore procedure either.
 
-## Por qué importa
+## Why it matters
 
-El corte al sistema nuevo se apoya en un respaldo verificado ([migracion/cutover.md](../migracion/cutover.md)).
-Sin él, la reversión descrita en ese documento no es posible.
+The cutover to the new system relies on a verified backup ([migracion/cutover.md](../migracion/cutover.md)).
+Without it, the reversal described in that document is not possible.
 
-## Requisitos mínimos antes del corte
+## Minimum requirements before the cutover
 
-1. Volcado completo de la base de PostgreSQL, con su fecha y su versión de esquema.
-2. Restauración probada en una base separada, con la comprobación de `comprobar_proyecciones()`.
-3. Quién lo ejecuta y dónde se guarda, decididos fuera del repo.
+1. Complete dump of the PostgreSQL database, with its date and its schema version.
+2. Tested restore in a separate database, with the check of `comprobar_proyecciones()`.
+3. Who runs it and where it is stored, decided outside the repo.
 
-Los comandos concretos se escriben cuando exista el mecanismo; no se documentan aquí antes de probarlos.
+The concrete commands are written when the mechanism exists; they are not documented here before being tested.

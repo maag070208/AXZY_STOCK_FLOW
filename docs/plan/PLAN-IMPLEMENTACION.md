@@ -1,224 +1,220 @@
-# Plan de implementación: fases, módulos y orden de construcción
-> **Plan.** Cómo se construye StockFlow, módulo por módulo, en qué orden y con qué criterio de terminado. Complementa a [PLAN-REHACER.md](PLAN-REHACER.md) (fases y requisitos) y no lo contradice: aquí se baja a módulos. Última revisión: 2026-10-10 (fase 5 en curso).
+# Implementation plan: phases, modules and build order
+> **Plan.** How StockFlow is built, module by module, in which order and with which definition of done. It complements [PLAN-REHACER.md](PLAN-REHACER.md) (phases and requirements) and does not contradict it: here it is broken down to modules. Last revised: 2026-10-10 (phase 5 in progress).
 
-## 1. Estado al 10 de octubre de 2026
+## 1. Status as of October 10, 2026
 
-| Fase | Estado | Evidencia |
+| Phase | Status | Evidence |
 |---|---|---|
-| 0. Decisiones | **Cerrada.** D1–D8 tomadas; versiones verificadas en Maven Central | [stack.md](../arquitectura/stack.md) |
-| 1. Infraestructura | **Cerrada** | Compose `stockflow`; `V1`–`V15` aplicadas; rol de la API sin DDL (`ApiRolePrivilegesTest`) |
-| 2. API base | **Cerrada** | Seis módulos; `GET /v1/health`; contrato de error; bitácora en la transacción (U1, U3); `ArchitectureTest` |
-| 3. Identidad | **Cerrada** | `AuthFlowTest`: login, bloqueo, refresh con reuso, logout y cambio de contraseña, por HTTP real. I5 e I8 se cerraron con la fase 4 |
-| 4. Catálogo | **Cerrada salvo el Excel** | `CatalogFlowTest` K1–K6, I5 e I8; `CatalogPersistenceTest`; `RoutePermissionTest` |
-| 5. Existencias | **Cerrada** | `InventoryFlowTest` A1–A10 y `ReportFlowTest`; `InventoryEngineConcurrencyTest`; `InventoryWriteGuardTest`; presupuesto de consultas medido |
-| 6. Recepción | **Cerrada** | `ReceivingFlowTest` R1–R8 |
-| 11. Web | **Entrada, catálogo, los siete módulos de lectura y las escrituras de recepción, traslados, surtido y reimpresión**, con el servicio `web` en Compose | `web/`: `tsc`, `eslint` en verde; 30 pruebas de Playwright. Pendientes: crear orden y ubicar desde la web |
-| 7. Surtido y ERP | **Cerrada** | `FulfillmentFlowTest` S1–S8; confirmación simultánea en `FulfillmentPersistenceTest` |
-| 8. Traslados | **Cerrada** | `TransferEngineTest` (motor e invariante) y `TransferFlowTest` T1–T8 |
-| 9. Etiquetas y auditoría | **Cerrada**: M06 con L1–L5 y M08 con U1–U5 en verde | `LabelFlowTest`, `PrintJobConfirmationTest` y `AuditFlowTest` |
-| 10. Migración | **Cerrada en lo que es código**: importación estricta e idempotente, que acepta **CSV, TSV y XLSX** y carga el stock inicial a `SIN-UBICAR`. Lo que queda es del negocio (el conteo físico y el corte) | `CatalogFlowTest` M10 y `CatalogUploadTest` |
+| 0. Decisions | **Closed.** D1–D8 taken; versions verified in Maven Central | [stack.md](../arquitectura/stack.md) |
+| 1. Infrastructure | **Closed** | Compose `stockflow`; `V1`–`V15` applied; API role without DDL (`ApiRolePrivilegesTest`) |
+| 2. Base API | **Closed** | Six modules; `GET /v1/health`; error contract; audit log in the transaction (U1, U3); `ArchitectureTest` |
+| 3. Identity | **Closed** | `AuthFlowTest`: sign-in, lock, refresh with reuse, sign-out and password change, over real HTTP. I5 and I8 were closed with phase 4 |
+| 4. Catalog | **Closed except the Excel** | `CatalogFlowTest` K1–K6, I5 and I8; `CatalogPersistenceTest`; `RoutePermissionTest` |
+| 5. Stock | **Closed** | `InventoryFlowTest` A1–A10 and `ReportFlowTest`; `InventoryEngineConcurrencyTest`; `InventoryWriteGuardTest`; query budget measured |
+| 6. Receiving | **Closed** | `ReceivingFlowTest` R1–R8 |
+| 11. Web | **Entry, catalog, the seven read modules and the writes of receiving, transfers, picking and reprint**, with the `web` service in Compose | `web/`: `tsc`, `eslint` green; 30 Playwright tests. Pending: create order and locate from the web |
+| 7. Picking and ERP | **Closed** | `FulfillmentFlowTest` S1–S8; simultaneous confirmation in `FulfillmentPersistenceTest` |
+| 8. Transfers | **Closed** | `TransferEngineTest` (engine and invariant) and `TransferFlowTest` T1–T8 |
+| 9. Labels and audit | **Closed**: M06 with L1–L5 and M08 with U1–U5 green | `LabelFlowTest`, `PrintJobConfirmationTest` and `AuditFlowTest` |
+| 10. Migration | **Closed in what is code**: strict and idempotent import, which accepts **CSV, TSV and XLSX** and loads the initial stock to `SIN-UBICAR`. What remains belongs to the business (the physical count and the cutover) | `CatalogFlowTest` M10 and `CatalogUploadTest` |
 
-**752 pruebas, 0 fallos, 0 omitidas** (412 dominio, 11 aplicación, 91 persistencia, 17 web,
-11 criptografía, 210 flujo), medidas con `./gradlew verify` el 2026-10-10. Esquema en
+**752 tests, 0 failures, 0 skipped** (412 domain, 11 application, 91 persistence, 17 web,
+11 cryptography, 210 flow), measured with `./gradlew verify` on 2026-10-10. Schema at
 **V15**.
 
-**Auditoría del listón §4, cerrada el 2026-10-10.** Módulo a módulo y con comprobación mecánica
-donde se puede:
+**Audit of the §4 bar, closed on 2026-10-10.** Module by module, with mechanical checking
+where possible:
 
-| Criterio | Cómo está |
+| Criterion | How it stands |
 |---|---|
-| Pruebas de aceptación del flujo | Las 68 de los ocho flujos están automatizadas o cubiertas donde el documento dice (I6/I7 en el motor de acceso, Q2/Q3 como base de S2/S3/S5, S9 en el dominio porque M04 no define ruta de anulación). Comprobado cruzándolas contra los tests |
-| Concurrencia donde escribe inventario | Motor de existencias, reclamo de la confirmación del surtido, motor de traslados y **la captura de recepción**, que la necesitaba y no la tenía |
-| Presupuesto de consultas | Medido en los nueve módulos: catálogo, existencias, reportes, surtido, sesiones, usuarios y roles, recepción, traslados y etiquetas |
-| Permisos por ruta | Toda ruta declara el suyo (una sola declaración) y el motor lo comprueba; una prueba de arquitectura lo impide |
-| Bitácora en cada escritura | El registro de casos de uso críticos está atado al catálogo de permisos, y cada flujo comprueba su entrada |
-| Contrato y errores | **76 rutas documentadas y 76 implementadas**, y cada página con sus códigos |
+| Flow acceptance tests | The 68 of the eight flows are automated or covered where the document says (I6/I7 in the access engine, Q2/Q3 as the basis of S2/S3/S5, S9 in the domain because M04 does not define a cancellation route). Checked by cross-referencing them against the tests |
+| Concurrency where inventory is written | The stock engine, the picking confirmation claim, the transfer engine and **the receiving capture**, which needed it and did not have it |
+| Query budget | Measured in the nine modules: catalog, stock, reports, picking, sessions, users and roles, receiving, transfers and labels |
+| Permissions per route | Every route declares its own (a single declaration) and the engine checks it; an architecture test prevents otherwise |
+| Audit log in every write | The record of auditable critical use cases is tied to the permission catalog, and each flow checks its entry |
+| Contract and errors | **76 documented routes and 76 implemented**, and each page with its codes |
 
-> `./gradlew test` **no ejecuta las pruebas del dominio**: el proyecto es
-> multiplataforma y su tarea se llama `jvmTest`, así que el `test` agregado lo dejaba
-> fuera y el informe parecía verde leyendo XML de una ejecución anterior. Para verificar
-> hay que usar **`./gradlew verify`**, que las incluye a todas.
+> `./gradlew test` **does not run the domain tests**: the project is
+> multiplatform and its task is called `jvmTest`, so the aggregate `test` left it
+> out and the report looked green reading XML from a previous run. To verify
+> one must use **`./gradlew verify`**, which includes them all.
 
-Lo que la fase 4 **no** entrega, y por qué:
+What phase 4 **does not** deliver, and why:
 
-| Pendiente | Dónde se cierra | Por qué no bloquea |
+| Pending | Where it is closed | Why it does not block |
 |---|---|---|
-| Lectura de XLSX en la importación | M10 (migración de datos) | El archivo trabajado del corte es un TSV; la ruta responde `IMPORT_FILE_FORMAT` diciéndolo |
-| La intermitencia del `403` al asignar roles | Fase 9, investigado | Dejó de reproducirse al arreglar el cableado de la política de contraseñas, que dejaba el contexto a medias; con la ruta activada pasó **cinco ejecuciones seguidas** del módulo. El **cuerpo vacío del `403` original quedó sin explicación**: está anotado, no inventado. Si reaparece, mirar primero el sembrado de `role_permissions` al arrancar |
-| Eliminar roles | M07, decidido | Un rol no se borra: se **desactiva** (`active: false`), y eso le quita los permisos a quien lo tenga. Borrarlo dejaría usuarios sin rol y sin explicación |
-| Ninguna ruta asigna líneas de orden | Fase 7, siguiente paso | `order.assign` está en el catálogo y la tabla tiene `assigned_user_id` y `location_id`, pero ninguna ruta los escribe: la ubicación la anota el empaque |
-| No hay ERP | Fase 7, anotado | El intento falla con `ERP_NOT_CONNECTED` y el contador sube; falta el adaptador (ADR-0013) |
-| **Dos capturas simultáneas duplicaban el stock** | Fase 6, **corregido el 2026-10-10** | La entrada se escribe por la **diferencia** contra lo ya ingresado, así que dos capturas de la misma línea que leyeran el mismo saldo ingresaban las dos la misma diferencia. Ahora la captura se **reclama** con una sentencia condicional sobre `received_quantity` antes de mover: la primera gana, la segunda responde `409 LINE_CHANGED` y no escribe nada. Probado con dos transacciones de verdad (`ReceivingConcurrencyTest`) |
-| **La tabla del contrato no listaba 12 rutas que existen** | Listón §4, **corregido el 2026-10-10** | Entre ellas, **ocho que construí yo** en M07 (alta, detalle, edición, restablecimiento de contraseña y las cuatro de roles). Estaban documentadas en su página, pero el índice del contrato es lo que se lee para saber qué hay. Ahora **las 76 rutas documentadas son las 76 implementadas**, comprobado de forma mecánica: ninguna de más ni de menos |
-| **Faltaba el presupuesto de consultas de tres módulos** | Listón §4, **corregido el 2026-10-10** | Recepción, traslados y etiquetas tenían sus flujos en verde y su motor probado, pero **nadie había medido** cuántas sentencias cuestan sus lecturas. Ahora está medido y atado: un listado son dos sentencias (conteo y página) y el detalle de una factura o un traslado son dos, con sus líneas. Lo que no se mide se pierde en el primer cambio bienintencionado |
-| **El registro de casos de uso auditables no estaba atado al catálogo** | Listón §4, **corregido el 2026-10-10** | `CriticalUseCases.all` comprobaba que cada declaración tiene permiso no vacío, pero **no que ese permiso exista** en `PermissionCatalog`: un permiso mal escrito habría pasado las pruebas y fallado en ejecución, dentro de la transacción de la operación legítima que se estaba auditando. Ahora hay una prueba que lo ata, y otra que exige que ningún caso de uso ni ninguna acción se declaren dos veces |
-| **Dos pruebas de reportes fallaban una hora al día** | Fase 9, **corregido el 2026-10-10** | Pedían `from=hoy&to=hoy` con `LocalDate.now()` —la fecha de la máquina— mientras la API fecha los movimientos en `stock.business-zone`. De 23:00 a 00:00 en la costa oeste, la máquina y la zona de negocio están en días distintos y el resumen salía vacío. Ahora las pruebas usan `businessToday()`, que lee la zona de la misma configuración que la API |
-| **Aprobar un ajuste no comprobaba el permiso** | Fase 5, **corregido el 2026-10-10** | `inventory.approve_adjustment` estaba en el catálogo, concedido a roles, documentado y auditado, pero **ningún código lo exigía**: se aprobaba mandando el `approverId` de otro, y cualquiera con el permiso del motivo podía firmar su propio robo. Ahora el servidor carga al aprobador y le exige el permiso con el alcance de la bodega (`403 APPROVER_NOT_AUTHORIZED`), con dos pruebas: una que lo rechaza y otra que confirma que con un aprobador autorizado el ajuste se aplica |
-| **24 permisos del catálogo sin ninguna ruta que los exija** | Auditoría del 2026-10-10 | De ellos, unos son de módulos que no existen (costo, financiero, dispositivos, `system.config`, `integration.manage`), otros son decisiones ya tomadas —`user.delete` (se desactiva), `invoice.edit/delete` y `order.edit/delete` (no se borran documentos), `kardex.export` (lo cubre `report.export`)—, y tres son capacidades **documentadas y sin ruta**: `invoice.assign`, `order.assign` y `session.revoke`. **`order.assign` ya tiene ruta** (`PUT /v1/orders/{id}/lines/{lineId}/assign`, 2026-10-10). Quedan **dos**: `invoice.assign` —asignar una línea de factura a un capturista; el estado `ASSIGNED` y el método del dominio existen, falta la ruta— y ~~`session.revoke`~~ — **cerrada el 2026-10-10** con `POST /v1/users/{id}/revoke-sessions`, y con el matiz escrito: corta la **renovación**, no el token de acceso vivo, y la ventana de gracia de 30 s de un token ya rotado sigue aplicando—. **`invoice.assign` también** (`PUT /v1/invoices/{id}/lines/{lineId}/assign`, 2026-10-10). **Ninguna capacidad documentada del catálogo queda sin ruta**: las 24 sin uso son de módulos que no existen (costo, financiero, dispositivos, `system.config`, `integration.manage`) o decisiones ya tomadas (no se borran documentos, un usuario se desactiva) |
-| ~~Ninguna ruta emite `RECEIPT_IN`~~ | Fase 6, **cerrado el 2026-10-10** | La mercancía entra **al contar**, con un `RECEIPT_IN` por la **diferencia** contra lo ya ingresado por la línea (`invoice_lines.received_quantity`, V15). Un recuento no suma dos veces, y si lo contado es menos la diferencia sale con un ajuste por error de conteo. Tres pruebas: la entrada al contar, el recuento a la baja y el recuento al alza. Las pruebas de ubicar ya no siembran el saldo a mano |
-| Pantallas de los módulos sin endpoint | Fases 6–9 | Una pantalla sin endpoint no dibuja filas inventadas: el inicio dice qué falta y por qué |
-| ~~Despliegue de la web (nginx + servicio en Compose)~~ | Fase 11, **cerrado el 2026-10-10** | Servicio `web` en Compose (`127.0.0.1:8085`): nginx sin privilegios que sirve la SPA y reenvía `/v1/` a la API por la red interna. Las cabeceras de seguridad se repiten por bloque porque `add_header` de un `location` anula las del `server` |
-| `stock` inicial a `SIN-UBICAR` con el movimiento `INITIAL` | Fase 5 (M02) | El informe ya publica `stockPersisted: false`: cargar 10.914.130 unidades sin desglose inventaría mal desde el día uno (ADR-0012) |
+| XLSX reading in the import | M10 (data migration) | The working file of the cutover is a TSV; the route answers `IMPORT_FILE_FORMAT` saying so |
+| The intermittent `403` when assigning roles | Phase 9, investigated | It stopped reproducing when the wiring of the password policy was fixed, which left the context half done; with the route enabled it passed **five consecutive runs** of the module. The **empty body of the original `403` was left unexplained**: it is noted, not made up. If it reappears, first check the seeding of `role_permissions` at startup |
+| Deleting roles | M07, decided | A role is not deleted: it is **deactivated** (`active: false`), and that removes the permissions from whoever has it. Deleting it would leave users without a role and without explanation |
+| No route assigns order lines | Phase 7, next step | `order.assign` is in the catalog and the table has `assigned_user_id` and `location_id`, but no route writes them: the location is noted by packing |
+| There is no ERP | Phase 7, noted | The attempt fails with `ERP_NOT_CONNECTED` and the counter goes up; the adapter is missing (ADR-0013) |
+| **Two simultaneous captures duplicated the stock** | Phase 6, **corrected on 2026-10-10** | The entry is written by the **difference** against what was already received, so two captures of the same line that read the same balance both received the same difference. Now the capture is **claimed** with a conditional statement on `received_quantity` before moving: the first wins, the second answers `409 LINE_CHANGED` and writes nothing. Proven with two real transactions (`ReceivingConcurrencyTest`) |
+| **The contract table did not list 12 routes that exist** | §4 bar, **corrected on 2026-10-10** | Among them, **eight that I built myself** in M07 (creation, detail, edit, password reset and the four role ones). They were documented on their page, but the contract index is what is read to know what exists. Now **the 76 documented routes are the 76 implemented**, checked mechanically: none more and none fewer |
+| **The query budget of three modules was missing** | §4 bar, **corrected on 2026-10-10** | Receiving, transfers and labels had their flows green and their engine tested, but **nobody had measured** how many statements their reads cost. Now it is measured and tied: a listing is two statements (count and page) and the detail of an invoice or a transfer is two, with its lines. What is not measured is lost at the first well-meant change |
+| **The record of auditable use cases was not tied to the catalog** | §4 bar, **corrected on 2026-10-10** | `CriticalUseCases.all` checked that each declaration has a non-empty permission, but **not that this permission exists** in `PermissionCatalog`: a badly written permission would have passed the tests and failed at runtime, inside the transaction of the legitimate operation being audited. Now there is a test that ties it, and another that requires that no use case or action is declared twice |
+| **Two report tests failed one hour a day** | Phase 9, **corrected on 2026-10-10** | They asked for `from=today&to=today` with `LocalDate.now()` —the machine's date— while the API dates the movements in `stock.business-zone`. From 23:00 to 00:00 on the west coast, the machine and the business zone are on different days and the summary came out empty. Now the tests use `businessToday()`, which reads the zone from the same configuration as the API |
+| **Approving an adjustment did not check the permission** | Phase 5, **corrected on 2026-10-10** | `inventory.approve_adjustment` was in the catalog, granted to roles, documented and audited, but **no code required it**: it was approved by sending another person's `approverId`, and anyone with the permission for the reason could sign their own theft. Now the server loads the approver and requires the permission with the warehouse's scope (`403 APPROVER_NOT_AUTHORIZED`), with two tests: one that rejects it and another that confirms that with an authorized approver the adjustment is applied |
+| **24 catalog permissions with no route requiring them** | Audit of 2026-10-10 | Some of them belong to modules that do not exist (cost, financial, devices, `system.config`, `integration.manage`), others are decisions already taken —`user.delete` (it is deactivated), `invoice.edit/delete` and `order.edit/delete` (documents are not deleted), `kardex.export` (covered by `report.export`)—, and three are **documented capabilities with no route**: `invoice.assign`, `order.assign` and `session.revoke`. **`order.assign` already has a route** (`PUT /v1/orders/{id}/lines/{lineId}/assign`, 2026-10-10). **Two** remain: `invoice.assign` —assign an invoice line to a capturer; the `ASSIGNED` state and the domain method exist, the route is missing— and ~~`session.revoke`~~ — **closed on 2026-10-10** with `POST /v1/users/{id}/revoke-sessions`, and with the nuance written: it cuts the **renewal**, not the live access token, and the 30 s grace window of an already rotated token still applies—. **`invoice.assign` too** (`PUT /v1/invoices/{id}/lines/{lineId}/assign`, 2026-10-10). **No documented capability of the catalog is left without a route**: the 24 unused ones belong to modules that do not exist (cost, financial, devices, `system.config`, `integration.manage`) or to decisions already taken (documents are not deleted, a user is deactivated) |
+| ~~No route emits `RECEIPT_IN`~~ | Phase 6, **closed on 2026-10-10** | The goods enter **when counted**, with a `RECEIPT_IN` for the **difference** against what the line has already received (`invoice_lines.received_quantity`, V15). A recount does not add twice, and if what was counted is less, the difference leaves with an adjustment for a count error. Three tests: the entry when counted, the downward recount and the upward recount. The locate tests no longer seed the balance by hand |
+| Screens of the modules without an endpoint | Phases 6–9 | A screen without an endpoint does not draw invented rows: the home page says what is missing and why |
+| ~~Deployment of the web (nginx + service in Compose)~~ | Phase 11, **closed on 2026-10-10** | `web` service in Compose (`127.0.0.1:8085`): unprivileged nginx that serves the SPA and forwards `/v1/` to the API over the internal network. The security headers are repeated per block because `add_header` of a `location` overrides those of the `server` |
+| Initial `stock` to `SIN-UBICAR` with the `INITIAL` movement | Phase 5 (M02) | The report already publishes `stockPersisted: false`: loading 10,914,130 units without a breakdown would misstate the inventory from day one (ADR-0012) |
 
-I5 (un endpoint sin permiso declarado no arranca) e I8 (una cuenta con el cambio de contraseña
-pendiente no usa otras rutas) se cerraron en la fase 4: `RoutePermissionAudit` comprueba la
-declaración de cada ruta al arrancar y `CatalogFlowTest` ejercita las dos.
+I5 (an endpoint with no declared permission does not start) and I8 (an account with a pending
+password change does not use other routes) were closed in phase 4: `RoutePermissionAudit` checks the
+declaration of each route at startup and `CatalogFlowTest` exercises both.
 
-### Lo que la fase 1 dejaba abierto
+### What phase 1 left open
 
-| # | Pendiente | Resolución |
+| # | Pending | Resolution |
 |---|---|---|
-| P1 | Separar el rol de migración del de la API | **Hecho** en `V11`: rol de grupo `stock_api`, sin DDL ni mutación del kardex o la bitácora |
-| P2 | Particiones de la bitácora | **Hecho**: `db/callbacks/afterMigrate.sql` asegura 19 meses en cada despliegue. V2 ya tenía una partición por defecto, así que el riesgo era menor del anotado |
-| P3 | Versión de Flyway | **Hecho**: `12.4.0`, la que gestiona el BOM de Spring Boot 4.1.1 |
-| P4 | Contenedor `stock-adminer` del sistema anterior | **Sin tocar.** Es tuyo. El proyecto nuevo se llama `stockflow` y no choca con él |
-| P5 | Ruta de las migraciones | **Hecho**: `db/migrations/`, documentado en [infraestructura.md](../arquitectura/infraestructura.md) §4 |
+| P1 | Separate the migration role from the API's | **Done** in `V11`: group role `stock_api`, without DDL nor mutation of the ledger or the audit log |
+| P2 | Audit log partitions | **Done**: `db/callbacks/afterMigrate.sql` ensures 19 months on each deployment. V2 already had a default partition, so the risk was smaller than noted |
+| P3 | Flyway version | **Done**: `12.4.0`, the one managed by the Spring Boot 4.1.1 BOM |
+| P4 | `stock-adminer` container of the previous system | **Not touched.** It is yours. The new project is called `stockflow` and does not clash with it |
+| P5 | Path of the migrations | **Done**: `db/migrations/`, documented in [infraestructura.md](../arquitectura/infraestructura.md) §4 |
 
-### Hallazgos que salieron al construir
+### Findings that came out while building
 
-| Hallazgo | Qué se hizo |
+| Finding | What was done |
 |---|---|
-| La bitácora buscaba el eslabón anterior de la cadena recorriendo todas las filas en cada escritura, bajo un cerrojo global | Índice en `V11`. Medido: de 20.000 filas leídas a 1 |
-| `audit_log` exigía la traza de acceso en un registro `CRITICAL`, pero la función de escritura no tenía parámetro para recibirla | `V12` |
-| El diseño anterior llevaba roles y permisos dentro del token (4.653 caracteres) y no los releía | El token solo identifica (325 caracteres); los permisos se leen en cada petición |
-| El bloqueo por intentos solo afectaba a cuentas reales, así que delataba cuáles existían | El bloqueo va por nombre de usuario, exista o no |
-| La función del motor promete un mensaje de «stock insuficiente» que nunca se ejecuta: el `CHECK` de la tabla salta antes | Anotado para la fase 5: el caso de uso lee el saldo bloqueado y devuelve el error con `available` |
-| Mi Compose se llamaba igual que el del sistema anterior y recreó su contenedor de PostgreSQL | Restaurado sobre su volumen, con los datos intactos. El proyecto pasó a llamarse `stockflow` |
-| El catálogo autorizaba dentro del caso de uso, así que una ruta nueva sin autorización funcionaba y nadie se enteraba | `@RequiresPermission` en cada ruta y `RoutePermissionAudit` al arrancar: una ruta sin declarar **impide el arranque** (I5) |
-| El fixture de pruebas no restauraba la bodega predeterminada, así que una prueba que la movía rompía la limpieza de la siguiente | `TestDatabase.reset()` restaura la semilla: una prueba no puede romper a la siguiente |
-| El conteo de un listado podía ignorar los filtros y decir «1.398» con cero resultados | El conteo y la página comparten filtros; `CatalogPersistenceTest` lo comprueba |
+| The audit log looked for the previous link of the chain by scanning all the rows on each write, under a global lock | Index in `V11`. Measured: from 20,000 rows read to 1 |
+| `audit_log` required the access trace in a `CRITICAL` record, but the write function had no parameter to receive it | `V12` |
+| The previous design carried roles and permissions inside the token (4,653 characters) and did not re-read them | The token only identifies (325 characters); the permissions are read on each request |
+| The attempt lock only affected real accounts, so it gave away which ones existed | The lock goes by user name, whether or not it exists |
+| The engine function promises an "insufficient stock" message that never runs: the table's `CHECK` fires first | Noted for phase 5: the use case reads the locked balance and returns the error with `available` |
+| My Compose had the same name as the previous system's and recreated its PostgreSQL container | Restored over its volume, with the data intact. The project was renamed `stockflow` |
+| The catalog authorized inside the use case, so a new route without authorization worked and nobody noticed | `@RequiresPermission` on each route and `RoutePermissionAudit` at startup: an undeclared route **prevents startup** (I5) |
+| The test fixture did not restore the default warehouse, so a test that moved it broke the cleanup of the next one | `TestDatabase.reset()` restores the seed: a test cannot break the next one |
+| The count of a listing could ignore the filters and say "1,398" with zero results | The count and the page share filters; `CatalogPersistenceTest` checks it |
 
-## 2. Módulos
+## 2. Modules
 
-Los módulos de negocio son M01–M09 ([docs/modulos/](../modulos/README.md)). Dos piezas transversales
-no son módulos de negocio, pero bloquean a todos: **identidad y permisos** (M07, que es una puerta)
-y **auditoría** (M08, que cada escritura usa). Se agrega **M10, migración de datos**, porque el corte
-desde el legacy tiene pasos propios ([migracion/cutover.md](../migracion/cutover.md)).
+The business modules are M01–M09 ([docs/modulos/](../modulos/README.md)). Two cross-cutting pieces
+are not business modules, but they block all of them: **identity and permissions** (M07, which is a gate)
+and **audit** (M08, which every write uses). **M10, data migration**, is added, because the cutover
+from the legacy has steps of its own ([migracion/cutover.md](../migracion/cutover.md)).
 
-| Módulo | Qué entrega | Flujo que cumple | Depende de | Fase |
+| Module | What it delivers | Flow it fulfills | Depends on | Phase |
 |---|---|---|---|---|
-| **M07 Identidad y accesos** | Login, refresh, logout, cambio de contraseña, RBAC+ABAC | [autenticacion-y-permisos.md](../flujos/autenticacion-y-permisos.md) | — | 3 |
-| **M08 Auditoría** | Bitácora inmutable, registro dentro de la transacción, consulta | [auditoria.md](../flujos/auditoria.md) | M07 | 2 (escritura), 9 (consulta completa) |
-| **M01 Catálogo** | Productos, ubicaciones, bodegas, importación estricta | [catalogo.md](../flujos/catalogo.md) | M07, M08 | 4 |
-| **M02 Existencias** | Motor de inventario, kardex, ajustes, ubicar, mover, reportes de conciliación | [existencias-y-ajustes.md](../flujos/existencias-y-ajustes.md) | M01 | 5 |
-| **M03 Recepción** | Facturas, captura, discrepancias, aprobación, ubicación | [recepcion.md](../flujos/recepcion.md) | M02 | 6 |
-| **M04 Surtido** | Órdenes, empaque, faltantes, confirmación | [surtido-y-erp.md](../flujos/surtido-y-erp.md) §1–§4, §6, §8 | M02 | 7 |
-| **M09 Integración externa** | Exportación al ERP con reintentos (puerto sin cliente real) | [surtido-y-erp.md](../flujos/surtido-y-erp.md) §5 | M04 | 7 |
-| **M05 Traslados** | Traslado entre ubicaciones y entre bodegas, tránsito | [traslados.md](../flujos/traslados.md) | M02 | 8 |
-| **M06 Etiquetas** | Plantillas, cola, confirmación con clave de servicio, reimpresión | [etiquetas.md](../flujos/etiquetas.md) | M07, M08 | 9 |
-| **M10 Migración de datos** | Importación del Excel, conciliación del stock heredado, corte | [migracion/](../migracion/cutover.md), [ADR-0012](../adr/0012-conciliar-stock-heredado-con-conteo.md) | M01, M02 | 4 y cierre |
+| **M07 Identity and access** | Sign-in, refresh, sign-out, password change, RBAC+ABAC | [autenticacion-y-permisos.md](../flujos/autenticacion-y-permisos.md) | — | 3 |
+| **M08 Audit** | Immutable log, recording inside the transaction, query | [auditoria.md](../flujos/auditoria.md) | M07 | 2 (writing), 9 (full query) |
+| **M01 Catalog** | Products, locations, warehouses, strict import | [catalogo.md](../flujos/catalogo.md) | M07, M08 | 4 |
+| **M02 Stock** | Inventory engine, ledger, adjustments, locate, move, reconciliation reports | [existencias-y-ajustes.md](../flujos/existencias-y-ajustes.md) | M01 | 5 |
+| **M03 Receiving** | Invoices, capture, discrepancies, approval, location | [recepcion.md](../flujos/recepcion.md) | M02 | 6 |
+| **M04 Picking** | Orders, packing, shortages, confirmation | [surtido-y-erp.md](../flujos/surtido-y-erp.md) §1–§4, §6, §8 | M02 | 7 |
+| **M09 External integration** | Export to the ERP with retries (port without a real client) | [surtido-y-erp.md](../flujos/surtido-y-erp.md) §5 | M04 | 7 |
+| **M05 Transfers** | Transfer between locations and between warehouses, transit | [traslados.md](../flujos/traslados.md) | M02 | 8 |
+| **M06 Labels** | Templates, queue, confirmation with service key, reprint | [etiquetas.md](../flujos/etiquetas.md) | M07, M08 | 9 |
+| **M10 Data migration** | Excel import, reconciliation of the legacy stock, cutover | [migracion/](../migracion/cutover.md), [ADR-0012](../adr/0012-conciliar-stock-heredado-con-conteo.md) | M01, M02 | 4 and closing |
 
-Los reportes de existencias y de conciliación son parte de M02, no un módulo aparte.
+The stock and reconciliation reports are part of M02, not a separate module.
 
-### 2.1 Grafo de dependencias
+### 2.1 Dependency graph
 
 ```mermaid
 flowchart TD
-    M07[M07 Identidad] --> M08[M08 Auditoría]
-    M07 --> M01[M01 Catálogo]
+    M07[M07 Identity] --> M08[M08 Audit]
+    M07 --> M01[M01 Catalog]
     M08 --> M01
-    M01 --> M02[M02 Existencias]
-    M01 --> M10[M10 Migración]
-    M02 --> M03[M03 Recepción]
-    M02 --> M04[M04 Surtido]
-    M02 --> M05[M05 Traslados]
-    M04 --> M09[M09 Integración ERP]
-    M07 --> M06[M06 Etiquetas]
+    M01 --> M02[M02 Stock]
+    M01 --> M10[M10 Migration]
+    M02 --> M03[M03 Receiving]
+    M02 --> M04[M04 Picking]
+    M02 --> M05[M05 Transfers]
+    M04 --> M09[M09 ERP integration]
+    M07 --> M06[M06 Labels]
     M08 --> M06
     M02 --> M10
 ```
 
-Un módulo no empieza hasta que sus dependencias están **terminadas** según §4, no solo codificadas.
+A module does not start until its dependencies are **finished** according to §4, not just coded.
 
-## 3. Fases
+## 3. Phases
 
-Cada fase lista sus módulos, lo que entrega cada parte (API, app, web) y el criterio de salida. Las
-fases siguen la numeración de [PLAN-REHACER.md](PLAN-REHACER.md) §5.
+Each phase lists its modules, what each part delivers (API, app, web) and the exit criterion. The phases
+follow the numbering of [PLAN-REHACER.md](PLAN-REHACER.md) §5.
 
-| Fase | Módulos | API | App | Web | Criterio de salida |
+| Phase | Modules | API | App | Web | Exit criterion |
 |---|---|---|---|---|---|
-| **0. Decisiones** | — | Versiones fijadas (D8) | — | — | D1–D8 tomadas; stack con fuente y fecha |
-| **1. Infraestructura** | — | — | — | — | `docker compose up` migra la base; `flyway_schema_history` completo; pendientes P1–P5 resueltos |
-| **2. API base** | M08 (escritura) | Proyecto multimódulo, arranque, `GET /v1/health`, manejo de errores, cableado DI, ArchUnit, Testcontainers | — | — | Arranque falla sin variables obligatorias; ArchUnit en verde; M08 escribe en la misma transacción (prueba U1) |
-| **3. Identidad** | M07 | Login, refresh con rotación, logout, cambio de contraseña, bloqueo, decisión RBAC+ABAC | Login y sesión (esqueleto) | Login y cambio de contraseña | Pruebas I1–I8 en verde |
-| **4. Catálogo** | M01, M10 (importación) | Productos, ubicaciones, bodegas, importación estricta e idempotente | — | Pantalla de productos y ubicaciones | Pruebas K1–K6 en verde; importación del Excel dry-run sin errores |
-| **5. Existencias** | M02 | Motor, kardex, ajustes, ubicar, mover, reportes de conciliación. Q1, Q6–Q10 | Consulta de existencias | Existencias, kardex, ajustes | Pruebas A1–A10 en verde, incluida la concurrencia A4; presupuesto de consultas fijado con medición |
-| **6. Recepción** | M03 | Facturas, captura, discrepancias, aprobación, ubicación | Captura y ubicar (piso) | Facturas y aprobación | Pruebas R1–R8 en verde |
-| **7. Surtido y ERP** | M04, M09 | Órdenes, empaque, faltantes, confirmación, exportación. Q2, Q3 | Empaque | Órdenes y exportación | Pruebas S1–S9 en verde |
-| **8. Traslados** | M05 | Entre ubicaciones y bodegas, tránsito | Traslados | Traslados y tránsito | Pruebas T1–T8 en verde, incluida la recepción (hoy sin cobertura) |
-| **9. Etiquetas y auditoría** | M06, M08 (consulta) | Plantillas, cola, confirmación con clave de servicio, bitácora consultable | Escaneo de etiquetas | Plantillas, historial, auditoría | Pruebas L1–L5 y U1–U5 en verde |
-| **10. App KMP** | — | Contrato estable | Núcleo compartido y pantallas de piso | — | Compila en Android e iOS; recepción probada en dispositivo |
-| **11. Web React** | — | Contrato estable | — | Navegación completa; sidebar verificado | Pruebas de navegador de los flujos principales; prueba visual de `index.css` (ver [web-react.md](../arquitectura/web-react.md) §5) |
-| **Cierre: corte** | M10 | — | — | — | Conciliación de stock heredado cuadrada o con ajustes motivados ([ADR-0012](../adr/0012-conciliar-stock-heredado-con-conteo.md)) |
+| **0. Decisions** | — | Versions pinned (D8) | — | — | D1–D8 taken; stack with source and date |
+| **1. Infrastructure** | — | — | — | — | `docker compose up` migrates the database; `flyway_schema_history` complete; pending P1–P5 resolved |
+| **2. Base API** | M08 (writing) | Multimodule project, startup, `GET /v1/health`, error handling, DI wiring, ArchUnit, Testcontainers | — | — | Startup fails without required variables; ArchUnit green; M08 writes in the same transaction (test U1) |
+| **3. Identity** | M07 | Sign-in, refresh with rotation, sign-out, password change, lock, RBAC+ABAC decision | Sign-in and session (skeleton) | Sign-in and password change | Tests I1–I8 green |
+| **4. Catalog** | M01, M10 (import) | Products, locations, warehouses, strict and idempotent import | — | Products and locations screen | Tests K1–K6 green; Excel import dry-run without errors |
+| **5. Stock** | M02 | Engine, ledger, adjustments, locate, move, reconciliation reports. Q1, Q6–Q10 | Stock lookup | Stock, ledger, adjustments | Tests A1–A10 green, including concurrency A4; query budget set with measurement |
+| **6. Receiving** | M03 | Invoices, capture, discrepancies, approval, location | Capture and locate (floor) | Invoices and approval | Tests R1–R8 green |
+| **7. Picking and ERP** | M04, M09 | Orders, packing, shortages, confirmation, export. Q2, Q3 | Packing | Orders and export | Tests S1–S9 green |
+| **8. Transfers** | M05 | Between locations and warehouses, transit | Transfers | Transfers and transit | Tests T1–T8 green, including receipt (today without coverage) |
+| **9. Labels and audit** | M06, M08 (query) | Templates, queue, confirmation with service key, queryable log | Label scanning | Templates, history, audit | Tests L1–L5 and U1–U5 green |
+| **10. KMP app** | — | Stable contract | Shared core and floor screens | — | Compiles on Android and iOS; receiving tested on a device |
+| **11. React web** | — | Stable contract | — | Full navigation; sidebar verified | Browser tests of the main flows; visual test of `index.css` (see [web-react.md](../arquitectura/web-react.md) §5) |
+| **Closing: cutover** | M10 | — | — | — | Legacy stock reconciliation balanced or with motivated adjustments ([ADR-0012](../adr/0012-conciliar-stock-heredado-con-conteo.md)) |
 
-**Por qué este orden.** La identidad va primero porque toda operación necesita un actor. El catálogo
-va antes que el inventario porque el motor necesita productos y ubicaciones. Recepción, surtido y
-traslados van después del motor porque los tres lo llaman y no lo reimplementan. La app y la web van al
-final: consumen un contrato que tiene que estar estable, y construirlas antes obliga a rehacer pantallas
-cuando la API cambia.
+**Why this order.** Identity goes first because every operation needs an actor. The catalog
+goes before the stock because the engine needs products and locations. Receiving, picking and
+transfers go after the engine because all three call it and do not reimplement it. The app and the web go
+last: they consume a contract that has to be stable, and building them earlier forces redoing screens
+when the API changes.
 
-**Lo que puede ir en paralelo** una vez cerrada la fase 5: recepción (6), surtido (7) y traslados (8) son
-independientes entre sí. Las pantallas de la app y la web de cada módulo pueden empezar cuando la API
-del módulo tiene sus pruebas en verde.
+**What can go in parallel** once phase 5 is closed: receiving (6), picking (7) and transfers (8) are
+independent of each other. The app and web screens of each module can start when the API of the module has its tests green.
 
-## 4. Definición de terminado por módulo
+## 4. Definition of done per module
 
-Un módulo está **terminado** cuando cumple todo lo siguiente. No hay estados intermedios que se
-cuenten como avance.
+A module is **finished** when it meets all of the following. There are no intermediate states that
+count as progress.
 
-1. **Pruebas de aceptación del flujo en verde.** Cada escenario del documento de flujo tiene una prueba
-   automatizada. Un escenario sin prueba no cuenta.
-2. **Pruebas de concurrencia** en las operaciones que escriben inventario o estado compartido (Q1, Q3,
+1. **Flow acceptance tests green.** Each scenario of the flow document has an automated test.
+   A scenario without a test does not count.
+2. **Concurrency tests** in the operations that write inventory or shared state (Q1, Q3,
    T3, S3, L2).
-3. **Presupuesto de consultas** medido en cada listado del módulo (R-P1 de
+3. **Query budget** measured in each listing of the module (R-P1 of
    [api-spring.md](../arquitectura/api-spring.md) §11).
-4. **Permisos en el catálogo.** Cada endpoint tiene su permiso; el arranque falla si falta (I5).
-5. **Bitácora.** Cada escritura del módulo tiene su registro, en la misma transacción (U1).
-6. **Contrato HTTP** publicado en OpenAPI y en [docs/api/](../api/convenciones.md), coherente con el código.
-7. **Errores** con los códigos del documento de flujo, sin códigos nuevos sin añadirlos antes a
+4. **Permissions in the catalog.** Each endpoint has its permission; startup fails if it is missing (I5).
+5. **Audit log.** Each write of the module has its record, in the same transaction (U1).
+6. **HTTP contract** published in OpenAPI and in [docs/api/](../api/convenciones.md), consistent with the code.
+7. **Errors** with the codes of the flow document, with no new codes without adding them first to
    `api/errores.md`.
-8. **Documento de flujo sin pendientes abiertos**, o con cada pendiente registrado como decisión.
+8. **Flow document without open pending items**, or with each pending item recorded as a decision.
 
-El criterio 3 no tiene cifras fijadas: el presupuesto se fija con la primera medición del módulo.
-Un número inventado no sirve de criterio.
+Criterion 3 has no figures set: the budget is set with the module's first measurement.
+An invented number is no use as a criterion.
 
-## 5. Orden de trabajo dentro de un módulo
+## 5. Work order within a module
 
-Todo módulo sigue el mismo orden en la API. Así el dominio y la aplicación se prueban antes de que
-exista el HTTP:
+Every module follows the same order in the API. That way the domain and the application are tested before
+the HTTP exists:
 
-1. **Dominio** (`domain`): entidades, estados y errores tipados, con pruebas sin base de datos.
-2. **Aplicación** (`application`): casos de uso con puertos y fakes; pruebas de cada escenario del flujo.
-3. **Persistencia** (`adapters-persistence`): funciones SQL y repositorios; pruebas con PostgreSQL real
-   (Testcontainers), incluida la concurrencia.
-4. **Web** (`adapters-web`): controladores y contrato HTTP; pruebas de errores y de permisos.
-5. **Flujo completo** (`app`): los escenarios de punta a punta.
-6. **Cliente** (app y web), solo si el contrato del módulo ya está en verde.
+1. **Domain** (`domain`): entities, states and typed errors, with tests without a database.
+2. **Application** (`application`): use cases with ports and fakes; tests of each scenario of the flow.
+3. **Persistence** (`adapters-persistence`): SQL functions and repositories; tests with real PostgreSQL
+   (Testcontainers), including concurrency.
+4. **Web** (`adapters-web`): controllers and HTTP contract; error and permission tests.
+5. **Complete flow** (`app`): the end-to-end scenarios.
+6. **Client** (app and web), only if the module's contract is already green.
 
-## 6. Riesgos del plan
+## 6. Plan risks
 
-| Riesgo | Señal temprana | Respuesta |
+| Risk | Early signal | Response |
 |---|---|---|
-| El motor de inventario tarda más de lo previsto | Fase 5 pasa de su primera semana sin pruebas A1–A4 en verde | Se reduce el alcance del módulo a A1–A4 y se difieren reportes; no se salta la concurrencia |
-| Dos rutas de escritura al inventario por fuera del motor | Un revisor encuentra un `UPDATE` sobre `stock_by_location` en `adapters-*` | ArchUnit lo bloquea; se corrige antes de la fase siguiente |
-| El ERP real llega tarde | Pendiente D10 sin respuesta | Se mantiene `FAILED` con motivo (ADR-0013); no se bloquea el surtido |
-| Las particiones de auditoría caducan | Job P2 sin desplegar antes de febrero de 2027 | Está como pendiente de fase 1 con fecha |
-| La web se construye antes que el contrato | Pantallas que cambian cada semana | La web empezó con catálogo e identidad, que tienen contrato probado; las demás pantallas esperan a su endpoint |
+| The inventory engine takes longer than planned | Phase 5 goes past its first week without tests A1–A4 green | The scope of the module is reduced to A1–A4 and reports are deferred; concurrency is not skipped |
+| Two write paths to the inventory outside the engine | A reviewer finds an `UPDATE` on `stock_by_location` in `adapters-*` | ArchUnit blocks it; it is fixed before the next phase |
+| The real ERP arrives late | Pending D10 without a response | It stays `FAILED` with a reason (ADR-0013); picking is not blocked |
+| The audit partitions expire | Job P2 not deployed before February 2027 | It is pending from phase 1 with a date |
+| The web is built before the contract | Screens that change every week | The web started with the catalog and identity, which have a tested contract; the other screens wait for their endpoint |
 
-## 7. Lo que sigue inmediatamente
+## 7. What comes immediately next
 
-1. **El resto de M07 (usuarios y roles):** alta y gestión de usuarios y roles, que el flujo de la fase 3
-   dejó fuera. Hoy solo existe el administrador que siembra el arranque: los permisos `user.*` y
-   `role.*` están en el catálogo y **ninguna ruta los usa**.
-2. **Lo que queda de la migración no es código**: el conteo físico de los 1.398 productos, la
-   conciliación contra el total heredado y el corte ([cutover.md](../migracion/cutover.md)). El
-   respaldo verificado de la base sigue **sin existir en el repo** y es prerrequisito del corte.
-2. **M10, migración:** falta el stock inicial del legacy a `SIN-UBICAR` con el movimiento `INITIAL`
-   —que el motor ya soporta—, la lectura de XLSX (Apache POI ya está en el proyecto por la
-   exportación del kardex) y la conciliación con conteo.
-3. **Fase 11, web:** hechas las pantallas de lectura y las escrituras de recepción (alta, captura,
-   aprobar, rechazar, cerrar), traslados (despachar, recibir, cancelar), surtido (asignarme, empacar,
-   faltante, confirmar, exportar) y reimpresión de etiquetas. Pendientes: crear orden (necesita su
-   contrato de líneas en la web) y ubicar mercancía de una factura desde la web (hoy lo hace la app de
-   piso). Asignar una línea de factura a uno mismo ya está; asignarla a otro capturista, no. Cada acción nueva va con su prueba de
-   navegador, y solo cuando su endpoint y sus errores estén en el contrato.
+1. **The rest of M07 (users and roles):** creation and management of users and roles, which the phase 3 flow
+   left out. Today there is only the administrator that seeds at startup; the `user.*` and
+   `role.*` permissions are in the catalog and **no route uses them**.
+2. **What remains of the migration is not code**: the physical count of the 1,398 products, the
+   reconciliation against the inherited total and the cutover ([cutover.md](../migracion/cutover.md)). The
+   verified database backup still **does not exist in the repo** and is a prerequisite of the cutover.
+2. **M10, migration:** the initial legacy stock to `SIN-UBICAR` with the `INITIAL` movement is missing
+   —which the engine already supports—, the XLSX reading (Apache POI is already in the project for the
+   ledger export) and the reconciliation with a count.
+3. **Phase 11, web:** the read screens and the receiving writes (creation, capture,
+   approve, reject, close), transfers (dispatch, receive, cancel), picking (assign to myself, pack,
+   shortage, confirm, export) and label reprint are done. Pending: create order (it needs its line contract in the web) and locate goods from an invoice from the web (today the floor app does it). Assigning an invoice line to oneself is already there; assigning it to another capturer is not. Each new action goes with its browser test, and only when its endpoint and its errors are in the contract.

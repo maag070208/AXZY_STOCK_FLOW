@@ -1,71 +1,70 @@
-# M07 — Usuarios y accesos: roles, permisos, sesiones
-> **Normativo.** Última verificación: 2026-10-10.
+# M07 — Users and access: roles, permissions, sessions
+> **Normative.** Last verified: 2026-10-10.
 
 | | |
 |---|---|
-| **Código** | M07 |
-| **Carpeta** | `docs/modulos/M07-usuarios-accesos/` |
-| **Documentado** | Sí |
-| **Terminado (backend)** | Sí: sesiones y permisos, usuarios con alta/consulta/edición/asignación/restablecimiento, y roles con su matriz (crear, editar, activar y conceder) |
+| **Code** | M07 |
+| **Folder** | `docs/modulos/M07-usuarios-accesos/` |
+| **Documented** | Yes |
+| **Finished (backend)** | Yes: sessions and permissions, users with creation/lookup/edit/assignment/reset, and roles with their matrix (create, edit, activate and grant) |
 | **Web** | `UsersPage` |
 | **App** | `features/auth` |
 
-## 1. Objetivo
+## 1. Objective
 
-Quién entra, con qué credenciales y qué puede hacer. Es la puerta de todo lo demás.
+Who enters, with which credentials and what they can do. It is the gate to everything else.
 
-## 2. Alcance
+## 2. Scope
 
-| Dentro | Fuera |
+| Inside | Outside |
 |---|---|
-| Login, refresh con rotación, logout y cambio de contraseña | Recuperación por correo |
-| Usuarios y roles: consulta, altas, edición, asignación y matriz de permisos | Eliminar roles (se desactivan) y la interfaz de políticas ABAC |
-| Alcances por bodega (`user_warehouse_scopes`) | Políticas ABAC con interfaz de edición (pendiente) |
-| Bloqueo por intentos fallidos | |
+| Sign-in, refresh with rotation, sign-out and password change | Password recovery by email |
+| Users and roles: lookup, creation, edit, assignment and permission matrix | Deleting roles (they are deactivated) and the ABAC policy interface |
+| Warehouse scopes (`user_warehouse_scopes`) | ABAC policies with an edit interface (pending) |
+| Lock after failed attempts | |
 
-## 3. Reglas de negocio
+## 3. Business rules
 
-| # | Regla | Dónde vive |
+| # | Rule | Where it lives |
 |---|---|---|
-| R1 | Denegar por defecto; la identidad se comprueba antes que los permisos | [ADR-0006](../../adr/0006-rbac-mas-abac-denegar-por-defecto.md); `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/access/` |
-| R2 | Reusar un refresh token revocado invalida la familia completa | `TOKEN_REUSED`; `SessionModelTest` |
-| R3 | Un cambio de contraseña invalida las sesiones abiertas | `SessionModelTest` |
-| R4 | Las contraseñas cumplen la política | `PasswordPolicyTest` en `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/identity/` |
-| R5 | Los permisos se siembran desde el catálogo, no desde la migración | `IdentitySeeder.kt` desde `PermissionCatalog.kt` |
-| R6 | Todo permiso tiene alcance `NONE`, `OWN`, `AREA` o `ALL`; se toma el mayor | `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/access/` (`AccessEngineTest`) |
+| R1 | Deny by default; identity is checked before permissions | [ADR-0006](../../adr/0006-rbac-mas-abac-denegar-por-defecto.md); `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/access/` |
+| R2 | Reusing a revoked refresh token invalidates the entire family | `TOKEN_REUSED`; `SessionModelTest` |
+| R3 | A password change invalidates the open sessions | `SessionModelTest` |
+| R4 | Passwords meet the policy | `PasswordPolicyTest` in `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/identity/` |
+| R5 | Permissions are seeded from the catalog, not from the migration | `IdentitySeeder.kt` from `PermissionCatalog.kt` |
+| R6 | Every permission has scope `NONE`, `OWN`, `AREA` or `ALL`; the greatest one is taken | `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/access/` (`AccessEngineTest`) |
 
-## 4. Modelo de datos
+## 4. Data model
 
-| Tabla | Migración | Qué guarda |
+| Table | Migration | What it holds |
 |---|---|---|
-| `users`, `roles`, `permissions`, `role_permissions`, `user_roles`, `user_warehouse_scopes` | `V1` | Identidad y RBAC |
-| `refresh_tokens`, `login_attempts` | `V4` | Sesiones y bloqueos |
+| `users`, `roles`, `permissions`, `role_permissions`, `user_roles`, `user_warehouse_scopes` | `V1` | Identity and RBAC |
+| `refresh_tokens`, `login_attempts` | `V4` | Sessions and locks |
 
 ## 5. API
 
-Contrato en [api/autenticacion.md](../../api/autenticacion.md). Rutas en
-`identity/AuthRoutes.kt` e `identity/IdentityAdminRoutes.kt`.
+Contract in [api/autenticacion.md](../../api/autenticacion.md). Routes in
+`identity/AuthRoutes.kt` and `identity/IdentityAdminRoutes.kt`.
 
-## 6. Permisos
+## 6. Permissions
 
 `user.view`, `user.create`, `user.edit`, `user.delete`, `user.reset_password`, `role.manage`,
-`role.assign`, `permission.exception`. El catálogo completo está en
-`stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/access/PermissionCatalog.kt`; la matriz, en
+`role.assign`, `permission.exception`. The full catalog is in
+`stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/access/PermissionCatalog.kt`; the matrix, in
 [seguridad/roles-permisos.md](../../seguridad/roles-permisos.md).
 
-## 7. Bitácora
+## 7. Audit log
 
-Las rutas de identidad que escriben (login, refresh, cambio de contraseña) registran en
-`audit_log`. **No está verificado** que el alta, la edición y el cambio de rol de usuarios
-escriban en la bitácora: esas rutas todavía no existen. Ver
-[seguridad/auditoria.md](../../seguridad/auditoria.md).
+The identity routes that write (sign-in, refresh, password change) record in
+`audit_log`. **It is not verified** that the creation, edit and role change of users write to the log: those routes
+do not exist yet. See [seguridad/auditoria.md](../../seguridad/auditoria.md).
 
-## 8. Pruebas
+## 8. Tests
 
-`AccessEngineTest`, `SessionModelTest`, `PasswordPolicyTest` en `stock-domain`.
+`AccessEngineTest`, `SessionModelTest`, `PasswordPolicyTest` in `stock-domain`.
 
-## 9. Criterios de aceptación
+## 9. Acceptance criteria
 
-- [x] Un refresh token reusado revoca la familia (`SessionModelTest`).
-- [ ] Altas, edición, asignación de roles y restablecimiento de contraseña por admin (sin rutas hoy).
-- [x] Pantalla de usuarios en modo consulta, probada en navegador (`web/e2e/flow.spec.ts`).
+- [x] A reused refresh token revokes the family (`SessionModelTest`).
+- [ ] Creation, edit, role assignment and password reset by an admin (no routes today).
+- [x] Users screen in read-only mode, tested in the browser (`web/e2e/flow.spec.ts`).

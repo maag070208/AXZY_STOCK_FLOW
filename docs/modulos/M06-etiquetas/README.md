@@ -1,62 +1,62 @@
-# M06 — Etiquetas: plantillas, impresión y reimpresión
-> **Normativo.** Última verificación: 2026-10-10 (M06 cerrado).
+# M06 — Labels: templates, printing and reprinting
+> **Normative.** Last verified: 2026-10-10 (M06 closed).
 
 | | |
 |---|---|
-| **Código** | M06 |
-| **Carpeta** | `docs/modulos/M06-etiquetas/` |
-| **Documentado** | Sí |
-| **Terminado (backend)** | Sí |
+| **Code** | M06 |
+| **Folder** | `docs/modulos/M06-etiquetas/` |
+| **Documented** | Yes |
+| **Finished (backend)** | Yes |
 | **Web** | `LabelsPage` |
 | **App** | `features/labels` |
 
-## 1. Objetivo
+## 1. Objective
 
-Imprimir etiquetas de malla y libres, saber cuáles se imprimieron de verdad y poder reimprimir.
+Print mesh and free labels, know which ones were really printed and be able to reprint.
 
-## 2. Alcance
+## 2. Scope
 
-| Dentro | Fuera |
+| Inside | Outside |
 |---|---|
-| Plantillas de etiqueta | Impresora física (la confirma un sistema externo) |
-| Vista previa, impresión, historial y reimpresión | |
-| Confirmación de impresión desde la impresora | |
+| Label templates | Physical printer (confirmed by an external system) |
+| Preview, printing, history and reprint | |
+| Print confirmation from the printer | |
 
-## 3. Reglas de negocio
+## 3. Business rules
 
-| # | Regla | Dónde vive |
+| # | Rule | Where it lives |
 |---|---|---|
-| R1 | Una etiqueta queda `PENDING` hasta que la impresora confirma; si la impresora está apagada, reintenta | [ADR-0010](../../adr/0010-rutas-de-servicio-con-api-key.md); `label/LabelRoutes.kt` (`/v1/print-jobs/{id}`) |
-| R2 | La confirmación de impresión la hace un sistema de servicio, con clave de servicio y sin usuario | `service_api_keys` en `V2`; `label/LabelService.kt` |
-| R3 | Las reglas de la etiqueta viven en el dominio | `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/labeling/` (`LabelResolverTest`) |
+| R1 | A label stays `PENDING` until the printer confirms; if the printer is off, it retries | [ADR-0010](../../adr/0010-rutas-de-servicio-con-api-key.md); `label/LabelRoutes.kt` (`/v1/print-jobs/{id}`) |
+| R2 | Print confirmation is done by a service system, with a service key and without a user | `service_api_keys` in `V2`; `label/LabelService.kt` |
+| R3 | The label rules live in the domain | `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/labeling/` (`LabelResolverTest`) |
 
-## 4. Modelo de datos
+## 4. Data model
 
-| Tabla | Migración | Qué guarda |
+| Table | Migration | What it holds |
 |---|---|---|
-| `label_templates` | `V3` | Plantillas |
-| `print_jobs` | `V3` | Trabajos de impresión y su estado |
+| `label_templates` | `V3` | Templates |
+| `print_jobs` | `V3` | Print jobs and their state |
 
 ## 5. API
 
-Contrato en [api/etiquetas.md](../../api/etiquetas.md). Rutas en `label/LabelRoutes.kt`.
+Contract in [api/etiquetas.md](../../api/etiquetas.md). Routes in `label/LabelRoutes.kt`.
 
-## 6. Permisos
+## 6. Permissions
 
 `label.template_view`, `label.template_edit`, `label.print`, `label.queue_view`, `label.reprint`,
-`print_device.manage`. Confirmación de impresión: clave
-de servicio. Ver [seguridad/roles-permisos.md](../../seguridad/roles-permisos.md).
+`print_device.manage`. Print confirmation: service key.
+See [seguridad/roles-permisos.md](../../seguridad/roles-permisos.md).
 
-## 7. Bitácora
+## 7. Audit log
 
-Cada impresión y reimpresión escribe en `audit_log`.
+Each print and reprint writes to `audit_log`.
 
-## 8. Pruebas
+## 8. Tests
 
-`LabelResolverTest` en `stock-domain`. Rutas en el backend.
+`LabelResolverTest` in `stock-domain`. Routes in the backend.
 
-## 9. Criterios de aceptación
+## 9. Acceptance criteria
 
-- [x] La etiqueta queda `PENDING` hasta la confirmación (`LabelResolverTest`).
-- [ ] Una impresión real confirmada desde la impresora (no verificado).
-- [x] Cola, plantillas y previsualización con prueba de navegador (`web/e2e/flow.spec.ts`). La reimpresión no está cubierta.
+- [x] The label stays `PENDING` until confirmation (`LabelResolverTest`).
+- [ ] A real print confirmed from the printer (not verified).
+- [x] Queue, templates and preview with a browser test (`web/e2e/flow.spec.ts`). Reprint is not covered.

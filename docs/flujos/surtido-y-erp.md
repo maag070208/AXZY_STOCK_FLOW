@@ -1,236 +1,235 @@
-# Surtido y exportación al ERP
-> **Normativo.** Última revisión: 2026-10-09. Reglas de origen: [ADR-0008](../adr/0008-discrepancias-y-merma.md) (faltantes) y [ADR-0013](../adr/0013-ordenes-al-erp-con-reintentos.md) (ERP). Módulo: [M04](../modulos/M04-surtido/README.md).
+# Picking and export to the ERP
+> **Normative.** Last revised: 2026-10-09. Origin rules: [ADR-0008](../adr/0008-discrepancias-y-merma.md) (shortages) and [ADR-0013](../adr/0013-ordenes-al-erp-con-reintentos.md) (ERP). Module: [M04](../modulos/M04-surtido/README.md).
 
-## 1. Objetivo y actores
+## 1. Objective and actors
 
-Surtir una orden: asignar existencias a cada línea, empacarla, confirmarla, y devolverla al ERP.
+Pick an order: assign stock to each line, pack it, confirm it, and return it to the ERP.
 
-| Actor | Qué hace |
+| Actor | What it does |
 |---|---|
-| Operador de piso (app) | Asigna ubicación, empaca cantidades, registra faltantes |
-| Supervisor (web) | Confirma la orden, consulta y reintenta la exportación |
-| ERP (externo) | Recibe la orden confirmada. **Todavía no hay integración** (D10 pendiente) |
+| Floor operator (app) | Assigns location, packs quantities, records shortages |
+| Supervisor (web) | Confirms the order, queries and retries the export |
+| ERP (external) | Receives the confirmed order. **There is still no integration** (D10 pending) |
 
-## 2. Precondiciones
+## 2. Preconditions
 
-- La orden existe, tiene líneas y su producto está activo.
-- Para empacar, la línea tiene una ubicación de la que salir (o el producto tiene existencias en alguna).
+- The order exists, has lines and its product is active.
+- To pack, the line has a location to leave from (or the product has stock somewhere).
 
-## 3. Estados
+## 3. States
 
-Orden:
+Order:
 
 ```mermaid
 stateDiagram-v2
     [*] --> PENDING
-    PENDING --> IN_PROGRESS: primera línea asignada o empacada
-    IN_PROGRESS --> PACKAGED: todas las líneas empacadas
-    PACKAGED --> PENDING_TO_OUT: confirmar (descuenta lo que falta)
-    PENDING_TO_OUT --> COMPLETED: el ERP confirma recepción
+    PENDING --> IN_PROGRESS: first line assigned or packed
+    IN_PROGRESS --> PACKAGED: all lines packed
+    PACKAGED --> PENDING_TO_OUT: confirm (deducts what is missing)
+    PENDING_TO_OUT --> COMPLETED: the ERP confirms receipt
     PENDING --> CANCELLED
     IN_PROGRESS --> CANCELLED
 ```
 
-- `PENDING_TO_OUT` es el estado normal mientras el ERP no existe o no ha respondido. **Una orden
-  confirmada sin ERP queda aquí**, no en `COMPLETED`.
-- `COMPLETED` solo se alcanza cuando el ERP confirma. Mientras no exista el cliente del ERP, ninguna
-  orden llega a `COMPLETED` por exportación.
-- Una orden exportada no se cancela: el ERP tiene una salida que el sistema dejaría de reconocer. Para
-  deshacerla se registra una entrada.
+- `PENDING_TO_OUT` is the normal state while the ERP does not exist or has not responded. **A confirmed order
+  without an ERP stays here**, not in `COMPLETED`.
+- `COMPLETED` is only reached when the ERP confirms. While the ERP client does not exist, no order
+  reaches `COMPLETED` through export.
+- An exported order is not cancelled: the ERP has an outflow that the system would stop recognizing. To undo it,
+  an inflow is recorded.
 
-Línea: `PENDING` → `ASSIGNED` → `SUPPLIED`, o `CANCELLED` desde `PENDING` o `ASSIGNED`.
+Line: `PENDING` → `ASSIGNED` → `SUPPLIED`, or `CANCELLED` from `PENDING` or `ASSIGNED`.
 
-**`PENDING` → `ASSIGNED` lo escribe `PUT /v1/orders/{id}/lines/{lineId}/assign`** (permiso
-`order.assign`), que asigna la línea a una persona y, si se indica, a una estantería. El
-empaque también deja la línea en `ASSIGNED` cuando surte una parte. Reasignar mientras está en
-curso se permite; sobre una línea ya surtida o anulada responde `INVALID_TRANSITION`.
+**`PENDING` → `ASSIGNED` is written by `PUT /v1/orders/{id}/lines/{lineId}/assign`** (permission
+`order.assign`), which assigns the line to a person and, if indicated, to a shelf. Packing
+also leaves the line in `ASSIGNED` when it picks part of it. Reassigning while it is in
+progress is allowed; on a line already picked or voided it answers `INVALID_TRANSITION`.
 
-**Regla del descuento.** `supplied_quantity` es **siempre** lo ya descontado del inventario. Empacar
-descuenta lo empacado. Confirmar descuenta **lo que falta**: `quantity − supplied_quantity`. Si
-confirmara `quantity` entera, una línea de 10 con 7 empacadas descontaría 17.
+**Deduction rule.** `supplied_quantity` is **always** what has already been deducted from the inventory. Packing
+deducts what was packed. Confirming deducts **what is missing**: `quantity − supplied_quantity`. If
+it confirmed the whole `quantity`, a line of 10 with 7 packed would deduct 17.
 
-## 4. Flujo: confirmar
+## 4. Flow: confirm
 
-Confirmar es la única operación que descuenta el inventario del resto de la orden. Corre en una
-transacción que bloquea la orden, para que dos confirmaciones simultáneas no descuenten dos veces (Q3).
+Confirming is the only operation that deducts the inventory for the rest of the order. It runs in a
+transaction that locks the order, so that two simultaneous confirmations do not deduct twice (Q3).
 
 ```mermaid
 sequenceDiagram
     participant Op as Supervisor
     participant API
     participant UC as ConfirmOrder
-    participant DB as Base
+    participant DB as Database
 
     Op->>API: POST /v1/orders/{id}/confirm (Idempotency-Key)
     API->>UC: ConfirmOrder(actor, orderId, key)
     UC->>DB: BEGIN
-    UC->>DB: SELECT orden FOR UPDATE
-    Note over DB: Bloquea la orden. Una segunda confirmación espera aquí.
-    UC->>UC: ¿Estado permite confirmar? (si no, 409)
-    loop Cada línea no cancelada con pendiente > 0
-        UC->>DB: Saldo disponible en la ubicación
-        alt Saldo insuficiente
-            UC-->>API: INSUFFICIENT_STOCK (ROLLBACK, nada se descuenta)
-        else Alcanza
-            UC->>DB: registrar_movimiento FULFILLMENT_OUT<br/>client_uuid = UUID(orden, línea)
-            Note over DB: Si ya existe ese client_uuid, el índice único<br/>rechaza el duplicado: la línea ya se descontó.
+    UC->>DB: SELECT order FOR UPDATE
+    Note over DB: Locks the order. A second confirmation waits here.
+    UC->>UC: Does the state allow confirming? (if not, 409)
+    loop Each line not cancelled with pending > 0
+        UC->>DB: Available balance at the location
+        alt Insufficient balance
+            UC-->>API: INSUFFICIENT_STOCK (ROLLBACK, nothing is deducted)
+        else Enough
+            UC->>DB: registrar_movimiento FULFILLMENT_OUT<br/>client_uuid = UUID(order, line)
+            Note over DB: If that client_uuid already exists, the unique index<br/>rejects the duplicate: the line was already deducted.
         end
     end
-    UC->>DB: orden → PENDING_TO_OUT
-    UC->>DB: Bitácora
+    UC->>DB: order → PENDING_TO_OUT
+    UC->>DB: Audit log
     UC->>DB: COMMIT
-    UC->>UC: exportar (ver §5); su fallo NO revierte la confirmación
-    UC-->>API: orden confirmada + estado de exportación
+    UC->>UC: export (see §5); its failure does NOT revert the confirmation
+    UC-->>API: confirmed order + export status
     API-->>Op: 200
 ```
 
-**Por qué la clave de movimiento es determinista.** `client_uuid` se calcula a partir de la orden y la
-línea, no es aleatorio. Así, si la misma confirmación llega dos veces (doble clic, reintento de red),
-la segunda no puede insertar un movimiento nuevo: el índice único lo impide. Con una clave aleatoria,
-el índice no protegía nada (la versión anterior usaba `UUID.randomUUID()` cuando no había clave).
+**Why the movement key is deterministic.** `client_uuid` is calculated from the order and the
+line, it is not random. That way, if the same confirmation arrives twice (double click, network retry),
+the second one cannot insert a new movement: the unique index prevents it. With a random key,
+the index protected nothing (the previous version used `UUID.randomUUID()` when there was no key).
 
-## 5. Flujo: exportar al ERP
+## 5. Flow: export to the ERP
 
-La exportación **no bloquea el surtido**: si el ERP falla, la orden queda `PENDING_TO_OUT` con el
-intento registrado, y se reintenta (ADR-0013).
+The export **does not block picking**: if the ERP fails, the order stays `PENDING_TO_OUT` with the
+attempt recorded, and it is retried (ADR-0013).
 
 ```mermaid
 sequenceDiagram
     participant UC as ExportOrderToErp
-    participant Gw as ErpGateway (puerto)
-    participant DB as Base
+    participant Gw as ErpGateway (port)
+    participant DB as Database
 
-    UC->>DB: Leer orden confirmada
-    UC->>Gw: enviar(orden, Idempotency-Key = orderNumber)
-    alt El ERP responde OK
-        Gw-->>UC: éxito, external_id
+    UC->>DB: Read confirmed order
+    UC->>Gw: send(order, Idempotency-Key = orderNumber)
+    alt The ERP responds OK
+        Gw-->>UC: success, external_id
         UC->>DB: export_status = SENT; converted = true
-    else No hay cliente o el ERP falla
-        Gw-->>UC: fallo con motivo
-        UC->>DB: export_status = FAILED; export_attempts + 1; export_last_error = motivo
-        Note over DB: La orden sigue PENDING_TO_OUT y converted = false
+    else No client or the ERP fails
+        Gw-->>UC: failure with reason
+        UC->>DB: export_status = FAILED; export_attempts + 1; export_last_error = reason
+        Note over DB: The order remains PENDING_TO_OUT and converted = false
     end
 ```
 
-**Hoy solo existe el puerto `ErpGateway` sin cliente real.** Su adaptador devuelve el fallo
-`ERP_NOT_CONNECTED` con el texto: «la integración con el ERP todavía no existe». Ese es el
-comportamiento honesto hasta que haya un ERP: registrar `SENT` sin enviar nada daría por exportadas
-órdenes que el ERP nunca recibió, y el reintento nunca se dispararía.
+**Today only the `ErpGateway` port exists, without a real client.** Its adapter returns the failure
+`ERP_NOT_CONNECTED` with the text: "the ERP integration does not exist yet". That is the honest behavior until there is an ERP: recording `SENT` without sending anything would count as exported
+orders that the ERP never received, and the retry would never be triggered.
 
-**Reintentos.** El reintento manual (`POST /v1/orders/{id}/export`) exige `converted = false` y estado
-`PENDING_TO_OUT`. Cada intento incrementa `export_attempts`. El reintento automático con backoff se
-añade cuando exista el cliente real; no antes.
+**Retries.** The manual retry (`POST /v1/orders/{id}/export`) requires `converted = false` and state
+`PENDING_TO_OUT`. Each attempt increments `export_attempts`. The automatic retry with backoff is
+added when the real client exists; not before.
 
-**Idempotencia del envío.** La clave es el número de orden. Si el ERP ya tiene la orden, responde con
-la misma y el sistema la marca como enviada: no crea una segunda salida.
+**Idempotency of the dispatch.** The key is the order number. If the ERP already has the order, it answers with
+the same one and the system marks it as sent: it does not create a second outflow.
 
-## 6. Faltantes
+## 6. Shortages
 
-Un faltante es un **ajuste**, no un borrado de línea. Se registra con el caso de uso de ajustes
-(`ApplyAdjustment`) con origen `FULFILLMENT_SHORTAGE`, así que sigue las mismas reglas de permiso y
-motivo que cualquier merma ([existencias-y-ajustes.md](existencias-y-ajustes.md)). Hay una sola regla
-de ajuste; el surtido no reimplementa la suya.
+A shortage is an **adjustment**, not a line deletion. It is recorded with the adjustments use case
+(`ApplyAdjustment`) with origin `FULFILLMENT_SHORTAGE`, so it follows the same permission and reason
+rules as any shrinkage ([existencias-y-ajustes.md](existencias-y-ajustes.md)). There is a single
+adjustment rule; picking does not reimplement its own.
 
-## 7. Pruebas de aceptación
+## 7. Acceptance tests
 
-**S1. Empacar descuenta exactamente lo empacado**
-- Dado una línea de 10 y 100 en existencias.
-- Cuando se empacan 7.
-- Entonces el inventario baja 7 (queda en 93) y la línea queda con `supplied = 7`.
+**S1. Packing deducts exactly what was packed**
+- Given a line of 10 and 100 in stock.
+- When 7 are packed.
+- Then the inventory drops by 7 (it remains at 93) and the line is left with `supplied = 7`.
 
-**S2. Confirmar descuenta solo lo que falta (Q3 base)**
-- Dado una línea de 10 con 7 ya empacadas.
-- Cuando se confirma.
-- Entonces el inventario baja 3 más (no 10), y la línea queda con `supplied = 10`.
+**S2. Confirming deducts only what is missing (Q3 base)**
+- Given a line of 10 with 7 already packed.
+- When it is confirmed.
+- Then the inventory drops 3 more (not 10), and the line is left with `supplied = 10`.
 
-**S3. Confirmar dos veces no descuenta dos veces (Q3)**
-- Dado una orden lista para confirmar.
-- Cuando se confirma dos veces en paralelo con la misma clave.
-- Entonces el inventario baja una sola vez, y una de las dos respuestas es 409 o la misma orden ya confirmada.
+**S3. Confirming twice does not deduct twice (Q3)**
+- Given an order ready to confirm.
+- When it is confirmed twice in parallel with the same key.
+- Then the inventory drops only once, and one of the two responses is 409 or the same order already confirmed.
 
-**S4. Confirmar sin existencias no deja nada a medias**
-- Dado una línea que necesita 10 y una ubicación con 4.
-- Cuando se confirma.
-- Entonces responde `INSUFFICIENT_STOCK` con `available = 4`, la orden sigue `PACKAGED` y ningún movimiento se escribió.
+**S4. Confirming without stock leaves nothing half done**
+- Given a line that needs 10 and a location with 4.
+- When it is confirmed.
+- Then it answers `INSUFFICIENT_STOCK` with `available = 4`, the order remains `PACKAGED` and no movement was written.
 
-**S5. Sin ERP, la exportación falla con motivo (Q2)**
-- Dado una orden confirmada y ningún cliente de ERP configurado.
-- Cuando se confirma.
-- Entonces la orden queda `PENDING_TO_OUT`, `converted = false`, `export_status = FAILED`,
-  `export_attempts = 1`, y `export_last_error` empieza por `ERP_NOT_CONNECTED`. El inventario sí quedó descontado.
+**S5. Without an ERP, the export fails with a reason (Q2)**
+- Given a confirmed order and no ERP client configured.
+- When it is confirmed.
+- Then the order is `PENDING_TO_OUT`, `converted = false`, `export_status = FAILED`,
+  `export_attempts = 1`, and `export_last_error` starts with `ERP_NOT_CONNECTED`. The inventory was deducted.
 
-**S6. El reintento manual vuelve a fallar con motivo y cuenta el intento**
-- Dado una orden del caso anterior.
-- Cuando se pide `POST /export`.
-- Entonces responde `FAILED`, `attempts = 2`, y el motivo sigue siendo `ERP_NOT_CONNECTED`.
+**S6. The manual retry fails again with a reason and counts the attempt**
+- Given an order from the previous case.
+- When `POST /export` is requested.
+- Then it answers `FAILED`, `attempts = 2`, and the reason is still `ERP_NOT_CONNECTED`.
 
-**S7. No se exporta una orden sin confirmar**
-- Dado una orden `PENDING`.
-- Cuando se pide exportar.
-- Entonces responde `ORDER_NOT_CONVERTED` (409).
+**S7. An unconfirmed order is not exported**
+- Given a `PENDING` order.
+- When export is requested.
+- Then it answers `ORDER_NOT_CONVERTED` (409).
 
-**S8. Un faltante sigue las reglas de ajuste**
-- Dado un faltante sin motivo, o con un usuario sin `inventory.adjust_shortage`.
-- Cuando se registra.
-- Entonces responde `REASON_REQUIRED` o 403, y no se descuenta nada.
+**S8. A shortage follows the adjustment rules**
+- Given a shortage without a reason, or with a user without `inventory.adjust_shortage`.
+- When it is recorded.
+- Then it answers `REASON_REQUIRED` or 403, and nothing is deducted.
 
-**S9. Una orden exportada no se cancela**
-- Dado una orden con `converted = true`.
-- Cuando se intenta cancelar.
-- Entonces responde `INVALID_TRANSITION`, sin cambios.
+**S9. An exported order is not cancelled**
+- Given an order with `converted = true`.
+- When cancellation is attempted.
+- Then it answers `INVALID_TRANSITION`, with no changes.
 
-### 7-bis. Estado de estas pruebas (2026-10-10)
+### 7-bis. Status of these tests (2026-10-10)
 
-Ocho de las nueve están en verde: S1–S8 por HTTP real
-(`api/app/src/test/kotlin/dev/axzy/stock/app/FulfillmentFlowTest.kt`) y S3 además con
-**dos transacciones de verdad** contra la base
-(`FulfillmentPersistenceTest`), que es donde se demuestra que el reclamo condicional de
-la confirmación no se lo llevan las dos.
+Eight of the nine are green: S1–S8 over real HTTP
+(`api/app/src/test/kotlin/dev/axzy/stock/app/FulfillmentFlowTest.kt`) and S3 also with
+**two real transactions** against the database
+(`FulfillmentPersistenceTest`), which is where it is shown that the conditional claim
+of the confirmation is not taken by both.
 
-- **S9** (una orden exportada no se cancela) está cubierta en el **dominio**:
-  `Order.cancel()` devuelve `INVALID_TRANSITION` cuando la orden está `COMPLETED`. No
-  hay prueba por HTTP porque **el contrato de M04 no define ninguna ruta de anulación**.
+- **S9** (an exported order is not cancelled) is covered in the **domain**:
+  `Order.cancel()` returns `INVALID_TRANSITION` when the order is `COMPLETED`. There is no
+  HTTP test because **the M04 contract does not define any cancellation route**.
 
-Dos cosas que el contrato decía y no podían ser:
+Two things the contract said and could not be:
 
-- **El faltante exige motivo.** La tabla decía «`reason` es `SHORTAGE` por defecto» y
-  S8 exige `REASON_REQUIRED` sin él. Si hubiera defecto, el ajuste delegado nunca
-  vería un motivo ausente y la regla única de ajuste quedaría a medias. Corregido en
+- **The shortage requires a reason.** The table said "`reason` is `SHORTAGE` by default" and
+  S8 requires `REASON_REQUIRED` without it. If there were a default, the delegated adjustment would never
+  see a missing reason and the single adjustment rule would be left half-done. Corrected in
   [api/surtido.md](../api/surtido.md).
-- **Sin ERP el intento falla, no se registra como enviado.** El contrato decía «el
-  intento se registra como enviado»; S5 y S6 dicen que queda `FAILED` con el motivo
-  `ERP_NOT_CONNECTED` y el contador subiendo. Se implementó lo que dicen las pruebas.
+- **Without an ERP the attempt fails, it is not recorded as sent.** The contract said "the
+  attempt is recorded as sent"; S5 and S6 say it stays `FAILED` with the reason
+  `ERP_NOT_CONNECTED` and the counter going up. What the tests say was implemented.
 
-## 8. Errores
+## 8. Errors
 
-| Código | Cuándo |
+| Code | When |
 |---|---|
-| `ORDER_NOT_FOUND` | La orden no existe |
-| `ORDER_LINE_NOT_FOUND` | La línea no pertenece a la orden |
-| `INSUFFICIENT_STOCK` | No hay saldo para descontar; incluye `available` y `lineId` |
-| `LOCATION_REQUIRED` | La línea no tiene de dónde salir |
-| `ORDER_NOT_CONVERTED` | Se pide exportar una orden sin confirmar |
-| `ORDER_ALREADY_CONFIRMED` | Se confirma una orden ya confirmada |
-| `ERP_NOT_CONNECTED` | Motivo del fallo de exportación mientras no hay ERP (estado `FAILED`, no error HTTP) |
+| `ORDER_NOT_FOUND` | The order does not exist |
+| `ORDER_LINE_NOT_FOUND` | The line does not belong to the order |
+| `INSUFFICIENT_STOCK` | There is no balance to deduct; includes `available` and `lineId` |
+| `LOCATION_REQUIRED` | The line has nowhere to leave from |
+| `ORDER_NOT_CONVERTED` | Export of an unconfirmed order is requested |
+| `ORDER_ALREADY_CONFIRMED` | An already confirmed order is confirmed |
+| `ERP_NOT_CONNECTED` | Reason for the export failure while there is no ERP (state `FAILED`, not an HTTP error) |
 
-## 9. Permisos
+## 9. Permissions
 
-| Acción | Permiso |
+| Action | Permission |
 |---|---|
-| Ver órdenes | `order.view` |
-| Crear | `order.create` |
-| Empacar | `order.package` |
-| Confirmar | `order.confirm` |
-| Exportar y reintentar | `order.convert` (distinto de confirmar: la exportación manda datos fuera del sistema) |
-| Faltante | `inventory.adjust_shortage` (el de ajustes) |
+| View orders | `order.view` |
+| Create | `order.create` |
+| Pack | `order.package` |
+| Confirm | `order.confirm` |
+| Export and retry | `order.convert` (different from confirming: export sends data outside the system) |
+| Shortage | `inventory.adjust_shortage` (the adjustments one) |
 
-## 10. Bitácora
+## 10. Audit log
 
-Empacar, confirmar, exportar (con su resultado) y registrar un faltante escriben en `audit_log`.
-Un intento fallido también se registra: es información que se pierde si solo se guarda el éxito.
+Packing, confirming, exporting (with its result) and recording a shortage write to `audit_log`.
+A failed attempt is also recorded: it is information that is lost if only success is saved.
 
-## 11. Reglas y decisiones
+## 11. Rules and decisions
 
-- Un faltante es un ajuste con motivo: [ADR-0008](../adr/0008-discrepancias-y-merma.md).
-- La exportación no bloquea el surtido y se reintenta: [ADR-0013](../adr/0013-ordenes-al-erp-con-reintentos.md).
-- `external_id` del ERP sigue pendiente (D10 en [plan/PLAN-REHACER.md](../plan/PLAN-REHACER.md)).
+- A shortage is an adjustment with a reason: [ADR-0008](../adr/0008-discrepancias-y-merma.md).
+- The export does not block picking and is retried: [ADR-0013](../adr/0013-ordenes-al-erp-con-reintentos.md).
+- The ERP's `external_id` remains pending (D10 in [plan/PLAN-REHACER.md](../plan/PLAN-REHACER.md)).

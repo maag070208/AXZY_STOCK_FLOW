@@ -1,43 +1,42 @@
-# Catálogo del Excel inicial
-> **Referencia.** Qué trae el inventario real que se importa al sistema nuevo y cómo se
-> importa. Última verificación: 2026-10-09.
-> **Nota de reconstrucción (2026-10-10).** Los datos y las reglas de importación vigen; los scripts `scripts/` son del sistema anterior. Las reglas siguen vigentes; las rutas de código que cita pertenecen al sistema anterior y se remapean al código nuevo (ver [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
+# Initial Excel catalog
+> **Reference.** What the real inventory that is imported into the new system contains and how it is imported. Last verified: 2026-10-09.
+> **Reconstruction note (2026-10-10).** The data and the import rules are in force; the `scripts/` are from the previous system. The rules remain in force; the code paths it cites belong to the previous system and are remapped to the new code (see [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
 
-## Fuente
+## Source
 
-Archivo de inventario de 10 de junio de 2024, analizado en
-[historico/PLAN_ALMACEN_INTEGRAL.md](../historico/PLAN_ALMACEN_INTEGRAL.md) §3.5. Copia
-trabajada en `scripts/catalogo-existencias.tsv`; la carga la hace `scripts/importar-catalogo.sh`.
+Inventory file dated June 10, 2024, analyzed in
+[historico/PLAN_ALMACEN_INTEGRAL.md](../historico/PLAN_ALMACEN_INTEGRAL.md) §3.5. Working copy in
+`scripts/catalogo-existencias.tsv`; the load is done by `scripts/importar-catalogo.sh`.
 
-## Perfil de los datos
+## Data profile
 
-| Medida | Valor |
+| Measure | Value |
 |---|---|
-| Productos | 1.398 |
-| Código de producto | único |
-| Unidad de medida | `PZA` en el 100 % |
-| Unidades totales | 10.914.130 |
-| Nulos | ninguno |
+| Products | 1,398 |
+| Product code | unique |
+| Unit of measure | `PZA` in 100% |
+| Total units | 10,914,130 |
+| Nulls | none |
 
-El total es fiable. El desglose por ubicación no viene en el archivo: ver
+The total is reliable. The breakdown by location is not in the file: see
 [ADR-0012](../adr/0012-conciliar-stock-heredado-con-conteo.md).
 
-## Importación
+## Import
 
-- **Estricta.** Una fila inválida rechaza el archivo entero (`catalog/CatalogImportService.kt`).
-  No se corrige adivinando.
-- **Stock inicial a `SIN-UBICAR`** ([ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md)),
-  ya implementado: cada producto **sin existencias** recibe su total heredado con un
-  movimiento `INITIAL` en el kardex, con el usuario que importó y su fecha. Un producto que
-  ya tenga saldo se salta —reimportar no puede duplicar el inventario— y el informe dice
-  cuántos se saltaron.
-- **Acepta CSV, TSV y XLSX.** El Excel se lee con Apache POI y se convierte a CSV antes de
-  parsearlo, así que las dos vías validan igual.
-- **Códigos `X` y `XN` son dos productos** (R-71; [ADR-0011](../adr/0011-catalogo-fuente-maestra.md)).
-  Son 201 pares, 180 con el mismo nombre. Antes de dar el corte, comparar en cada par si
-  ambos tienen stock alto: si es así, hay que revisar la decisión.
+- **Strict.** An invalid row rejects the entire file (`catalog/CatalogImportService.kt`).
+  Nothing is corrected by guessing.
+- **Initial stock to `SIN-UBICAR`** ([ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md)),
+  already implemented: each product **without stock** receives its inherited total with an
+  `INITIAL` movement in the ledger, with the user who imported it and its date. A product that
+  already has a balance is skipped —re-importing cannot duplicate the inventory— and the report says
+  how many were skipped.
+- **Accepts CSV, TSV and XLSX.** The Excel is read with Apache POI and converted to CSV before
+  parsing, so both paths validate the same way.
+- **Codes `X` and `XN` are two products** (R-71; [ADR-0011](../adr/0011-catalogo-fuente-maestra.md)).
+  There are 201 pairs, 180 with the same name. Before the cutover, compare in each pair whether
+  both have high stock: if so, the decision has to be reviewed.
 
-## Lo que el archivo no resuelve
+## What the file does not resolve
 
-- El desglose por ubicación: se resuelve con conteo físico antes del corte.
-- Los productos sin ubicación física conocida: quedan en `SIN-UBICAR` hasta contarse.
+- The breakdown by location: it is resolved with a physical count before the cutover.
+- Products with no known physical location: they stay in `SIN-UBICAR` until counted.

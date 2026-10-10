@@ -1,47 +1,46 @@
-# Visión y alcance
-> **Normativo.** Qué construye StockFlow, para quién y qué queda fuera. Última verificación: 2026-10-09.
-> **Nota de reconstrucción (2026-10-10).** Alcance vigente; la app y la web se reconstruyen en las fases 10 y 11. Las reglas siguen vigentes; las rutas de código que cita pertenecen al sistema anterior y se remapean al código nuevo (ver [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
+# Vision and scope
+> **Normative.** What StockFlow builds, for whom and what stays out. Last verified: 2026-10-09.
+> **Reconstruction note (2026-10-10).** Scope in force; the app and the web are rebuilt in phases 10 and 11. The rules remain in force; the code paths it cites belong to the previous system and are remapped to the new code (see [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
 
-## Problema
+## Problem
 
-Almacén Integral (Cascar) lleva el inventario de una operación con bodegas, ubicaciones y
-tres clientes: una web administrativa, una app de piso con escáner y la API que las
-sirve. El sistema actual es el legacy de `BASE/` (ver [migracion/legacy-inventario.md](../migracion/legacy-inventario.md)).
-Sus defectos de fondo son de modelo: el total por producto no sabe dónde está el stock,
-el libro de movimientos se muta y el control de acceso tiene bypasses. La reescritura
-corrige eso sin cambiar los flujos que la operación ya usa.
+Almacén Integral (Cascar) keeps the inventory of an operation with warehouses, locations and
+three clients: an administrative web, a floor app with a scanner and the API that
+serves them. The current system is the legacy in `BASE/` (see [migracion/legacy-inventario.md](../migracion/legacy-inventario.md)).
+Its core defects are in the model: the total per product does not know where the stock is,
+the movement ledger is mutated and the access control has bypasses. The rewrite fixes
+that without changing the flows the operation already uses.
 
-## Objetivos
+## Objectives
 
-1. Un inventario que **cuadre por construcción**: cada cambio de existencias es un
-   movimiento nuevo en el kardex, y el saldo por ubicación es una proyección
+1. An inventory that **balances by construction**: each change in stock is a new
+   movement in the ledger, and the balance per location is a projection
    ([ADR-0007](../adr/0007-multi-bodega-desde-el-esquema.md), [arquitectura/dominio-kmp.md](../arquitectura/dominio-kmp.md)).
-2. Las reglas de negocio viven en un solo lugar, `stock-domain`, y las comparten el
-   backend y la app.
-3. Control de acceso por rol y por alcance, denegando por defecto
+2. The business rules live in a single place, `stock-domain`, and the backend and the app share them.
+3. Role-based and scope-based access control, denying by default
    ([ADR-0006](../adr/0006-rbac-mas-abac-denegar-por-defecto.md)).
-4. Cada escritura queda en la bitácora con quién, cuándo y por qué
+4. Each write is recorded in the audit log with who, when and why
    ([seguridad/auditoria.md](../seguridad/auditoria.md)).
 
-## Alcance
+## Scope
 
-| Dentro | Fuera (por ahora) |
+| Inside | Outside (for now) |
 |---|---|
-| Catálogo de productos, ubicaciones y bodegas, con importación del Excel inicial | Conteo físico como proyecto propio ([R-73](../migracion/cutover.md)) |
-| Existencias por ubicación, kardex, ajustes, ubicar y mover | Facturación electrónica y contabilidad |
-| Recepción: facturas, captura física, discrepancias con aprobación por factura | Integración con el ERP en producción: el contrato está, el envío real no ([ADR-0013](../adr/0013-ordenes-al-erp-con-reintentos.md)) |
-| Surtido: órdenes, empaquetado, faltantes | Sincronización periódica del catálogo con otros sistemas ([ADR-0011](../adr/0011-catalogo-fuente-maestra.md)) |
-| Traslados entre ubicaciones y entre bodegas | Operación real con más de una bodega (el esquema lo soporta, [ADR-0007](../adr/0007-multi-bodega-desde-el-esquema.md)) |
-| Etiquetas: plantillas, impresión, reimpresión | iOS probado en dispositivo ([arranque](../../ARRANQUE.md)) |
-| Usuarios, roles, permisos, sesiones, bitácora y reportes | |
+| Catalog of products, locations and warehouses, with import of the initial Excel | Physical count as its own project ([R-73](../migracion/cutover.md)) |
+| Stock per location, ledger, adjustments, locate and move | Electronic invoicing and accounting |
+| Receiving: invoices, physical count, discrepancies with approval per invoice | Production ERP integration: the contract exists, the real dispatch does not ([ADR-0013](../adr/0013-ordenes-al-erp-con-reintentos.md)) |
+| Picking: orders, packing, shortages | Periodic synchronization of the catalog with other systems ([ADR-0011](../adr/0011-catalogo-fuente-maestra.md)) |
+| Transfers between locations and between warehouses | Real operation with more than one warehouse (the schema supports it, [ADR-0007](../adr/0007-multi-bodega-desde-el-esquema.md)) |
+| Labels: templates, printing, reprinting | iOS tested on a device ([arranque](../../ARRANQUE.md)) |
+| Users, roles, permissions, sessions, audit log and reports | |
 
-## Usuarios
+## Users
 
-| Quién | Dónde trabaja | Qué hace |
+| Who | Where they work | What they do |
 |---|---|---|
-| Operador de piso | App móvil (`mobile-app/`) | Recibe, ubica, surte, escanea etiquetas |
-| Supervisor | Web (`web/`) | Aprueba discrepancias por factura, consulta existencias y kardex |
-| Administrador | Web | Usuarios, roles, catálogo, bodegas, bitácora |
-| Sistemas externos | API con clave de servicio | Imprime etiquetas (Zebra), consulta el ERP ([ADR-0010](../adr/0010-rutas-de-servicio-con-api-key.md)) |
+| Floor operator | Mobile app (`mobile-app/`) | Receives, locates, picks, scans labels |
+| Supervisor | Web (`web/`) | Approves discrepancies per invoice, queries stock and the ledger |
+| Administrator | Web | Users, roles, catalog, warehouses, audit log |
+| External systems | API with service key | Prints labels (Zebra), queries the ERP ([ADR-0010](../adr/0010-rutas-de-servicio-con-api-key.md)) |
 
-Los permisos concretos están en [seguridad/roles-permisos.md](../seguridad/roles-permisos.md).
+The specific permissions are in [seguridad/roles-permisos.md](../seguridad/roles-permisos.md).

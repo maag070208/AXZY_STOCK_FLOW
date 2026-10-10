@@ -1,10 +1,9 @@
-# Verificación: las reglas que impiden el autoengaño
-> **Normativo.** No son recomendaciones. Son la respuesta a errores concretos que ya se
-> cometieron. Última verificación: 2026-10-09.
-> **Nota de reconstrucción (2026-10-10).** Las reglas de verificación siguen valiendo; los comandos citan el backend anterior. El comando vigente es `./gradlew verify`. Las reglas siguen vigentes; las rutas de código que cita pertenecen al sistema anterior y se remapean al código nuevo (ver [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
+# Verification: the rules that prevent self-deception
+> **Normative.** They are not recommendations. They are the answer to concrete errors that have already been made. Last verified: 2026-10-09.
+> **Reconstruction note (2026-10-10).** The verification rules remain in force; the commands cite the previous backend. The command in force is `./gradlew verify`. The rules remain in force; the code paths it cites belong to the previous system and are remapped to the new code (see [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
 
-**1. Lee los XML de los tests, nunca «BUILD SUCCESSFUL».**
-Gradle reporta éxito con 0 tests ejecutados.
+**1. Read the test XML files, never "BUILD SUCCESSFUL".**
+Gradle reports success with 0 tests executed.
 
 ```bash
 python3 -c "
@@ -13,162 +12,136 @@ for mod in ['stock-domain','backend']:
     t=f=0
     for p in glob.glob(mod+'/build/test-results/**/TEST-*.xml', recursive=True):
         r=ET.parse(p).getroot(); t+=int(r.get('tests',0)); f+=int(r.get('failures',0))
-    print(f'{mod}: {t} tests, {f} fallos')
+    print(f'{mod}: {t} tests, {f} failures')
 "
 ```
 
-**2. Prueba que una guardia falla antes de creerla.**
-Una guardia se verifica quitando a propósito la condición que vigila: si los tests siguen en
-verde, la guardia no vigila nada. **Un test que nunca ha fallado no demuestra que vigile
-nada.**
+**2. Prove that a guard fails before trusting it.**
+A guard is verified by deliberately removing the condition it watches: if the tests stay green, the guard
+watches nothing. **A test that has never failed does not prove that it watches anything.**
 
-**3. Los tests compilan el código; el servidor corre un artefacto.**
-Son dos afirmaciones distintas. Tras cambiar código:
+**3. The tests compile the code; the server runs an artifact.**
+They are two different claims. After changing code:
 
 ```bash
-./gradlew :backend:installDist && reiniciar
+./gradlew :backend:installDist && restart
 ```
 
-Este error ya produjo `NoClassDefFoundError` en producción con la suite en verde.
+This error already produced a `NoClassDefFoundError` in production with the suite in green.
 
-**4. Prueba una URL con `curl` antes de escribir la interfaz.**
-`tsc` y `eslint` **no validan URLs en ejecución**. El bug `/v1/v1/...` pasó los dos
+**4. Test a URL with `curl` before writing the interface.**
+`tsc` and `eslint` **do not validate URLs at runtime**. The `/v1/v1/...` bug passed both
 ([web-fsd.md](../arquitectura/web-fsd.md) §2.3).
 
-**5. Un resultado alarmante también se verifica antes de creerlo.**
-Una consulta mal formada puede hacer creer que el kardex perdió filas. Antes de investigar
-una pérdida de datos, se comprueba que la consulta mide lo que se cree que mide.
+**5. An alarming result is also verified before believing it.**
+A malformed query can make it seem that the ledger lost rows. Before investigating
+a data loss, it is checked that the query measures what it is believed to measure.
 
-**6. Los agentes en paralelo necesitan archivos disjuntos.**
-Dos procesos que editan el mismo archivo a la vez rompen el build (`FileNotFoundException`
-sobre una clase compilada). **Los que compilan Gradle se serializan**, y **dos agentes no
-pueden tocar el mismo archivo**, nunca.
+**6. Parallel agents need disjoint files.**
+Two processes that edit the same file at the same time break the build (`FileNotFoundException`
+on a compiled class). **Those that compile with Gradle are serialized**, and **two agents
+cannot touch the same file**, ever.
 
-Los niveles de prueba y cómo se ejecutan están en
+The test levels and how they are run are in
 [estrategia-pruebas.md](../historico/ESTRATEGIA-PRUEBAS-ANTERIOR.md).
 
-## Un `./gradlew test` en verde no significa que se hayan ejecutado todas las pruebas
+## A `./gradlew test` in green does not mean that all the tests were run
 
-Comprobado el 2026-10-10, y es la trampa más cara que ha aparecido: **`./gradlew test`
-no ejecuta `:stock-domain:jvmTest`**. El proyecto del dominio es multiplataforma
-(Kotlin Multiplatform) y su tarea de pruebas se llama `jvmTest`, así que el `test`
-agregado —que sí recorre los módulos JVM— lo dejaba fuera.
+Checked on 2026-10-10, and it is the most expensive trap that has appeared: **`./gradlew test`
+does not run `:stock-domain:jvmTest`**. The domain project is multiplatform
+(Kotlin Multiplatform) and its test task is called `jvmTest`, so the aggregate `test` —which does
+walk the JVM modules— left it out.
 
-El síntoma es exactamente el que este documento advierte en otro sitio: el informe
-salía `BUILD SUCCESSFUL`, y el recuento de pruebas del dominio se leía de los XML de
-una ejecución **anterior**. Durante dos vueltas se informó de «407 pruebas del dominio,
-0 fallos» mientras había una prueba del dominio en rojo que nadie ejecutaba
-(`AdjustmentTest` esperaba el código de ubicación del legacy, `04BCA`, después de que la
-etiqueta visible pasara a ser `04-B-C`).
+The symptom is exactly the one this document warns about elsewhere: the report
+said `BUILD SUCCESSFUL`, and the count of domain tests was read from the XML files of a
+**previous** run. For two rounds "407 domain tests, 0 failures" was reported while there was a domain test in red that nobody was
+running (`AdjustmentTest` expected the legacy location code, `04BCA`, after the visible label had become `04-B-C`).
 
-Lo que se hizo:
+What was done:
 
-- El comando de verificación es **`./gradlew verify`**, una tarea que depende de todas
-  las tareas de prueba de todos los módulos (`test` y `jvmTest`) y de las guardias de
-  arquitectura. Si un módulo cambia el nombre de su tarea, `verify` hay que actualizarlo.
-- **Borrar los XML antes de medir** (`rm -rf */build/test-results`). Un recuento sin
-  borrar es un recuento de la última vez que algo se ejecutó.
+- The verification command is **`./gradlew verify`**, a task that depends on all the test
+  tasks of all the modules (`test` and `jvmTest`) and on the architecture guards. If a module changes the name of its task, `verify` has to be updated.
+- **Delete the XML files before measuring** (`rm -rf */build/test-results`). A count without
+  deleting is a count of the last time something ran.
 
-La regla general que se suma a las de arriba: **un informe de pruebas solo vale si se
-sabe qué tarea lo produjo y cuándo**. `BUILD SUCCESSFUL` de una tarea que no incluye el
-módulo que se tocó no dice nada sobre ese módulo.
+The general rule added to those above: **a test report is only worth something if it is known which task produced it and when**. A `BUILD SUCCESSFUL` of a task that does not include the module that was touched says nothing about that module.
 
-## Una migración tiene que poder re-aplicarse
+## A migration has to be re-applicable
 
-Comprobado el 2026-10-10, y costó un despliegue en rojo: al escribir la migración `V14`
-la apliqué a mano contra la base para comprobar el SQL, y cuando Flyway la ejecutó se
-encontró la columna ya creada y **el servicio de migración falló con `exit 1`**. El
-síntoma fue peor de lo que parece: el API no arrancó y las comprobaciones por `curl`
-devolvían `000` (conexión rechazada) mientras el archivo de la respuesta anterior seguía
-en `/tmp`, así que el primer vistazo decía «403, todo bien».
+Checked on 2026-10-10, and it cost a red deployment: when writing migration `V14` I applied it by hand against the database to check the SQL, and when Flyway ran it the column was already created and **the migration service failed with `exit 1`**. The symptom was worse than it seems: the API did not start and the `curl` checks returned `000` (connection refused) while the response file of the previous answer was still in `/tmp`, so the first glance said "403, all good".
 
-Dos reglas que salen de ahí:
+Two rules that come from that:
 
-- **El DDL de una migración va con `IF NOT EXISTS`** (`ALTER TABLE … ADD COLUMN IF NOT
-  EXISTS`, `CREATE INDEX IF NOT EXISTS`). Flyway garantiza aplicarla una vez, pero un
-  humano puede haberla aplicado antes, y poder re-aplicarla no cuesta nada.
-- **Cuando una comprobación falla, mirar el código HTTP y no el cuerpo del archivo
-  anterior.** Un `000` no es un `403`: el primero significa que nadie contestó.
+- **The DDL of a migration goes with `IF NOT EXISTS`** (`ALTER TABLE … ADD COLUMN IF NOT
+  EXISTS`, `CREATE INDEX IF NOT EXISTS`). Flyway guarantees applying it once, but a
+  human may have applied it before, and being able to re-apply it costs nothing.
+- **When a check fails, look at the HTTP code and not at the body of the previous file.** A `000` is not a `403`: the first one means that nobody answered.
 
-## Un `docker compose build` puede salir entero de caché y dejar el jar viejo
+## A `docker compose build` can come out entirely from cache and leave the old jar
 
-Comprobado el 2026-10-10, y es la trampa más silenciosa de todas las de este documento:
-`docker compose build api` respondió `Image stockflow-api Built` sin ejecutar **ni un paso
-de compilación** —todas las capas `CACHED`—, así que la imagen siguió con el jar anterior.
-El contenedor arrancó sano, `/v1/health` respondió `UP`, y la ruta nueva contestaba
-`401 UNAUTHENTICATED` como si no existiera. Casi lo doy por bueno.
+Checked on 2026-10-10, and it is the most silent trap of all in this document:
+`docker compose build api` answered `Image stockflow-api Built` without executing **a single compile step** —all the layers `CACHED`—, so the image kept the previous jar.
+The container started healthy, `/v1/health` answered `UP`, and the new route answered
+`401 UNAUTHENTICATED` as if it did not exist. I almost accepted it.
 
-Lo que lo delató: la misma petición **pasaba** en las pruebas de integración, que arrancan
-la aplicación desde las clases recién compiladas. Si una prueba y una comprobación por
-`curl` dicen cosas distintas, el sospechoso es el artefacto que corre, no la prueba.
+What gave it away: the same request **passed** in the integration tests, which start the application
+from the freshly compiled classes. If a test and a `curl` check say different things, the suspect is the artifact that runs, not the test.
 
-Cómo comprobarlo sin adivinar: leer el jar **dentro de la imagen**.
+How to check it without guessing: read the jar **inside the image**.
 
 ```bash
 docker run --rm --entrypoint sh stockflow-api -c \
   'unzip -p /app/app.jar BOOT-INF/classes/dev/axzy/stock/app/config/SecurityConfig.class | strings | grep -c "print-jobs"'
 ```
 
-Dos detalles que hacen falta para que eso funcione, y que también me costaron un rato:
+Two details needed for that to work, which also cost me a while:
 
-- Un jar de Spring Boot **no lleva las clases del proyecto sueltas**: van en jars anidados
-  (`BOOT-INF/lib/adapters-web-0.1.0.jar`). Un `unzip -l | grep PrintJobController` sobre el
-  jar exterior devuelve `0` aunque el código esté dentro, y parece que falta cuando está.
-- Por eso hay que mirar la clase del módulo `app` (que sí va suelta en
-  `BOOT-INF/classes/`) o extraer primero el jar anidado.
+- A Spring Boot jar **does not carry the project's classes loose**: they go in nested jars
+  (`BOOT-INF/lib/adapters-web-0.1.0.jar`). A `unzip -l | grep PrintJobController` on the
+  outer jar returns `0` even though the code is inside, and it looks as if it is missing when it is there.
+- That is why one has to look at the class of the `app` module (which does go loose in
+  `BOOT-INF/classes/`) or extract the nested jar first.
 
-Y lo que se hace cuando pasa: `docker compose up -d --force-recreate api`, y volver a
-comprobar la ruta contra el artefacto que corre. La regla de arriba sigue valiendo y ahora
-tiene nombre propio: **el artefacto que corre no es el código compilado**, y una imagen que
-se construyó «con éxito» sin compilar nada no es una imagen nueva.
+And what is done when it happens: `docker compose up -d --force-recreate api`, and check the route again
+against the artifact that runs. The rule above still applies and now has its own name: **the artifact that runs is not the compiled code**, and an image that
+was built "successfully" without compiling anything is not a new image.
 
-## `write` sobre un archivo de pruebas que ya existía borra lo que había
+## `write` over a test file that already existed erases what was there
 
-Comprobado el 2026-10-10, y es un error mío que merece quedar escrito: al escribir las
-pruebas de la lectura de XLSX, **escribí `CatalogUploadTest.kt` sin comprobar que ya
-existía**, y las ocho pruebas del lector de CSV/TSV que había dentro desaparecieron. Lo
-delató `git status`, que marcaba el archivo como `M` (modificado) en vez de nuevo, y el
-recuento del módulo: la capa web pasó de 13 pruebas a 11 **después** de añadir seis.
+Checked on 2026-10-10, and it is a mistake of mine that deserves to be written down: when writing the
+XLSX reading tests, **I wrote `CatalogUploadTest.kt` without checking that it already existed**, and the
+eight tests of the CSV/TSV reader that were inside disappeared. What gave it away was `git status`, which marked the file as `M` (modified) instead of new,
+and the count of the module: the web layer went from 13 tests to 11 **after** adding six.
 
-Dos reglas que salen de ahí:
+Two rules that come from that:
 
-- **Antes de escribir un archivo de pruebas, `git status` o un `glob`.** Si existe, se lee y
-  se amplía; sobrescribirlo es borrar trabajo que ya estaba verificado.
-- **El recuento de pruebas por módulo es una guardia.** Un módulo que gana pruebas y baja de
-  número tiene un problema, aunque la suite esté en verde. Se mira el número antes y después.
+- **Before writing a test file, `git status` or a `glob`.** If it exists, it is read and
+  extended; overwriting it is erasing work that was already verified.
+- **The test count per module is a guard.** A module that gains tests and goes down in number has a problem, even if the suite is green. The number is checked before and after.
 
-Lo que se hizo: recuperar el archivo del repositorio y **fusionarlo** con las pruebas nuevas,
-después de sustituir la única que quedaba obsoleta (la que comprobaba que el XLSX se
-rechazaba, porque ya se lee). El recuento volvió a subir y las ocho originales siguen ahí,
-con las cuatro nuevas que no repetían nada.
+What was done: recover the file from the repository and **merge** it with the new tests,
+after replacing the only one that had become obsolete (the one that checked that XLSX was rejected, because it is now read). The count went up again and the eight originals are still there,
+with the four new ones that did not repeat anything.
 
-## Un test que falla una hora al día: «hoy» no es la fecha de la máquina
+## A test that fails one hour a day: "today" is not the machine's date
 
-Comprobado el 2026-10-10, y costó un rato de confusión: dos pruebas de reportes empezaron a
-fallar con el resumen de movimientos **vacío**. No era el cambio que acababa de hacer: era la
-hora. La máquina estaba en `PDT` (9 de octubre, 23:02) y la zona de negocio de la API es
-`America/Mexico_City` (UTC-6), donde ya era **10 de octubre**. La prueba pedía
-`from=hoy&to=hoy` con `LocalDate.now()` —la fecha **de la máquina**— mientras la API fecha los
-movimientos en la zona de negocio, así que buscaba en el día equivocado.
+Checked on 2026-10-10, and it cost a bit of confusion: two report tests started failing with the movement summary **empty**. It was not the change that had just been made: it was the time. The machine was in `PDT` (October 9, 23:02) and the API's business zone is
+`America/Mexico_City` (UTC-6), where it was already **October 10**. The test asked for
+`from=today&to=today` with `LocalDate.now()` —the **machine's** date— while the API dates the
+movements in the business zone, so it searched the wrong day.
 
-Es un fallo de una hora al día, la peor clase: invisible casi siempre y desconcertante cuando
-aparece. La regla que sale de ahí:
+It is a one-hour-a-day failure, the worst kind: invisible almost always and disconcerting when it appears. The rule that comes from it:
 
-- **Una prueba que pregunta por «hoy» tiene que calcularlo como lo calcula la API**, con la
-  misma zona y de la misma configuración. En este proyecto eso es
-  `businessToday()` (`LocalDate.now(properties.businessZone)`), que vive en `ApiTest` para que
-  no haya dos formas de decirlo.
-- Vale para cualquier filtro por fecha: reportes, kardex y auditoría. Si una prueba construye
-  una fecha con `LocalDate.now()` a secas, está en hora de la máquina y algún día fallará.
+- **A test that asks for "today" has to compute it the way the API computes it**, with the same zone and from the same configuration. In this project that is
+  `businessToday()` (`LocalDate.now(properties.businessZone)`), which lives in `ApiTest` so that
+  there are not two ways of saying it.
+- It applies to any date filter: reports, ledger and audit. If a test builds a date with a bare `LocalDate.now()`, it is on the machine's time and will fail some day.
 
-## Una prueba que lee una contraseña de arranque se rompe al primer cambio
+## A test that reads a bootstrap password breaks at the first change
 
-Comprobado el 2026-10-10: la prueba de entrada contra la API real falló con «Usuario o contraseña
-incorrectos», aunque la contraseña era la de `.env`. No era un fallo de la API: el administrador ya
-había cambiado su contraseña, que es lo que la API exige al primer ingreso. `ADMIN_BOOTSTRAP_PASSWORD`
-solo se usa al crear la cuenta, y la prueba la tomaba como contraseña vigente.
+Checked on 2026-10-10: the sign-in test against the real API failed with "Wrong user or password",
+although the password was the one in `.env`. It was not a failure of the API: the administrator had already
+changed their password, which is what the API requires at first sign-in. `ADMIN_BOOTSTRAP_PASSWORD`
+is only used when creating the account, and the test took it as the current password.
 
-La regla que sale de ahí: **una prueba necesita su propia credencial**, no la que solo sirve para
-arrancar. Ahora es `E2E_ADMIN_PASSWORD`, con `ADMIN_BOOTSTRAP_PASSWORD` solo como respaldo. Si una
-prueba falla con una credencial que «debería valer», mira primero si la cuenta cambió la suya.
-
+The rule that comes from it: **a test needs its own credential**, not the one that only serves to start up. It is now `E2E_ADMIN_PASSWORD`, with `ADMIN_BOOTSTRAP_PASSWORD` only as a fallback. If a test fails with a credential that "should work", first check whether the account changed its own.

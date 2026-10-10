@@ -1,37 +1,35 @@
-# Glosario
-> **Referencia.** Términos del dominio tal como los usa el código. Última verificación: 2026-10-09.
+# Glossary
+> **Reference.** Domain terms as the code uses them. Last verified: 2026-10-09.
 
-| Término | Significado | Dónde se define |
+| Term | Meaning | Where it is defined |
 |---|---|---|
-| **Bodega** (`warehouse`) | Almacén físico. Una por defecto en la operación actual. | `V3__inventory_domain.sql` |
-| **Ubicación** (`location`) | Lugar dentro de una bodega: estantería, recepción o `SIN-UBICAR`. | `V3__inventory_domain.sql`, `V5__unassigned_location_kind.sql` |
-| **Ubicación de recepción** (`kind = RECEIVING`) | La ubicación temporal donde queda lo recibido y aún no ubicado. Reemplaza la antigua pseudo-ubicación `ADMIN`. | [ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md) |
-| **Producto** (`product`) | Artículo con código único (`product_code`). `XN` y `X` son SKUs distintos. | [ADR-0011](../adr/0011-catalogo-fuente-maestra.md) |
-| **Existencias** (`stock`) | Cantidad de un producto en una ubicación. Es una proyección, no un número que se edite. | `V3__inventory_domain.sql` (`stock_by_location`) |
-| **Kardex** | Libro de movimientos, append-only. Corregir es añadir un movimiento nuevo. | `V3__inventory_domain.sql` (`kardex`) |
-| **Tránsito** (`stock_in_transit`) | Mercancía despachada en un traslado que aún no se recibe. | `V3__inventory_domain.sql`, `V9__transfer_lines.sql` |
-| **Ajuste** (`adjustment`) | Diferencia de existencias con motivo obligatorio. Una sola regla (`AdjustStock`) con cuatro orígenes. | [ADR-0008](../adr/0008-discrepancias-y-merma.md) |
-| **Discrepancia** | Línea de factura cuya cantidad física no coincide con la facturada. Bloquea la ubicación hasta aprobarse. | [ADR-0008](../adr/0008-discrepancias-y-merma.md) |
-| **Factura** (`invoice`) | Documento de recepción con líneas. Se cierra cuando ninguna línea queda pendiente. | `V3__inventory_domain.sql` |
-| **Línea** (`invoice_line`) | Un producto dentro de una factura, con su estado (`PENDING`, `CAPTURED`, `DISCREPANCY`, `APPROVED`, `LOCATED`). | `V3__inventory_domain.sql` |
-| **Orden** (`order`) | Pedido a surtir. Su estado va de `PENDING` a `COMPLETED`. | `V3__inventory_domain.sql` |
-| **Surtido** | Empaquetado de una orden línea por línea. | [api/surtido.md](../api/surtido.md) |
-| **Traslado** (`transfer`) | Movimiento de existencias entre ubicaciones o bodegas, con estados `DRAFT` → `DISPATCHED` → `RECEIVED`. | `V3__inventory_domain.sql`, `V9__transfer_lines.sql` |
-| **Plantilla de etiqueta** (`label_template`) | Formato de etiqueta por tipo. | `V3__inventory_domain.sql` |
-| **Trabajo de impresión** (`print_job`) | Etiqueta enviada a imprimir. Queda `PENDING` hasta que la impresora confirma. | [ADR-0010](../adr/0010-rutas-de-servicio-con-api-key.md) |
-| **Alcance** (`scope`) | Hasta dónde llega un permiso: `NONE`, `OWN`, `AREA` (su bodega) o `ALL`. | [seguridad/roles-permisos.md](../seguridad/roles-permisos.md) |
-| **Segregación de funciones** | Quien captura una línea no puede aprobar su discrepancia. | [ADR-0008](../adr/0008-discrepancias-y-merma.md) |
-| **Legacy** | El sistema anterior en `BASE/`. | [migracion/legacy-inventario.md](../migracion/legacy-inventario.md) |
-| **Conteo físico** | Recuento real de existencias, previo al corte. | [ADR-0012](../adr/0012-conciliar-stock-heredado-con-conteo.md) |
+| **Warehouse** (`warehouse`) | Physical warehouse. One is the default in the current operation. | `V3__inventory_domain.sql` |
+| **Location** (`location`) | Place inside a warehouse: shelf, receiving or `SIN-UBICAR`. | `V3__inventory_domain.sql`, `V5__unassigned_location_kind.sql` |
+| **Receiving location** (`kind = RECEIVING`) | The temporary location where what was received and not yet located stays. It replaces the old `ADMIN` pseudo-location. | [ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md) |
+| **Product** (`product`) | Item with a unique code (`product_code`). `XN` and `X` are different SKUs. | [ADR-0011](../adr/0011-catalogo-fuente-maestra.md) |
+| **Stock** (`stock`) | Quantity of a product in a location. It is a projection, not a number that is edited. | `V3__inventory_domain.sql` (`stock_by_location`) |
+| **Ledger** (`kardex`) | Movement ledger, append-only. Correcting means adding a new movement. | `V3__inventory_domain.sql` (`kardex`) |
+| **Transit** (`stock_in_transit`) | Goods dispatched in a transfer that have not yet been received. | `V3__inventory_domain.sql`, `V9__transfer_lines.sql` |
+| **Adjustment** (`adjustment`) | Stock difference with a mandatory reason. A single rule (`AdjustStock`) with four origins. | [ADR-0008](../adr/0008-discrepancias-y-merma.md) |
+| **Discrepancy** | Invoice line whose physical quantity does not match the invoiced one. It blocks locating until approved. | [ADR-0008](../adr/0008-discrepancias-y-merma.md) |
+| **Invoice** (`invoice`) | Receiving document with lines. It is closed when no line remains pending. | `V3__inventory_domain.sql` |
+| **Line** (`invoice_line`) | A product inside an invoice, with its state (`PENDING`, `CAPTURED`, `DISCREPANCY`, `APPROVED`, `LOCATED`). | `V3__inventory_domain.sql` |
+| **Order** (`order`) | Request to pick. Its state goes from `PENDING` to `COMPLETED`. | `V3__inventory_domain.sql` |
+| **Picking** | Packing of an order line by line. | [api/surtido.md](../api/surtido.md) |
+| **Transfer** (`transfer`) | Movement of stock between locations or warehouses, with states `DRAFT` → `DISPATCHED` → `RECEIVED`. | `V3__inventory_domain.sql`, `V9__transfer_lines.sql` |
+| **Label template** (`label_template`) | Label format by type. | `V3__inventory_domain.sql` |
+| **Print job** (`print_job`) | Label sent to print. It stays `PENDING` until the printer confirms. | [ADR-0010](../adr/0010-rutas-de-servicio-con-api-key.md) |
+| **Scope** (`scope`) | How far a permission reaches: `NONE`, `OWN`, `AREA` (their warehouse) or `ALL`. | [seguridad/roles-permisos.md](../seguridad/roles-permisos.md) |
+| **Segregation of duties** | Whoever captures a line cannot approve its discrepancy. | [ADR-0008](../adr/0008-discrepancias-y-merma.md) |
+| **Legacy** | The previous system in `BASE/`. | [migracion/legacy-inventario.md](../migracion/legacy-inventario.md) |
+| **Physical count** | Real recount of stock, before the cutover. | [ADR-0012](../adr/0012-conciliar-stock-heredado-con-conteo.md) |
 
-## El nombre del producto
+## The product name
 
-El producto se llama **StockFlow**. Los identificadores técnicos siguen siendo `stock`, y **no se
-renombran**: el paquete Kotlin es `dev.axzy.stock`, el módulo de reglas `stock-domain`, la base
-`stock`, las imágenes `stockflow-*` y el proyecto de Compose `stockflow` (se llamó así para no pisar
-los contenedores del sistema anterior). Renombrarlos tocaría migraciones, despliegues y el historial
-de git a cambio de nada.
+The product is called **StockFlow**. The technical identifiers are still `stock`, and they are **not renamed**:
+the Kotlin package is `dev.axzy.stock`, the rules module `stock-domain`, the database
+`stock`, the images `stockflow-*` and the Compose project `stockflow` (it was named that way so as not to overwrite
+the containers of the previous system). Renaming them would touch migrations, deployments and the git history in exchange for nothing.
 
-La regla, entonces: **en la interfaz y en los documentos, StockFlow; en el código y en la
-infraestructura, `stock`/`stockflow`**. El arte de marca dice StockFlow desde el principio, y es lo
-que fijó esta decisión (2026-10-10).
+The rule, then: **in the interface and in the documents, StockFlow; in the code and the infrastructure, `stock`/`stockflow`**.
+The brand artwork says StockFlow from the start, and that is what this decision fixed (2026-10-10).

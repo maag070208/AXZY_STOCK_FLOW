@@ -1,111 +1,111 @@
-# Plan de rehacer StockFlow: API en Kotlin con Spring Boot, app KMP y web React
-> **Plan.** Qué se reconstruye, en qué orden y qué decisiones quedan abiertas. Es el documento
-> que manda sobre la secuencia; los normativos (arquitectura, flujos, ADR) describen el destino.
-> Última revisión: 2026-10-09.
+# Plan to rebuild StockFlow: API in Kotlin with Spring Boot, KMP app and React web
+> **Plan.** What is rebuilt, in which order and which decisions remain open. It is the document
+> that governs the sequence; the normative documents (architecture, flows, ADR) describe the destination.
+> Last revised: 2026-10-09.
 
-> **Desglose por módulo y orden de construcción:** [PLAN-IMPLEMENTACION.md](PLAN-IMPLEMENTACION.md).
+> **Breakdown by module and build order:** [PLAN-IMPLEMENTACION.md](PLAN-IMPLEMENTACION.md).
 
-## 1. Punto de partida
+## 1. Starting point
 
-Al empezar, el repositorio tenía solo documentación y el legacy (`BASE/`). El código anterior (Ktor,
-Exposed, Compose) estaba en el historial de git y sirvió de **referencia de comportamiento**, no de
-base de código. Lo que se conservó:
+At the start, the repository had only documentation and the legacy (`BASE/`). The previous code (Ktor,
+Exposed, Compose) was in the git history and served as a **behavior reference**, not as a code base.
+What was kept:
 
-| Se conserva | Dónde está | Por qué |
+| What is kept | Where it is | Why |
 |---|---|---|
-| Reglas de negocio (invariantes, estados, permisos) | `docs/adr/0005`–`0013`, `docs/modulos/` | Son decisiones del negocio, no del framework |
-| Esquema de datos y motor SQL (funciones de inventario) | `db/migrations/V1`–`V15` | El motor vive en la base; V1–V9 vienen del historial y V10–V15 se escribieron después |
-| Contrato HTTP | `docs/api/` | Lo consumen la app y la web |
-| Diseño visual | `docs/guia/identidad-visual.md` | Sigue siendo la referencia de la web |
+| Business rules (invariants, states, permissions) | `docs/adr/0005`–`0013`, `docs/modulos/` | They are business decisions, not framework ones |
+| Data schema and SQL engine (inventory functions) | `db/migrations/V1`–`V15` | The engine lives in the database; V1–V9 come from the history and V10–V15 were written afterwards |
+| HTTP contract | `docs/api/` | Consumed by the app and the web |
+| Visual design | `docs/guia/identidad-visual.md` | It is still the reference for the web |
 
-Lo que **no** se conservó es la arquitectura de Ktor (`docs/historico/`): el cableado a mano, el stack
-de versiones y las decisiones tomadas por el framework anterior.
+What was **not** kept is the Ktor architecture (`docs/historico/`): the hand-wiring, the version stack
+and the decisions taken by the previous framework.
 
-**Estado al 2026-10-10.** La API existe y corre en Compose, con 752 pruebas en verde y el esquema en
-V15. El avance módulo a módulo está en [PLAN-IMPLEMENTACION.md](PLAN-IMPLEMENTACION.md). La app y la web
-siguen en curso.
+**Status as of 2026-10-10.** The API exists and runs in Compose, with 752 tests in green and the schema at
+V15. The module-by-module progress is in [PLAN-IMPLEMENTACION.md](PLAN-IMPLEMENTACION.md). The app and the web
+are still in progress.
 
-## 2. Destino
+## 2. Destination
 
-| Parte | Tecnología | Arquitectura |
+| Part | Technology | Architecture |
 |---|---|---|
-| **API** | Kotlin + Spring Boot, PostgreSQL 16, Docker | Clean Architecture con inyección de dependencias por constructor ([arquitectura/api-spring.md](../arquitectura/api-spring.md)) |
-| **App** | Kotlin Multiplatform (Android e iOS) | Vertical slice con núcleo compartido ([arquitectura/app-kmp.md](../arquitectura/app-kmp.md)) |
+| **API** | Kotlin + Spring Boot, PostgreSQL 16, Docker | Clean Architecture with constructor-based dependency injection ([arquitectura/api-spring.md](../arquitectura/api-spring.md)) |
+| **App** | Kotlin Multiplatform (Android and iOS) | Vertical slice with a shared core ([arquitectura/app-kmp.md](../arquitectura/app-kmp.md)) |
 | **Web** | React 19 + Vite + TypeScript + AXZY UI System | Feature-Sliced Design ([arquitectura/web-fsd.md](../arquitectura/web-fsd.md)) |
-| **Base de datos** | PostgreSQL 16 | Migraciones versionadas con Flyway ([arquitectura/infraestructura.md](../arquitectura/infraestructura.md)) |
-| **Despliegue local** | Docker Compose | Un comando levanta base, migraciones, API y web ([arquitectura/infraestructura.md](../arquitectura/infraestructura.md)) |
+| **Database** | PostgreSQL 16 | Versioned migrations with Flyway ([arquitectura/infraestructura.md](../arquitectura/infraestructura.md)) |
+| **Local deployment** | Docker Compose | One command starts database, migrations, API and web ([arquitectura/infraestructura.md](../arquitectura/infraestructura.md)) |
 
-Los flujos que debe cumplir cada parte están en [flujos/](../flujos/README.md).
+The flows each part must fulfill are in [flujos/](../flujos/README.md).
 
-## 3. Requisitos que vienen de la revisión del 9 de octubre
+## 3. Requirements that come from the review of October 9
 
-La revisión del backend anterior encontró defectos que el plan **obliga** a evitar. Cada uno
-tiene una prueba que lo impide:
+The review of the previous backend found defects that the plan **requires** avoiding. Each one
+has a test that prevents it:
 
-| # | Requisito | Prueba que lo impide |
+| # | Requirement | Test that prevents it |
 |---|---|---|
-| Q1 | El total por producto se recalcula con el producto bloqueado (`SELECT … FOR UPDATE`); dos movimientos concurrentes no pueden perder una escritura. | Prueba de concurrencia con dos transacciones reales (ver [flujos/existencias-y-ajustes.md](../flujos/existencias-y-ajustes.md) §5) |
-| Q2 | Una exportación al ERP **nunca** se registra como exitosa sin un envío real. Mientras no exista el cliente, el intento queda `FAILED` con motivo `ERP_NOT_CONNECTED`. | Prueba de la exportación sin ERP ([flujos/surtido-y-erp.md](../flujos/surtido-y-erp.md) §5) |
-| Q3 | La confirmación de una orden bloquea la orden y usa una clave de idempotencia; un doble envío no descuenta dos veces. | Prueba de doble confirmación concurrente ([flujos/surtido-y-erp.md](../flujos/surtido-y-erp.md) §5) |
-| Q4 | Todas las migraciones se aplican en el mismo orden en todos los entornos; ningún entorno arranca con migraciones pendientes sin que se note. | Migración de arranque de Compose y comprobación de `flyway_schema_history` ([arquitectura/infraestructura.md](../arquitectura/infraestructura.md) §4) |
-| Q5 | Las pruebas de integración corren contra PostgreSQL real, no se saltan en silencio. | Una prueba que falla si no hay base (heredada del canario `PostgresGuardTest`) |
-| Q6 | El kardex solo crece: ninguna operación modifica ni borra un movimiento. Corregir es añadir un movimiento compensatorio. | Prueba A9 de [existencias-y-ajustes.md](../flujos/existencias-y-ajustes.md) §7; análisis de origen C1 en [analisis/legacy-entradas-salidas-ajustes-traslados.md](../analisis/legacy-entradas-salidas-ajustes-traslados.md) |
-| Q7 | El saldo lo cambia la base con bloqueo. Ninguna aplicación calcula un saldo absoluto y lo escribe (lectura-modificación-escritura). | Pruebas A3 y A4 de [existencias-y-ajustes.md](../flujos/existencias-y-ajustes.md) §7; análisis C2 y C5 |
-| Q8 | Una salida descuenta lo que falta por surtir (`quantity − supplied_quantity`), dentro de una transacción que bloquea la orden, con una sola operación de confirmación. Ninguna escritura queda sin `await`. | Prueba S2 y S3 de [surtido-y-erp.md](../flujos/surtido-y-erp.md) §7; análisis C3 y C6 |
-| Q9 | La disponibilidad se comprueba dentro de la misma transacción que escribe, con el saldo bloqueado. Nunca con una lectura previa. | Prueba A3 de [existencias-y-ajustes.md](../flujos/existencias-y-ajustes.md) §7; análisis C4 |
-| Q10 | El saldo sale de la proyección, no del historial. Un listado hace un número fijo de consultas, sin N+1. | Pruebas de rendimiento de la fase 5; análisis A1 a A4 |
+| Q1 | The total per product is recalculated with the product locked (`SELECT … FOR UPDATE`); two concurrent movements cannot lose a write. | Concurrency test with two real transactions (see [flujos/existencias-y-ajustes.md](../flujos/existencias-y-ajustes.md) §5) |
+| Q2 | An export to the ERP is **never** recorded as successful without a real dispatch. While the client does not exist, the attempt stays `FAILED` with reason `ERP_NOT_CONNECTED`. | Test of the export without ERP ([flujos/surtido-y-erp.md](../flujos/surtido-y-erp.md) §5) |
+| Q3 | The confirmation of an order locks the order and uses an idempotency key; a double submission does not deduct twice. | Test of simultaneous double confirmation ([flujos/surtido-y-erp.md](../flujos/surtido-y-erp.md) §5) |
+| Q4 | All migrations are applied in the same order in all environments; no environment starts with pending migrations without it being noticed. | Compose startup migration and check of `flyway_schema_history` ([arquitectura/infraestructura.md](../arquitectura/infraestructura.md) §4) |
+| Q5 | Integration tests run against a real PostgreSQL, they are not silently skipped. | A test that fails if there is no database (inherited from the `PostgresGuardTest` canary) |
+| Q6 | The ledger only grows: no operation modifies or deletes a movement. Correcting means adding a compensating movement. | Test A9 of [existencias-y-ajustes.md](../flujos/existencias-y-ajustes.md) §7; origin analysis C1 in [analisis/legacy-entradas-salidas-ajustes-traslados.md](../analisis/legacy-entradas-salidas-ajustes-traslados.md) |
+| Q7 | The balance is changed by the database with a lock. No application calculates an absolute balance and writes it (read-modify-write). | Tests A3 and A4 of [existencias-y-ajustes.md](../flujos/existencias-y-ajustes.md) §7; analysis C2 and C5 |
+| Q8 | An outflow deducts what is missing to pick (`quantity − supplied_quantity`), inside a transaction that locks the order, with a single confirmation operation. No write is left without `await`. | Tests S2 and S3 of [surtido-y-erp.md](../flujos/surtido-y-erp.md) §7; analysis C3 and C6 |
+| Q9 | Availability is checked inside the same transaction that writes, with the balance locked. Never with a prior read. | Test A3 of [existencias-y-ajustes.md](../flujos/existencias-y-ajustes.md) §7; analysis C4 |
+| Q10 | The balance comes from the projection, not from the history. A listing makes a fixed number of queries, without N+1. | Phase 5 performance tests; analysis A1 to A4 |
 
-## 4. Decisiones
+## 4. Decisions
 
-Las decisiones marcadas **Tomada** ya están en un ADR. Las **Propuesta** necesitan
-confirmación antes de la fase donde se aplican.
+The decisions marked **Taken** are already in an ADR. The **Proposal** ones need
+confirmation before the phase where they apply.
 
-| # | Decisión | Estado | Dónde |
+| # | Decision | Status | Where |
 |---|---|---|---|
-| D1 | API en Kotlin con Spring Boot | Tomada | [ADR-0014](../adr/0014-api-spring-boot-clean-architecture.md) |
-| D2 | Inyección de dependencias por constructor, cableado solo en el módulo de arranque | Tomada | [ADR-0014](../adr/0014-api-spring-boot-clean-architecture.md) |
-| D3 | PostgreSQL 16 con Flyway; el motor de inventario sigue en funciones SQL | Tomada | [ADR-0015](../adr/0015-postgresql-flyway-motor-en-sql.md) |
-| D4 | Despliegue local con Docker Compose | Tomada | [ADR-0016](../adr/0016-docker-compose-para-el-entorno.md) |
-| D5 | ERP: sin cliente, la exportación falla con motivo; no se simula el éxito | Tomada (Q2) | [flujos/surtido-y-erp.md](../flujos/surtido-y-erp.md) |
-| D6 | **Dominio compartido** entre la API y la app (módulo KMP con las reglas) | **Tomada (2026-10-10): sí** | [arquitectura/dominio-kmp.md](../arquitectura/dominio-kmp.md) |
-| D7 | Reutilizar las migraciones `V1`–`V10` como esquema inicial de Flyway, en lugar de rediseñar el esquema | **Tomada (2026-10-10): sí** | §5, fase 1 |
-| D8 | Versiones de la API: Spring Boot 4.1.x, Kotlin 2.4.20, JDK 25 LTS | **Tomada (2026-10-10)**; confirmar en la fuente oficial antes de fijar el lockfile | [arquitectura/stack.md](../arquitectura/stack.md) |
-| D9 | La web mantiene FSD | **Tomada (2026-10-10): sí**, con la regla de capas impuesta por el linter | [arquitectura/web-fsd.md](../arquitectura/web-fsd.md) |
-| D10 | Identificador del ERP (`external_id`) | **Pendiente**: depende de lo que el ERP acepte | [ADR-0013](../adr/0013-ordenes-al-erp-con-reintentos.md) |
+| D1 | API in Kotlin with Spring Boot | Taken | [ADR-0014](../adr/0014-api-spring-boot-clean-architecture.md) |
+| D2 | Constructor-based dependency injection, wiring only in the startup module | Taken | [ADR-0014](../adr/0014-api-spring-boot-clean-architecture.md) |
+| D3 | PostgreSQL 16 with Flyway; the inventory engine stays in SQL functions | Taken | [ADR-0015](../adr/0015-postgresql-flyway-motor-en-sql.md) |
+| D4 | Local deployment with Docker Compose | Taken | [ADR-0016](../adr/0016-docker-compose-para-el-entorno.md) |
+| D5 | ERP: without a client, the export fails with a reason; success is not simulated | Taken (Q2) | [flujos/surtido-y-erp.md](../flujos/surtido-y-erp.md) |
+| D6 | **Shared domain** between the API and the app (KMP module with the rules) | **Taken (2026-10-10): yes** | [arquitectura/dominio-kmp.md](../arquitectura/dominio-kmp.md) |
+| D7 | Reuse migrations `V1`–`V10` as the initial Flyway schema, instead of redesigning the schema | **Taken (2026-10-10): yes** | §5, phase 1 |
+| D8 | API versions: Spring Boot 4.1.x, Kotlin 2.4.20, JDK 25 LTS | **Taken (2026-10-10)**; confirm in the official source before pinning the lockfile | [arquitectura/stack.md](../arquitectura/stack.md) |
+| D9 | The web keeps FSD | **Taken (2026-10-10): yes**, with the layer rule enforced by the linter | [arquitectura/web-fsd.md](../arquitectura/web-fsd.md) |
+| D10 | ERP identifier (`external_id`) | **Pending**: depends on what the ERP accepts | [ADR-0013](../adr/0013-ordenes-al-erp-con-reintentos.md) |
 
-## 5. Fases
+## 5. Phases
 
-Cada fase termina con un criterio que se puede comprobar. No se empieza la siguiente sin
-cumplir el de la anterior.
+Each phase ends with a criterion that can be verified. The next phase is not started without
+meeting the previous one's.
 
-| Fase | Entrega | Criterio de salida |
+| Phase | Deliverable | Exit criterion |
 |---|---|---|
-| **0. Documentación y decisiones** | Este plan, los normativos y los ADR nuevos. D6–D10 resueltas. | Revisión de los normativos sin decisiones pendientes que bloqueen la fase 1 |
-| **1. Infraestructura** | Compose con PostgreSQL 16 y el servicio `migrate`. Flyway con `V1`–`V10` (D7). | `docker compose up` deja la base migrada; `flyway_schema_history` lista las 10 versiones |
-| **2. API base** | Proyecto Gradle multimódulo, arranque, salud, configuración por variables sin valores por defecto inseguros, manejo de errores. | `GET /v1/health` responde; arranque falla si falta una variable obligatoria |
-| **3. Identidad** | Login, refresh con rotación, logout, cambio de contraseña, bloqueo, RBAC + ABAC denegando por defecto. | Pruebas de los flujos de [autenticación](../flujos/autenticacion-y-permisos.md) en verde |
-| **4. Catálogo y bodegas** | Productos, ubicaciones, bodegas e importación estricta del Excel. | Importación con una fila inválida rechaza el archivo entero |
-| **5. Existencias** | Motor de inventario, kardex, ajustes, ubicar y mover, reportes de conciliación. Q1 en vigor. | Prueba de concurrencia Q1 en verde |
-| **6. Recepción** | Facturas, captura, discrepancias, aprobación por factura, segregación de funciones. | Ninguna línea en discrepancia se puede ubicar |
-| **7. Surtido y ERP** | Órdenes, empaque, faltantes, confirmación, exportación. Q2 y Q3 en vigor. | Pruebas Q2 y Q3 en verde |
-| **8. Traslados** | Entre ubicaciones y entre bodegas, tránsito, recepción. | Recepción de traslado cubierta por prueba (hoy no lo está) |
-| **9. Etiquetas y auditoría** | Plantillas, cola de impresión con clave de servicio, bitácora inmutable. | Cada escritura de los flujos deja registro |
-| **10. App KMP** | Núcleo compartido con las reglas, pantallas de piso (recepción, ubicar, surtir, escanear). | Compila en Android e iOS; flujo de recepción probado en dispositivo |
-| **11. Web React** | Administración, supervisión, existencias, kardex, reportes. | Flujos principales cubiertos por pruebas de navegador en CI |
+| **0. Documentation and decisions** | This plan, the normative documents and the new ADRs. D6–D10 resolved. | Review of the normative documents without open decisions that block phase 1 |
+| **1. Infrastructure** | Compose with PostgreSQL 16 and the `migrate` service. Flyway with `V1`–`V10` (D7). | `docker compose up` leaves the database migrated; `flyway_schema_history` lists the 10 versions |
+| **2. Base API** | Multimodule Gradle project, startup, health, configuration by variables without insecure default values, error handling. | `GET /v1/health` answers; startup fails if a required variable is missing |
+| **3. Identity** | Login, refresh with rotation, logout, password change, lock, RBAC + ABAC denying by default. | Tests of the [authentication](../flujos/autenticacion-y-permisos.md) flows in green |
+| **4. Catalog and warehouses** | Products, locations, warehouses and strict import of the Excel. | Import with an invalid row rejects the entire file |
+| **5. Stock** | Inventory engine, ledger, adjustments, locate and move, reconciliation reports. Q1 in force. | Q1 concurrency test in green |
+| **6. Receiving** | Invoices, capture, discrepancies, approval per invoice, segregation of duties. | No line in discrepancy can be located |
+| **7. Picking and ERP** | Orders, packing, shortages, confirmation, export. Q2 and Q3 in force. | Q2 and Q3 tests in green |
+| **8. Transfers** | Between locations and between warehouses, transit, receipt. | Transfer receipt covered by a test (today it is not) |
+| **9. Labels and audit** | Templates, print queue with service key, immutable audit log. | Every write of the flows leaves a record |
+| **10. KMP app** | Shared core with the rules, floor screens (receiving, locate, pick, scan). | Compiles on Android and iOS; receiving flow tested on a device |
+| **11. React web** | Administration, supervision, stock, ledger, reports. | Main flows covered by browser tests in CI |
 
-Las fases 10 y 11 empiezan cuando el contrato de la API de la fase anterior está estable.
+Phases 10 and 11 start when the contract of the API of the previous phase is stable.
 
-## 6. Qué se necesita para empezar la fase 1
+## 6. What is needed to start phase 1
 
-1. Resolver D6 y D7 (ver §4).
-2. Fijar las versiones de D8 y anotarlas en [arquitectura/stack.md](../arquitectura/stack.md).
-3. Tener PostgreSQL 16 y Docker disponibles en la máquina de desarrollo.
+1. Resolve D6 and D7 (see §4).
+2. Pin the versions of D8 and note them in [arquitectura/stack.md](../arquitectura/stack.md).
+3. Have PostgreSQL 16 and Docker available on the development machine.
 
-## 7. Riesgos conocidos
+## 7. Known risks
 
-| Riesgo | Mitigación |
+| Risk | Mitigation |
 |---|---|
-| Reescribir las reglas al migrar al nuevo framework y que cambie el comportamiento | Las pruebas de los flujos se escriben antes que el código, a partir de [flujos/](../flujos/README.md) |
-| El dominio compartido (D6) complica el build de tres partes | Se decide en fase 0; si se rechaza, la API duplica las reglas y se documenta cuál es la copia de referencia |
-| El ERP real llega tarde y la exportación queda en `FAILED` mucho tiempo | Es el comportamiento honesto y está previsto por ADR-0013; el reintento manual existe desde la fase 7 |
-| Las versiones de Spring Boot o Compose cambian antes de empezar | D8 se fija en fase 0 con la versión vigente en el momento y se registra la fecha |
+| Rewriting the rules when migrating to the new framework and the behavior changes | The tests of the flows are written before the code, starting from [flujos/](../flujos/README.md) |
+| The shared domain (D6) complicates the build of three parts | It is decided in phase 0; if rejected, the API duplicates the rules and it is documented which copy is the reference |
+| The real ERP arrives late and the export stays in `FAILED` for a long time | It is the honest behavior and is foreseen by ADR-0013; the manual retry exists since phase 7 |
+| The versions of Spring Boot or Compose change before starting | D8 is pinned in phase 0 with the version current at the time and the date is recorded |

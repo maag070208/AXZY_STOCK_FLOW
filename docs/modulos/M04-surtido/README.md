@@ -1,63 +1,62 @@
-# M04 — Surtido: órdenes y empaquetado
-> **Normativo.** Última verificación: 2026-10-10 (fase 7 cerrada).
+# M04 — Picking: orders and packing
+> **Normative.** Last verified: 2026-10-10 (phase 7 closed).
 
 | | |
 |---|---|
-| **Código** | M04 |
-| **Carpeta** | `docs/modulos/M04-surtido/` |
-| **Documentado** | Sí |
-| **Terminado (backend)** | Sí, salvo el envío real al ERP |
+| **Code** | M04 |
+| **Folder** | `docs/modulos/M04-surtido/` |
+| **Documented** | Yes |
+| **Finished (backend)** | Yes, except the real dispatch to the ERP |
 | **Web** | `OrdersPage`, `OrderDetailPage` |
 | **App** | `features/orders` |
 
-## 1. Objetivo
+## 1. Objective
 
-Surtir una orden: asignar existencias a cada línea, empaquetarla y confirmarla. Lo que no
-se puede surtir se registra como faltante con su ajuste.
+Pick an order: assign stock to each line, pack it and confirm it. What cannot be picked is recorded as a shortage with its adjustment.
 
-## 2. Alcance
+## 2. Scope
 
-| Dentro | Fuera |
+| Inside | Outside |
 |---|---|
-| Alta y consulta de órdenes | Traslados (M05) |
-| Empaquetado por línea y confirmación | Envío efectivo al ERP ([ADR-0013](../../adr/0013-ordenes-al-erp-con-reintentos.md)) |
-| Faltantes con ajuste de origen `FULFILLMENT_SHORTAGE` | |
+| Creation and query of orders | Transfers (M05) |
+| Packing per line and confirmation | Real dispatch to the ERP ([ADR-0013](../../adr/0013-ordenes-al-erp-con-reintentos.md)) |
+| Shortages with an adjustment of origin `FULFILLMENT_SHORTAGE` | |
 
-## 3. Reglas de negocio
+## 3. Business rules
 
-| # | Regla | Dónde vive |
+| # | Rule | Where it lives |
 |---|---|---|
-| R1 | Un faltante es un ajuste con motivo, no un borrado de línea | [ADR-0008](../../adr/0008-discrepancias-y-merma.md); `order/OrderRoutes.kt` (`/shortage`) |
-| R2 | No se exporta al ERP una orden que no está confirmada | `ORDER_NOT_CONVERTED` en `order/OrderService.kt` |
-| R3 | Las máquinas de estado de la orden no admiten saltos | `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/fulfillment/` (`OrderStateMachineTest`) |
+| R1 | A shortage is an adjustment with a reason, not a line deletion | [ADR-0008](../../adr/0008-discrepancias-y-merma.md); `order/OrderRoutes.kt` (`/shortage`) |
+| R2 | An order that is not confirmed is not exported to the ERP | `ORDER_NOT_CONVERTED` in `order/OrderService.kt` |
+| R3 | The order's state machines do not allow jumps | `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/fulfillment/` (`OrderStateMachineTest`) |
 
-## 4. Modelo de datos
+## 4. Data model
 
-| Tabla | Migración | Qué guarda |
+| Table | Migration | What it holds |
 |---|---|---|
-| `orders` | `V3` | Órdenes, con estado `PENDING` → `COMPLETED` |
-| `order_lines` | `V3` | Líneas, con estado `PENDING`, `ASSIGNED`, `SUPPLIED`, `CANCELLED` |
+| `orders` | `V3` | Orders, with state `PENDING` → `COMPLETED` |
+| `order_lines` | `V3` | Lines, with state `PENDING`, `ASSIGNED`, `SUPPLIED`, `CANCELLED` |
 
 ## 5. API
 
-Contrato en [api/surtido.md](../../api/surtido.md). Rutas en `order/OrderRoutes.kt`.
+Contract in [api/surtido.md](../../api/surtido.md). Routes in `order/OrderRoutes.kt`.
 
-## 6. Permisos
+## 6. Permissions
 
-`order.view`, `order.create`, `order.package`, `order.confirm`, `order.convert` (la exportación al
-ERP usa `order.convert`). Ver
+`order.view`, `order.create`, `order.package`, `order.confirm`, `order.convert` (the export to the
+ERP uses `order.convert`). See
 [seguridad/roles-permisos.md](../../seguridad/roles-permisos.md).
 
-## 7. Bitácora
+## 7. Audit log
 
-Empaquetado, confirmación, exportación y faltante escriben en `audit_log`.
+Packing, confirmation, export and shortage write to `audit_log`.
 
-## 8. Pruebas
+## 8. Tests
 
-`OrderStateMachineTest` en `stock-domain`. Rutas en el backend.
+`OrderStateMachineTest` in `stock-domain`. Routes in the backend.
 
-## 9. Criterios de aceptación
+## 9. Acceptance criteria
 
-- [x] La máquina de estados rechaza transiciones ilegales (`OrderStateMachineTest`).
-- [ ] La exportación llega al ERP y se reintenta si falla ([ADR-0013](../../adr/0013-ordenes-al-erp-con-reintentos.md)).
-- [x] Listado, alta y empaque con prueba de navegador (`web/e2e/flow.spec.ts`). La confirmación y el envío no están cubiertos.
+- [x] The state machine rejects illegal transitions (`OrderStateMachineTest`).
+- [ ] The export reaches the ERP and is retried if it fails ([ADR-0013](../../adr/0013-ordenes-al-erp-con-reintentos.md)).
+- [x] Listing, creation and packing with a browser test (`web/e2e/flow.spec.ts`). Confirmation and dispatch are not covered.

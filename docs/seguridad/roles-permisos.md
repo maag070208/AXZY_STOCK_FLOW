@@ -1,54 +1,54 @@
-# Roles y permisos
-> **Normativo.** Modelo de acceso: RBAC + ABAC, denegación por defecto. Última verificación: 2026-10-09.
-> **Nota de reconstrucción (2026-10-10).** Matriz de permisos vigente; la fuente de código es `api/` y `stock-domain/`. Las reglas siguen vigentes; las rutas de código que cita pertenecen al sistema anterior y se remapean al código nuevo (ver [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
+# Roles and permissions
+> **Normative.** Access model: RBAC + ABAC, deny by default. Last verified: 2026-10-09.
+> **Reconstruction note (2026-10-10).** Permission matrix in force; the code source is `api/` and `stock-domain/`. The rules remain in force; the code paths it cites belong to the previous system and are remapped to the new code (see [plan/PLAN-IMPLEMENTACION.md](../plan/PLAN-IMPLEMENTACION.md)).
 
-La decisión está en [ADR 0006](../adr/0006-rbac-mas-abac-denegar-por-defecto.md).
+The decision is in [ADR 0006](../adr/0006-rbac-mas-abac-denegar-por-defecto.md).
 
-## El modelo
+## The model
 
 ```
-Identidad → RBAC (rol) → ABAC (atributos) → decisión
+Identity → RBAC (role) → ABAC (attributes) → decision
 ```
 
-Vive en el dominio, en `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/access/`:
+It lives in the domain, in `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/access/`:
 
-| Archivo | Qué contiene |
+| File | What it contains |
 |---|---|
-| `AccessEngine.kt` | el motor: `decide(user, permissionKey, resource, context)` |
-| `AccessModel.kt` | `PermissionScope`, `PolicyEffect`, `ResourceContext`, el modelo |
-| `PermissionCatalog.kt` | el catálogo de permisos |
-| `RoleDefinitions.kt` | los roles y su matriz |
-| `StockPolicies.kt` | las políticas ABAC de la casa |
+| `AccessEngine.kt` | the engine: `decide(user, permissionKey, resource, context)` |
+| `AccessModel.kt` | `PermissionScope`, `PolicyEffect`, `ResourceContext`, the model |
+| `PermissionCatalog.kt` | the permission catalog |
+| `RoleDefinitions.kt` | the roles and their matrix |
+| `StockPolicies.kt` | the house ABAC policies |
 
-La API lo aplica con `AccessEnginePermissionChecker`
-(`backend/src/main/kotlin/dev/axzy/stock/backend/security/PermissionChecker.kt`), y el
-contexto autenticado viaja como objeto explícito, nunca en una thread-local
+The API applies it with `AccessEnginePermissionChecker`
+(`backend/src/main/kotlin/dev/axzy/stock/backend/security/PermissionChecker.kt`), and the
+authenticated context travels as an explicit object, never in a thread-local
 ([api-ktor.md](../historico/API-KTOR.md) §1.13).
 
-## Las tres reglas
+## The three rules
 
-1. **Denegar por defecto.** Sin decisión explícita, se niega. Solo `AccessDecision.Allowed`
-   deja pasar.
-2. **`DENY` gana sobre `ALLOW`**, siempre, incluso con prioridad menor
+1. **Deny by default.** Without an explicit decision, it is denied. Only `AccessDecision.Allowed`
+   lets it through.
+2. **`DENY` beats `ALLOW`**, always, even with a lower priority
    (`PolicyEffect.DENY`, `AccessModel.kt`).
-3. **`PermissionScope`: `NONE < OWN < AREA < ALL`.** Es una escalera: `ALL ⊇ AREA ⊇ OWN ⊇
-   NONE`. Conceder `AREA` **no** concede `ALL`; tratar el alcance como un booleano es el
-   error que convierte un modelo de permisos en un agujero.
+3. **`PermissionScope`: `NONE < OWN < AREA < ALL`.** It is a ladder: `ALL ⊇ AREA ⊇ OWN ⊇
+   NONE`. Granting `AREA` does **not** grant `ALL`; treating the scope as a boolean is the
+   error that turns a permission model into a hole.
 
-**`AREA` es la clave de la multi-bodega:** significa «su bodega», y qué bodegas son suyas se
-determina por la asignación de la **persona**, no por el rol. Eso evita crear un rol por
-bodega (`JEFE_BODEGA_NORTE`, `JEFE_BODEGA_SUR`…), que es el error clásico. El esquema nace
-multi-bodega aunque se opere con una: [ADR 0007](../adr/0007-multi-bodega-desde-el-esquema.md).
+**`AREA` is the key of multi-warehouse:** it means "their warehouse", and which warehouses are theirs is
+determined by the assignment of the **person**, not by the role. That avoids creating a role per
+warehouse (`WAREHOUSE_MANAGER_NORTH`, `WAREHOUSE_MANAGER_SOUTH`…), which is the classic error. The schema is
+born multi-warehouse even if it is operated with one: [ADR 0007](../adr/0007-multi-bodega-desde-el-esquema.md).
 
-## La regla que impide el 403 inexplicable
+## The rule that prevents the unexplained 403
 
-**El permiso de una ruta tiene que ser el mismo que el del guard que protege su pantalla.**
-Si la ruta exige `inventory.reconcile` y la web la protege con `report.view`, un usuario con
-permiso de reportes entra y recibe un `403`. Dos listas que deben coincidir acaban
-separándose, y el síntoma aparece solo en producción con un rol concreto.
+**The permission of a route has to be the same as the one of the guard that protects its screen.**
+If the route requires `inventory.reconcile` and the web protects it with `report.view`, a user with
+the reports permission enters and receives a `403`. Two lists that must match end up
+separating, and the symptom appears only in production with a specific role.
 
-## Dónde está la matriz por endpoint
+## Where the matrix per endpoint is
 
-**La matriz de permisos por endpoint no vive aquí.** Está en
-[../api/contrato.md](../api/contrato.md), junto al recurso que protege, para que el permiso
-de una ruta y su documentación se lean en el mismo sitio.
+**The permission matrix per endpoint does not live here.** It is in
+[../api/contrato.md](../api/contrato.md), next to the resource it protects, so that the permission
+of a route and its documentation are read in the same place.

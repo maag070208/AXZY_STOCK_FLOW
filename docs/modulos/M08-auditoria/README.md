@@ -1,70 +1,69 @@
-# M08 — Auditoría: bitácora y trazabilidad
-> **Normativo.** Última verificación: 2026-10-10 (M08 cerrado).
+# M08 — Audit: log and traceability
+> **Normative.** Last verified: 2026-10-10 (M08 closed).
 
 | | |
 |---|---|
-| **Código** | M08 |
-| **Carpeta** | `docs/modulos/M08-auditoria/` |
-| **Documentado** | Sí |
-| **Terminado (backend)** | Sí |
+| **Code** | M08 |
+| **Folder** | `docs/modulos/M08-auditoria/` |
+| **Documented** | Yes |
+| **Finished (backend)** | Yes |
 | **Web** | `AuditPage` |
-| **App** | No hay pantalla |
+| **App** | No screen |
 
-## 1. Objetivo
+## 1. Objective
 
-Responder quién hizo qué, cuándo y por qué, sobre cualquier escritura del sistema.
+Answer who did what, when and why, for any write in the system.
 
-## 2. Alcance
+## 2. Scope
 
-| Dentro | Fuera |
+| Inside | Outside |
 |---|---|
-| Registro de cada escritura, con estado anterior y nuevo | Métricas técnicas (no son auditoría) |
-| Consulta de la bitácora | Exportación a sistemas externos |
-| Inmutabilidad por disparadores | |
+| Record of each write, with previous and new state | Technical metrics (they are not audit) |
+| Query of the log | Export to external systems |
+| Immutability through triggers | |
 
-## 3. Reglas de negocio
+## 3. Business rules
 
-| # | Regla | Dónde vive |
+| # | Rule | Where it lives |
 |---|---|---|
-| R1 | Toda escritura pasa por la bitácora | [seguridad/auditoria.md](../../seguridad/auditoria.md) |
-| R2 | La bitácora no admite `UPDATE` ni `DELETE` | Disparadores en `V2__audit_and_traceability.sql` |
-| R3 | La cadena de integridad se puede verificar | `V7__audit_write_and_verify.sql` |
-| R4 | Retención por nivel: crítico permanente, relevante 3 años, acceso 1 año, técnico 30 días | [seguridad/auditoria.md](../../seguridad/auditoria.md) |
+| R1 | Every write goes through the log | [seguridad/auditoria.md](../../seguridad/auditoria.md) |
+| R2 | The log does not accept `UPDATE` nor `DELETE` | Triggers in `V2__audit_and_traceability.sql` |
+| R3 | The integrity chain can be verified | `V7__audit_write_and_verify.sql` |
+| R4 | Retention by level: critical permanent, relevant 3 years, access 1 year, technical 30 days | [seguridad/auditoria.md](../../seguridad/auditoria.md) |
 
-## 4. Modelo de datos
+## 4. Data model
 
-| Tabla | Migración | Qué guarda |
+| Table | Migration | What it holds |
 |---|---|---|
-| `audit_log`, `audit_log_default` | `V2` | Bitácora y su partición por defecto |
-| `access_counter` | `V2` | Accesos agregados (nivel 3) |
-| `config_versions` | `V2` | Versiones de la configuración de acceso |
+| `audit_log`, `audit_log_default` | `V2` | Log and its default partition |
+| `access_counter` | `V2` | Aggregated accesses (level 3) |
+| `config_versions` | `V2` | Versions of the access configuration |
 
 ## 5. API
 
-Contrato en [api/auditoria.md](../../api/auditoria.md): `GET /v1/audit/log`, con filtros
-por entidad, actor, acción, nivel, resultado, canal y rango de fechas de negocio, y
-paginación con el total calculado con el mismo filtro. No hay `PUT` ni `DELETE`, a
-propósito: la tabla es inmutable por disparadores.
+Contract in [api/auditoria.md](../../api/auditoria.md): `GET /v1/audit/log`, with filters
+by entity, actor, action, level, result, channel and business date range, and
+pagination with the total calculated with the same filter. There is no `PUT` nor `DELETE`, on purpose:
+the table is immutable through triggers.
 
-**La consulta también se registra** (`AUDIT_QUERIED`, nivel `ACCESS`), y se registra
-**después** de leer: si el registro fallara, la consulta ya se hizo y lo que no puede
-quedar es el hecho sin rastro.
+**The query is also recorded** (`AUDIT_QUERIED`, level `ACCESS`), and it is recorded **after** reading: if the record failed, the query has already been made, and what must not
+remain is the fact without a trace.
 
-## 6. Permisos
+## 6. Permissions
 
-`audit.view`. Ver [seguridad/roles-permisos.md](../../seguridad/roles-permisos.md).
+`audit.view`. See [seguridad/roles-permisos.md](../../seguridad/roles-permisos.md).
 
-## 7. Bitácora
+## 7. Audit log
 
-Este módulo es la bitácora. Su propia consulta también se registra como acceso.
+This module is the log. Its own query is also recorded as access.
 
-## 8. Pruebas
+## 8. Tests
 
-`AuditTest` en `stock-domain`. Pruebas de inmutabilidad y cobertura en el backend
+`AuditTest` in `stock-domain`. Immutability and coverage tests in the backend
 ([seguridad/auditoria.md](../../seguridad/auditoria.md) §9).
 
-## 9. Criterios de aceptación
+## 9. Acceptance criteria
 
-- [x] La bitácora no admite modificaciones (disparadores de `V2`).
-- [x] Bitácora con canal, permiso y filtro, probada en navegador (`web/e2e/flow.spec.ts`).
-- [ ] Verificación de la cadena de integridad desde la web. No hay prueba.
+- [x] The log does not accept modifications (triggers of `V2`).
+- [x] Log with channel, permission and filter, tested in the browser (`web/e2e/flow.spec.ts`).
+- [ ] Verification of the integrity chain from the web. There is no test.
