@@ -11,6 +11,7 @@ import AuditPage from "@pages/audit/AuditPage";
 import StockPage from "@pages/inventory/StockPage";
 import KardexPage from "@pages/inventory/KardexPage";
 import InvoiceDetailPage from "@pages/receiving/InvoiceDetailPage";
+import OrderDetailPage from "@pages/fulfillment/OrderDetailPage";
 import TransferDetailPage from "@pages/transfers/TransferDetailPage";
 import InvoicesPage from "@pages/receiving/InvoicesPage";
 import OrdersPage from "@pages/fulfillment/OrdersPage";
@@ -94,6 +95,14 @@ export default function App() {
           element={
             <RequirePermission permissions={["invoice.view"]}>
               <InvoiceDetailPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/orders/:id"
+          element={
+            <RequirePermission permissions={["order.view"]}>
+              <OrderDetailPage />
             </RequirePermission>
           }
         />

@@ -1,6 +1,7 @@
 import { ITAlert, ITButton, ITDialog, ITFlex, ITInput, ITSelect, ITText } from "@axzydev/axzy_ui_system";
 import { useEffect, useState, type FormEvent } from "react";
-import { ADJUSTMENT_REASONS, type DecisionBody } from "@entities/receiving";
+import type { DecisionBody } from "@entities/receiving";
+import { ADJUSTMENT_REASONS } from "@shared/lib/adjustmentReasons";
 import { ApiError } from "@shared/api/types";
 
 interface Props {

@@ -1,5 +1,5 @@
 export { receivingApi } from "./api";
-export { ADJUSTMENT_REASONS, isCountable } from "./model";
+export { isCountable } from "./model";
 export type {
   CaptureBody,
   DecisionBody,

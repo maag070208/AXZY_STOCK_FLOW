@@ -1,2 +1,2 @@
 export { fulfillmentApi } from "./api";
-export type { OrderHeader } from "./model";
+export type { AssignBody, ExportAttempt, OrderDetail, OrderHeader, OrderLine, PackBody, ShortageBody } from "./model";

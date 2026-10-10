@@ -70,21 +70,5 @@ export type CaptureBody = { physicalQuantity: number; physicalBoxQuantity?: numb
 /** Motivo de una decisión de aprobar o rechazar (`POST .../approve`, `.../reject-discrepancy`). */
 export type DecisionBody = { adjustmentReason: string; note?: string };
 
-/**
- * Los motivos de ajuste que acepta una decisión. La API no los expone en ningún endpoint: esta
- * lista espeja `AdjustmentReason` del dominio (`stock-domain/.../inventory/Adjustment.kt`). Si el
- * dominio gana un motivo, hay que añadirlo aquí; la API lo rechazaría antes con `REASON_REQUIRED`.
- */
-export const ADJUSTMENT_REASONS: readonly { value: string; label: string }[] = [
-  { value: "SUPPLIER_ERROR", label: "Error del proveedor" },
-  { value: "COUNT_ERROR", label: "Error de conteo" },
-  { value: "SHORTAGE", label: "Faltante" },
-  { value: "DAMAGE", label: "Daño" },
-  { value: "RETURN_TO_SUPPLIER", label: "Devolución a proveedor" },
-  { value: "EXPIRED", label: "Caducado" },
-  { value: "THEFT", label: "Robo" },
-  { value: "OTHER", label: "Otro" },
-];
-
 /** Las líneas que aún admiten un conteo: una aprobada o ubicada ya no se cuenta de nuevo. */
 export const isCountable = (status: string): boolean => !["APPROVED", "LOCATED", "CANCELLED"].includes(status);

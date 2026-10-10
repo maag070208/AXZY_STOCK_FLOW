@@ -1,5 +1,6 @@
 import { ITBadget, ITInput, type Column } from "@axzydev/axzy_ui_system";
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { fulfillmentApi, type OrderHeader } from "@entities/fulfillment";
 import { useDebouncedValue } from "@shared/lib/useDebouncedValue";
 import { DataTable } from "@shared/ui/data-table/DataTable";
@@ -10,6 +11,7 @@ import { Page } from "@shared/ui/page/Page";
  * su motivo: la pantalla lo dice tal cual, en lugar de mostrar una exportación que no ocurrió.
  */
 export default function OrdersPage() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const q = useDebouncedValue(search.trim(), 400);
   const externalFilters = useMemo(() => (q ? { q } : undefined), [q]);
@@ -44,6 +46,7 @@ export default function OrdersPage() {
       </div>
       <DataTable<OrderHeader>
         columns={columns}
+        onRowClick={(row) => navigate(`/orders/${row.id}`)}
         fetchPage={(query) => fulfillmentApi.orders(query, {})}
         externalFilters={externalFilters}
       />

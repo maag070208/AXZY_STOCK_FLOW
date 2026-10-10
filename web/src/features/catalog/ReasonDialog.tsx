@@ -7,6 +7,10 @@ interface Props {
   /** Qué se está dando de baja, con su nombre, para que nadie confirme a ciegas. */
   description: string;
   confirmLabel?: string;
+  /** Lo que se escribe en el campo. Por defecto, el de la baja. */
+  placeholder?: string;
+  /** Título del aviso cuando la API rechaza la acción. */
+  errorTitle?: string;
   busy?: boolean;
   error?: string | null;
   onCancel: () => void;
@@ -25,6 +29,8 @@ export default function ReasonDialog({
   title,
   description,
   confirmLabel = "Desactivar",
+  placeholder = "Por qué se da de baja",
+  errorTitle = "No se pudo desactivar",
   busy = false,
   error = null,
   onCancel,
@@ -46,13 +52,13 @@ export default function ReasonDialog({
         <ITInput
           name="reason"
           label="Motivo"
-          placeholder="Por qué se da de baja"
+          placeholder={placeholder}
           value={reason}
           onChange={(event) => setReason(event.target.value)}
           autoFocus
         />
 
-        {error && <ITAlert variant="error" title="No se pudo desactivar">{error}</ITAlert>}
+        {error && <ITAlert variant="error" title={errorTitle}>{error}</ITAlert>}
 
         <ITFlex justify="end" gap={2}>
           <ITButton label="Cancelar" variant="outline" onClick={onCancel} disabled={busy} />
