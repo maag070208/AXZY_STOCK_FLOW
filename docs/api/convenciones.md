@@ -1,7 +1,7 @@
 # Convenciones de la API
 > **Normativo.** Cómo se construyen las rutas, los estados, la paginación, la
 > idempotencia, las cabeceras y los formatos de esta API. Manda sobre el contrato
-> de cada recurso. Última verificación: 2026-10-09.
+> de cada recurso. Última verificación: 2026-10-10.
 
 Este documento define las reglas transversales. El contrato por recurso está en
 [contrato.md](contrato.md); el cuerpo de error y su catálogo, en
@@ -40,8 +40,8 @@ del estado de un trabajo de impresión (véase [etiquetas.md](etiquetas.md)).
 | `503` | Dependencia caída | `ErrorResponse` (health) |
 
 La traducción de excepción a estado vive en
-`backend/src/main/kotlin/dev/axzy/stock/backend/error/ErrorResponse.kt`, y el
-manejador que la aplica, en `backend/src/main/kotlin/dev/axzy/stock/backend/Application.kt`.
+`api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/http/ErrorResponses.kt`, y el
+manejador que la aplica, en `.../http/GlobalErrorHandler.kt`.
 Un error inesperado se responde como `500` con `code = INTERNAL_ERROR` sin filtrar
 el detalle interno.
 
@@ -77,17 +77,16 @@ GET /v1/products?page=0&size=50&sort=productCode,asc&q=abra
 - `q` es la búsqueda libre.
 
 Un `page` negativo o un `size` fuera de `1..200` responden `400 INVALID_PAGINATION`;
-un `sort` no admitido, `400 INVALID_SORT`. La validación es una sola en todo el
-backend: `PageRequest.analyze` en
-`backend/src/main/kotlin/dev/axzy/stock/backend/application/shared/Pagination.kt` (los módulos
-que no dependen del catálogo conservan una copia mínima).
+un `sort` no admitido, `400 INVALID_SORT`. La validación es una sola en toda la
+API: `PageRequest.analyze` en
+`api/application/src/main/kotlin/dev/axzy/stock/application/shared/Pagination.kt`.
 
 **Excepciones deliberadas.** Devuelven **todas** sus filas, sin sobre de
 paginación y sin límite de 200:
 
 | Endpoint | Permiso | Motivo |
 |---|---|---|
-| `GET /v1/warehouses` | `location.view` | catálogo cerrado y diminuto que la interfaz necesita completo |
+| `GET /v1/warehouses` | `warehouse.view` | catálogo cerrado y diminuto que la interfaz necesita completo |
 | `GET /v1/label-templates` | `label.template_view` | conjunto de plantillas que crece solo cuando un administrador lo decide |
 | `GET /v1/permissions` | `role.manage` | es la matriz de la pantalla de roles; paginarla obligaría a pedir todas las páginas para dibujar un selector |
 
@@ -146,6 +145,7 @@ Estado en la implementación:
 | `POST /v1/invoices/{id}/lines/{lineId}/capture` | **no lee la cabecera** en la implementación actual |
 | `POST /v1/orders/{id}/lines/{lineId}/package` | **no lee la cabecera** en la implementación actual |
 | `POST /v1/orders/{id}/confirm` | **no lee la cabecera** en la implementación actual |
+| `POST /v1/products/import` | idempotente por `product_code`: importar dos veces el mismo archivo no duplica (K2) |
 
 `POST /v1/auth/logout` también es idempotente por diseño: no exige token válido y
 revocar dos veces no falla.
@@ -163,8 +163,8 @@ revocar dos veces no falla.
 
 **`X-Client-Channel` no es decorativo**: la auditoría registra el canal, y
 `MOBILE_OFFLINE` dispara el camino de sincronización diferida. El canal se lee en
-`backend/src/main/kotlin/dev/axzy/stock/backend/security/PermissionChecker.kt` y se
-escribe en `backend/src/main/kotlin/dev/axzy/stock/backend/infrastructure/outbound/persistence/audit/AuditWriter.kt`.
+`api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/http/RequestOrigins.kt` y se
+escribe en `api/adapters-persistence/src/main/kotlin/dev/axzy/stock/adapters/persistence/audit/JdbcAuditRecorder.kt`.
 
 `X-Service-Key` y no `Authorization` para la impresora: así la auditoría distingue
 un trabajo marcado por una máquina (`SERVICE_PRINTER`) de uno hecho por una
@@ -182,10 +182,10 @@ se muestra una sola vez al crearla (`backend/src/main/kotlin/dev/axzy/stock/back
   `TransferResponse`, `InventoryReportItem`, `MovementsSummaryItem`,
   `DivergenceDto` y `MovementResponse` declaran sus cantidades como `String` y las
   escriben con `BigDecimal.toPlainString()`.
-- **Excepción de transporte en el catálogo**: `ProductResponse.stock` y
-  `ImportReportResponse.totalStock` se emiten como **número JSON sin comillas con 3
-  decimales** (`5193.000`), mediante `JsonQuantity` / `JsonQuantitySerializer` en
-  `backend/src/main/kotlin/dev/axzy/stock/backend/catalog/CatalogDtos.kt`.
+- **Excepción de transporte en el catálogo**: `ProductDto.stock` y
+  `ImportReportDto.totalStock` se emiten como **número JSON sin comillas con 3
+  decimales** (`5193.000`), con `Quantity.toJson()` en
+  `api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/catalog/CatalogDtos.kt`.
 
   ```json
   "stock": 5193.000

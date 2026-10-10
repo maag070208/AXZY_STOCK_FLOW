@@ -1,14 +1,20 @@
 # Catálogo
 > **Referencia.** Productos, ubicaciones, bodegas e importación del catálogo.
-> Última verificación: 2026-10-09.
+> Última verificación: 2026-10-10 (fase 4, M01).
 
-Implementado en
-`backend/src/main/kotlin/dev/axzy/stock/backend/catalog/` (el módulo se parte por
-recurso: `product/ProductRoutes.kt`, `location/LocationRoutes.kt`,
-`warehouse/WarehouseRoutes.kt`, con el cableado en `CatalogRoutes.kt` y los
-helpers de validación en `CatalogValidation.kt`). La paginación y los estados
-están en [convenciones.md](convenciones.md); los códigos, en
-[errores.md](errores.md).
+Implementado en capas, como el resto de la API (docs/arquitectura/api-spring.md §1):
+
+| Capa | Archivo |
+|---|---|
+| Rutas | `api/adapters-web/src/main/kotlin/dev/axzy/stock/adapters/web/catalog/` |
+| Casos de uso y puertos | `api/application/src/main/kotlin/dev/axzy/stock/application/catalog/` |
+| Reglas del dominio | `stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/catalog/CatalogModel.kt` |
+| SQL | `api/adapters-persistence/src/main/kotlin/dev/axzy/stock/adapters/persistence/catalog/` |
+| Cableado | `api/app/src/main/kotlin/dev/axzy/stock/app/config/CatalogConfig.kt` |
+
+La paginación y los estados están en [convenciones.md](convenciones.md); los
+códigos, en [errores.md](errores.md). Cada ruta declara su permiso con
+`@RequiresPermission` y el arranque falla si alguna no lo declara (I5).
 
 ## `GET /v1/products`
 
@@ -32,13 +38,19 @@ Lista paginada. `sort` admitido: `productCode`, `name`, `createdAt`. Filtros: `q
 }
 ```
 
-`stock` es el **total derivado**: `Σ stock_by_location` + `Σ stock_in_transit` **con
-`received_at IS NULL`**, calculado en `ProductRepository.totalStockOf`.
+`stock` sale de **`product_stock`, la proyección**, no de sumar el kardex (regla
+R-P3): es `Σ stock_by_location` + `Σ stock_in_transit` con `received_at IS NULL`,
+el mismo número que mantiene el motor de inventario dentro de la transacción que
+mueve el stock.
 
 La condición `received_at IS NULL` es imprescindible: un traslado ya recibido
 tiene sus unidades en `stock_by_location` **y** su fila de tránsito sigue
 existiendo como histórico. Sin excluirla, la misma mercancía contaría dos veces y
 el total sería un número inflado que nadie podría cuadrar.
+
+El saldo viaja en la misma consulta que el listado: resolverlo con una consulta
+por producto sería el N+1 que la regla R-P2 prohíbe. Un listado son **dos
+sentencias** —el conteo y la página—, y está medido en `CatalogPersistenceTest`.
 
 En `stock` la cantidad viaja como **número JSON con 3 decimales** (no como
 cadena); el motivo está en [convenciones.md §1.7](convenciones.md).
@@ -116,21 +128,36 @@ vuelta atrás.
 }
 ```
 
-El informe real añade `persisted` (filas escritas de verdad, `0` en simulación) y
+El informe real añade `created`, `updated` y `skipped` —importar dos veces el
+mismo archivo dice `created: 0` y `skipped: 1398`, que es lo que hace visible que
+no se hizo nada—, `persisted` (filas escritas de verdad, `0` en simulación) y
 `stockPersisted` (siempre `false` en esta fase: el stock del archivo es el total
 del legacy y no dice en qué estantería está cada pieza; la carga inicial de
 existencias es una decisión de negocio con su propio movimiento `INITIAL` en el
-kardex).
+kardex, fase 5).
 
 **`rejections` con el número de fila es obligatorio**: sin él, el usuario no puede
 corregir el archivo. Se usa el número de fila **físico** del archivo (la cabecera
 es la 1), que es el que se ve en Excel. El importador del dominio ya lo produce
 (`CatalogImporter`).
 
-Si el import real encuentra filas inválidas, **no escribe ninguna** y responde
-`409 IMPORT_HAS_REJECTIONS`. Otros errores: `400 FILE_REQUIRED`, `FILE_TOO_LARGE`,
-`EMPTY_FILE`, `IMPORT_FILE_FORMAT`, `INVALID_DRY_RUN`; `422 INVALID_PRODUCT_CODE`,
+Si el archivo tiene filas inválidas, **no se escribe ninguna** y responde
+`422 IMPORT_INVALID_ROWS`, con un `details` por fila (`fila_4`) hasta un máximo de
+50. La validación ocurre **antes** de mirar `dryRun`: una simulación con filas
+malas tampoco es un informe válido. `IMPORT_HAS_REJECTIONS` queda declarado en el
+catálogo de errores pero **no se emite**: era la respuesta del legacy para el mismo
+caso.
+
+Otros errores: `400 FILE_REQUIRED`, `FILE_TOO_LARGE`, `EMPTY_FILE`,
+`IMPORT_FILE_FORMAT`, `INVALID_DRY_RUN`; `422 INVALID_PRODUCT_CODE`,
 `UNKNOWN_UNIT_MEASURE`, `IMPORT_INVALID_EXTERNAL_ID`.
+
+**Formatos: CSV y TSV.** El delimitador se decide por la cabecera, no por la
+extensión: el archivo trabajado de la migración es un TSV
+(`scripts/catalogo-existencias.tsv`). **XLSX todavía no se lee**: responde
+`IMPORT_FILE_FORMAT` diciendo que la lectura del Excel llega con la migración de
+datos (M10). Es un hueco declarado, no un fallo silencioso: exportar la hoja a CSV
+es el camino de hoy.
 
 ## `GET|POST /v1/locations`, `GET|PUT|DELETE /v1/locations/{id}`
 
@@ -170,22 +197,33 @@ ubicación de `RECEIVING` no se puede desactivar: `409 RECEIVING_LOCATION_PROTEC
 Una ubicación con existencias responde `409 LOCATION_HAS_STOCK` con
 `details.stock`.
 
-## `GET /v1/warehouses`
+## `GET|POST /v1/warehouses`, `PUT /v1/warehouses/{id}`
 
-Permiso: `location.view`. **Sin sobre de paginación y sin límite de 200**, y es
-deliberado: es un catálogo cerrado y diminuto que la interfaz necesita completo
-para poblar un desplegable (véase [convenciones.md §1.4](convenciones.md)). Admite
-`q` y `active`.
+`GET` exige `warehouse.view`; `POST`, `warehouse.create`; `PUT`,
+`warehouse.edit`. Las rutas de bodega usan el permiso **de bodega** y no
+`location.view`: cada recurso declara el suyo, y los cuatro roles base tienen
+ambos, así que no cambia quién puede entrar.
+
+El listado va **sin sobre de paginación y sin límite de 200**, y es deliberado: es
+un catálogo cerrado y diminuto que la interfaz necesita completo para poblar un
+desplegable (véase [convenciones.md §1.4](convenciones.md)). Admite `q` y `active`.
 
 ```json
 { "items": [{ "id": 1, "code": "PRINCIPAL", "name": "Bodega principal", "isDefault": true, "active": true }] }
 ```
 
+`POST` responde **201** con la bodega creada. Si nace con `isDefault: true`, la
+anterior deja de serlo **en la misma transacción**: el índice parcial
+`warehouses_one_default_idx` no admite dos. `PUT` cambia código, nombre, dirección
+y la marca de predeterminada; **la marca no se puede quitar sin poner otra** (un
+`isDefault: false` sobre la predeterminada la conserva), porque el sistema necesita
+saber dónde aterriza lo que llega sin destino declarado.
+
 ## Verificación
 
 | Archivo | Qué cubre |
 |---|---|
-| `backend/src/test/kotlin/dev/axzy/stock/backend/catalog/CatalogRoutesTest.kt` | rutas de productos, ubicaciones y bodegas |
-| `backend/src/test/kotlin/dev/axzy/stock/backend/catalog/CatalogImportTest.kt` | importación (`POST /v1/products/import`) |
-| `backend/src/test/kotlin/dev/axzy/stock/backend/catalog/CatalogValidationTest.kt` | validaciones del catálogo |
-| `backend/src/test/kotlin/dev/axzy/stock/backend/catalog/PaginationTest.kt` | paginación y tope de `size` |
+| `api/app/src/test/kotlin/dev/axzy/stock/app/CatalogFlowTest.kt` | K1–K6, I5, I8 y los listados, por HTTP real |
+| `api/app/src/test/kotlin/dev/axzy/stock/app/RoutePermissionTest.kt` | I5: toda ruta declara su permiso, y el permiso existe en el catálogo |
+| `api/adapters-persistence/src/test/kotlin/dev/axzy/stock/adapters/persistence/CatalogPersistenceTest.kt` | SQL, paginación (R-P2), proyección del saldo (R-P3) e idempotencia de la importación |
+| `stock-domain/src/commonTest/kotlin/dev/axzy/stock/domain/catalog/CatalogModelTest.kt` | las reglas del catálogo, sin base de datos |

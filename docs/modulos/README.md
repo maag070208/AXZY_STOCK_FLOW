@@ -1,5 +1,5 @@
 # Módulos de negocio
-> **Normativo.** Índice y estado de cada capacidad de STOCK. Última verificación: 2026-10-09.
+> **Normativo.** Índice y estado de cada capacidad de StockFlow. Última verificación: 2026-10-09.
 > El estado sale del código, no de tablas de progreso antiguas.
 
 ## Qué significa cada columna

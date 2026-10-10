@@ -1,4 +1,4 @@
-// STOCK: dominio compartido (KMP) y API (Kotlin + Spring Boot).
+// StockFlow: dominio compartido (KMP) y API (Kotlin + Spring Boot).
 // La app móvil y la web son builds propios; ver docs/plan/PLAN-IMPLEMENTACION.md.
 
 rootProject.name = "stock"

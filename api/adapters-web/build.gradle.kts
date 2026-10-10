@@ -11,4 +11,7 @@ dependencies {
     // Solo para leer la identidad ya verificada (`Authentication`); la cadena de filtros se configura en `app`.
     implementation("org.springframework.security:spring-security-core")
     implementation("tools.jackson.module:jackson-module-kotlin")
+
+    // `MockMultipartFile`: probar el lector del archivo sin arrancar un servidor.
+    testImplementation("org.springframework:spring-test")
 }

@@ -1,0 +1,54 @@
+{
+  "name": "stockflow-web",
+  "private": true,
+  "license": "MIT",
+  "version": "0.1.0",
+  "productName": "StockFlow",
+  "description": "Web del sistema de almacén StockFlow (FSD + React + AXZY UI System)",
+  "type": "module",
+  "scripts": {
+    "dev": "SWC_NATIVE_BINDING_CACHE=\"$PWD/.cache/swc\" vite --port 5173 --strictPort --host 127.0.0.1",
+    "build": "SWC_NATIVE_BINDING_CACHE=\"$PWD/.cache/swc\" tsc --noEmit && SWC_NATIVE_BINDING_CACHE=\"$PWD/.cache/swc\" vite build",
+    "preview": "SWC_NATIVE_BINDING_CACHE=\"$PWD/.cache/swc\" vite preview --port 5173 --strictPort --host 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings=0",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@axzydev/axzy_ui_system": "^1.4.7",
+    "@reduxjs/toolkit": "^2.5.1",
+    "axios": "^1.7.9",
+    "lottie-web": "5.13.0",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-icons": "^5.5.0",
+    "react-redux": "^9.2.0",
+    "react-router-dom": "^7.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.19.0",
+    "@playwright/test": "^1.64.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^22.13.5",
+    "@types/react": "19.0.8",
+    "@types/react-dom": "19.0.3",
+    "@vitejs/plugin-react-swc": "3.8.0",
+    "eslint": "^9.19.0",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-boundaries": "^7.2.0",
+    "eslint-plugin-react-hooks": "5.0.0",
+    "eslint-plugin-react-refresh": "0.4.18",
+    "globals": "^15.14.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "~5.7.2",
+    "typescript-eslint": "^8.22.0",
+    "vite": "^6.1.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "@swc/core",
+      "@tailwindcss/oxide"
+    ]
+  }
+}

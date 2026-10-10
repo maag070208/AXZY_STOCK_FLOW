@@ -1,5 +1,5 @@
 # API: Kotlin con Spring Boot, en capas e inyección por constructor
-> **Normativo.** Cómo está organizada la API. Decisiones en [ADR-0014](../adr/0014-api-spring-boot-clean-architecture.md) y [ADR-0015](../adr/0015-postgresql-flyway-motor-en-sql.md). Cada afirmación cita el archivo que la sostiene. Última revisión: 2026-10-10.
+> **Normativo.** Cómo está organizada la API. Decisiones en [ADR-0014](../adr/0014-api-spring-boot-clean-architecture.md) y [ADR-0015](../adr/0015-postgresql-flyway-motor-en-sql.md). Cada afirmación cita el archivo que la sostiene. Última revisión: 2026-10-10 (fase 4).
 
 ## 1. Módulos y dependencias
 
@@ -57,6 +57,8 @@ Android (`stock-domain/build.gradle.kts`).
 | `SecurityConfig.kt` | La cadena de seguridad HTTP |
 | `SchemaGuard.kt` | La comprobación de versión del esquema al arrancar |
 | `StockProperties.kt` | La configuración tipada (`stock.*` en `application.yml`) |
+| `CatalogConfig.kt` | El catálogo (M01): puertos de entrada y rutas |
+| `RoutePermissionAudit.kt` | I5: una ruta sin declarar qué exige impide el arranque |
 
 Un caso de uso no sabe que existe Spring. `Login` se construye igual en una prueba que en producción:
 
@@ -154,10 +156,10 @@ Un paquete por concepto de negocio dentro de cada módulo, no por tipo técnico:
 
 ```
 dev.axzy.stock.domain.{access, audit, catalog, fulfillment, identity, inventory, receiving, transfer, …}
-dev.axzy.stock.application.{access, audit, health, identity, shared}
-dev.axzy.stock.adapters.persistence.{audit, health, identity, shared}
+dev.axzy.stock.application.{access, audit, catalog, health, identity, shared}
+dev.axzy.stock.adapters.persistence.{audit, catalog, health, identity, shared}
 dev.axzy.stock.adapters.security
-dev.axzy.stock.adapters.web.{health, http, identity, security}
+dev.axzy.stock.adapters.web.{catalog, health, http, identity, security}
 dev.axzy.stock.app.config
 ```
 
@@ -165,11 +167,13 @@ dev.axzy.stock.app.config
 
 | Nivel | Qué prueba | Dónde | Base de datos |
 |---|---|---|---|
-| Dominio | Reglas, estados, errores (392 pruebas) | `stock-domain/src/commonTest`, `jvmTest` | No |
-| Persistencia | Adaptadores, funciones SQL, permisos del rol y concurrencia | `api/adapters-persistence/src/test` | PostgreSQL real |
-| Criptografía | Argon2id, firma y verificación de tokens | `api/adapters-security/src/test` | No |
-| Arquitectura | Las reglas de §1 y §2 | `api/app/src/test/.../ArchitectureTest.kt` | No |
-| Flujo completo | Los flujos de [flujos/](../flujos/README.md) por HTTP real | `api/app/src/test` | PostgreSQL real |
+| Dominio | Reglas, estados, errores (407 pruebas) | `stock-domain/src/commonTest`, `jvmTest` | No |
+| Aplicación | Casos de uso y reglas transversales (paginación, 7) | `api/application/src/test` | No |
+| Persistencia | Adaptadores, funciones SQL, permisos del rol, presupuesto de consultas y concurrencia (54) | `api/adapters-persistence/src/test` | PostgreSQL real |
+| Web | Controladores y contrato de error, sin arrancar el servidor (8) | `api/adapters-web/src/test` | No |
+| Criptografía | Argon2id, firma y verificación de tokens (11) | `api/adapters-security/src/test` | No |
+| Arquitectura | Las reglas de §1 y §2, y que toda ruta declare su permiso (I5) | `api/app/src/test/.../ArchitectureTest.kt`, `RoutePermissionTest.kt` | No |
+| Flujo completo | Los flujos de [flujos/](../flujos/README.md) por HTTP real (62) | `api/app/src/test` | PostgreSQL real |
 
 **La base de pruebas** es PostgreSQL 16 en Testcontainers con las migraciones reales
 (`api/adapters-persistence/src/testFixtures/.../TestDatabase.kt`). El código bajo prueba se conecta
@@ -183,7 +187,7 @@ tiempo.
 Testcontainers lanza un error y el build se rompe.
 
 ```bash
-GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew test    # 474 pruebas el 2026-10-10
+GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew test    # 549 pruebas el 2026-10-10
 ```
 
 El build detecta el socket del contexto de Docker activo (Colima, OrbStack, Docker Desktop), así que
@@ -205,7 +209,7 @@ Cada una tiene una prueba; las que aún no la tienen indican la fase.
 | Regla | Forma incorrecta (legacy) | Forma correcta | Prueba |
 |---|---|---|---|
 | R-P1. Ninguna consulta dentro de un bucle | `findUnique` de usuario por línea (`invoice.service.ts:178`) | Una consulta con `JOIN`, y mapeo en memoria | `IdentityPersistenceTest`: cargar al actor son 2 consultas con 1 rol o con 3 |
-| R-P2. Ningún listado sin límite | `findMany()` de toda la tabla y filtro en JavaScript (`kardex.service.ts:587`) | Filtro y `LIMIT` en la consulta | Fase 4 (listados) |
+| R-P2. Ningún listado sin límite | `findMany()` de toda la tabla y filtro en JavaScript (`kardex.service.ts:587`) | Filtro y `LIMIT` en la consulta | `CatalogPersistenceTest`: un listado son 2 sentencias con 1 fila o con 50 |
 | R-P3. El saldo no se recalcula desde el historial | Sumar todo el kardex en cada operación (`kardex.service.ts:408`) | Leer la proyección | Fase 5 |
 | R-P4. Toda escritura de varios pasos va en una transacción | `addKardex` escribe el kardex y después el stock (`kardex.service.ts:241-258`) | Un solo `inTransaction { }` | `JdbcAuditRecorderTest` (U1): un `Left` no deja nada escrito |
 | R-P5. Ninguna operación queda sin esperar | `orderDetail.map((item) => addKardexOut(...))` sin `await` (`order.service.ts:350`) | Llamadas secuenciales dentro de la transacción | Fase 7 |

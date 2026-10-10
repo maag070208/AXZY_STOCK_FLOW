@@ -12,7 +12,7 @@
 
 ## 1. Objetivo
 
-Intercambiar datos con sistemas que no son STOCK: devolver las órdenes surtidas al ERP y, si
+Intercambiar datos con sistemas que no son StockFlow: devolver las órdenes surtidas al ERP y, si
 hace falta, leer lo que el sistema anterior dejó en su base.
 
 ## 2. Alcance

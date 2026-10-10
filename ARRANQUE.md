@@ -69,6 +69,37 @@ El recuento real está en los XML de `**/build/test-results/`, no en «BUILD SUC
 **Las pruebas que necesitan PostgreSQL fallan si no hay Docker; no se saltan.** Una prueba saltada
 cuenta como aprobada y un «0 fallos» sin base querría decir «no se probó nada».
 
+## La web
+
+Hace falta Node 20 o superior y `pnpm`. La API tiene que estar levantada.
+
+```bash
+cd web
+pnpm install
+pnpm dev            # http://127.0.0.1:5173, con proxy a la API
+```
+
+El navegador habla **siempre con rutas relativas** (`/v1/...`): en desarrollo las proxya Vite y en
+producción lo hace nginx. Así no hay CORS ni una URL que se rompa al cambiar de entorno. Si la API
+no está en el puerto por defecto: `STOCK_API_URL=http://127.0.0.1:9090 pnpm dev`.
+
+| Comando | Qué hace |
+|---|---|
+| `pnpm dev` | Servidor de desarrollo con proxy a la API |
+| `pnpm typecheck` | `tsc --noEmit` |
+| `pnpm lint` | `eslint . --max-warnings=0`: impone las capas FSD y los envoltorios del UI system |
+| `pnpm build` | `tsc --noEmit && vite build` |
+| `pnpm test:e2e` | Playwright (9 pruebas). Necesita la API levantada |
+
+**La primera vez te obliga a cambiar la contraseña**, y es el comportamiento documentado (I8):
+mientras no la cambies, la API responde `PASSWORD_CHANGE_REQUIRED` a todo lo demás y la web solo
+enseña esa pantalla. Después aparece el menú con Productos, Ubicaciones y Bodegas.
+
+**La caché del binario nativo de SWC vive dentro del proyecto.** Los scripts la fijan con
+`SWC_NATIVE_BINDING_CACHE="$PWD/.cache/swc"`; sin eso, `@swc/core` intenta escribir un cerrojo en
+`~/Library/Caches/swc-native-*` y el build falla con «Failed to load native binding», un error que no
+dice nada de la causa.
+
 Cuatro pruebas del dominio (`CatalogImporterTest`) leen el extracto real del catálogo,
 `stock-domain/src/jvmTest/resources/catalogo_real.csv`. Ese archivo **no se versiona** (son datos de
 la empresa, ver `.gitignore`): en un clon nuevo hay que colocarlo ahí o esas cuatro pruebas fallan
@@ -85,16 +116,37 @@ contenedores.
 
 ### Verificado ejecutándolo (2026-10-10)
 
-- **474 pruebas, 0 fallos, 0 omitidas**: 392 del dominio, 36 de persistencia, 11 de criptografía y 35
-  de flujo completo por HTTP.
+- **549 pruebas, 0 fallos, 0 omitidas**: 407 del dominio, 7 de la capa de aplicación, 54 de
+  persistencia, 8 de la capa web, 11 de criptografía y 62 de flujo completo por HTTP.
 - La imagen de la API se construye y arranca en Compose; `/v1/health` responde `UP` con el esquema en V12.
 - Login, sesión actual, renovación con detección de reuso, cierre de sesión y cambio de contraseña.
 - El usuario de la API no puede crear tablas ni modificar el kardex o la bitácora.
+- **Catálogo (fase 4)**: productos con alta, edición y baja lógica; ubicaciones con la de recepción
+  protegida; bodegas con una sola predeterminada; e importación estricta e idempotente del catálogo
+  (K1–K6). Cada ruta declara su permiso y la API no arranca si alguna no lo hace (I5).
+- **Web (fase 11, empezada)**: entrada y cambio de contraseña obligatorio contra la API real;
+  menú lateral con las entradas que permiten los permisos de la sesión; y las tres pantallas del
+  catálogo (productos con alta/edición/baja e importación con simulación, ubicaciones y bodegas),
+  con la marca del paquete de iconos (favicon, manifiesto, glifo del armazón) y el loader de Lottie
+  mientras la importación trabaja. `tsc`, `eslint` (con las guardias de capas y de envoltorios
+  **probadas fallando**) y `vite build` en verde, y 11 pruebas de navegador: 5 contra la API real y
+  6 con la API simulada.
+
+```bash
+# El catálogo, de punta a punta (necesita una sesión con permisos de catálogo)
+curl -s -X POST http://127.0.0.1:8081/v1/products/import   -H "Authorization: Bearer $TOKEN" -F "file=@catalogo.csv" -F "dryRun=true"
+```
 
 ### No construido todavía
 
-- Los módulos de negocio (catálogo, existencias, recepción, surtido, traslados, etiquetas).
-- La app (Kotlin Multiplatform) y la web (React + AXZY UI System).
+- Los módulos de negocio que siguen: existencias, recepción, surtido, traslados y etiquetas.
+- **Dentro del catálogo**: la lectura de XLSX nativo (llega con la migración de datos, M10; hoy la
+  importación acepta CSV y TSV).
+- **Dentro de la web**: las pantallas de los módulos que aún no tienen endpoint (existencias,
+  recepción, surtido, traslados y etiquetas) no se dibujan; el inicio dice cuáles faltan. Tampoco
+  está el despliegue de la web (Dockerfile con nginx y su servicio en Compose). La marca sí: el
+  paquete de iconos está versionado y conectado (favicon, manifiesto y el glifo del armazón).
+- La app (Kotlin Multiplatform).
 
 El orden y el criterio de terminado de cada uno están en
 [docs/plan/PLAN-IMPLEMENTACION.md](docs/plan/PLAN-IMPLEMENTACION.md).

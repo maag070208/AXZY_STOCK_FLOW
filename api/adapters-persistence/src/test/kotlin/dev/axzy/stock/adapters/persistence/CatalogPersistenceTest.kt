@@ -182,6 +182,30 @@ class CatalogPersistenceTest {
     }
 
     @Test
+    fun `R-P2 - el listado de ubicaciones tambien son dos sentencias`() {
+        repeat(20) { locations.insert(NewLocation(defaultWarehouse, "1$it", "A", "A", 1, LocationKind.SHELF)) }
+
+        val filter = LocationFilter(null, defaultWarehouse, null, null)
+        val statements = db.statements.during { locations.page(filter, PageRequest.of(page = 0, size = 10)) }
+        val page = locations.page(filter, PageRequest.of(page = 0, size = 10))
+
+        assertThat(statements).isEqualTo(2)
+        // 20 estantes, la recepción y la ubicación del saldo heredado (SIN-UBICAR),
+        // que siembra la migración V6.
+        assertThat(page.totalItems).isEqualTo(22)
+        assertThat(page.items).hasSize(10)
+    }
+
+    @Test
+    fun `R-P2 - el listado de bodegas es una sola sentencia`() {
+        warehouses.insert(NewWarehouse("NORTE", "Bodega norte", null, isDefault = false))
+
+        val statements = db.statements.during { warehouses.list(null, null) }
+
+        assertThat(statements).isEqualTo(1)
+    }
+
+    @Test
     fun `el listado de ubicaciones filtra por bodega y por tipo`() {
         locations.insert(NewLocation(defaultWarehouse, "07", "A", "A", 1, LocationKind.SHELF))
 

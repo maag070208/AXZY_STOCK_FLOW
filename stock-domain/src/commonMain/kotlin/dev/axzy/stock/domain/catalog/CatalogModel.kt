@@ -74,7 +74,7 @@ enum class LocationKind {
  * producto, donde una minúscula indica que algo cambió en el origen del dato y
  * por eso **se rechaza**.
  */
-@JvmInline
+@kotlin.jvm.JvmInline
 value class LocationPart private constructor(val value: String) {
 
     companion object {

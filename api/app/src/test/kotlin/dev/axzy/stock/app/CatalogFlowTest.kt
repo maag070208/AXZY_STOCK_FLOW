@@ -53,6 +53,23 @@ class CatalogFlowTest : ApiTest() {
         assertThat(productCount()).isZero()
     }
 
+    @Test
+    fun `una simulacion con filas invalidas tampoco produce informe`() {
+        val token = manager()
+        val file = csv(
+            "1,ABRAA1B,ABRAZADERA,PZA,10",
+            "2,abraa1c,EN MINUSCULAS,PZA,5",
+        )
+
+        // El código en minúsculas se rechaza, no se normaliza: indica que algo cambió
+        // en el origen del dato.
+        val response = postFile("/v1/products/import", file, token = token)
+
+        assertThat(response.status).isEqualTo(422)
+        assertThat(response.code).isEqualTo("IMPORT_INVALID_ROWS")
+        assertThat(productCount()).isZero()
+    }
+
     // ── K2: la importación es idempotente ───────────────────────────────────
 
     @Test
@@ -234,8 +251,9 @@ class CatalogFlowTest : ApiTest() {
 
         // El producto activo es el que se busca: el inactivo ya no está.
         assertThat(get("/v1/products/$id", token).code).isEqualTo("PRODUCT_NOT_FOUND")
-        assertThat(get("/v1/products", token).at<List<Map<String, Any?>>>("items")).isEmpty()
-        // Y desaparecer no es borrar: la fila sigue, con su historial.
+        assertThat(get("/v1/products?active=true", token).at<List<Map<String, Any?>>>("items")).isEmpty()
+        // Y desaparecer no es borrar: la fila sigue, y sin filtro se puede seguir viendo.
+        assertThat(get("/v1/products?active=false", token).at<List<Map<String, Any?>>>("items")).hasSize(1)
         assertThat(productCount()).isEqualTo(1)
     }
 

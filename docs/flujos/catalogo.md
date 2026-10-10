@@ -1,5 +1,5 @@
 # Catálogo: productos, ubicaciones, bodegas e importación
-> **Normativo.** Última revisión: 2026-10-09. Reglas de origen: [ADR-0011](../adr/0011-catalogo-fuente-maestra.md), [ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md), [ADR-0012](../adr/0012-conciliar-stock-heredado-con-conteo.md). Módulo: [M01](../modulos/M01-catalogo/README.md).
+> **Normativo.** Última revisión: 2026-10-10 (K1–K6 en verde; ver §5-bis). Reglas de origen: [ADR-0011](../adr/0011-catalogo-fuente-maestra.md), [ADR-0009](../adr/0009-ubicacion-de-recepcion-real.md), [ADR-0012](../adr/0012-conciliar-stock-heredado-con-conteo.md). Módulo: [M01](../modulos/M01-catalogo/README.md).
 
 ## 1. Objetivo y actores
 
@@ -97,6 +97,23 @@ duplica nada.
 - Cuando se marca otra como predeterminada.
 - Entonces la anterior deja de serlo en la misma transacción, o la operación se rechaza. Nunca quedan dos.
 
+### 5-bis. Estado de estas pruebas (2026-10-10)
+
+Las seis están automatizadas y en verde en `api/app/src/test/kotlin/dev/axzy/stock/app/CatalogFlowTest.kt`,
+por HTTP real. Dos matices que el documento no fijaba y conviene dejar escritos:
+
+- **K1 responde `422 IMPORT_INVALID_ROWS` con cualquier `dryRun`.** La validación ocurre antes de
+  mirar la simulación: un archivo con filas malas no produce un informe válido en ninguno de los dos
+  modos. `IMPORT_HAS_REJECTIONS` queda declarado en el catálogo de errores y **no se emite**.
+- **K5, la parte de «no recibe movimientos», se cierra en la fase 5.** Hoy no existe el endpoint de
+  movimientos; lo que se comprueba es lo que el propio documento dice que debe responder: el producto
+  inactivo deja de encontrarse (`PRODUCT_NOT_FOUND`). Cuando llegue el motor, la prueba se amplía al
+  movimiento.
+
+Y un hueco declarado: la importación acepta **CSV y TSV**; el **XLSX** nativo llega con la migración
+de datos (M10). Hasta entonces responde `IMPORT_FILE_FORMAT` diciéndolo, en lugar de fallar de una
+forma que parezca un error del usuario.
+
 ## 6. Errores
 
 | Código | HTTP | Cuándo |
@@ -106,7 +123,7 @@ duplica nada.
 | `PRODUCT_CODE_DUPLICATE` | 409 | El código ya existe |
 | `LOCATION_NOT_FOUND` | 404 | La ubicación no existe o está inactiva |
 | `RECEIVING_LOCATION_PROTECTED` | 409 | Se intenta desactivar la ubicación de recepción |
-| `IMPORT_INVALID_ROWS` | 422 | El archivo tiene filas inválidas; lista cada una con su motivo |
+| `IMPORT_INVALID_ROWS` | 422 | El archivo tiene filas inválidas; `details` lista las filas (hasta 50) con su motivo |
 
 ## 7. Permisos
 

@@ -75,14 +75,20 @@ Se compila a bytecode de Java 17 para que lo carguen la API y Android
 
 | Componente | Función | Versión | Fuente y fecha |
 |---|---|---|---|
-| React / React DOM | Interfaz | *Pendiente* (19.x) | — |
-| TypeScript | Tipos | *Pendiente* | — |
-| Vite | Build y servidor de desarrollo | *Pendiente* | — |
-| AXZY UI System (`@axzydev/axzy_ui_system`) | Componentes y tema | `^1.4.7` (en CYC, instalado `1.4.7`) | Uso real en `~/DEV/CYC/web/package.json` y `node_modules`, revisado el 2026-10-09 |
-| Tailwind CSS / `@tailwindcss/vite` | Utilidades; se usa en capas ([web-react.md](web-react.md) §5) | `4.3.3` / `^4.3.3` (como en CYC) | `~/DEV/CYC/web/package.json` |
-| React Router | Rutas | *Pendiente* | — |
-| Playwright | Pruebas de navegador | *Pendiente* | — |
-| ESLint con `eslint-plugin-boundaries` | Imponer las capas FSD | *Pendiente* | — |
+| React / React DOM | Interfaz | `19.0.0` | `web/package.json`, instalado y compilando el 2026-10-10 |
+| TypeScript | Tipos | `~5.7.2` (instalado 5.7.3) | `web/package.json` |
+| Vite | Build y servidor de desarrollo | `^6.1.0` (instalado 6.4.4) | `web/package.json` |
+| `@vitejs/plugin-react-swc` | Compilación de React | `3.8.0` | `web/package.json` |
+| AXZY UI System (`@axzydev/axzy_ui_system`) | Componentes y tema | `^1.4.7` (instalado 1.4.7) | `web/package.json`; `d.ts` leído el 2026-10-10 |
+| Tailwind CSS / `@tailwindcss/vite` | Utilidades; se usa en capas ([web-react.md](web-react.md) §5) | `4.3.3` / `^4.3.3` | `web/package.json` |
+| React Router | Rutas | `^7.2.0` | `web/package.json` |
+| Redux Toolkit / React Redux | Estado de la sesión | `^2.5.1` / `^9.2.0` | `web/package.json` |
+| Playwright | Pruebas de navegador | `^1.64.0` | `web/package.json`; 9 pruebas en verde el 2026-10-10 |
+| ESLint con `eslint-plugin-boundaries` | Imponer las capas FSD | `^9.19.0` / `^7.2.0` | `web/package.json`; la guardia se verificó haciéndola fallar |
+
+Las versiones de la web se fijan **al empezar su fase** (2026-10-10), como manda §«Qué se decide en
+la fase 0». Se toman las que ya usaba CYC —misma familia de producto y mismo UI system— y se
+comprueban instalándolas: `pnpm install`, `tsc --noEmit`, `eslint --max-warnings=0` y `vite build`.
 
 ## Infraestructura
 

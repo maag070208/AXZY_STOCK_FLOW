@@ -1,5 +1,5 @@
 # Arquitectura general: API, app y web
-> **Normativo.** Cómo se relacionan las tres partes de STOCK y qué se comparte entre ellas. Última revisión: 2026-10-09.
+> **Normativo.** Cómo se relacionan las tres partes de StockFlow y qué se comparte entre ellas. Última revisión: 2026-10-09.
 
 | Parte | Tecnología | Arquitectura | Unidad de organización | Fuerza |
 |---|---|---|---|---|

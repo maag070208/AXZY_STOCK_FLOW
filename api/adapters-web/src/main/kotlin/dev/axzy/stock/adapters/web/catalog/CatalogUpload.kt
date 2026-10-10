@@ -24,8 +24,13 @@ import org.springframework.web.multipart.MultipartFile
 class CatalogUpload(private val importer: CatalogImporter) {
 
     fun read(file: MultipartFile?): Outcome<List<CatalogRow>> {
-        if (file == null || file.isEmpty) {
+        if (file == null) {
             return failure(FailureKind.INVALID_REQUEST, "FILE_REQUIRED", "Falta el archivo del catálogo.")
+        }
+        // Un archivo de cero bytes no es «falta el archivo»: llegó, y está vacío. El
+        // cliente hace algo distinto con cada código (volver a adjuntar, o mirar el archivo).
+        if (file.isEmpty) {
+            return failure(FailureKind.INVALID_REQUEST, "EMPTY_FILE", "El archivo no tiene filas de datos.")
         }
         val name = file.originalFilename.orEmpty().lowercase()
         if (EXCEL.any { name.endsWith(it) }) {

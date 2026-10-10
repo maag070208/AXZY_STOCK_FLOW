@@ -1,0 +1,31 @@
+/*
+ * Orden de capas de Tailwind y del UI system.
+ *
+ * **Estado: la decisión de docs/arquitectura/web-react.md §5.** El README del
+ * paquete documenta un orden y CYC usa el contrario, y las dos afirmaciones
+ * tienen argumentos. Aquí se usa el orden del **README** (el que documenta el
+ * autor del paquete) y el sidebar se verifica en escritorio antes de dar la fase
+ * por terminada; si la prueba falla, se cambia el orden y se anota por qué.
+ */
+@layer theme, base, axzy-ui-system, components, utilities;
+
+@import "tailwindcss";
+@import "@axzydev/axzy_ui_system/dist/index.css" layer(axzy-ui-system);
+
+:root {
+  /* Fondo claro de la identidad de StockFlow (docs/guia/identidad-visual.md). */
+  --layout-bg: #f2f6fc;
+}
+
+/* Lenguaje visual plano (`appearance="flat"`): superficies blancas con borde
+   fino. El selector gana a las variables que inyecta el provider. */
+:root[data-it-appearance="flat"] {
+  --it-layout-bg: #f2f6fc;
+  --it-sidebar-border: #dfe6f2;
+  --it-topbar-border: #dfe6f2;
+}
+
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}

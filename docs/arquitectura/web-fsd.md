@@ -47,11 +47,24 @@ que nadie lo vea hasta el despliegue.
 | `app` | todo (`app`, `shared`, `entities`, `features`, `widgets`, `pages`) |
 | `shared` | solo `shared` |
 | `entities` | `entities`, `shared` |
-| `features` | `entities`, `shared` |
-| `widgets` | `features`, `entities`, `shared` |
-| `pages` | `widgets`, `features`, `entities`, `shared` |
+| `features` | `app`, `entities`, `shared` |
+| `widgets` | `app`, `features`, `entities`, `shared` |
+| `pages` | `app`, `widgets`, `features`, `entities`, `shared` |
 
-`pnpm lint` (`eslint . --max-warnings=0`, `web/package.json`) falla si se rompe.
+`app` aparece en `features`, `widgets` y `pages` por una razón concreta y acotada: los tipos del
+store (`RootState`, `AppDispatch`) se importan con `import type` para tipar los `useSelector` y los
+`dispatch`. El linter no distingue un `import type`, así que la relación se permite y la disciplina
+la pone la revisión: **nunca un valor de `app` desde una capa inferior**.
+
+`pnpm lint` (`eslint . --max-warnings=0`, `web/package.json`) falla si se rompe, y **se comprobó que
+falla**: con una sonda que importaba `@pages` desde `shared`, el linter respondió
+`There is no policy allowing dependencies from elements of type "shared" to elements of type "pages"`
+(docs/pruebas/verificacion.md §2).
+
+**La segunda guardia del linter.** Una página, una feature o una entidad **no pueden importar
+`ITDataTable` ni `ITPage`** del UI system: se usan los envoltorios de `shared/ui`
+([web-react.md](web-react.md) §4). Lo impone una regla `no-restricted-syntax`, y también se comprobó
+haciéndola fallar.
 
 ## 2.3 Reglas concretas que el compilador no detecta
 

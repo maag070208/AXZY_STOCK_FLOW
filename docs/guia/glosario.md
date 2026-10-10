@@ -23,3 +23,15 @@
 | **Segregación de funciones** | Quien captura una línea no puede aprobar su discrepancia. | [ADR-0008](../adr/0008-discrepancias-y-merma.md) |
 | **Legacy** | El sistema anterior en `BASE/`. | [migracion/legacy-inventario.md](../migracion/legacy-inventario.md) |
 | **Conteo físico** | Recuento real de existencias, previo al corte. | [ADR-0012](../adr/0012-conciliar-stock-heredado-con-conteo.md) |
+
+## El nombre del producto
+
+El producto se llama **StockFlow**. Los identificadores técnicos siguen siendo `stock`, y **no se
+renombran**: el paquete Kotlin es `dev.axzy.stock`, el módulo de reglas `stock-domain`, la base
+`stock`, las imágenes `stockflow-*` y el proyecto de Compose `stockflow` (se llamó así para no pisar
+los contenedores del sistema anterior). Renombrarlos tocaría migraciones, despliegues y el historial
+de git a cambio de nada.
+
+La regla, entonces: **en la interfaz y en los documentos, StockFlow; en el código y en la
+infraestructura, `stock`/`stockflow`**. El arte de marca dice StockFlow desde el principio, y es lo
+que fijó esta decisión (2026-10-10).

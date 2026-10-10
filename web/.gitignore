@@ -1,0 +1,11 @@
+node_modules
+dist
+dist-ssr
+.cache
+*.local
+.DS_Store
+
+# Playwright
+playwright-report
+test-results
+blob-report

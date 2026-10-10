@@ -88,12 +88,14 @@ Errores de recurso inexistente (§404):
 | `PRODUCT_NOT_FOUND` | el `{id}` de producto no corresponde a ningún producto |
 | `LOCATION_NOT_FOUND` | el `{id}` de ubicación no corresponde a ninguna ubicación |
 
-`PRODUCT_NOT_FOUND` y `LOCATION_NOT_FOUND` los emite el código
-(`backend/src/main/kotlin/dev/axzy/stock/backend/catalog/CatalogValidation.kt`) y
-pertenecen a la lista cerrada: un cliente que decide con `code` distingue «el
+`PRODUCT_NOT_FOUND` y `LOCATION_NOT_FOUND` los emite el dominio
+(`stock-domain/src/commonMain/kotlin/dev/axzy/stock/domain/error/DomainError.kt`)
+y pertenecen a la lista cerrada: un cliente que decide con `code` distingue «el
 producto no existe» de «la ruta no existe», que para el usuario son dos mensajes
-distintos. Un test unitario comprueba contra este catálogo que todo código emitido
-está declarado.
+distintos. Un test (`RoutePermissionTest`) comprueba contra este catálogo que todo
+permiso declarado existe; los códigos de error se comprueban con el `when`
+exhaustivo de `Failure.toFailure()`: un error nuevo en el dominio no compila hasta
+que se decide qué significa para el cliente.
 
 Errores de conflicto con el estado actual (§409):
 
@@ -109,7 +111,8 @@ Errores de conflicto con el estado actual (§409):
 | `RECEIVING_LOCATION_PROTECTED` | no se puede desactivar la ubicación de recepción: el flujo de ubicación la necesita |
 | `LOCATION_HAS_STOCK` | la ubicación tiene existencias: `details.quantity` |
 | `PRODUCT_HAS_STOCK` | el producto tiene existencias: `details.stock` |
-| `IMPORT_HAS_REJECTIONS` | el import real encontró filas inválidas y **no escribió ninguna** |
+| `IMPORT_INVALID_ROWS` | el archivo tiene filas inválidas y **no se escribió ninguna**; `details` trae una entrada `fila_N` por fila, hasta 50 |
+| `IMPORT_HAS_REJECTIONS` | **declarado y sin emitir**: era la respuesta del legacy para el mismo caso que hoy responde `IMPORT_INVALID_ROWS` |
 
 ### Códigos emitidos por la implementación que la lista cerrada no enumeraba
 

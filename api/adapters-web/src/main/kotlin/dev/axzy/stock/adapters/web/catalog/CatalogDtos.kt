@@ -103,6 +103,12 @@ data class ImportReportDto(
     val zeroStockCount: Int,
     val unitMeasures: List<String>,
     val rejections: List<RejectionDto>,
+    /** Productos nuevos. La segunda importación del mismo archivo dice `0`. */
+    val created: Int,
+    /** Productos que ya existían **con cambios**. */
+    val updated: Int,
+    /** Productos que ya existían igual: es lo que hace visible que no se hizo nada. */
+    val skipped: Int,
     /** Filas escritas de verdad: `0` en una simulación. */
     val persisted: Int,
     /** Siempre `false` en esta fase: el archivo no dice en qué estantería está cada pieza. */
@@ -118,6 +124,9 @@ fun CatalogImportResult.toDto(): ImportReportDto = ImportReportDto(
     zeroStockCount = zeroStockCount,
     unitMeasures = unitMeasures,
     rejections = rejections.map { RejectionDto(it.rowNumber, it.reason) },
+    created = created,
+    updated = updated,
+    skipped = skipped,
     persisted = persisted,
     stockPersisted = stockPersisted,
 )

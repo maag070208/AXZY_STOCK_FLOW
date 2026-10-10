@@ -1,4 +1,4 @@
-# Entorno local de STOCK. Decisión: docs/adr/0016-docker-compose-para-el-entorno.md
+# Entorno local de StockFlow. Decisión: docs/adr/0016-docker-compose-para-el-entorno.md
 # Detalle: docs/arquitectura/infraestructura.md
 #
 # Las variables con `:?` hacen que `docker compose` falle si faltan: ningún secreto tiene

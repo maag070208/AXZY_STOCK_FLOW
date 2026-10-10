@@ -1,0 +1,11 @@
+StockFlow - iconos (banda transportadora con cajas) claro / oscuro
+
+master/   SVG fuente: icono completo y solo glifo (transparente), claro y oscuro
+ios/      AppIcon.appiconset: Light, Dark y Tinted de 1024px + Contents.json (Xcode 15+). Arrastra la carpeta a Assets.xcassets
+android/  light/res y dark/res: mipmap-mdpi...xxxhdpi con ic_launcher, ic_launcher_round, foreground adaptativo (108dp),
+          monochrome (iconos tematicos Android 13+), XML adaptive y color de fondo. Copia res/ a app/src/main/res
+          playstore-icon-*.png (512px) para Google Play
+web/      favicon.svg (cambia con modo claro/oscuro), favicon.ico, apple-touch-icon, iconos PWA 192/512 (normales y maskable),
+          site.webmanifest y head-snippet.html. dark/ trae las mismas versiones en oscuro
+
+Colores: azul marino #16315F, naranja #F28C28, turquesa #3A86A8, fondo claro #F2F6FC, fondo oscuro #0C1730

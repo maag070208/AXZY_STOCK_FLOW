@@ -1,4 +1,4 @@
-# Flujos de STOCK
+# Flujos de StockFlow
 > **Normativo.** Los flujos que debe cumplir cada parte del sistema. Son la referencia para escribir
 > las pruebas de aceptación y el código. Última revisión: 2026-10-09.
 

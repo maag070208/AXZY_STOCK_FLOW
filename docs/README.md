@@ -1,7 +1,7 @@
-# Documentación de STOCK
+# Documentación de StockFlow
 > **Índice.** Por dónde empezar y qué documento manda en cada tema. Última revisión: 2026-10-09.
 
-STOCK es el sistema de almacén de Almacén Integral (Cascar). Se reconstruye desde cero con:
+StockFlow es el sistema de almacén de Almacén Integral (Cascar). Se reconstruye desde cero con:
 
 - **API**: Kotlin con Spring Boot, en capas, con inyección de dependencias por constructor.
 - **Base de datos**: PostgreSQL 16, con migraciones Flyway y el motor de inventario en SQL.

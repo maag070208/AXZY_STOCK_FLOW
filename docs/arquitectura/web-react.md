@@ -1,5 +1,5 @@
 # Web: React con AXZY UI System
-> **Normativo.** Cómo se construye la web de STOCK con `@axzydev/axzy_ui_system`. Las convenciones salen del uso real en `~/DEV/CYC/web` (misma familia de productos, misma versión del UI system). Última revisión: 2026-10-09. Complementa a [web-fsd.md](web-fsd.md), que define las capas.
+> **Normativo.** Cómo se construye la web de StockFlow con `@axzydev/axzy_ui_system`. Las convenciones salen del uso real en `~/DEV/CYC/web` (misma familia de productos, misma versión del UI system). Última revisión: 2026-10-09. Complementa a [web-fsd.md](web-fsd.md), que define las capas.
 
 ## 1. Versión
 
@@ -37,11 +37,11 @@ createRoot(document.getElementById("root")!).render(
 - `customTheme` es un `ITThemePalette` completo. Las claves obligatorias en 1.4.7 son `primary`,
   `secondary`, `ternary`, `danger`, `success`, `info`, `alert`, `warning`, y los objetos `layout`
   (`sidebarBg`, `sidebarText`, `navbarBg`, `navbarText`) y `table` (`headerBg`, `headerText`,
-  `rowBg`, `rowText`, `rowHover`). Los colores de STOCK se definen una sola vez, aquí.
+  `rowBg`, `rowText`, `rowHover`). Los colores de StockFlow se definen una sola vez, aquí.
 - `appearance="flat"` (fondo claro, sin sombras, borde fino) es la identidad visual de
   [guia/identidad-visual.md](../guia/identidad-visual.md). Cambiarla es una decisión de diseño, no técnica.
 - El modo oscuro no se usa. `main.tsx` de CYC fija `it-theme-dark-mode` en `light` si no existe;
-  STOCK hace lo mismo para que el tema no dependa de la preferencia del sistema operativo.
+  StockFlow hace lo mismo para que el tema no dependa de la preferencia del sistema operativo.
 
 ## 3. Componentes con contrato común
 
@@ -98,7 +98,7 @@ pelear contra el padding por defecto de `ITPage`. `ITPage` ya tiene `noPadding`,
 `maxWidth` para eso; las banderas `!` (importantes) son un síntoma de que el contenedor no está bien
 definido.
 
-**Decisión.** `shared/ui/page` envuelve `ITPage` con el padding y el ancho de STOCK. Las pantallas
+**Decisión.** `shared/ui/page` envuelve `ITPage` con el padding y el ancho de StockFlow. Las pantallas
 pasan solo `title`, `description`, `icon`, `breadcrumbs` y `actions`. Si una página necesita otro
 ancho, pasa `maxWidth`; no reescribe clases.
 
@@ -154,8 +154,14 @@ El README del paquete documenta el orden contrario:
    comportarse como lo define la clase de la app.
 3. Se elige el orden que pasa ambas. Si ninguno pasa las dos, se abre un ADR.
 
-Hasta resolverla, STOCK usa el orden del README, porque es el que documenta el autor del paquete, y
-el sidebar se verifica en la prueba 1 antes de dar la fase 11 por terminada.
+**Estado (2026-10-10): se usa el orden del README, y la prueba 1 está en verde.**
+`web/src/app/index.css` declara `@layer theme, base, axzy-ui-system, components, utilities;` y una
+prueba de navegador (`web/tests/catalog.spec.ts`, «el menú lateral se ve a 1280 px») comprueba que el
+menú se **ve** —no solo que exista en el DOM— con el viewport en 1280 × 800.
+
+La prueba 2 sigue sin verificar: no hay todavía ningún elemento del kit con una clase `hidden` de la
+aplicación. No se cambia el orden sin ella; si aparece el caso, se hace la prueba y, si el orden del
+README no la pasa, se cambia y se anota aquí.
 
 ## 6. Tailwind
 

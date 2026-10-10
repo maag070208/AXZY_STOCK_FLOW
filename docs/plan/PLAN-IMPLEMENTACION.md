@@ -1,5 +1,5 @@
 # Plan de implementación: fases, módulos y orden de construcción
-> **Plan.** Cómo se construye STOCK, módulo por módulo, en qué orden y con qué criterio de terminado. Complementa a [PLAN-REHACER.md](PLAN-REHACER.md) (fases y requisitos) y no lo contradice: aquí se baja a módulos. Última revisión: 2026-10-10.
+> **Plan.** Cómo se construye StockFlow, módulo por módulo, en qué orden y con qué criterio de terminado. Complementa a [PLAN-REHACER.md](PLAN-REHACER.md) (fases y requisitos) y no lo contradice: aquí se baja a módulos. Última revisión: 2026-10-10 (fase 4 cerrada; web empezada).
 
 ## 1. Estado al 10 de octubre de 2026
 
@@ -8,13 +8,26 @@
 | 0. Decisiones | **Cerrada.** D1–D8 tomadas; versiones verificadas en Maven Central | [stack.md](../arquitectura/stack.md) |
 | 1. Infraestructura | **Cerrada** | Compose `stockflow`; `V1`–`V12` aplicadas; rol de la API sin DDL (`ApiRolePrivilegesTest`) |
 | 2. API base | **Cerrada** | Seis módulos; `GET /v1/health`; contrato de error; bitácora en la transacción (U1, U3); `ArchitectureTest` |
-| 3. Identidad | **Cerrada salvo I5 e I8** | `AuthFlowTest`: login, bloqueo, refresh con reuso, logout y cambio de contraseña, por HTTP real |
-| 4 en adelante | No iniciadas | — |
+| 3. Identidad | **Cerrada** | `AuthFlowTest`: login, bloqueo, refresh con reuso, logout y cambio de contraseña, por HTTP real. I5 e I8 se cerraron con la fase 4 |
+| 4. Catálogo | **Cerrada salvo el Excel** | `CatalogFlowTest` K1–K6, I5 e I8; `CatalogPersistenceTest`; `RoutePermissionTest` |
+| 11. Web | **Empezada** con el catálogo y la identidad, que son los módulos con contrato estable | `web/`: `tsc`, `eslint` y `vite build` en verde; 11 pruebas de Playwright |
+| 5–10 | No iniciadas | — |
 
-**474 pruebas, 0 fallos, 0 omitidas** (392 dominio, 36 persistencia, 11 criptografía, 35 flujo).
+**549 pruebas, 0 fallos, 0 omitidas** (407 dominio, 7 aplicación, 54 persistencia, 8 web,
+11 criptografía, 62 flujo).
+
+Lo que la fase 4 **no** entrega, y por qué:
+
+| Pendiente | Dónde se cierra | Por qué no bloquea |
+|---|---|---|
+| Lectura de XLSX en la importación | M10 (migración de datos) | El archivo trabajado del corte es un TSV; la ruta responde `IMPORT_FILE_FORMAT` diciéndolo |
+| Pantallas de los módulos sin endpoint | Fases 5–9 | Una pantalla sin endpoint no dibuja filas inventadas: el inicio dice qué falta y por qué |
+| Despliegue de la web (nginx + servicio en Compose) | Cierre de la fase 11 | Hoy corre con `pnpm dev` contra la API; el proxy de Vite hace el mismo trabajo que hará nginx |
+| `stock` inicial a `SIN-UBICAR` con el movimiento `INITIAL` | Fase 5 (M02) | El informe ya publica `stockPersisted: false`: cargar 10.914.130 unidades sin desglose inventaría mal desde el día uno (ADR-0012) |
 
 I5 (un endpoint sin permiso declarado no arranca) e I8 (una cuenta con el cambio de contraseña
-pendiente no usa otras rutas) necesitan una ruta protegida por permiso: se cierran con la fase 4.
+pendiente no usa otras rutas) se cerraron en la fase 4: `RoutePermissionAudit` comprueba la
+declaración de cada ruta al arrancar y `CatalogFlowTest` ejercita las dos.
 
 ### Lo que la fase 1 dejaba abierto
 
@@ -36,6 +49,9 @@ pendiente no usa otras rutas) necesitan una ruta protegida por permiso: se cierr
 | El bloqueo por intentos solo afectaba a cuentas reales, así que delataba cuáles existían | El bloqueo va por nombre de usuario, exista o no |
 | La función del motor promete un mensaje de «stock insuficiente» que nunca se ejecuta: el `CHECK` de la tabla salta antes | Anotado para la fase 5: el caso de uso lee el saldo bloqueado y devuelve el error con `available` |
 | Mi Compose se llamaba igual que el del sistema anterior y recreó su contenedor de PostgreSQL | Restaurado sobre su volumen, con los datos intactos. El proyecto pasó a llamarse `stockflow` |
+| El catálogo autorizaba dentro del caso de uso, así que una ruta nueva sin autorización funcionaba y nadie se enteraba | `@RequiresPermission` en cada ruta y `RoutePermissionAudit` al arrancar: una ruta sin declarar **impide el arranque** (I5) |
+| El fixture de pruebas no restauraba la bodega predeterminada, así que una prueba que la movía rompía la limpieza de la siguiente | `TestDatabase.reset()` restaura la semilla: una prueba no puede romper a la siguiente |
+| El conteo de un listado podía ignorar los filtros y decir «1.398» con cero resultados | El conteo y la página comparten filtros; `CatalogPersistenceTest` lo comprueba |
 
 ## 2. Módulos
 
@@ -152,11 +168,15 @@ exista el HTTP:
 | Dos rutas de escritura al inventario por fuera del motor | Un revisor encuentra un `UPDATE` sobre `stock_by_location` en `adapters-*` | ArchUnit lo bloquea; se corrige antes de la fase siguiente |
 | El ERP real llega tarde | Pendiente D10 sin respuesta | Se mantiene `FAILED` con motivo (ADR-0013); no se bloquea el surtido |
 | Las particiones de auditoría caducan | Job P2 sin desplegar antes de febrero de 2027 | Está como pendiente de fase 1 con fecha |
-| La web se construye antes que el contrato | Pantallas que cambian cada semana | La web empieza en la fase 4 solo para el módulo que ya tiene contrato estable |
+| La web se construye antes que el contrato | Pantallas que cambian cada semana | La web empezó con catálogo e identidad, que tienen contrato probado; las demás pantallas esperan a su endpoint |
 
 ## 7. Lo que sigue inmediatamente
 
-1. **Fase 4, catálogo (M01):** productos, ubicaciones, bodegas e importación estricta. Con su primera
-   ruta protegida se cierran I5 e I8.
-2. **Fase 5, existencias (M02):** el motor ya está probado en concurrencia (A3, A4, A9); falta el caso
-   de uso que devuelve `INSUFFICIENT_STOCK` con el saldo disponible.
+1. **Fase 5, existencias (M02):** el motor ya está probado en concurrencia (A3, A4, A9); falta el caso
+   de uso que devuelve `INSUFFICIENT_STOCK` con el saldo disponible, el kardex, los ajustes, ubicar y
+   mover, y los reportes de conciliación (Q1, Q6–Q10). **Es lo que desbloquea las pantallas que hoy
+   faltan en la web.**
+2. **M10, migración:** la importación ya carga el catálogo de forma idempotente y estricta; falta el
+   stock inicial a `SIN-UBICAR` (fase 5), la lectura de XLSX y la conciliación del stock heredado.
+3. **Fase 11, web:** cada módulo estrena pantalla cuando su contrato está estable. Ya están entrada,
+   productos, ubicaciones y bodegas; falta el despliegue (nginx y su servicio en Compose).

@@ -1,4 +1,4 @@
-# Plan de rehacer STOCK: API en Kotlin con Spring Boot, app KMP y web React
+# Plan de rehacer StockFlow: API en Kotlin con Spring Boot, app KMP y web React
 > **Plan.** Qué se reconstruye, en qué orden y qué decisiones quedan abiertas. Es el documento
 > que manda sobre la secuencia; los normativos (arquitectura, flujos, ADR) describen el destino.
 > Última revisión: 2026-10-09.
@@ -66,7 +66,7 @@ confirmación antes de la fase donde se aplican.
 | D6 | **Dominio compartido** entre la API y la app (módulo KMP con las reglas) | **Tomada (2026-10-10): sí** | [arquitectura/dominio-kmp.md](../arquitectura/dominio-kmp.md) |
 | D7 | Reutilizar las migraciones `V1`–`V10` como esquema inicial de Flyway, en lugar de rediseñar el esquema | **Tomada (2026-10-10): sí** | §5, fase 1 |
 | D8 | Versiones de la API: Spring Boot 4.1.x, Kotlin 2.4.20, JDK 25 LTS | **Tomada (2026-10-10)**; confirmar en la fuente oficial antes de fijar el lockfile | [arquitectura/stack.md](../arquitectura/stack.md) |
-| D9 | La web mantiene FSD | **Propuesta: sí** | [arquitectura/web-fsd.md](../arquitectura/web-fsd.md) |
+| D9 | La web mantiene FSD | **Tomada (2026-10-10): sí**, con la regla de capas impuesta por el linter | [arquitectura/web-fsd.md](../arquitectura/web-fsd.md) |
 | D10 | Identificador del ERP (`external_id`) | **Pendiente**: depende de lo que el ERP acepte | [ADR-0013](../adr/0013-ordenes-al-erp-con-reintentos.md) |
 
 ## 5. Fases
