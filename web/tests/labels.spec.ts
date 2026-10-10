@@ -3,10 +3,10 @@ import { openMenu } from "./support/menu";
 import { mockHomeSummary } from "./support/home";
 
 /**
- * La cola de impresión y su reimpresión, **con la API simulada**.
+ * The print queue and its reprinting, **with the simulated API**.
  *
- * Reprint gasta una etiqueta más y el contrato exige un motivo: se afirma que la web no envía
- * nada sin motivo, que envía el motivo escrito y que la cola muestra el trabajo nuevo que la API crea.
+ * Reprint uses up one more label and the contract requires a reason: it is asserted that the web does not send
+ * nothing without a reason, that sends the written reason and that the queue shows the new job the API creates.
  */
 
 const PERMISSIONS = ["label.queue_view", "label.reprint"];
@@ -87,7 +87,7 @@ test.describe("labels: reprint (simulated API)", () => {
 
     const request = page.waitForRequest((req) => req.url().endsWith("/v1/labels/jobs/9/reprint"));
     await page.getByRole("button", { name: "Reprint", exact: true }).last().click();
-    // El motivo sale sin los espacios de los extremos: es el texto que quedará en la bitácora.
+    // The reason comes out without the spaces at the ends: it is the text that will remain in the audit log.
     expect((await request).postDataJSON()).toEqual({ reason: "Etiqueta dañada en el estante" });
 
     await expect(page.getByText("Reprint requested. It appears in the queue as a new job.")).toBeVisible();

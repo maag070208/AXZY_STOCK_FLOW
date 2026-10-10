@@ -1,8 +1,8 @@
 import i18n from "@shared/i18n";
 /**
- * Los motivos de ajuste que acepta una decisión o un faltante. La API no los expone en ningún
- * endpoint: esta lista espeja `AdjustmentReason` del dominio (`stock-domain/.../inventory/Adjustment.kt`). Si el
- * dominio gana un motivo, hay que añadirlo aquí; la API lo rechazaría antes con `REASON_REQUIRED`.
+ * The adjustment reasons that a decision or a shortage accepts. The API does not expose them in any
+ * endpoint: this list mirrors `AdjustmentReason` from the domain (`stock-domain/.../inventory/Adjustment.kt`). If the
+ * domain gains a reason, it must be added here; the API would reject it earlier with `REASON_REQUIRED`.
  */
 export const ADJUSTMENT_REASONS: readonly { value: string; label: string }[] = [
   { value: "SUPPLIER_ERROR", label: i18n.t("reasons.supplierError") },

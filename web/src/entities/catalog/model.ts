@@ -1,9 +1,9 @@
 /**
- * El catálogo: productos, ubicaciones y bodegas (docs/api/catalogo.md).
+ * The catalog: products, locations and warehouses (docs/api/catalogo.md).
  *
- * Los tipos son **alias y no interfaces** a propósito: `ITDataTable<T>` exige
- * `T extends Record<string, unknown>`, y una `interface` no encaja ahí sin un
- * cast. Los alias evitan el `as unknown as` que apaga el compilador.
+ * The types are **aliases and not interfaces** on purpose: `ITDataTable<T>` requires
+ * `T extends Record<string, unknown>`, and an `interface` does not fit there without a
+ * cast. The aliases avoid the `as unknown as` that turns off the compiler.
  */
 
 export type Product = {
@@ -14,7 +14,7 @@ export type Product = {
   unitMeasure: string;
   externalId: number | null;
   active: boolean;
-  /** Total derivado. Viaja como **número JSON con 3 decimales**, excepción del catálogo. */
+  /** Derived total. It travels as a **JSON number with 3 decimals**, the exception in the catalog. */
   stock: number;
 };
 
@@ -28,7 +28,7 @@ export type Location = {
   levels: number;
   kind: "SHELF" | "RECEIVING" | "UNASSIGNED";
   active: boolean;
-  /** **Derivado**: lo compone el servidor. La web nunca lo arma. */
+  /** **Derived**: the server composes it. The web never builds it. */
   displayName: string;
 };
 
@@ -70,7 +70,7 @@ export type Rejection = {
   reason: string;
 };
 
-/** El informe de la importación. `stockPersisted` es `false` hasta la fase 5. */
+/** The import report. `stockPersisted` is `false` until phase 5. */
 export type ImportReport = {
   dryRun: boolean;
   totalRows: number;
@@ -87,6 +87,6 @@ export type ImportReport = {
   stockPersisted: boolean;
 };
 
-/** El nombre visible de una ubicación, para una lista desplegable. */
+/** The visible name of a location, for a dropdown. */
 export const locationLabel = (location: Location): string =>
   `${location.displayName} · ${location.warehouseCode}`;

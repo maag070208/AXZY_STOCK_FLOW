@@ -1,11 +1,11 @@
 import type { PageQuery } from "./types";
 
 /**
- * Convierte la consulta de la tabla en parámetros de la API.
+ * Converts the table query into API parameters.
  *
- * Los filtros llegan como los entrega el kit (escalares por columna). Un valor vacío **no se
- * manda**: `active=` sería un filtro inválido, y la API rechaza lo que no entiende en lugar de
- * ignorarlo (docs/api/convenciones.md §1.4). Lo comparten todos los módulos con paginación.
+ * The filters arrive as the kit delivers them (scalars per column). An empty value **is not
+ * sends**: `active=` would be an invalid filter, and the API rejects what it does not understand instead of
+ * ignoring it (docs/api/convenciones.md §1.4). All modules with pagination share it.
  */
 export const toQueryParams = (query: PageQuery): Record<string, string | number | boolean> => {
   const params: Record<string, string | number | boolean> = {
@@ -23,7 +23,7 @@ export const toQueryParams = (query: PageQuery): Record<string, string | number 
   return params;
 };
 
-/** Quita los vacíos de un objeto de parámetros: un filtro sin valor no se envía. */
+/** Removes the empty values from a parameters object: a filter without a value is not sent. */
 export const compactParams = <T extends Record<string, string | number | boolean | undefined | null>>(
   params: T,
 ): Record<string, string | number | boolean> => {

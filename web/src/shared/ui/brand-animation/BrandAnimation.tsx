@@ -1,20 +1,20 @@
 import { Suspense, lazy, useEffect, useRef, type ComponentType } from "react";
 
 /**
- * La animación de marca de StockFlow (docs/guia/identidad-visual.md).
+ * The StockFlow brand animation (docs/guia/identidad-visual.md).
  *
- * **Motor ligero, y cargado aparte.** Se usa `lottie-web` con su compilación `lottie_light` (solo SVG)
- * en lugar de `lottie-react`, que arrastra el motor completo: 164 kB frente a 762 kB sin comprimir. El
- * motor y la animación entran con `import()` dinámico, así que el paquete inicial no crece.
+ * **Light engine, loaded separately.** It uses `lottie-web` with its `lottie_light` build (SVG only)
+ * instead of `lottie-react`, which drags in the full engine: 164 kB versus 762 kB uncompressed. The
+ * engine and the animation are loaded with a dynamic `import()`, so the initial bundle does not grow.
  *
- * La API de `lottie-web` es imperativa: la animación se crea en un `useEffect` y se **destruye** al
- * desmontar. Sin el `destroy`, cada aparición dejaría una animación viva.
+ * The `lottie-web` API is imperative: the animation is created in a `useEffect` and must be **destroyed** on
+ * unmount. Without `destroy`, each appearance would leave a live animation running.
  */
 
 const animations = {
-  /** Indicador de carga: para esperar datos. */
+  /** Loading indicator: to wait for data. */
   loader: () => import("@shared/assets/lottie/stockflow-loader-light.json"),
-  /** Animación de entrada: el marco de acceso. */
+  /** Entry animation: the access frame. */
   intro: () => import("@shared/assets/lottie/stockflow-intro-light.json"),
 } as const;
 
@@ -68,7 +68,7 @@ interface Props {
   loop?: boolean;
 }
 
-/** Reserva el tamaño mientras baja el motor: no hay salto de diseño al aparecer la animación. */
+/** Reserves the size while the engine loads: there is no layout jump when the animation appears. */
 export default function BrandAnimation({ name, size = 96, loop = true }: Props) {
   const Player = players[name];
   return (

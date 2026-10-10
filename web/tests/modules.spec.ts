@@ -3,13 +3,13 @@ import { openMenu } from "./support/menu";
 import { mockHomeSummary } from "./support/home";
 
 /**
- * Las pantallas de los módulos de lectura, **con la API simulada**.
+ * The read-module screens, **with the simulated API**.
  *
- * Como en `catalog.spec.ts`: aquí se prueba la interfaz y la petición exacta que
- * hace la web. El comportamiento de la API está en los tests de Kotlin.
+ * As in `catalog.spec.ts`: here the interface and the exact request that
+ * does in the web. The behavior of the API is in the Kotlin tests.
  *
- * Se navega con el menú y no con `goto`: recargar la página cierra la sesión (los
- * tokens viven solo en memoria, por decisión de seguridad).
+ * It navigates with the menu and not with `goto`: reloading the page logs out the user (the
+ * tokens live only in memory, by security decision).
  */
 
 const PERMISSIONS = [
@@ -48,12 +48,12 @@ async function signIn(page: Page) {
   await expect(page.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
 }
 
-/** Entra al módulo desde el menú: un clic dentro de la app, sin recargar. */
+/** Enters the module from the menu: a click inside the app, without reloading. */
 async function openFromMenu(page: Page, label: string) {
   await openMenu(page, label);
 }
 
-/** La petición que hizo la web a `pathname`, con sus parámetros. */
+/** The request the web made to `pathname`, with its parameters. */
 function requestTo(page: Page, pathname: string): Promise<Request> {
   return page.waitForRequest((req) => new URL(req.url()).pathname === pathname);
 }
@@ -102,7 +102,7 @@ test.describe("read modules (simulated API)", () => {
         ]),
       }),
     );
-    // Va después de la general: Playwright da prioridad a la última ruta registrada.
+    // Goes after the general one: Playwright gives priority to the last registered route.
     await page.route("**/v1/invoices/pending-approval*", (route) => route.fulfill({ json: { items: [] } }));
     await signIn(page);
 
@@ -156,7 +156,7 @@ test.describe("read modules (simulated API)", () => {
         ]),
       }),
     );
-    // La específica (in-transit) va al final: «transfers?*» también casa con «transfers/in-transit».
+    // The specific one (in-transit) goes last: "transfers?*" also matches "transfers/in-transit".
     await page.route("**/v1/transfers/in-transit*", (route) =>
       route.fulfill({
         json: [{ id: 5, code: "TR-0005", fromWarehouseCode: "BOD1", toWarehouseCode: "BOD2", daysInTransit: 2 }],
@@ -172,8 +172,8 @@ test.describe("read modules (simulated API)", () => {
   });
 
   test("Labels requests the queue at /v1/labels/jobs, not at the templates", async ({ page }) => {
-    // Regresión: la web llamó a /v1/label-templates/jobs y la API respondió 400, porque
-    // el {id} del detalle de plantillas absorbía la palabra «jobs».
+    // Regression: the web called /v1/label-templates/jobs and the API responded 400, because
+    // the {id} of the template detail absorbed the word "jobs".
     await page.route("**/v1/labels/jobs?*", (route) =>
       route.fulfill({
         json: page1([

@@ -9,15 +9,15 @@ interface Props {
   open: boolean;
   line: InvoiceLine | null;
   onClose: () => void;
-  /** Lanza si la API rechaza el conteo; el diálogo muestra el motivo y sigue abierto. */
+  /** Throws if the API rejects the count; the dialog shows the reason and stays open. */
   onSubmit: (body: CaptureBody) => Promise<void>;
 }
 
 /**
- * El conteo físico de una línea.
+ * The physical count of a line.
  *
- * Lo contado va en piezas. Las cajas son opcionales y son una **cuenta entera** («1 caja y 30
- * sueltas»): un valor con fracción lo rechaza la API, y aquí se avisa antes de enviarlo.
+ * What is counted is in pieces. Boxes are optional and are a **whole count** ("1 box and 30
+ * "single"): a value with a fraction is rejected by the API, and here it is reported before sending it.
  */
 export default function CaptureLineDialog({ open, line, onClose, onSubmit }: Props) {
   const [physicalQuantity, setPhysicalQuantity] = useState("");

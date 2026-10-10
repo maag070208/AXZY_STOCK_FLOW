@@ -14,13 +14,13 @@ import i18n from "@shared/i18n";
 import { describeError } from "@shared/api/errorMessage";
 
 /**
- * Un traslado con sus líneas y las tres acciones que mueven mercancía: despachar, recibir y cancelar.
+ * A transfer with its lines and the three actions that move goods: dispatch, receive and cancel.
  *
- * Cada acción mueve stock en el servidor, en una sola transacción. La web solo decide qué botón
- * ofrecer según el estado y el permiso; el estado válido lo confirma la API (`INVALID_TRANSITION`).
+ * Each action moves stock on the server, in a single transaction. The web only decides which button
+ * offer based on the status and the permission; the API confirms whether the status is valid (`INVALID_TRANSITION`).
  *
- * Cancelar un traslado **despachado** devuelve la mercancía a su origen: se pide confirmación antes
- * de enviar, porque no hay forma de saber desde la pantalla que el usuario se equivocó.
+ * Cancelling a **dispatched** transfer returns the goods to their origin: confirmation is requested before
+ * to send, because there is no way to know from the screen that the user made a mistake.
  */
 export default function TransferDetailPage() {
   const { id } = useParams();
@@ -94,7 +94,7 @@ export default function TransferDetailPage() {
 
   const { transfer, lines } = detail;
   const inCamino = transfer.status === "DISPATCHED" || transfer.status === "IN_TRANSIT";
-  // Docs/api/traslados.md: se cancela desde DRAFT y desde DISPATCHED; desde RECEIVED ya no.
+  // Docs/api/traslados.md: it is cancelled from DRAFT and from DISPATCHED; from RECEIVED it no longer can be.
   const cancellable = transfer.status === "DRAFT" || transfer.status === "DISPATCHED";
 
   return (

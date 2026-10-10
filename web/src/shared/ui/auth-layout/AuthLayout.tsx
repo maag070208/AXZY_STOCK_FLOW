@@ -7,8 +7,8 @@ interface Props {
 }
 
 /**
- * El marco de las pantallas de acceso, igual que en CYC: la animación de marca arriba, el nombre y el
- * formulario en una tarjeta de borde fino sobre un fondo suave. Sin menú ni barra: nada distrae de entrar.
+ * The frame of the access screens, just like in CYC: the brand animation on top, the name and the
+ * form in a thin-border card over a soft background. No menu or bar: nothing distracts from signing in.
  */
 export default function AuthLayout({ children }: Props) {
   return (

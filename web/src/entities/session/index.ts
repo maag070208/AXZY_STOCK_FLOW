@@ -14,9 +14,9 @@ const initialState: AuthState = {
 };
 
 /**
- * Inicia sesión. El error se devuelve **con su código** para que la pantalla
- * pueda distinguir «contraseña incorrecta» de «cuenta bloqueada» sin leer el
- * texto, que cambia (docs/api/errores.md §1.3).
+ * Signs in. The error is returned **with its code** so that the screen
+ * can tell "wrong password" apart from "account locked" without reading the
+ * text, which changes (docs/api/errores.md §1.3).
  */
 export const loginThunk = createAsyncThunk<
   AuthSession,
@@ -31,10 +31,10 @@ export const loginThunk = createAsyncThunk<
   }
 });
 
-/** Relee al usuario y sus permisos. Se llama al entrar y tras cada cambio de rol. */
+/** Rereads the user and their permissions. Called on sign-in and after each role change. */
 export const meThunk = createAsyncThunk("auth/me", async () => authApi.me());
 
-/** Cambia la contraseña. La API revoca **todas** las sesiones, incluida la actual. */
+/** Changes the password. The API revokes **all** sessions, including the current one. */
 export const changePasswordThunk = createAsyncThunk<
   void,
   { currentPassword: string; newPassword: string },
@@ -52,10 +52,10 @@ const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    /** Limpia la sesión local. **No** llama a la API: el cliente ya decidió que no sirve. */
+    /** Clears the local session. It does **not** call the API: the client has already decided it is no longer valid. */
     logout: () => initialState,
 
-    /** Tras una renovación del cliente HTTP: tokens nuevos, mismo usuario. */
+    /** After an HTTP client renewal: new tokens, same user. */
     setTokens: (state, action: PayloadAction<{ accessToken: string; refreshToken?: string }>) => {
       state.token = action.payload.accessToken;
       if (action.payload.refreshToken) state.refreshToken = action.payload.refreshToken;
@@ -78,13 +78,13 @@ const authSlice = createSlice({
         state.error = action.payload?.message ?? i18n.t("auth.loginFailed");
       })
       .addCase(meThunk.fulfilled, (state, action) => {
-        // Un `/me` que responde confirma que el token sirve y trae los permisos
-        // vigentes: es lo que hace que quitar un rol surta efecto sin volver a entrar.
+        // A `/me` that responds confirms that the token works and brings the current permissions
+        // current: it is what makes removing a role take effect without signing in again.
         state.user = action.payload;
       })
       .addCase(meThunk.rejected, (state) => {
-        // El cliente HTTP cierra la sesión si el token no vale; aquí solo se
-        // evita dejar un usuario viejo dibujando el menú.
+        // The HTTP client closes the session if the token is not valid; here it only
+        // avoids leaving a stale user drawing the menu.
         state.user = null;
       });
   },
@@ -93,10 +93,10 @@ const authSlice = createSlice({
 export const { logout, setTokens } = authSlice.actions;
 export const authReducer = authSlice.reducer;
 
-/** ¿La sesión tiene este permiso? Es para dibujar; la decisión es de la API. */
+/** Does the session have this permission? It is for drawing; the decision belongs to the API. */
 export const can = (user: { permissions: string[] } | null, permission: string): boolean =>
   user !== null && user.permissions.includes(permission);
 
-/** Basta con uno de ellos. */
+/** One of them is enough. */
 export const canAny = (user: { permissions: string[] } | null, permissions: readonly string[]): boolean =>
   permissions.some((permission) => can(user, permission));

@@ -1,12 +1,12 @@
 import type { Page } from "@playwright/test";
 
 /**
- * El inicio pide sus cifras al entrar (productos, bandeja de aprobación, tránsito y etiquetas
- * fallidas). Sin respuesta simulada, esas peticiones llegan al API real con el token de prueba, el
- * API responde 401 y la sesión se cierra. Este mock deja el inicio vacío y estable.
+ * The home page requests its figures on entry (products, approval inbox, transit and labels
+ * failed). Without a simulated response, those requests reach the real API with the test token, the
+ * API responds 401 and the session closes. This mock leaves the start empty and stable.
  *
- * Debe registrarse ANTES de las simulaciones de cada prueba (en un `beforeEach`): Playwright da
- * prioridad a la última ruta registrada, así que una prueba que mockea el mismo endpoint lo sobrescribe.
+ * Must be registered BEFORE each test's mocks (in a `beforeEach`): Playwright gives
+ * priority goes to the last registered route, so a test that mocks the same endpoint overwrites it.
  */
 export async function mockHomeSummary(page: Page): Promise<void> {
   const empty = { items: [], page: 0, size: 1, totalItems: 0, totalPages: 0 };

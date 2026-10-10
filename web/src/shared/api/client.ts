@@ -6,19 +6,19 @@ import i18n from "@shared/i18n";
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * EL CLIENTE HTTP
+ * THE HTTP CLIENT
  *
- * Tres cosas que hace y que no son obvias:
+ * Three things it does that are not obvious:
  *
- *  1. **Renueva el token una sola vez, aunque fallen diez peticiones a la vez.**
- *     Sin la promesa compartida (`refreshPromise`), diez `401` simultáneos
- *     disparan diez renovaciones; como el refresh **rota** el token, nueve
- *     fallan y la sesión se cierra sola. Es el fallo clásico de este patrón.
- *  2. **No cierra la sesión cuando la respuesta explica por qué.** Un `401` de
- *     `/auth/login` es «contraseña incorrecta», no una sesión vencida; y
- *     `ACCOUNT_DEACTIVATED` tiene que llegar a la pantalla para poder decirlo.
- *  3. **Normaliza el error a [ApiError].** La interfaz lee `code`; el `message`
- *     es para mostrar.
+ *  1. **Renews the token only once, even when ten requests fail at the same time.**
+ *     Without the shared promise (`refreshPromise`), ten simultaneous `401`s
+ *     trigger ten renewals; since the refresh **rotates** the token, nine
+ *     fail and the session closes by itself. It is the classic failure of this pattern.
+ *  2. **Does not close the session when the response explains why.** A `401` of
+ *     `/auth/login` is "wrong password", not an expired session; and
+ *     `ACCOUNT_DEACTIVATED` has to reach the screen so it can say so.
+ *  3. **Normalizes the error to [ApiError].** The UI reads `code`; the `message`
+ *     is there to show.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
@@ -39,7 +39,7 @@ instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 
 type RetriableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
-/** Una sola renovación simultánea para todas las peticiones. */
+/** A single simultaneous renewal for all the requests. */
 let refreshPromise: Promise<string | null> | null = null;
 
 const refreshAccessToken = async (): Promise<string | null> => {
@@ -47,8 +47,8 @@ const refreshAccessToken = async (): Promise<string | null> => {
   if (!refreshToken) return null;
   refreshPromise ??= (async () => {
     try {
-      // `axios` a pelo, no `instance`: la renovación no debe pasar por el
-      // interceptor que la llama, o un refresh fallido se reintentaría a sí mismo.
+      // `axios` used directly, not `instance`: the renewal must not go through the
+      // interceptor that calls it, or a failed refresh would retry itself.
       const { data } = await axios.post(`${API_CONSTANTS.BASE_URL}/auth/refresh`, { refreshToken });
       updateSessionTokens({ accessToken: data.accessToken, refreshToken: data.refreshToken });
       return data.accessToken as string;
@@ -81,9 +81,9 @@ instance.interceptors.response.use(
     }
 
     if (status === 401 && !isAuthPath(original?.url)) {
-      // `ACCOUNT_DEACTIVATED` no cierra la sesión en silencio: la pantalla tiene
-      // que poder decir «tu cuenta está desactivada», que es información distinta
-      // de «se venció la sesión».
+      // `ACCOUNT_DEACTIVATED` does not close the session silently: the screen has
+      // that to be able to say "your account is deactivated", which is different information
+      // of "the session expired".
       if (code !== "ACCOUNT_DEACTIVATED") handleUnauthorized();
     }
     return Promise.reject(error);
@@ -122,7 +122,7 @@ export const put = <T>(url: string, data?: unknown, config?: AxiosRequestConfig)
 export const remove = <T>(url: string, config?: AxiosRequestConfig): Promise<T> =>
   request<T>({ ...config, method: "DELETE", url });
 
-/** Sube un archivo (`multipart/form-data`): el navegador pone el `boundary` con el `FormData`. */
+/** Uploads a file (`multipart/form-data`): the browser sets the `boundary` with the `FormData`. */
 export const postFile = <T>(url: string, form: FormData, config?: AxiosRequestConfig): Promise<T> =>
   request<T>({
     ...config,

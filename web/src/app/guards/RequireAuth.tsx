@@ -5,13 +5,13 @@ import type { AppDispatch, RootState } from "@app/store";
 import { meThunk } from "@entities/session";
 
 /**
- * Guard de **solo sesión**, sin armazón: protege las pantallas de cuenta que se
- * muestran a pantalla completa, como el cambio de contraseña.
+ * **Session-only** guard, without frame: it protects the account screens that
+ * show full screen, as the password change does.
  *
- * Aquí vive la regla I8 vista desde el cliente: una cuenta con el cambio
- * pendiente no puede ir a ninguna otra parte. La API lo impone igualmente (responde
- * `PASSWORD_CHANGE_REQUIRED` a todo lo demás), así que esto es para no llevar al
- * usuario a una pantalla que va a rechazarle.
+ * Rule I8, as seen from the client, lives here: an account with the change
+ * pending cannot go anywhere else. The API enforces it anyway (it responds
+ * `PASSWORD_CHANGE_REQUIRED` for everything else), so this is so as not to take the
+ * user to a screen that is going to reject them.
  */
 export default function RequireAuth() {
   const dispatch = useDispatch<AppDispatch>();
@@ -19,8 +19,8 @@ export default function RequireAuth() {
   const user = useSelector((state: RootState) => state.auth.user);
   const location = useLocation();
 
-  // Al entrar directo a la pantalla (o al recargar) se relee quién es: los
-  // permisos y el estado del cambio pendiente pueden haber cambiado.
+  // When entering the screen directly (or reloading), the user is reread: the
+  // permissions and the state of the pending change may have changed.
   useEffect(() => {
     if (token) void dispatch(meThunk());
   }, [token, dispatch]);

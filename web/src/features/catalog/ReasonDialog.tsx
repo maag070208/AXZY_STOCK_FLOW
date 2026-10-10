@@ -5,12 +5,12 @@ import i18n from "@shared/i18n";
 interface Props {
   open: boolean;
   title: string;
-  /** Qué se está dando de baja, con su nombre, para que nadie confirme a ciegas. */
+  /** What is being deleted, with its name, so that nobody confirms blindly. */
   description: string;
   confirmLabel?: string;
-  /** Lo que se escribe en el campo. Por defecto, el de la baja. */
+  /** What is typed in the field. By default, the one for the soft delete. */
   placeholder?: string;
-  /** Título del aviso cuando la API rechaza la acción. */
+  /** Title of the notice when the API rejects the action. */
   errorTitle?: string;
   busy?: boolean;
   error?: string | null;
@@ -19,11 +19,11 @@ interface Props {
 }
 
 /**
- * La baja lógica, con motivo obligatorio.
+ * Soft delete, with a mandatory reason.
  *
- * El motivo lo exige la API (`REASON_REQUIRED`, 422): una desactivación sin
- * explicación es un hueco en la bitácora que nadie puede rellenar después. El
- * formulario no lo inventa ni lo pone por defecto.
+ * The reason is required by the API (`REASON_REQUIRED`, 422): a deactivation without
+ * explanation is a gap in the audit log that no one can fill in later. The
+ * form does not invent it nor set it by default.
  */
 export default function ReasonDialog({
   open,
@@ -39,8 +39,8 @@ export default function ReasonDialog({
 }: Props) {
   const [reason, setReason] = useState("");
 
-  // Cada apertura empieza en blanco: reutilizar el motivo anterior es la forma
-  // más rápida de que la bitácora diga algo que no pasó.
+  // Each opening starts blank: reusing the previous reason is the way
+  // faster than the audit log saying something that did not happen.
   useEffect(() => {
     if (open) setReason("");
   }, [open]);

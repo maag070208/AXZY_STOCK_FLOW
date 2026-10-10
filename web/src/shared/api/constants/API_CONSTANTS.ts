@@ -1,12 +1,12 @@
 /**
- * De dónde sale la URL base de la API.
+ * Where the API base URL comes from.
  *
- * Prioridad: 1) configuración en runtime (nginx escribe `config.js` con la URL
- * del despliegue), 2) `VITE_API_URL` en el build, 3) ruta relativa.
+ * Priority: 1) runtime configuration (nginx writes `config.js` with the URL
+ * of the deployment), 2) `VITE_API_URL` at build time, 3) relative path.
  *
- * **La ruta relativa es el caso normal**, y es deliberado: en desarrollo Vite
- * proxya `/v1` a la API y en producción lo hace nginx. El navegador nunca llama
- * a otro origen, así que no hay CORS ni URL que se rompa al cambiar de entorno.
+ * **The relative path is the normal case**, and it is deliberate: in development Vite
+ * proxies `/v1` to the API and in production nginx does it. The browser never calls
+ * to another origin, so there is no CORS and no URL that breaks when changing environment.
  */
 type RuntimeConfig = { API_URL?: string };
 
@@ -17,8 +17,8 @@ declare global {
 }
 
 /**
- * **Ya incluye `/v1`.** Las rutas de los módulos van sin el prefijo:
- * `get("/products")`, nunca `get("/v1/products")` — que sería `/v1/v1/...`
+ * **Already includes `/v1`.** The module routes go without the prefix:
+ * `get("/products")`, never `get("/v1/products")` — which would be `/v1/v1/...`
  * (docs/arquitectura/web-fsd.md §2.3).
  */
 const BASE_URL: string =
@@ -29,5 +29,5 @@ export const API_CONSTANTS = {
   TIMEOUT: 30_000,
 } as const;
 
-/** Rutas que no pasan por la lógica de sesión: un `401` aquí es la respuesta, no una sesión vencida. */
+/** Routes that do not go through the session logic: a `401` here is the response, not an expired session. */
 export const AUTH_PATHS = ["/auth/login", "/auth/refresh"] as const;

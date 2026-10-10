@@ -4,8 +4,8 @@ import ChangePasswordForm from "@features/auth/ChangePasswordForm";
 import i18n from "@shared/i18n";
 
 /**
- * Cambio de contraseña a pantalla completa, **sin menú**: es la única pantalla que
- * existe mientras la contraseña sea temporal (I8).
+ * Password change in full screen, **without menu**: it is the only screen that
+ * exists as long as the password is temporary (I8).
  */
 export default function ChangePasswordPage() {
   return (

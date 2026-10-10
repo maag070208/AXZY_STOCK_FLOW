@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 
 /**
- * Un valor que solo se propaga cuando deja de cambiar.
+ * A value that only propagates when it stops changing.
  *
- * Es lo que evita que la búsqueda libre dispare una petición por tecla: el
- * usuario escribe y la consulta sale cuando para. El retardo es el mismo que usa
- * el kit para sus filtros de columna (400 ms), para que se sientan igual.
+ * It is what prevents the free-text search from firing one request per keystroke: the
+ * user types and the query is sent when it stops. The delay is the same one the
+ * the kit for its column filters (400 ms), so that they feel the same.
  */
 export function useDebouncedValue<T>(value: T, delayMs = 400): T {
   const [debounced, setDebounced] = useState(value);

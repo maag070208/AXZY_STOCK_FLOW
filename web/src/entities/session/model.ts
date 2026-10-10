@@ -1,10 +1,10 @@
 /**
- * La sesión, tal como la describe la API (docs/api/autenticacion.md).
+ * The session, as the API describes it (docs/api/autenticacion.md).
  *
- * `permissions` son los permisos **concedidos** (los que tienen alcance distinto
- * de `NONE`) y `scopes` el alcance efectivo de cada uno. La web los usa para
- * dibujar el menú y para no ofrecer lo que va a fallar; **quien decide sigue
- * siendo la API** (docs/arquitectura/api-spring.md §6).
+ * `permissions` are the **granted** permissions (those with a different scope
+ * of `NONE`) and `scopes` the effective scope of each one. The web uses them to
+ * draw the menu and to avoid offering what will fail; **the one who decides remains
+ * being the API** (docs/arquitectura/api-spring.md §6).
  */
 export interface SessionUser {
   id: number;
@@ -14,13 +14,13 @@ export interface SessionUser {
   permissions: string[];
   scopes: Record<string, string>;
   warehouses: number[];
-  /** Si es `true`, la única pantalla posible es cambiar la contraseña (I8). */
+  /** If `true`, the only possible screen is to change the password (I8). */
   mustChangePassword: boolean;
 }
 
 export interface AuthSession {
   accessToken: string;
-  /** En segundos, como lo espera cualquier cliente. */
+  /** In seconds, as any client expects. */
   expiresIn: number;
   refreshToken: string;
   user: SessionUser;

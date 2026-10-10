@@ -3,11 +3,11 @@ import i18n from "@shared/i18n";
 
 interface Props {
   size?: number;
-  /** Texto para quien no ve la animación (o mientras se descarga). Se ve desde el primer instante. */
+  /** Text for whoever cannot see the animation (or while it downloads). It is seen from the first instant. */
   label?: string;
 }
 
-/** El indicador de espera de la app: la animación de marca con su texto debajo. */
+/** The app's loading indicator: the brand animation with its text below. */
 export function Loader({ size = 96, label = i18n.t("common.loading") }: Props) {
   return (
     <div role="status" aria-live="polite" className="flex flex-col items-center gap-1 py-2">

@@ -3,15 +3,15 @@ import { expandMenu, openMenu } from "./support/menu";
 import { mockHomeSummary } from "./support/home";
 
 /**
- * Las pantallas del catálogo, **con la API simulada**.
+ * The catalog screens, **with the simulated API**.
  *
- * Aquí no se prueba la API —eso lo hacen los tests de Kotlin, con la base real—,
- * sino la interfaz: que el menú se dibuje, que la tabla traduzca bien el contrato
- * de paginación y que los formularios abran. Con datos simulados se puede además
- * afirmar lo que la API real no deja afirmar sin ensuciar datos: qué petición
- * exacta hace la web.
+ * The API is not tested here —the Kotlin tests do that, against the real database—,
+ * but the interface: that the menu is drawn, that the table translates the contract well
+ * of pagination and that the forms open. With simulated data one can also
+ * to assert what the real API does not let you assert without dirtying data: what request
+ * exact is what the web does.
  *
- * El estado de la API real está en `login.spec.ts`.
+ * The real API state is in `login.spec.ts`.
  */
 
 const USER = {
@@ -102,8 +102,8 @@ test.describe("catalog (simulated API)", () => {
   test("the sidebar menu is visible at 1280 px and leads to Products", async ({ page }) => {
     await signIn(page);
 
-    // La prueba del §5 de web-react.md: el menú tiene que VERSE, no solo existir.
-    // El menú se oculta solo: se despliega acercando el cursor, y entonces la etiqueta tiene que verse.
+    // The §5 test of web-react.md: the menu has to be SEEN, not just exist.
+    // The menu hides itself: it unfolds when the cursor approaches, and then the label has to be visible.
     const sidebar = await expandMenu(page);
     const menuItem = sidebar.getByText("Products", { exact: true });
     await expect(menuItem).toBeVisible();
@@ -113,7 +113,7 @@ test.describe("catalog (simulated API)", () => {
   test("the table translates pagination and renders the page the API returns", async ({ page }) => {
     await page.route("**/v1/warehouses*", (route) => route.fulfill({ json: { items: [] } }));
 
-    // Se captura la consulta exacta: es donde vive el error de la página ±1.
+    // The exact query is captured: it is where the ±1 page error lives.
     let productsQuery = "";
     await page.route("**/v1/products?*", async (route) => {
       productsQuery = new URL(route.request().url()).search;
@@ -125,11 +125,11 @@ test.describe("catalog (simulated API)", () => {
 
     await expect(page.getByText("ABRAA1B")).toBeVisible();
     await expect(page.getByText("ABRAZADERA DE ARRANQUE")).toBeVisible();
-    // La cantidad se muestra con el formato de la casa, no como número crudo.
+    // The quantity is shown with the house format, not as a raw number.
     await expect(page.getByText("5,193")).toBeVisible();
 
-    // El kit pide la página 1; la API recibe la 0. Sin la traducción, la primera
-    // página saldría vacía y nadie sabría por qué.
+    // The kit requests page 1; the API receives 0. Without the translation, the first
+    // page would come out empty and nobody would know why.
     expect(productsQuery).toContain("page=0");
     expect(productsQuery).toContain("size=25");
     expect(productsQuery).not.toContain("page=1");
@@ -171,8 +171,8 @@ test.describe("catalog (simulated API)", () => {
     await page.route("**/v1/warehouses*", (route) => route.fulfill({ json: { items: [] } }));
     await page.route("**/v1/products?*", (route) => route.fulfill({ json: PRODUCTS_PAGE }));
 
-    // La respuesta se retiene a propósito: sin una espera real no habría nada que
-    // mirar, y el loader podría no llegar a pintarse nunca sin que se note.
+    // The response is held on purpose: without a real wait there would be nothing to
+    // look at, and the loader could never be painted without anyone noticing.
     let release!: () => void;
     const held = new Promise<void>((resolve) => {
       release = resolve;

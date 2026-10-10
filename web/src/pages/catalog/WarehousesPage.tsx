@@ -14,12 +14,12 @@ import i18n from "@shared/i18n";
 /**
  * Bodegas.
  *
- * Este listado **no se pagina**, y no es un olvido: es un catálogo cerrado y
- * diminuto que se pide entero (docs/api/convenciones.md §1.4). Para que el
- * envoltorio de tabla —que espera una página— no tenga que inventar una, la
- * respuesta completa se envuelve como una sola página de tamaño `total`. La
- * alternativa era una tabla distinta para esta pantalla, y entonces la interfaz
- * tendría dos maneras de dibujar lo mismo.
+ * This list **is not paginated**, and it is not an oversight: it is a closed and
+ * tiny catalog that is requested whole (docs/api/convenciones.md §1.4). So that the
+ * table wrapper —which expects a page— does not have to invent one, the
+ * full response is wrapped as a single page of size `total`. The
+ * alternative was a different table for this screen, and then the interface
+ * would have two ways of drawing the same thing.
  */
 export default function WarehousesPage() {
   const dispatch = useDispatch<AppDispatch>();

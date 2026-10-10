@@ -10,13 +10,13 @@ interface Props {
   open: boolean;
   line: OrderLine | null;
   onClose: () => void;
-  /** Lanza si la API rechaza el empaque (p. ej. `EXCEEDS_PENDING_QUANTITY`); el diálogo lo muestra. */
+  /** Throws if the API rejects the packing (e.g. `EXCEEDS_PENDING_QUANTITY`); the dialog shows it. */
   onSubmit: (quantity: number) => Promise<void>;
 }
 
 /**
- * Empacar piezas de una línea. La cantidad es **lo que se empaca ahora**, no el total: la API la
- * valida contra lo pendiente, y aquí se muestra cuánto queda para no pedir de más.
+ * Packs pieces of a line. The quantity is **what is packed now**, not the total: the API
+ * validates against the pending amount, and here it is shown how much is left so as not to request too much.
  */
 export default function PackLineDialog({ open, line, onClose, onSubmit }: Props) {
   const [quantityText, setQuantityText] = useState("");

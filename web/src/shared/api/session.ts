@@ -1,11 +1,11 @@
 /**
- * Puente entre el cliente HTTP y la sesión del store.
+ * Bridge between the HTTP client and the store's session.
  *
- * El cliente vive en `shared/` y **no puede importar de `app/` ni de
- * `entities/`** (regla de capas). Por eso no lee el token de ningún sitio: la
- * sesión se la registra quien sí puede, `app/store.ts`, al construirse. Es el
- * mismo patrón que usa CYC, y es lo que permite probar el cliente sin montar la
- * aplicación.
+ * The client lives in `shared/` and **cannot import from `app/` nor from
+ * `entities/`** (layer rule). That is why it does not read the token from anywhere: the
+ * session is registered by whoever can, `app/store.ts`, when it is built. It is the
+ * same pattern that CYC uses, and it is what allows the client to be tested without mounting the
+ * application.
  */
 
 let getToken: () => string | null = () => null;
@@ -29,7 +29,7 @@ export const getSessionToken = (): string | null => getToken();
 
 export const getSessionRefreshToken = (): string | null => getRefreshToken();
 
-/** Tras una renovación: el access viejo ya sirvió y el refresh rotó. */
+/** After a renewal: the old access token already served and the refresh token rotated. */
 export const updateSessionTokens = (tokens: { accessToken: string; refreshToken?: string }): void =>
   setTokens(tokens);
 

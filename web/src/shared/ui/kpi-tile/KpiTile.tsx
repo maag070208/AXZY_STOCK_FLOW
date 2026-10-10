@@ -13,7 +13,7 @@ const TONES: Record<KpiTone, { icon: string; hint: string }> = {
 
 interface KpiTileProps {
   label: string;
-  /** `null` cuando la consulta falló o no hay permiso: se pinta un guion, no un cero inventado. */
+  /** `null` when the query failed or there is no permission: a dash is drawn, not an invented zero. */
   value: number | null;
   icon: ReactNode;
   tone?: KpiTone;
@@ -22,8 +22,8 @@ interface KpiTileProps {
 }
 
 /**
- * Un indicador del inicio: el icono en círculo, la etiqueta, la cifra grande y una línea de apoyo.
- * Es el mismo lenguaje que el tablero de CYC (`statement`), en modo plano.
+ * A home-page indicator: the circle icon, the label, the large figure and a support line.
+ * It is the same language as the CYC dashboard (`statement`), in flat mode.
  */
 export default function KpiTile({ label, value, icon, tone = "neutral", hint, onClick }: KpiTileProps) {
   const style = TONES[tone];

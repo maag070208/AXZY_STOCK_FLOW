@@ -5,10 +5,10 @@ import type { AppDispatch, RootState } from "@app/store";
 import { dismissToast } from "./toast.slice";
 
 /**
- * Un solo aviso a la vez, montado en la raíz.
+ * Only one notice at a time, mounted at the root.
  *
- * El `key` es el `id` del aviso: sin él, React reutiliza el componente anterior
- * y dos mensajes seguidos se ven como uno que nunca desaparece.
+ * The `key` is the notice's `id`: without it, React reuses the previous component
+ * and two messages in a row are seen as one that never goes away.
  */
 export default function ToastProvider({ children }: { children: ReactNode }) {
   const toast = useSelector((state: RootState) => state.toast.current);

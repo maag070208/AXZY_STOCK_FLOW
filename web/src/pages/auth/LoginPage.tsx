@@ -1,7 +1,7 @@
 import AuthLayout from "@shared/ui/auth-layout/AuthLayout";
 import LoginForm from "@features/auth/LoginForm";
 
-/** La entrada: el marco de acceso con la animación de marca y el formulario. */
+/** The sign-in screen: the access frame with the brand animation and the form. */
 export default function LoginPage() {
   return (
     <AuthLayout>

@@ -1,6 +1,6 @@
 /**
- * Existencias y kardex (docs/api/inventario.md). Las cantidades son **cadenas** con tres decimales:
- * JSON no tiene decimales de precisión arbitraria, y un `number` de JavaScript suma con errores.
+ * Stock and stock ledger (docs/api/inventario.md). The quantities are **strings** with three decimals:
+ * JSON has no arbitrary-precision decimals, and a JavaScript `number` adds up with errors.
  */
 
 export type StockLine = {

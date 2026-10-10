@@ -10,18 +10,18 @@ import "@shared/i18n";
 import "@app/index.css";
 
 /*
- * El modo oscuro no se usa, y no se deja al sistema operativo: si no hay
- * preferencia guardada se fija `light`. Sin esto, una máquina en oscuro abre la
- * aplicación con un tema que nadie diseñó (docs/arquitectura/web-react.md §2).
+ * Dark mode is not used, and it is not left to the operating system: if there is no
+ * saved preference is set to `light`. Without this, a machine in dark mode opens the
+ * application with a theme nobody designed (docs/arquitectura/web-react.md §2).
  */
 if (!localStorage.getItem("it-theme-dark-mode")) {
   localStorage.setItem("it-theme-dark-mode", "light");
 }
 
 /**
- * Los colores de StockFlow, **definidos una sola vez** (docs/guia/identidad-visual.md):
- * azul marino de marca, turquesa de apoyo y naranja para lo que reclama atención.
- * Lenguaje plano: superficies blancas, borde fino y sin sombras.
+ * The StockFlow colors, **defined only once** (docs/guia/identidad-visual.md):
+ * brand navy blue, support turquoise and orange for what needs attention.
+ * Flat language: white surfaces, thin border and no shadows.
  */
 const stockTheme: ITThemePalette = {
   primary: "#16315F",

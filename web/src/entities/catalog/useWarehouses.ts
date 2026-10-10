@@ -11,12 +11,12 @@ interface WarehousesState {
 }
 
 /**
- * Las bodegas para un desplegable.
+ * The warehouses for a dropdown.
  *
- * Es un catálogo cerrado y diminuto (docs/api/convenciones.md §1.4), así que se
- * pide **completo y una sola vez** por pantalla, no paginado. El `alive` evita
- * escribir estado de un componente que ya se desmontó: sin él, cambiar de
- * pantalla mientras responde deja un aviso de React en la consola.
+ * It is a closed and tiny catalog (docs/api/convenciones.md §1.4), so it
+ * requests **the whole list at once and only once** per screen, not paginated. The `alive` flag avoids
+ * write a component's state after it has already unmounted: without it, switching
+ * screen while it responds leaves a React warning in the console.
  */
 export function useWarehouses(): WarehousesState {
   const [state, setState] = useState<WarehousesState>({ items: [], loading: true, error: null });

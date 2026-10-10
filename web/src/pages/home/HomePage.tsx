@@ -11,10 +11,10 @@ import { useHomeSummary } from "./useHomeSummary";
 import i18n from "@shared/i18n";
 
 /**
- * Inicio: lo que pide atención hoy y los accesos a cada módulo.
+ * Home: what needs attention today and the shortcuts to each module.
  *
- * Las cifras y las listas salen de los mismos endpoints que sus pantallas, y solo se piden las que el
- * usuario puede ver. Una cifra que no se pudo cargar muestra un guion, nunca un cero.
+ * The figures and lists come from the same endpoints as their screens, and only those the
+ * user can see. A figure that could not be loaded shows a dash, never a zero.
  */
 export default function HomePage() {
   const navigate = useNavigate();

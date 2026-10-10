@@ -1,4 +1,4 @@
-/** Recepción (docs/api/recepcion.md). */
+/** Receiving (docs/api/recepcion.md). */
 export type InvoiceHeader = {
   id: number;
   invoiceNumber: string;
@@ -12,7 +12,7 @@ export type InvoiceHeader = {
   createdAt: string;
 };
 
-/** La bandeja de aprobación: `totalDifference` es la suma de diferencias **absolutas**. */
+/** The approval inbox: `totalDifference` is the sum of **absolute** differences. */
 export type PendingApproval = {
   invoiceId: number;
   invoiceNumber: string;
@@ -22,21 +22,21 @@ export type PendingApproval = {
   totalDifference: string;
 };
 
-/** El detalle de una factura con sus líneas (`GET /v1/invoices/{id}`). */
+/** The detail of an invoice with its lines (`GET /v1/invoices/{id}`). */
 export type InvoiceLine = {
   id: number;
   productId: number;
   productCode: string;
   productName: string;
   container: string | null;
-  /** Cantidades como texto decimal: la API no pierde precisión. */
+  /** Quantities as decimal text: the API does not lose precision. */
   quantity: string;
   boxQuantity: string;
   unitsPerBox: string;
   physicalQuantity: string | null;
   physicalBoxQuantity: string | null;
   locatedQuantity: string;
-  /** `physicalQuantity - quantity`, con signo. La calcula el servidor. */
+  /** `physicalQuantity - quantity`, with sign. The server computes it. */
   difference: string | null;
   status: string;
   capturedByName: string | null;
@@ -48,7 +48,7 @@ export type InvoiceLine = {
 
 export type InvoiceDetail = InvoiceHeader & { lines: InvoiceLine[] };
 
-/** Alta de factura (`POST /v1/invoices`). Las cantidades van como número JSON. */
+/** Invoice creation (`POST /v1/invoices`). The quantities go as JSON numbers. */
 export type NewInvoiceLine = {
   productCode: string;
   container?: string | null;
@@ -64,11 +64,11 @@ export type NewInvoice = {
   lines: NewInvoiceLine[];
 };
 
-/** Conteo de una línea (`POST .../capture`). `physicalBoxQuantity` es una cuenta entera de cajas. */
+/** Count of a line (`POST .../capture`). `physicalBoxQuantity` is a whole count of boxes. */
 export type CaptureBody = { physicalQuantity: number; physicalBoxQuantity?: number };
 
-/** Motivo de una decisión de aprobar o rechazar (`POST .../approve`, `.../reject-discrepancy`). */
+/** Reason for an approve or reject decision (`POST .../approve`, `.../reject-discrepancy`). */
 export type DecisionBody = { adjustmentReason: string; note?: string };
 
-/** Las líneas que aún admiten un conteo: una aprobada o ubicada ya no se cuenta de nuevo. */
+/** The lines that still accept a count: one already approved or located is not counted again. */
 export const isCountable = (status: string): boolean => !["APPROVED", "LOCATED", "CANCELLED"].includes(status);

@@ -1,4 +1,4 @@
-/** Surtido (docs/api/surtido.md). `exportStatus` cuenta el intento honesto: sin ERP sale `FAILED`. */
+/** Fulfillment (docs/api/surtido.md). `exportStatus` records the attempt honestly: without an ERP it comes out `FAILED`. */
 export type OrderHeader = {
   id: number;
   orderNumber: string;
@@ -15,7 +15,7 @@ export type OrderHeader = {
   packagedLines: number;
 };
 
-/** Una línea de la orden. Las cantidades van como texto decimal; `suppliedQuantity` ya salió del inventario. */
+/** A line of the order. The quantities go as decimal text; `suppliedQuantity` has already left the inventory. */
 export type OrderLine = {
   id: number;
   productId: number;
@@ -34,10 +34,10 @@ export type OrderLine = {
 
 export type OrderDetail = OrderHeader & { lines: OrderLine[] };
 
-/** Resultado de un intento de exportación (`POST /v1/orders/{id}/export`). No es la orden. */
+/** Result of an export attempt (`POST /v1/orders/{id}/export`). It is not the order. */
 export type ExportAttempt = { attempts: number; status: "SENT" | "FAILED" | "PENDING"; lastError: string | null };
 
 export type PackBody = { quantity: number };
 export type ShortageBody = { lineId: number; quantity: number; reason: string; note?: string };
-/** Sin `userId` la línea queda a nombre de quien llama; el cuerpo vacío es válido. */
+/** Without `userId` the line is left under the caller's name; the empty body is valid. */
 export type AssignBody = { userId?: number; locationId?: number };

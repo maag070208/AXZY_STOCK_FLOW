@@ -11,9 +11,9 @@ import i18n from "@shared/i18n";
 const STATUSES = ["DRAFT", "DISPATCHED", "RECEIVED", "CANCELLED"];
 
 /**
- * Traslados entre bodegas y la mercancía en camino. El tránsito cuenta los días desde el despacho
- * con el reloj del servidor; la pantalla solo lo muestra. Un traslado no pierde mercancía por estar
- * en el camión: sigue contando hasta que se recibe.
+ * Transfers between warehouses and goods in transit. Transit counts the days from the dispatch
+ * with the server clock; the screen only displays it. A transfer does not lose goods by being
+ * in the truck: it keeps counting until it is received.
  */
 export default function TransfersPage() {
   const navigate = useNavigate();

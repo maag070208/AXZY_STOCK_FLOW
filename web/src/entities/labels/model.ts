@@ -1,4 +1,4 @@
-/** Etiquetas: la cola de impresión (docs/api/etiquetas.md). */
+/** Labels: the print queue (docs/api/etiquetas.md). */
 export type PrintJob = {
   id: number;
   templateCode: string;

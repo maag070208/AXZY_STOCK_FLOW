@@ -9,16 +9,16 @@ import { describeError } from "@shared/api/errorMessage";
 interface Props {
   open: boolean;
   onClose: () => void;
-  /** Lanza si la API rechaza el alta: el diálogo muestra su mensaje y sigue abierto. */
+  /** Throws if the API rejects the creation: the dialog shows its message and stays open. */
   onSubmit: (body: NewInvoice) => Promise<void>;
 }
 
-/** Una línea tal como se escribe: texto, hasta que se convierte al enviar. */
+/** A line as typed: text, until it is converted when sent. */
 type LineForm = { productCode: string; container: string; quantity: string; boxQuantity: string; unitsPerBox: string };
 
 const emptyLine = (): LineForm => ({ productCode: "", container: "", quantity: "", boxQuantity: "", unitsPerBox: "" });
 
-/** Acepta coma decimal, que es lo que se escribe en el teclado de México. */
+/** Accepts a decimal comma, which is what is typed on a keyboard in Mexico. */
 const toNumber = (raw: string): number => Number(raw.trim().replace(",", "."));
 
 const positive = (raw: string): boolean => {
@@ -27,9 +27,9 @@ const positive = (raw: string): boolean => {
 };
 
 /**
- * Lo que la web comprueba antes de enviar: solo lo que el formulario puede saber sin la base.
- * Que el empaque cuadre, que el producto exista y que la unidad sea válida los dice la API con su
- * código, y se muestran tal cual.
+ * What the web checks before sending: only what the form can know without the database.
+ * That the packing adds up, that the product exists and that the unit is valid are reported by the API with its
+ * code, and they are shown as they are.
  */
 const problemWith = (invoiceNumber: string, lines: LineForm[]): string | null => {
   if (invoiceNumber.trim() === "") return i18n.t("receiving.invoiceNumberRequired");
@@ -44,7 +44,7 @@ const problemWith = (invoiceNumber: string, lines: LineForm[]): string | null =>
   return null;
 };
 
-/** Alta de factura con sus líneas facturadas. Sin líneas no hay nada que contar, así que no se envía. */
+/** Invoice creation with its invoiced lines. Without lines there is nothing to count, so nothing is sent. */
 export default function NewInvoiceDialog({ open, onClose, onSubmit }: Props) {
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [receiptDate, setReceiptDate] = useState<Date>(() => new Date());
@@ -53,7 +53,7 @@ export default function NewInvoiceDialog({ open, onClose, onSubmit }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Cada apertura empieza en blanco: una factura a medio escribir no debe sobrevivir a cerrar el diálogo.
+  // Each opening starts blank: an invoice half-written must not survive closing the dialog.
   useEffect(() => {
     if (!open) return;
     setInvoiceNumber("");

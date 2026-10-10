@@ -7,7 +7,7 @@ import { describeError } from "@shared/api/errorMessage";
 
 interface Props {
   open: boolean;
-  /** `null` para alta; una ubicación para edición. */
+  /** `null` for creation; a location for editing. */
   location: Location | null;
   onClose: () => void;
   onSaved: () => void;
@@ -19,16 +19,16 @@ const KIND_OPTIONS = [
 ];
 
 /**
- * Alta y edición de una ubicación.
+ * Create and edit a location.
  *
- * `hall`, `code` y `position` se mandan tal como se escriben y **el servidor los
- * pone en mayúsculas** (docs/flujos/catalogo.md §3): así `04`/`b`/`c` y
- * `04`/`B`/`C` son la misma ubicación en lugar de dos. La web no normaliza por su
- * cuenta, porque entonces habría dos reglas y una se quedaría atrás.
+ * `hall`, `code` and `position` are sent exactly as written and **the server
+ * capitalizes** (docs/flujos/catalogo.md §3): so `04`/`b`/`c` and
+ * `04`/`B`/`C` are the same location, not two. The web does not normalize by its
+ * account, because otherwise there would be two rules and one would be left behind.
  *
- * La bodega **no se puede cambiar** al editar: mover una ubicación de bodega
- * cambiaría de bodega su stock sin ningún movimiento de inventario, y la API lo
- * rechaza con `WAREHOUSE_IMMUTABLE`.
+ * The warehouse **cannot be changed** when editing: moving a location to another warehouse
+ * would change its warehouse stock without any inventory movement, and the API
+ * rejects with `WAREHOUSE_IMMUTABLE`.
  */
 export default function LocationFormDialog({ open, location, onClose, onSaved }: Props) {
   const editing = location !== null;
@@ -60,7 +60,7 @@ export default function LocationFormDialog({ open, location, onClose, onSaved }:
     setError(null);
 
     const body: LocationInput = {
-      // El `ITSelect` del kit solo admite valores de texto; el id se convierte aquí.
+      // The kit's `ITSelect` only accepts text values; the id is converted here.
       warehouseId: Number(warehouseId),
       hall: hall.trim(),
       code: code.trim(),

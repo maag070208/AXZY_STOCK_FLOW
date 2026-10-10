@@ -9,20 +9,20 @@ export const fulfillmentApi = {
 
   detail: (id: number): Promise<OrderDetail> => get<OrderDetail>(`/orders/${id}`),
 
-  /** Descuenta del inventario lo empacado y responde la orden actualizada. */
+  /** Deducts from inventory what was packed and responds with the updated order. */
   pack: (orderId: number, lineId: number, body: PackBody): Promise<OrderDetail> =>
     post<OrderDetail>(`/orders/${orderId}/lines/${lineId}/package`, body),
 
-  /** Un faltante es un ajuste con origen de surtido: el motivo es obligatorio. */
+  /** A shortage is an adjustment with a fulfillment origin: the reason is mandatory. */
   shortage: (orderId: number, body: ShortageBody): Promise<OrderDetail> =>
     post<OrderDetail>(`/orders/${orderId}/shortage`, body),
 
   assign: (orderId: number, lineId: number, body: AssignBody): Promise<OrderDetail> =>
     put<OrderDetail>(`/orders/${orderId}/lines/${lineId}/assign`, body),
 
-  /** Descuenta `cantidad - surtido` de cada línea y dispara la exportación al ERP. */
+  /** Deducts `quantity - fulfilled` from each line and triggers the export to the ERP. */
   confirm: (orderId: number): Promise<OrderDetail> => post<OrderDetail>(`/orders/${orderId}/confirm`),
 
-  /** Reintento manual de la exportación. Responde el intento, no la orden: hay que volver a pedirla. */
+  /** Manual retry of the export. It responds with the attempt, not the order: the order must be requested again. */
   exportOrder: (orderId: number): Promise<ExportAttempt> => post<ExportAttempt>(`/orders/${orderId}/export`),
 };

@@ -8,28 +8,28 @@ import type { Page, PageQuery } from "@shared/api/types";
 
 export interface DataTableProps<T extends Record<string, unknown>> {
   columns: Column<T>[];
-  /** Una página del servidor, con el contrato de la API. El envoltorio traduce. */
+  /** A server page, with the API's contract. The wrapper translates it. */
   fetchPage: (query: PageQuery) => Promise<Page<T>>;
-  /** Filtros de fuera de la tabla: la búsqueda libre, el selector de bodega. */
+  /** Filters outside the table: the free-text search, the warehouse selector. */
   externalFilters?: ColumnFilters;
-  /** Cambiar este valor vuelve a pedir la página actual (tras guardar, por ejemplo). */
+  /** Changing this value requests the current page again (after saving, for example). */
   reloadTrigger?: number | string | boolean;
   onRowClick?: (row: T) => void;
 }
 
 /**
- * El envoltorio de `ITDataTable` (docs/arquitectura/web-react.md §3.1).
+ * The wrapper of `ITDataTable` (docs/arquitectura/web-react.md §3.1).
  *
- * **Traduce un contrato que no coincide.** El kit pide `{ page, limit, filters,
- * sort }` con la página **desde 1**; la API recibe `{ page, size, q, sort }` con
- * la página **desde 0** y el orden como `"campo,direccion"`. Sin esta clase, cada
- * pantalla repetiría la traducción (y con ella el error de la página ±1).
+ * **Translates a contract that does not match.** The kit asks for `{ page, limit, filters,
+ * sort }` with the page **from 1**; the API receives `{ page, size, q, sort }` with
+ * the page **from 0** and the order as `"field,direction"`. Without this class, each
+ * screen would repeat the translation (and with it the ±1 page error).
  *
- * **Quita los casts.** En CYC hay 85 `as unknown as`, 29 solo para `Column`: un
- * cast doble apaga el compilador, así que un campo renombrado en la respuesta no
- * da error en ningún sitio. Aquí las columnas se tipan con `T` y el envoltorio
- * fija los valores por defecto de §3.1, de modo que una pantalla solo pasa lo
- * que cambia.
+ * **Removes the casts.** CYC has 85 `as unknown as`, 29 only for `Column`: a
+ * double cast turns off the compiler, so a field renamed in the response does not
+ * does not fail anywhere. Here the columns are typed with `T` and the wrapper
+ * fixes the default values of §3.1, so that a screen only passes what
+ * that changes.
  */
 export function DataTable<T extends Record<string, unknown>>({
   columns,
@@ -53,7 +53,7 @@ export function DataTable<T extends Record<string, unknown>>({
     return { data: page.items, total: page.totalItems };
   };
 
-  // El layout es `auto`: con `fixed`, las columnas sin ancho se reparten igual y los encabezados se encimaban.
+  // The layout is `auto`: with `fixed`, the columns without width were shared equally and the headers overlapped.
   return (
       <ITDataTable<T>
         columns={columns}

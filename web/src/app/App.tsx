@@ -21,15 +21,15 @@ import NotFoundPage from "@pages/errors/NotFoundPage";
 import HomePage from "@pages/home/HomePage";
 
 /**
- * Las rutas.
+ * The routes.
  *
- * Dos puertas distintas, y la diferencia importa:
- *  - `RequireAuth`: solo sesión, **sin armazón**. Es para las pantallas de cuenta
- *    que se ven a pantalla completa, como el cambio de contraseña obligatorio.
- *  - `PrivateRoutes`: sesión **y** armazón (menú, barra superior) para el resto.
+ * Two different doors, and the difference matters:
+ *  - `RequireAuth`: session only, **without frame**. It is for the account screens
+ *    that are shown full screen, such as the mandatory password change.
+ *  - `PrivateRoutes`: session **and** frame (menu, top bar) for the rest.
  *
- * `RequirePermission` es para no ofrecer lo que va a fallar: la API decide igual
- * en cada petición y responde `403` aunque la URL se escriba a mano.
+ * `RequirePermission` is to avoid offering what will fail: the API decides anyway
+ * on each request and responds `403` even when the URL is typed by hand.
  */
 export default function App() {
   return (

@@ -22,11 +22,11 @@ const KIND_LABEL: Record<Location["kind"], string> = {
 };
 
 /**
- * Ubicaciones: el listado, con los filtros que la API admite (`q`, `warehouseId`,
+ * Locations: the list, with the filters the API supports (`q`, `warehouseId`,
  * `kind`, `active`).
  *
- * La columna de nombre visible muestra `displayName`, que **compone el servidor**:
- * la web no concatena `hall + code + position` (docs/arquitectura/web-fsd.md §2.3).
+ * The visible name column shows `displayName`, which **the server composes**:
+ * the web does not concatenate `hall + code + position` (docs/arquitectura/web-fsd.md §2.3).
  */
 export default function LocationsPage() {
   const dispatch = useDispatch<AppDispatch>();
@@ -65,8 +65,8 @@ export default function LocationsPage() {
       refresh();
       dispatch(showToast(i18n.t("catalog.locationDeactivated", { name: toDeactivate.displayName })));
     } catch (caught) {
-      // `LOCATION_HAS_STOCK` y `RECEIVING_LOCATION_PROTECTED` explican qué pasó y
-      // qué hacer; el mensaje de la API es el que se muestra.
+      // `LOCATION_HAS_STOCK` and `RECEIVING_LOCATION_PROTECTED` explain what happened and
+      // what to do; the message from the API is the one that is shown.
       setActionError(describeError(caught, "errors.unexpected"));
     } finally {
       setBusy(false);

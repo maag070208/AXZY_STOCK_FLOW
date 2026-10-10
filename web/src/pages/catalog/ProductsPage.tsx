@@ -18,11 +18,11 @@ import i18n from "@shared/i18n";
 import { describeError } from "@shared/api/errorMessage";
 
 /**
- * Productos: el listado con paginación, filtro y orden **en el servidor**.
+ * Products: the list with pagination, filter and sort **on the server**.
  *
- * Solo se ofrecen los filtros que la API admite: la búsqueda libre (`q`) y el
- * estado (`active`). Marcar una columna como filtrable cuando el endpoint no la
- * filtra daría un resultado que parece filtrado y no lo está.
+ * Only the filters that the API supports are offered: the free-text search (`q`) and the
+ * state (`active`). Marking a column as filterable when the endpoint does not
+ * filters would give a result that looks filtered and is not.
  */
 export default function ProductsPage() {
   const dispatch = useDispatch<AppDispatch>();
@@ -50,10 +50,10 @@ export default function ProductsPage() {
       await catalogApi.deactivateProduct(toDeactivate.id, reason);
       setToDeactivate(null);
       refresh();
-      dispatch(showToast(`Producto ${toDeactivate.productCode} desactivado`));
+      dispatch(showToast(i18n.t("catalog.productDeactivated", { code: toDeactivate.productCode })));
     } catch (caught) {
-      // `PRODUCT_HAS_STOCK` (409) es el caso interesante: se dice cuánto stock hay
-      // y qué hacer, en lugar de un «no se pudo».
+      // `PRODUCT_HAS_STOCK` (409) is the interesting case: it says how much stock there is
+      // and what to do, instead of a "could not".
       setActionError(describeError(caught, "errors.unexpected"));
     } finally {
       setBusy(false);

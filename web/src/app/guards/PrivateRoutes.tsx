@@ -10,11 +10,11 @@ import { authApi } from "@entities/session/api";
 import i18n from "@shared/i18n";
 
 /**
- * El armazón de la aplicación: barra superior, menú lateral y el contenido.
+ * The application frame: top bar, side menu and the content.
  *
- * El menú se arma con **los permisos que devuelve la API** (`/auth/me`): una
- * entrada que no se puede ver no se dibuja, y una que se escriba a mano en la URL
- * la rechaza la API de todos modos con `PERMISSION_DENIED`.
+ * The menu is built from **the permissions the API returns** (`/auth/me`): a
+ * entry that cannot be seen is not drawn, and one typed by hand in the URL
+ * the API rejects it anyway with `PERMISSION_DENIED`.
  */
 export default function PrivateRoutes() {
   const dispatch = useDispatch<AppDispatch>();
@@ -27,9 +27,9 @@ export default function PrivateRoutes() {
   }, [token, dispatch]);
 
   /**
-   * Primero se revoca el refresh token en la API —con el acceso todavía
-   * vigente— y después se limpia la sesión local. Al revés, la petición saldría
-   * sin token y la sesión quedaría viva en el servidor.
+   * First the refresh token is revoked in the API —with the access token still
+   * in force— and after that the local session is cleared. In reverse, the request would go
+   * without a token and the session would stay alive on the server.
    */
   const handleLogout = useCallback(async () => {
     await authApi.logout(refreshToken).catch(() => undefined);
@@ -39,7 +39,7 @@ export default function PrivateRoutes() {
 
   if (!token) return <Navigate to="/login" replace />;
 
-  // Contraseña temporal: no se navega a ningún otro sitio hasta cambiarla (I8).
+  // Temporary password: no navigation to any other place until it is changed (I8).
   if (user?.mustChangePassword) return <Navigate to="/change-password" replace />;
 
   const navigationItems: ITNavigationItem[] = MENU.filter(
@@ -53,17 +53,17 @@ export default function PrivateRoutes() {
   }));
 
   const sidebar: ITSidebarProps = {
-    // Se oculta solo, como en CYC: el contenido gana el ancho y el menú aparece al acercar el cursor.
-    // Colapsado muestra solo los iconos; el nombre aparece al desplegarlo.
+    // It hides itself, as in CYC: the content gains the width and the menu appears when the cursor approaches.
+    // Collapsed shows only the icons; the name appears when expanded.
     isCollapsed: true,
     navigationItems,
   };
 
   const topBar = {
-    // El glifo claro: el modo oscuro está fijado en `light` (app/main.tsx), y el
-    // paquete de marca trae la variante oscura para cuando se active.
-    // `alt` vacío a propósito: el nombre va al lado y repetirlo molesta a quien
-    // usa un lector de pantalla.
+    // The light glyph: dark mode is fixed to `light` (app/main.tsx), and the
+    // the brand package ships the dark variant for when it is enabled.
+    // `alt` empty on purpose: the name goes next to it and repeating it bothers whoever
+    // uses a screen reader.
     logo: <img src={glyph} alt="" className="h-10 w-auto" />,
     logoText: i18n.t("app.name"),
     userMenu: user

@@ -7,19 +7,19 @@ import { describeError } from "@shared/api/errorMessage";
 
 interface Props {
   open: boolean;
-  /** `null` para alta; una bodega para edición. */
+  /** `null` for creation; a warehouse for editing. */
   warehouse: Warehouse | null;
   onClose: () => void;
   onSaved: () => void;
 }
 
 /**
- * Alta y edición de una bodega.
+ * Create and edit a warehouse.
  *
- * La marca de **predeterminada no se puede quitar sin poner otra**: la API la
- * conserva si se intenta (`UpdateWarehouse`), porque el sistema necesita saber
- * dónde aterriza lo que llega sin destino declarado. Aquí la casilla se muestra
- * bloqueada en ese caso, en lugar de ofrecer algo que no va a pasar.
+ * The **default** flag cannot be removed without setting another one: the API
+ * keeps if it is attempted (`UpdateWarehouse`), because the system needs to know
+ * where what arrives without a declared destination lands. Here the checkbox is shown
+ * blocked in that case, instead of offering something that is not going to happen.
  */
 export default function WarehouseFormDialog({ open, warehouse, onClose, onSaved }: Props) {
   const editing = warehouse !== null;

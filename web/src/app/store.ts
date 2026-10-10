@@ -4,12 +4,12 @@ import { setSessionHooks } from "@shared/api/session";
 import { toastReducer } from "./toast/toast.slice";
 
 /**
- * El almacén. Es el **único** sitio que conoce a la vez la sesión y el cliente
- * HTTP: `shared/` no puede importar de `entities/` (regla de capas), así que el
- * cliente no lee el token de ningún sitio y se lo registran aquí.
+ * The store. It is the **only** place that knows the session and the client at the same time
+ * HTTP: `shared/` cannot import from `entities/` (layer rule), so the
+ * client does not read the token from anywhere, and it is registered here.
  *
- * Gracias a este puente, el cliente HTTP se puede probar sin montar la
- * aplicación, y una pantalla no tiene que acordarse de mandar el `Authorization`.
+ * Thanks to this bridge, the HTTP client can be tested without mounting the
+ * application, and a screen does not have to remember to send the `Authorization`.
  */
 export const store = configureStore({
   reducer: {

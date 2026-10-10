@@ -10,19 +10,19 @@ import { describeError } from "@shared/api/errorMessage";
 interface Props {
   open: boolean;
   onClose: () => void;
-  /** Se llama solo cuando se escribió de verdad, para recargar la tabla. */
+  /** Called only when something was really written, to reload the table. */
   onImported: () => void;
 }
 
 /**
- * La importación del archivo del catálogo.
+ * The catalog file import.
  *
- * **Simula por defecto.** El olvido inverso —escribir 1.398 productos cuando se
- * quería probar— no tiene vuelta atrás; el contrario se resuelve volviendo a
- * pulsar. Es la misma decisión que toma la API con `dryRun` (docs/api/catalogo.md).
+ * **Simulates by default.** The reverse oversight —writing 1,398 products when the
+ * wanted to test— it cannot be undone; the opposite is solved by going back to
+ * clicking. It is the same decision the API takes with `dryRun` (docs/api/catalogo.md).
  *
- * Las filas rechazadas se listan **con su número de fila**: sin él, un archivo con
- * un error es irresoluble.
+ * The rejected rows are listed **with their row number**: without it, a file with
+ * an error is unresolvable.
  */
 export default function ImportProductsDialog({ open, onClose, onImported }: Props) {
   const [file, setFile] = useState<File | null>(null);
@@ -54,8 +54,8 @@ export default function ImportProductsDialog({ open, onClose, onImported }: Prop
     } catch (caught) {
       const apiError = caught as ApiError;
       setError(describeError(apiError, "catalog.importFailed"));
-      // `IMPORT_INVALID_ROWS` trae un detalle por fila (`fila_3`): es lo que
-      // permite corregir el archivo sin adivinar cuál estaba mal.
+      // `IMPORT_INVALID_ROWS` carries a detail per row (`fila_3`): it is what
+      // lets the file be corrected without guessing which row was wrong.
       setRejected(Object.entries(apiError.details ?? {}));
       setReport(null);
     } finally {

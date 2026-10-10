@@ -8,8 +8,8 @@ export const labelsApi = {
     get<Page<PrintJob>>("/labels/jobs", { params: { ...toQueryParams(query), ...compactParams({ ...filters }) } }),
 
   /**
-   * Reimprimir gasta una etiqueta más, por eso exige motivo y tiene su propio permiso. Responde el
-   * trabajo nuevo (202), enlazado al original: el registro original no se reutiliza.
+   * Reprinting uses up one more label, which is why it requires a reason and has its own permission. It responds
+   * new job (202), linked to the original: the original record is not reused.
    */
   reprint: (id: number, reason: string): Promise<PrintJob> =>
     post<PrintJob>(`/labels/jobs/${id}/reprint`, { reason }),

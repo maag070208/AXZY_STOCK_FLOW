@@ -12,9 +12,9 @@ const LEVELS = ["CRITICAL", "RELEVANT", "ACCESS", "TECHNICAL"];
 const RESULTS = ["SUCCESS", "FAILURE", "DENIED", "PARTIAL"];
 
 /**
- * La bitácora: quién hizo qué, sobre qué, cuándo y desde dónde. Solo lectura, y la lectura queda
- * registrada como acceso. Los filtros son los que la API admite; el nivel y el resultado son
- * listas cerradas, así que van en selectores y no en texto libre.
+ * The audit log: who did what, to what, when and from where. Read-only, and the reading is recorded
+ * recorded as access. The filters are the ones the API supports; the level and the result are
+ * closed lists, so they go in selects and not in free text.
  */
 export default function AuditPage() {
   const [entityType, setEntityType] = useState("");

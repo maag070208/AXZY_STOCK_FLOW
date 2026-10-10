@@ -15,21 +15,21 @@ export const receivingApi = {
   invoices: (query: PageQuery, filters: { status?: string }): Promise<Page<InvoiceHeader>> =>
     get<Page<InvoiceHeader>>("/invoices", { params: { ...toQueryParams(query), ...compactParams({ ...filters }) } }),
 
-  /** La bandeja no usa el sobre de paginación: es `{ items: [...] }` (docs/api/recepcion.md). */
+  /** The inbox does not use the pagination envelope: it is `{ items: [...] }` (docs/api/recepcion.md). */
   pendingApproval: (): Promise<{ items: PendingApproval[] }> =>
     get<{ items: PendingApproval[] }>("/invoices/pending-approval"),
 
-  /** Alta. La API responde la referencia (201), no la factura: el detalle se pide aparte. */
+  /** Creation. The API responds with the reference (201), not the invoice: the detail is requested separately. */
   create: (body: NewInvoice): Promise<{ id: number; invoiceNumber: string }> =>
     post<{ id: number; invoiceNumber: string }>("/invoices", body),
 
   detail: (id: number): Promise<InvoiceDetail> => get<InvoiceDetail>(`/invoices/${id}`),
 
-  /** Responde la línea, no la factura. */
+  /** Responds with the line, not the invoice. */
   capture: (invoiceId: number, lineId: number, body: CaptureBody): Promise<InvoiceLine> =>
     post<InvoiceLine>(`/invoices/${invoiceId}/lines/${lineId}/capture`, body),
 
-  /** Sin `userId` la línea queda a nombre de quien llama. Solo se puede desde `PENDING`. */
+  /** Without `userId` the line is left under the caller's name. It can only be done from `PENDING`. */
   assign: (invoiceId: number, lineId: number, body: { userId?: number }): Promise<InvoiceLine> =>
     put<InvoiceLine>(`/invoices/${invoiceId}/lines/${lineId}/assign`, body),
 

@@ -10,9 +10,9 @@ import { FaHistory } from "react-icons/fa";
 import i18n from "@shared/i18n";
 
 /**
- * El kardex: el libro de movimientos, en orden cronológico inverso. Solo lectura: un movimiento
- * no se edita ni se borra, y corregir es añadir otro (ADR-0015). Los filtros de fecha viajan como
- * `AAAA-MM-DD`, el día de negocio, que es lo que la API acepta.
+ * The stock ledger (kardex): the book of movements, in reverse chronological order. Read-only: a movement
+ * is not edited or deleted, and correcting means adding another one (ADR-0015). The date filters travel as
+ * `YYYY-MM-DD`, the business day, which is what the API accepts.
  */
 export default function KardexPage() {
   const [productCode, setProductCode] = useState("");

@@ -16,10 +16,10 @@ import { describeError } from "@shared/api/errorMessage";
 const STATUSES = ["PENDING", "PRINTED", "FAILED"];
 
 /**
- * La cola de impresión. Una etiqueta sale `PRINTED` solo cuando la impresora lo confirma: pedirla
- * no la marca como impresa. Un fallo se queda visible con su motivo y su número de intento.
+ * The print queue. A label becomes `PRINTED` only when the printer confirms it: requesting it
+ * does not mark it as printed. A failure stays visible with its reason and attempt number.
  *
- * Reimprimir pide un motivo y crea un trabajo **nuevo** enlazado al original; el original no cambia.
+ * Reprinting asks for a reason and creates a **new** job linked to the original; the original does not change.
  */
 export default function PrintJobsPage() {
   const dispatch = useDispatch<AppDispatch>();

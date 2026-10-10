@@ -1,4 +1,4 @@
-/** La bitácora (docs/api/auditoria.md). Los estados son texto JSON tal cual lo guardó la base. */
+/** The audit log (docs/api/auditoria.md). The states are JSON text exactly as the database stored them. */
 export type AuditEntry = {
   id: number;
   occurredAt: string;

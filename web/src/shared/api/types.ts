@@ -1,18 +1,18 @@
 /**
- * Los tipos que el contrato HTTP comparte con todos los módulos.
+ * The types that the HTTP contract shares with all the modules.
  *
- * El sobre de error y el de paginación se definen **una vez** aquí; cada módulo
- * añade su entidad, no su envoltorio (docs/api/convenciones.md §1.3 y §1.4).
+ * The error envelope and the pagination envelope are defined **once** here; each module
+ * adds its entity, not its wrapper (docs/api/convenciones.md §1.3 and §1.4).
  */
 
-/** El cuerpo de error, idéntico en todos los endpoints. */
+/** The error body, identical across all endpoints. */
 export interface ErrorBody {
   code: string;
   message: string;
   details?: Record<string, string>;
 }
 
-/** Un fallo de la API, ya normalizado. **La UI decide con `code`, nunca con `message`**. */
+/** An API failure, already normalized. **The UI decides with `code`, never with `message`**. */
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -25,7 +25,7 @@ export class ApiError extends Error {
   }
 }
 
-/** El sobre de un listado paginado. `totalItems` viene de un `count(*)` con los mismos filtros. */
+/** The envelope of a paginated list. `totalItems` comes from a `count(*)` with the same filters. */
 export interface Page<T> {
   items: T[];
   page: number;
@@ -34,20 +34,20 @@ export interface Page<T> {
   totalPages: number;
 }
 
-/** Filtros y orden ya traducidos al contrato de la API. */
+/** Filters and sort already translated to the API contract. */
 export interface PageQuery {
-  /** **0-indexado**, como la API (el `ITDataTable` del kit usa 1). */
+  /** **0-indexed**, as the API does (the kit's `ITDataTable` uses 1). */
   page: number;
   size: number;
-  /** `campo,direccion`; ausente si el usuario no ordenó. */
+  /** `field,direction`; absent if the user did not sort. */
   sort?: string;
-  /** Búsqueda libre (`q`). */
+  /** Free-text search (`q`). */
   q?: string;
-  /** El resto de filtros, tal como los entrega la tabla. Cada módulo sabe qué hacer con ellos. */
+  /** The rest of the filters, as the table delivers them. Each module knows what to do with them. */
   filters: Record<string, unknown>;
 }
 
-/** Cabeceras que la web manda siempre, y que la bitácora usa para saber de dónde vino la petición. */
+/** Headers the web always sends, and that the audit log uses to know where the request came from. */
 export const CLIENT_HEADERS = {
   "X-Client-Channel": "WEB",
 } as const;

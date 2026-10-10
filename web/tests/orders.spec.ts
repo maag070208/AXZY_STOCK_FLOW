@@ -3,11 +3,11 @@ import { openMenu } from "./support/menu";
 import { mockHomeSummary } from "./support/home";
 
 /**
- * Las acciones del surtido, **con la API simulada**.
+ * The fulfillment actions, **with the simulated API**.
  *
- * Se afirma lo que la web envía (la línea correcta, la cantidad, el motivo), lo que no envía cuando
- * falta un dato, y lo que muestra cuando el ERP no responde. Que el empaque no pase del pendiente o
- * que un faltante sea un ajuste lo prueban los tests de Kotlin con la base real.
+ * It asserts what the web sends (the correct line, the quantity, the reason), what it does not send when
+ * a value is missing, and what it shows when the ERP does not respond. That the packing does not go past the pending amount or
+ * that a shortage is an adjustment is tested by the Kotlin tests against the real database.
  */
 
 const PERMISSIONS = [
@@ -77,7 +77,7 @@ async function signIn(page: Page) {
   await expect(page.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
 }
 
-/** Lista con la orden, y la orden que devuelve `current` (que cambia con cada acción). */
+/** List with the order, and the order returned by `current` (which changes with each action). */
 async function mockOrder(page: Page, initial: Record<string, unknown>) {
   let current = initial;
   await page.route("**/v1/orders?*", (route) =>
@@ -161,7 +161,7 @@ test.describe("fulfillment: actions (simulated API)", () => {
     const state = await mockOrder(page, confirmed);
     const failure = "ERP_NOT_CONNECTED: no hay adaptador del ERP configurado";
     await page.route("**/v1/orders/30/export", (route) => {
-      // El intento no devuelve la orden: la web la vuelve a pedir, y entonces ya trae el fallo guardado.
+      // The attempt does not return the order: the web requests it again, and then it already carries the saved failure.
       state.set({ ...confirmed, exportStatus: "FAILED", exportAttempts: 1, exportLastError: failure });
       return route.fulfill({ json: { attempts: 1, status: "FAILED", lastError: failure } });
     });

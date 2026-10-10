@@ -9,8 +9,8 @@ import { FaTruck } from "react-icons/fa";
 import i18n from "@shared/i18n";
 
 /**
- * Surtido: las órdenes y su estado de exportación. Sin ERP conectado, el intento sale `FAILED` con
- * su motivo: la pantalla lo dice tal cual, en lugar de mostrar una exportación que no ocurrió.
+ * Fulfillment: the orders and their export status. Without a connected ERP, the attempt comes out `FAILED` with
+ * its reason: the screen says so as it is, instead of showing an export that did not happen.
  */
 export default function OrdersPage() {
   const navigate = useNavigate();

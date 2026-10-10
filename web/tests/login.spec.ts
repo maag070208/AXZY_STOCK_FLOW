@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 import { E2E } from "./support/env";
 
 /**
- * La entrada, contra la **API de verdad**.
+ * The sign-in, against the **real API**.
  *
- * No hay una prueba que «simule» la entrada: lo que se quiere saber es si la web
- * y la API se entienden. Las credenciales salen del `.env`, y la prueba **falla**
- * si faltan en lugar de saltarse: una prueba saltada cuenta como aprobada y ya
- * ocultó huecos antes (docs/pruebas/estrategia-pruebas.md).
+ * There is no test that "simulates" the sign-in: what we want to know is whether the web
+ * and the API are understood. The credentials come from the `.env`, and the test **fails**
+ * if they are missing instead of being skipped: a skipped test counts as passed, and
+ * hid gaps before (docs/pruebas/estrategia-pruebas.md).
  */
 test.describe("sign-in", () => {
   test("the API responds before starting", async ({ request }) => {
@@ -20,8 +20,8 @@ test.describe("sign-in", () => {
   });
 
   test("the brand is served and the manifest carries the product name", async ({ request }) => {
-    // Los archivos que `index.html` declara tienen que existir de verdad: un
-    // favicon que no se sirve no rompe nada y nadie lo nota.
+    // The files that `index.html` declares have to exist for real: a
+    // a favicon that is not served breaks nothing, and nobody notices.
     for (const asset of ["/favicon.svg", "/favicon.ico", "/apple-touch-icon.png", "/icon-192.png", "/site.webmanifest"]) {
       const response = await request.get(asset);
       expect(response.ok(), `${asset} no se sirve`).toBeTruthy();
@@ -39,8 +39,8 @@ test.describe("sign-in", () => {
     await expect(page.locator('input[name="username"]')).toBeVisible();
     await expect(page.locator('input[name="password"]')).toBeVisible();
 
-    // Con los campos vacíos el botón está deshabilitado a propósito: no se puede
-    // mandar una petición que la API va a rechazar por falta de campo.
+    // With the fields empty the button is disabled on purpose: it cannot be
+    // sending a request that the API is going to reject for a missing field.
     const entrar = page.getByRole("button", { name: "Sign in" });
     await expect(entrar).toBeDisabled();
     await page.locator('input[name="username"]').fill("alguien");
@@ -52,17 +52,17 @@ test.describe("sign-in", () => {
     await page.goto("/");
 
     /*
-     * Un nombre DISTINTO en cada corrida. El bloqueo por intentos es por nombre
-     * de usuario (I2: cinco fallos en 15 minutos), así que con un nombre fijo la
-     * sexta corrida recibiría `ACCOUNT_LOCKED` —que es correcto— y la prueba
-     * fallaría por su propia repetición, no por un defecto.
+     * A DIFFERENT name in each run. The lockout by attempts is per name
+     * of user (I2: five failures in 15 minutes), so with a fixed name the
+     * sixth run would get `ACCOUNT_LOCKED` —which is correct— and the test
+     * would fail because of its own repetition, not because of a defect.
      */
     await page.locator('input[name="username"]').fill(`no-existe-${Date.now()}`);
     await page.locator('input[name="password"]').fill("contrasena-incorrecta-123");
     await page.getByRole("button", { name: "Sign in" }).click();
 
-    // El texto lo escribe la API. La web no lo inventa: si lo inventara, mentiría
-    // en cuanto la cuenta estuviera bloqueada, que es otro caso con otro remedio.
+    // The text is written by the API. The web does not invent it: if it did, it would lie
+    // as soon as the account was locked, which is another case with another remedy.
     await expect(page.getByText("Wrong username or password.")).toBeVisible();
     await expect(page).toHaveURL(/#\/login$/);
   });
@@ -79,11 +79,11 @@ test.describe("sign-in", () => {
     await page.getByRole("button", { name: "Sign in" }).click();
 
     /*
-     * Dos desenlaces, y los dos los decide la API, no la web:
-     *  - contraseña temporal → la pantalla de cambio, sin menú (I8);
-     *  - contraseña ya cambiada → el armazón, con «Home».
-     * La prueba acepta los dos a propósito: cuál toca depende del estado de la
-     * cuenta, y afirmar uno solo la volvería frágil sin ganar nada.
+     * Two outcomes, and the API decides both, not the web:
+     *  - temporary password → the change screen, without menu (I8);
+     *  - password already changed → the frame, with "Home".
+     * The test accepts both on purpose: which one applies depends on the state of the
+     * account, and asserting only one would make it fragile without gaining anything.
      */
     await expect(
       page.getByRole("heading", { name: /^(Home|Change password)$/ }).first(),

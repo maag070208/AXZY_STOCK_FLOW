@@ -6,14 +6,14 @@ export interface MenuEntry {
   id: string;
   label: string;
   path: string;
-  /** Permiso que exige la entrada; `null` la deja visible a cualquiera que haya entrado. */
+  /** Permission the entry requires; `null` leaves it visible to anyone who has signed in. */
   permission: string | null;
   icon: ReactNode;
 }
 
 /**
- * El menú, con el permiso que exige cada entrada. La web no reimplementa la matriz: solo decide qué
- * ofrecer, y la API decide de verdad. Lo usan el armazón (el menú lateral) y el inicio (los accesos).
+ * The menu, with the permission each entry requires. The web does not reimplement the matrix: it only decides what
+ * offer, and the API decides for real. The frame (the side menu) and the home page (the shortcuts) use it.
  */
 export const MENU: MenuEntry[] = [
   { id: "home", label: i18n.t("nav.home"), path: "/", permission: null, icon: <FaHome size={14} /> },

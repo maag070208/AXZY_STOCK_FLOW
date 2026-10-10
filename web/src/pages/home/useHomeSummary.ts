@@ -10,9 +10,9 @@ import { transfersApi, type InTransit } from "@entities/transfers";
 import { describeError } from "@shared/api/errorMessage";
 
 /**
- * Lo que el inicio muestra del estado de la operación. Cada cifra sale de un endpoint que el usuario
- * puede ver: sin permiso, la cifra queda en `null` y no se pide. Un fallo también deja `null`, pero se
- * guarda el mensaje para decirlo, en lugar de mostrar un cero que parezca un dato.
+ * What the home page shows about the state of the operation. Each figure comes from an endpoint that the user
+ * can see: without permission, the figure stays `null` and is not requested. A failure also leaves `null`, but
+ * keeps the message to report it, instead of showing a zero that looks like data.
  */
 export interface HomeSummary {
   products: number | null;

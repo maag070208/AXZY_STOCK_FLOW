@@ -8,14 +8,14 @@ import { showToast } from "@app/toast/toast.slice";
 import i18n from "@shared/i18n";
 
 /**
- * Cambio de contraseña, obligatorio la primera vez.
+ * Password change, mandatory the first time.
  *
- * **Al terminar se cierra la sesión y se vuelve a entrar.** No es una decisión de
- * la web: la API revoca **todas** las sesiones al cambiar la contraseña, incluida
- * la actual, porque quien la cambia suele sospechar que está comprometida
- * (`ChangePassword`, api/application/.../identity/SessionCommands.kt). Quedarse en
- * la pantalla con un token que ya no se puede renovar daría un error confuso unos
- * minutos después.
+ * **The session is closed and you log back in at the end.** It is not a decision of
+ * the web: the API revokes **all** sessions when the password changes, including the
+ * the current one, because whoever changes it usually suspects it has been compromised
+ * (`ChangePassword`, api/application/.../identity/SessionCommands.kt). Staying on
+ * the screen with a token that can no longer be renewed would give a confusing error some
+ * minutes later.
  */
 export default function ChangePasswordForm() {
   const dispatch = useDispatch<AppDispatch>();
@@ -31,9 +31,9 @@ export default function ChangePasswordForm() {
     event.preventDefault();
     setError(null);
 
-    // La única comprobación local: que las dos escrituras coincidan. La política
-    // de la contraseña la aplica la API (`WEAK_PASSWORD`), y duplicarla aquí
-    // garantizaría que las dos se separen con el tiempo.
+    // The only local check: that the two writes match. The policy
+    // of the password is enforced by the API (`WEAK_PASSWORD`), and duplicating it here
+    // would guarantee that the two drift apart over time.
     if (newPassword !== repeat) {
       setError(i18n.t("auth.passwordsDoNotMatch"));
       return;

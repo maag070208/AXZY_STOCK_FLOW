@@ -9,9 +9,9 @@ import { FaBoxOpen } from "react-icons/fa";
 import i18n from "@shared/i18n";
 
 /**
- * Existencias por ubicación. Dos filtros que el endpoint acepta de verdad: el código de producto y
- * la ubicación. No hay búsqueda libre ni orden: marcarlos aquí daría un resultado que parece
- * filtrado y no lo está.
+ * Stock by location. Two filters the endpoint really accepts: the product code and the
+ * the location. There is no free search or sort: marking them here would give a result that looks
+ * filtered and is not.
  */
 export default function StockPage() {
   const [productCode, setProductCode] = useState("");

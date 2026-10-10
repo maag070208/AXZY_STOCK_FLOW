@@ -2,16 +2,16 @@ import type { ReactNode } from "react";
 
 interface PanelCardProps {
   title: string;
-  /** Texto de apoyo bajo el título: qué muestra el panel y por qué importa. */
+  /** Support text under the title: what the panel shows and why it matters. */
   description?: string;
-  /** Acciones a la derecha del encabezado, como «Ver todo». */
+  /** Actions on the right of the header, such as "See all". */
   actions?: ReactNode;
   children: ReactNode;
 }
 
 /**
- * Una sección con título, descripción y acciones. Mismo estilo que el panel de CYC: tarjeta blanca,
- * borde fino y encabezado con el texto de apoyo en gris.
+ * A section with title, description and actions. Same style as the CYC panel: white card,
+ * thin border and a header with the support text in grey.
  */
 export default function PanelCard({ title, description, actions, children }: PanelCardProps) {
   return (

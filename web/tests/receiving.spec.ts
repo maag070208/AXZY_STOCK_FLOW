@@ -3,11 +3,11 @@ import { openMenu } from "./support/menu";
 import { mockHomeSummary } from "./support/home";
 
 /**
- * Las acciones de escritura de recepción, **con la API simulada**.
+ * The receiving write actions, **with the simulated API**.
  *
- * Lo que se afirma es lo que la web **envía** y lo que **muestra** ante cada respuesta. Las reglas
- * (segregación de funciones, empaque, bloqueos) las prueban los tests de Kotlin con la base real;
- * aquí se comprueba que la web las presenta sin inventarlas.
+ * What is asserted is what the web **sends** and what it **shows** for each response. The rules
+ * (segregation of duties, packing, locks) are tested by the Kotlin tests against the real database;
+ * here it is checked that the web presents them without inventing them.
  */
 
 const PERMISSIONS = [
@@ -81,13 +81,13 @@ async function signIn(page: Page) {
   await expect(page.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
 }
 
-/** Entra a Receiving desde el menú: un clic dentro de la app, sin recargar (la sesión vive en memoria). */
+/** Enters Receiving from the menu: a click inside the app, without reloading (the session lives in memory). */
 async function openReceiving(page: Page) {
   await openMenu(page, "Receiving");
   await expect(page.getByText("Received invoices and those waiting for a supervisor's approval.")).toBeVisible();
 }
 
-/** La lista de facturas y la bandeja vacías; una factura que aparece en la lista. */
+/** The invoice list and the inbox empty; an invoice that appears in the list. */
 async function mockList(page: Page, lines: unknown[] = []) {
   await page.route("**/v1/invoices/pending-approval*", (route) => route.fulfill({ json: { items: [] } }));
   await page.route("**/v1/invoices?*", (route) =>
@@ -126,11 +126,11 @@ test.describe("receiving: writes (simulated API)", () => {
     expect(body.invoiceNumber).toBe("F-2024-0158");
     expect(body.invoiceType).toBe("NATIONAL");
     expect(body.receiptDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    // El código sale en mayúsculas y las cantidades como número, no como texto.
+    // The code comes out in uppercase and the quantities as numbers, not as text.
     expect(body.lines).toEqual([{ productCode: "ABRAA1B", container: null, quantity: 100, boxQuantity: 2, unitsPerBox: 50 }]);
 
     await expect(page).toHaveURL(/\/invoices\/15$/);
-    // Acotado al encabezado: el aviso «Invoice … registrada.» repite el texto.
+    // Scoped to the header: the notice "Invoice … registered." repeats the text.
     await expect(page.getByRole("heading", { name: "Invoice F-2024-0158" })).toBeVisible();
   });
 
@@ -155,7 +155,7 @@ test.describe("receiving: writes (simulated API)", () => {
     await page.getByRole("button", { name: "Save count" }).click();
     expect((await request).postDataJSON()).toEqual({ physicalQuantity: 80 });
 
-    // Una diferencia pide aprobación: la línea queda en discrepancia y la factura lo dice.
+    // A difference requires approval: the line stays in discrepancy and the invoice says so.
     await expect(page.getByText("DISCREPANCY").first()).toBeVisible();
   });
 
@@ -178,7 +178,7 @@ test.describe("receiving: writes (simulated API)", () => {
 
     const request = page.waitForRequest((req) => req.url().includes("/approve"));
     await page.getByRole("button", { name: "Approve", exact: true }).click();
-    // La decisión lleva el motivo y no lleva nota: no se inventa un texto que nadie escribió.
+    // The decision carries the reason and has no note: a text that nobody wrote is not invented.
     expect((await request).postDataJSON()).toEqual({ adjustmentReason: "SUPPLIER_ERROR" });
 
     await expect(page.getByText("The person who counted a line cannot approve its discrepancy.")).toBeVisible();
@@ -198,7 +198,7 @@ test.describe("receiving: writes (simulated API)", () => {
     await page.getByText("F-2024-0158").first().click();
     const request = page.waitForRequest((req) => req.url().endsWith("/lines/88/assign"));
     await page.getByRole("button", { name: "Assign to me" }).click();
-    // Sin userId: la API asigna a quien llama.
+    // Without userId: the API assigns it to the caller.
     expect((await request).postDataJSON()).toEqual({});
     await expect(page.getByText("ASSIGNED").first()).toBeVisible();
   });

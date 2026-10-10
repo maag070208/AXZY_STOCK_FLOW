@@ -7,11 +7,11 @@ import { loginThunk } from "@entities/session";
 import i18n from "@shared/i18n";
 
 /**
- * El formulario de entrada.
+ * The login form.
  *
- * No valida credenciales: las manda y muestra lo que responde la API. Un
- * «usuario o contraseña incorrectos» calculado en el cliente mentiría en cuanto
- * la cuenta esté bloqueada, que es otra cosa distinta y con otro remedio
+ * It does not validate credentials: it sends them and shows what the API responds. A
+ * "wrong username or password" calculated in the client would lie as soon as
+ * the account is locked, which is a different thing with a different remedy
  * (`ACCOUNT_LOCKED`, docs/api/errores.md §1.3-bis).
  */
 export default function LoginForm() {
@@ -21,7 +21,7 @@ export default function LoginForm() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
-  // Al entrar: si la contraseña es temporal, la única pantalla posible es cambiarla.
+  // On entry: if the password is temporary, the only possible screen is to change it.
   useEffect(() => {
     if (!token) return;
     navigate(user?.mustChangePassword ? "/change-password" : "/", { replace: true });

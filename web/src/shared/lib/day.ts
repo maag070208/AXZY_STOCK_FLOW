@@ -1,7 +1,7 @@
 /**
- * El día de calendario de una fecha en formato `AAAA-MM-DD`, que es lo que la API espera en los
- * filtros por día (docs/api/convenciones.md §1.7). Se usan los componentes **locales** de la fecha:
- * `toISOString()` daría el día UTC y, en la costa oeste de México, el día equivocado de noche.
+ * The calendar day of a date in `YYYY-MM-DD` format, which is what the API expects in the
+ * date filters by day (docs/api/convenciones.md §1.7). The **local** components of the date are used:
+ * `toISOString()` would give the UTC day and, on the west coast of Mexico, the wrong day at night.
  */
 export const toIsoDay = (date: Date | null | undefined): string | undefined => {
   if (!date || Number.isNaN(date.getTime())) return undefined;
@@ -12,7 +12,7 @@ export const toIsoDay = (date: Date | null | undefined): string | undefined => {
 };
 
 /**
- * Lo que entrega el selector de fecha del kit: una `Date`, o un par de ellas si es de rango. Aquí
- * solo hay fechas sueltas, así que cualquier otra forma se trata como «sin fecha».
+ * What the kit's date picker delivers: a `Date`, or a pair of them if it is a range. Here
+ * only single dates exist, so any other form is treated as "no date".
  */
 export const asDate = (value: unknown): Date | null => (value instanceof Date ? value : null);

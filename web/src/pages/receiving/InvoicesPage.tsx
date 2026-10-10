@@ -15,12 +15,12 @@ import { FaClipboardList } from "react-icons/fa";
 import i18n from "@shared/i18n";
 
 /**
- * Recepción: las facturas, y la bandeja de las que esperan la decisión de un supervisor. La
- * bandeja la devuelve la API sin sobre de paginación (`{ items }`); aquí se adapta a la misma tabla
- * con una sola página, porque es una lista acotada y no crece con la operación.
+ * Receiving: the invoices, and the inbox of those awaiting a supervisor's decision. The
+ * the inbox is returned by the API without a pagination envelope (`{ items }`); here it is adapted to the same table
+ * with a single page, because it is a bounded list and does not grow with the operation.
  *
- * Una fila abre la factura; el alta de una factura nueva va en el diálogo y, al registrarse, abre
- * la factura recién creada para empezar a contar.
+ * A row opens the invoice; creating a new invoice is done in the dialog and, when it is registered, it opens
+ * the invoice just created to start counting.
  */
 export default function InvoicesPage() {
   const navigate = useNavigate();
@@ -56,7 +56,7 @@ export default function InvoicesPage() {
   const createInvoice = async (body: Parameters<typeof receivingApi.create>[0]) => {
     const created = await receivingApi.create(body);
     setCreating(false);
-    dispatch(showToast(`Factura ${created.invoiceNumber} registrada.`, "success"));
+    dispatch(showToast(i18n.t("receiving.invoiceRegistered", { number: created.invoiceNumber }), "success"));
     navigate(`/invoices/${created.id}`);
   };
 

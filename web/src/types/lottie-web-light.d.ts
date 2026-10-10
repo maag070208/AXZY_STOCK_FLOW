@@ -1,24 +1,24 @@
 /**
- * El motor ligero de Lottie, sin tipos propios.
+ * The Lottie light engine, without its own types.
  *
- * `lottie-web` publica `index.d.ts` para su entrada principal, pero el motor
- * ligero se importa por ruta directa (`build/player/lottie_light.min.js`), que no
- * trae declaración. Se declara **solo lo que se usa**: la API imperativa
- * (`loadAnimation`) con los parámetros que se le pasan.
+ * `lottie-web` publishes `index.d.ts` for its main entry, but the engine
+ * lightweight is imported by direct path (`build/player/lottie_light.min.js`), which does not
+ * comes with a declaration. Only **what is used** is declared: the imperative API
+ * (`loadAnimation`) with the parameters it is given.
  */
 declare module "lottie-web/build/player/lottie_light.min.js" {
   interface AnimationItem {
-    /** Detiene la animación y libera el contenedor. */
+    /** Stops the animation and releases the container. */
     destroy(): void;
   }
 
   interface LoadAnimationParams {
-    /** El elemento donde se dibuja (lottie crea el SVG dentro). */
+    /** The element where it is drawn (lottie creates the SVG inside). */
     container: Element;
     renderer?: "svg";
     loop?: boolean | number;
     autoplay?: boolean;
-    /** La animación ya leída. La alternativa es `path`, una URL que se descarga. */
+    /** The animation already read. The alternative is `path`, a URL that is downloaded. */
     animationData?: unknown;
   }
 

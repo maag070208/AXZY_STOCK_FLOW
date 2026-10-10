@@ -4,19 +4,19 @@ import type { ReactNode } from "react";
 interface PageProps {
   title: string;
   description?: string;
-  /** Icono del encabezado: identifica el módulo de un vistazo, como en CYC. */
+  /** Header icon: identifies the module at a glance, as in CYC. */
   icon?: ReactNode;
   breadcrumbs?: ITBreadcrumbItem[];
-  /** Botones a la derecha del encabezado: la acción principal de la pantalla va aquí. */
+  /** Buttons on the right of the header: the main action of the screen goes here. */
   actions?: ReactNode;
   children: ReactNode;
 }
 
 /**
- * El envoltorio de `ITPage` para StockFlow (docs/arquitectura/web-react.md §3.2).
+ * The wrapper of `ITPage` for StockFlow (docs/arquitectura/web-react.md §3.2).
  *
- * Define **una vez** el aspecto de cada pantalla: ancho completo (el menú se oculta solo, así que el
- * contenido es quien aprovecha el espacio) y un gutter fijo. Una pantalla no repite clases del kit.
+ * Defines **once** the look of each screen: full width (the menu hides itself, so the
+ * content takes advantage of the space) and a fixed gutter. A screen does not repeat kit classes.
  */
 export function Page({ title, description, icon, breadcrumbs, actions, children }: PageProps) {
   return (

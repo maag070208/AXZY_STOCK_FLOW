@@ -11,13 +11,13 @@ interface Props {
   open: boolean;
   line: OrderLine | null;
   onClose: () => void;
-  /** Lanza si la API rechaza el faltante; el diálogo muestra el motivo y sigue abierto. */
+  /** Throws if the API rejects the shortage; the dialog shows the reason and stays open. */
   onSubmit: (body: Omit<ShortageBody, "lineId">) => Promise<void>;
 }
 
 /**
- * Un faltante durante el surtido. Es un **ajuste** de inventario, no un flujo aparte: por eso lleva
- * motivo obligatorio, igual que cualquier merma. La web no preselecciona un motivo.
+ * A shortage during fulfillment. It is an inventory **adjustment**, not a separate flow: that is why it carries
+ * required reason, like any shrinkage. The web does not preselect a reason.
  */
 export default function ShortageDialog({ open, line, onClose, onSubmit }: Props) {
   const [quantityText, setQuantityText] = useState("");

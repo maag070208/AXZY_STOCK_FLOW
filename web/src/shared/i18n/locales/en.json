@@ -232,6 +232,7 @@
     "defaultWarehouseHint": "To stop being the default, mark another warehouse: the system always needs one.",
     "preview": "Preview",
     "locationDeactivated": "Location {{name}} deactivated",
+    "productDeactivated": "Product {{code}} deactivated",
     "deactivateLocationHint": "Deactivating “{{name}}” from {{warehouse}}. A location with stock cannot be deactivated.",
     "deactivateProductHint": "Deactivating “{{name}}” ({{code}}). It stops being available, but keeps its history."
   },
@@ -243,6 +244,7 @@
   },
   "receiving": {
     "invoicesDescription": "Received invoices and those waiting for a supervisor's approval.",
+    "invoiceRegistered": "Invoice {{number}} registered.",
     "newInvoice": "New invoice",
     "searchInvoice": "Search invoice",
     "pendingApproval": "Pending approval",

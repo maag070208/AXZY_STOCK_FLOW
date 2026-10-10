@@ -3,7 +3,7 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 export type ToastType = "success" | "error" | "warning" | "info";
 
 export interface Toast {
-  /** Cambia en cada aviso: es lo que hace que dos iguales seguidos se muestren dos veces. */
+  /** Changes on each notice: it is what makes two identical notices in a row show up twice. */
   id: number;
   message: string;
   type: ToastType;
@@ -23,7 +23,7 @@ const toastSlice = createSlice({
       reducer: (state, action: PayloadAction<Toast>) => {
         state.current = action.payload;
       },
-      /** `showToast("Guardado")` sin construir el tipo a mano en cada pantalla. */
+      /** `showToast("Saved")` so the type is not built by hand on each screen. */
       prepare: (message: string, type: ToastType = "success") => ({
         payload: { id: Date.now(), message, type },
       }),

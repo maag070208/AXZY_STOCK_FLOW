@@ -3,11 +3,11 @@ import { openMenu } from "./support/menu";
 import { mockHomeSummary } from "./support/home";
 
 /**
- * Las acciones de un traslado, **con la API simulada**.
+ * The actions of a transfer, **with the simulated API**.
  *
- * Se afirma qué petición hace la web (la acción correcta, sobre el traslado correcto), qué
- * botones ofrece en cada estado y qué muestra cuando la API responde un error. Las reglas de
- * inventario (dos mitades en una transacción, orden de las sumas) las prueban los tests de Kotlin.
+ * It asserts which request the web makes (the correct action, on the correct transfer), what
+ * buttons it offers in each state and what it shows when the API responds with an error. The rules of
+ * inventory (two halves in a transaction, order of the sums) are tested by the Kotlin tests.
  */
 
 const PERMISSIONS = [
@@ -75,8 +75,8 @@ async function signIn(page: Page) {
 }
 
 /**
- * Lista con el traslado, y el detalle que devuelve `current` (que cambia con cada acción). Las rutas
- * específicas van después de las generales: Playwright da prioridad a la última que se registra.
+ * List with the transfer, and the detail returned by `current` (which changes with each action). The routes
+ * specific ones go after the general ones: Playwright gives priority to the last one registered.
  */
 async function mockTransfer(page: Page, initialStatus: string) {
   let current = detail(initialStatus);

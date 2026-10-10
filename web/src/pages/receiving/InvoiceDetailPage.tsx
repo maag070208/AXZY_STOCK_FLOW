@@ -16,10 +16,10 @@ import i18n from "@shared/i18n";
 import { describeError } from "@shared/api/errorMessage";
 
 /**
- * Una factura con sus líneas: el conteo de cada una y las decisiones de la factura entera.
+ * An invoice with its lines: the count of each one and the decisions for the whole invoice.
  *
- * Los botones se ofrecen según lo que el usuario puede hacer **y** lo que la factura admite. La
- * API decide igual (y responde el código que corresponda); el botón solo evita ofrecer lo que
+ * The buttons are offered according to what the user can do **and** what the invoice allows. The
+ * API decides the same way (and responds with the corresponding code); the button only avoids offering what would
  * va a fallar.
  */
 export default function InvoiceDetailPage() {
@@ -81,7 +81,7 @@ export default function InvoiceDetailPage() {
     refresh();
   };
 
-  /** Asignarse una línea: la API la deja a nombre de quien llama y responde la línea actualizada. */
+  /** Assigning oneself a line: the API leaves it under the caller's name and responds with the updated line. */
   const assignToMe = async (line: InvoiceLine) => {
     setBusy(true);
     setActionError(null);

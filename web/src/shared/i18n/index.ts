@@ -3,11 +3,11 @@ import { initReactI18next } from "react-i18next";
 import en from "./locales/en.json";
 
 /**
- * La interfaz en inglés, con i18next. Todo texto que ve el usuario sale de aquí: los componentes
- * llaman `i18n.t("nav.home")` y nunca escriben el texto literal.
+ * The interface in English, with i18next. Every text the user sees comes from here: the components
+ * call `i18n.t("nav.home")` and never write the literal text.
  *
- * Solo hay un idioma por ahora. Añadir otro es agregar su archivo en `locales/` y su bloque en
- * `resources`; el código que llama a `t` no cambia.
+ * There is only one language for now. Adding another means adding its file in `locales/` and its block in
+ * `resources`; the code that calls `t` does not change.
  */
 void i18n.use(initReactI18next).init({
   lng: "en",

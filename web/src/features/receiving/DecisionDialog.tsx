@@ -12,13 +12,13 @@ interface Props {
   description: string;
   confirmLabel: string;
   onClose: () => void;
-  /** Lanza si la API rechaza la decisión (p. ej. `SEGREGATION_OF_DUTIES`); el diálogo muestra el motivo. */
+  /** Throws if the API rejects the decision (e.g. `SEGREGATION_OF_DUTIES`); the dialog shows the reason. */
   onSubmit: (body: DecisionBody) => Promise<void>;
 }
 
 /**
- * Aprobar o rechazar las discrepancias de una factura. Las dos decisiones piden lo mismo: un motivo
- * (obligatorio, lo registra la bitácora) y una nota opcional.
+ * Approve or reject an invoice's discrepancies. Both decisions require the same thing: a reason
+ * (mandatory, the audit log records it) and an optional note.
  */
 export default function DecisionDialog({ open, title, description, confirmLabel, onClose, onSubmit }: Props) {
   const [reason, setReason] = useState("");
@@ -26,7 +26,7 @@ export default function DecisionDialog({ open, title, description, confirmLabel,
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Cada decisión empieza sin motivo: heredar el del diálogo anterior registraría un motivo que nadie eligió.
+  // Each decision starts without a reason: inheriting the one from the previous dialog would record a reason nobody chose.
   useEffect(() => {
     if (!open) return;
     setReason("");

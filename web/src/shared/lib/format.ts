@@ -1,27 +1,27 @@
 /**
- * Formatos de presentación. En español de México, que es el idioma de la
- * interfaz y de los mensajes de la API.
+ * Display formats. In Mexican Spanish, which is the language of the
+ * interface and of the API messages.
  */
 
 const quantityFormat = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 0,
-  // La API manda la cantidad con 3 decimales (docs/api/convenciones.md §1.7).
-  // Se muestran solo si existen: `5193`, no `5193.000`.
+  // The API sends the quantity with 3 decimals (docs/api/convenciones.md §1.7).
+  // They are shown only if they exist: `5193`, not `5193.000`.
   maximumFractionDigits: 3,
 });
 
-/** Una cantidad del inventario. Acepta número o la cadena decimal que manda la API. */
+/** A quantity of inventory. It accepts a number or the decimal string the API sends. */
 export const formatQuantity = (value: number | string | null | undefined): string => {
   if (value === null || value === undefined || value === "") return "—";
   const parsed = typeof value === "number" ? value : Number(value);
   return Number.isFinite(parsed) ? quantityFormat.format(parsed) : String(value);
 };
 
-/** Un importe en pesos. */
+/** An amount in pesos. */
 export const formatCurrency = (value: number | string): string =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "MXN" }).format(Number(value));
 
-/** Un instante ISO a fecha y hora local. */
+/** An ISO instant to local date and time. */
 export const formatDateTime = (iso: string | null | undefined): string => {
   if (!iso) return "—";
   const date = new Date(iso);
@@ -30,7 +30,7 @@ export const formatDateTime = (iso: string | null | undefined): string => {
     : date.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
 };
 
-/** Corta un texto largo para una celda de tabla, sin mentir sobre lo que hay. */
+/** Truncates a long text for a table cell, without misrepresenting what is there. */
 export const ellipsis = (value: string | null | undefined, max = 60): string => {
   if (!value) return "—";
   return value.length > max ? `${value.slice(0, max - 1)}…` : value;

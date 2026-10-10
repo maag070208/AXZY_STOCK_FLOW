@@ -5,20 +5,20 @@ import type { RootState } from "@app/store";
 import { canAny } from "@entities/session";
 
 interface Props {
-  /** Basta con tener uno de estos permisos. */
+  /** Having at least one of these permissions is enough. */
   permissions: readonly string[];
   children: ReactNode;
 }
 
 /**
- * Puerta de permiso a nivel de ruta.
+ * Permission gate at the route level.
  *
- * Es **para no ofrecer lo que va a fallar**, no una defensa: la API decide con
- * `AccessDecider` en cada petición (docs/arquitectura/api-spring.md §6) y
- * responde `403` aunque alguien escriba la URL a mano.
+ * It is **to avoid offering what will fail**, not a defense: the API decides with
+ * `AccessDecider` on each request (docs/arquitectura/api-spring.md §6) and
+ * responds `403` even if someone types the URL by hand.
  *
- * Mientras `/auth/me` está en vuelo no se decide nada: redirigir en falso al
- * recargar la página echaría al usuario de una pantalla que sí puede ver.
+ * While `/auth/me` is in flight nothing is decided: redirecting by mistake to
+ * reloading the page would kick the user out of a screen they can see.
  */
 export default function RequirePermission({ permissions, children }: Props) {
   const user = useSelector((state: RootState) => state.auth.user);

@@ -4,7 +4,7 @@ import type { Page, PageQuery } from "@shared/api/types";
 import type { AuditEntry, AuditFilters } from "./model";
 
 export const auditApi = {
-  /** La consulta de la bitácora también se registra como acceso (M08): leerla deja huella. */
+  /** The audit-log query is also recorded as access (M08): reading it leaves a trace. */
   log: (query: PageQuery, filters: AuditFilters): Promise<Page<AuditEntry>> =>
     get<Page<AuditEntry>>("/audit/log", { params: { ...toQueryParams(query), ...compactParams({ ...filters }) } }),
 };

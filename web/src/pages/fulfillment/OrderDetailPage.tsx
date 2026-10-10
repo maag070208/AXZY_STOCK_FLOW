@@ -16,12 +16,12 @@ import i18n from "@shared/i18n";
 import { describeError } from "@shared/api/errorMessage";
 
 /**
- * Una orden con sus líneas y las acciones del surtido: asignarse una línea, empacar, registrar un
- * faltante, confirmar la orden y reintentar su exportación.
+ * An order with its lines and the fulfillment actions: assigning oneself a line, packing, recording a
+ * shortage, confirm the order and retry its export.
  *
- * Cada acción mueve inventario o le escribe algo al ERP en el servidor. La web ofrece el botón según
- * el permiso y el estado, y tras cada acción vuelve a pedir la orden: lo que se muestra es lo que el
- * servidor tiene, no lo que la web supone que pasó.
+ * Each action moves inventory or writes something to the ERP on the server. The web offers the button according to
+ * the permission and the status, and after each action it requests the order again: what is shown is what the
+ * server has, not what the web assumes happened.
  */
 export default function OrderDetailPage() {
   const { id } = useParams();
@@ -62,8 +62,8 @@ export default function OrderDetailPage() {
   const refresh = () => setVersion((current) => current + 1);
 
   /**
-   * Una acción: si la API la acepta, se avisa y se vuelve a pedir la orden. Si la rechaza, el error
-   * se relanza para que el diálogo que la pidió lo muestre; las acciones sin diálogo lo muestran aquí.
+   * One action: if the API accepts it, it is reported and the order is requested again. If it rejects it, the error
+   * is re-thrown so that the dialog that requested it shows it; actions without a dialog show it here.
    */
   const run = async (action: () => Promise<unknown>, done: string, { rethrow = false } = {}) => {
     setBusy(true);

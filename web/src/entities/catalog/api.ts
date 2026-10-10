@@ -9,7 +9,7 @@ export const catalogApi = {
   product: (id: number): Promise<Product> => get<Product>(`/products/${id}`),
   createProduct: (body: ProductInput): Promise<Product> => post<Product>("/products", body),
   updateProduct: (id: number, body: ProductInput): Promise<Product> => put<Product>(`/products/${id}`, body),
-  /** La baja es lógica y **exige motivo**: va en la query para no depender de un cuerpo en un DELETE. */
+  /** Soft delete, and it **requires a reason**: it goes in the query so as not to depend on a body in a DELETE. */
   deactivateProduct: (id: number, reason: string): Promise<Product> =>
     remove<Product>(`/products/${id}?reason=${encodeURIComponent(reason)}`),
 
@@ -30,8 +30,8 @@ export const catalogApi = {
 
   // ── Bodegas ─────────────────────────────────────────────────────────────
   /**
-   * Sin paginación: es un catálogo cerrado y diminuto que el desplegable necesita
-   * completo (docs/api/convenciones.md §1.4). Admite `q` y `active`.
+   * Without pagination: it is a closed and tiny catalog that the dropdown needs whole
+   * full (docs/api/convenciones.md §1.4). It accepts `q` and `active`.
    */
   warehouses: (filters?: { q?: string; active?: boolean }): Promise<{ items: Warehouse[] }> =>
     get<{ items: Warehouse[] }>("/warehouses", { params: filters }),
