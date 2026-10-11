@@ -44,6 +44,10 @@ kotlin {
     }
 
     sourceSets {
+        androidMain.dependencies {
+            implementation(libs.androidx.activity.compose)
+        }
+
         commonMain.dependencies {
             // The rules live in the domain (ADR-0003): the app does not reimplement them.
             implementation("dev.axzy.stock:stock-domain:0.1.0")
@@ -54,12 +58,14 @@ kotlin {
             implementation(libs.compose.material3)
             implementation(libs.compose.components.resources)
             implementation(libs.compottie)
+            implementation(libs.compose.materialIconsExtended)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.kotlinx.coroutines.core)
         }
 
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
         }
     }
 }

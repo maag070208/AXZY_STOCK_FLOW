@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Every text the user reads. The code never writes a literal: screens and components take their text from here.
+  One language for now (English, as in the web's locales/en.json). Another language is another values-<locale>/ folder
+  with the same keys; the code does not change.
+-->
+<resources>
+    <string name="app_name">StockFlow</string>
+
+    <!-- Common -->
+    <string name="common_back">Back</string>
+    <string name="common_try_again">Try again</string>
+    <string name="common_loading">Loading</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_receiving">Receiving</string>
+    <string name="nav_component_catalog">Component catalog</string>
+
+    <!-- Home -->
+    <string name="home_subtitle">Floor operations</string>
+    <string name="home_modules">Modules</string>
+    <string name="home_receiving_title">Receiving</string>
+    <string name="home_receiving_subtitle">Count the lines of an invoice and receive them.</string>
+    <string name="home_component_catalog">Component catalog</string>
+
+    <!-- Receiving: lines -->
+    <string name="receiving_lines_empty_title">No invoice lines</string>
+    <string name="receiving_lines_empty_message">Lines appear here when an invoice is loaded.</string>
+    <string name="receiving_units_invoiced">%1$d units invoiced</string>
+
+    <!-- Receiving: count -->
+    <string name="receiving_count_title">Count</string>
+    <string name="receiving_invoiced_summary">%1$d units in boxes of %2$d</string>
+    <string name="receiving_units_counted">Units counted</string>
+    <string name="receiving_boxes_counted">Boxes counted</string>
+    <string name="receiving_capture">Capture count</string>
+    <string name="receiving_line_missing">This line is no longer in the list.</string>
+    <string name="receiving_capture_matches">The count matches the invoice.</string>
+    <string name="receiving_capture_discrepancy">The count differs from the invoice. A discrepancy was recorded.</string>
+
+    <!-- Receiving: why a count was not accepted -->
+    <string name="receiving_error_input">Enter whole numbers, zero or more, for units and boxes.</string>
+    <string name="receiving_error_invalid_quantity">The counted quantity must be greater than zero.</string>
+    <string name="receiving_error_inconsistent_boxes">%1$d units cannot be %2$d boxes of %3$d.</string>
+    <string name="receiving_error_invalid_transition">This line cannot be counted in its current status.</string>
+    <string name="receiving_error_unknown">The count was not accepted.</string>
+
+    <!-- Receiving: statuses of an invoice line -->
+    <string name="status_pending">Pending</string>
+    <string name="status_assigned">Assigned</string>
+    <string name="status_captured">Captured</string>
+    <string name="status_discrepancy">Discrepancy</string>
+    <string name="status_located">Located</string>
+    <string name="status_approved">Approved</string>
+    <string name="status_cancelled">Cancelled</string>
+
+    <!-- Component catalog -->
+    <string name="catalog_subtitle">The pieces every screen reuses.</string>
+    <string name="catalog_section_input">Button and input</string>
+    <string name="catalog_section_chips">Status chips</string>
+    <string name="catalog_section_list">List of rows</string>
+    <string name="catalog_section_states">Loader, empty and error</string>
+    <string name="catalog_error_message">The API did not answer.</string>
+</resources>

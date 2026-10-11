@@ -5,19 +5,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import dev.axzy.stock.mobile.generated.resources.Res
+import dev.axzy.stock.mobile.generated.resources.app_name
+import dev.axzy.stock.mobile.generated.resources.common_loading
 import dev.axzy.stock.mobile.generated.resources.stockflow_glyph
 import io.github.alexzhirkevich.compottie.Compottie
 import io.github.alexzhirkevich.compottie.LottieCompositionSpec
 import io.github.alexzhirkevich.compottie.rememberLottieComposition
 import io.github.alexzhirkevich.compottie.rememberLottiePainter
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 
 /** The StockFlow glyph: the same drawing as the web and the app icon. */
 @Composable
 fun BrandLogo(modifier: Modifier = Modifier) {
     Image(
         painter = painterResource(Res.drawable.stockflow_glyph),
-        contentDescription = "StockFlow",
+        contentDescription = stringResource(Res.string.app_name),
         modifier = modifier,
     )
 }
@@ -35,7 +38,7 @@ fun BrandLoader(modifier: Modifier = Modifier) {
             composition = composition,
             iterations = Compottie.IterateForever,
         ),
-        contentDescription = "Loading",
+        contentDescription = stringResource(Res.string.common_loading),
         modifier = modifier,
     )
 }

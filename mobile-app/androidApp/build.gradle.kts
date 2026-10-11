@@ -28,6 +28,10 @@ android {
         versionName = "0.1.0"
     }
     buildTypes {
+        debug {
+            // Debug builds get their own id, so they install beside a release or another build signed with a different key.
+            applicationIdSuffix = ".debug"
+        }
         release {
             isMinifyEnabled = false
         }

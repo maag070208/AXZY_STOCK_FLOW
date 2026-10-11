@@ -18,23 +18,33 @@ A Gradle project with a `shared` module (KMP) and the Android and iOS targets.
 mobile-app/          Its own build: `settings.gradle.kts`, `gradlew` (ADR-0003)
   shared/
     commonMain/
-      core/            Network, session, errors, settings. Shared by all features.
+      composeResources/  Every text the user reads (`values/strings.xml`), the brand glyph, the Lottie loader.
+      core/
+        theme/         Colors, shapes, spacing and the Material theme.
+        nav/           The screens and the back stack.
+        ui/            The reusable components, one file each (cards, chips, buttons, lists, states).
+        network/       Network, session, errors, settings (phase 3).
       feature/
-        auth/          Sign-in, session, password change.
-        receiving/     Invoices, capture, locate.
-        fulfillment/   Orders, packing.
-        transfers/     Transfers.
-        labels/        Label scanning and lookup.
-        inventory/     Stock lookup.
-    androidMain/       Android camera and permissions
-    iosMain/           iOS camera and permissions
+        home/          The modules an operator can open.
+        catalog/       The component catalog, for design review.
+        auth/          Sign-in, session, password change (phase 3).
+        receiving/     Invoices, lines, capture, locate.
+        fulfillment/   Orders, packing (phase 7).
+        transfers/     Transfers (phase 8).
+        labels/        Label scanning and lookup (phase 9).
+        inventory/     Stock lookup (phase 5).
+    androidMain/       Android: the system back button, camera and permissions
+    iosMain/           iOS: the host controller, camera and permissions
   androidApp/
-  iosApp/              Xcode project (created in phase 10)
+  iosApp/              Xcode project: a SwiftUI host around `MainViewController`
 ```
 
 **Locality rule (vertical slice).** A feature has its screens, its state, its calls and its models
 inside its folder `feature/<name>`. A feature **does not import** from
 another; if two need the same thing, it goes to `core/`.
+
+**Text rule.** Screens and components never write a literal the user reads. Every text comes from
+`composeResources/values/strings.xml` through `stringResource`, grouped by prefix as the web's `en.json`.
 
 ## 3. Shared domain
 

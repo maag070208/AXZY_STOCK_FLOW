@@ -9,36 +9,39 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 /**
- * Drives the count of one invoice line. It checks what the operator typed (text that is not a
- * whole number, a negative count) and hands the numbers to the domain, which decides the outcome:
- * captured, discrepancy, or rejected.
+ * Drives the count of one invoice line. It checks what the operator typed (text that is not a whole number,
+ * a negative count) and hands the numbers to the domain, which decides the outcome. An accepted line is reported
+ * through [onCaptured], so the list shows it at once.
  */
 class ReceivingViewModel(
     line: InvoiceLine,
     private val capturedBy: Long,
+    private val onCaptured: (InvoiceLine) -> Unit,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ReceivingUiState(line = line))
     val uiState: StateFlow<ReceivingUiState> = _uiState.asStateFlow()
 
-    fun onUnitsChanged(units: String) = _uiState.update { it.copy(units = units, error = null) }
+    fun onUnitsChanged(units: String) = _uiState.update { it.copy(units = units, error = null, lastCapture = null) }
 
-    fun onBoxesChanged(boxes: String) = _uiState.update { it.copy(boxes = boxes, error = null) }
+    fun onBoxesChanged(boxes: String) = _uiState.update { it.copy(boxes = boxes, error = null, lastCapture = null) }
 
     fun submit() {
         val state = _uiState.value
         val units = state.units.toCountOrNull()
         val boxes = state.boxes.toCountOrNull()
         if (units == null || boxes == null) {
-            _uiState.update { it.copy(error = "Enter whole numbers, zero or more, for units and boxes.") }
+            _uiState.update { it.copy(error = CountError.InvalidInput, lastCapture = null) }
             return
         }
 
-        val result = captureLine(state.line, CountInput(units, boxes), capturedBy)
-        _uiState.update {
-            when (result) {
-                is Either.Right -> it.copy(line = result.value, error = null)
-                is Either.Left -> it.copy(error = result.error.message)
+        when (val result = captureLine(state.line, CountInput(units, boxes), capturedBy)) {
+            is Either.Right -> {
+                _uiState.update { it.copy(line = result.value, error = null, lastCapture = result.value.status) }
+                onCaptured(result.value)
+            }
+            is Either.Left -> _uiState.update {
+                it.copy(error = CountError.Rejected(result.error), lastCapture = null)
             }
         }
     }

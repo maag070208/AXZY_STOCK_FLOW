@@ -65,6 +65,8 @@ It is compiled to Java 17 bytecode so that the API and Android can load it
 | Kotlin Multiplatform | Shared core for Android and iOS | `2.4.20`, same as the API | `mobile-app/gradle/libs.versions.toml`. PuertoNuevoApp uses `2.4.10`; the app uses the domain's version so it reads the domain's metadata |
 | Compose Multiplatform | Interface | `1.11.1` (Material 3 `1.11.0-alpha07`) | `mobile-app/gradle/libs.versions.toml`; Maven Central, 2026-10-10. The same as PuertoNuevoApp |
 | Android Gradle Plugin | Android build | `9.0.1` | `mobile-app/gradle/libs.versions.toml`; Google's Maven, 2026-10-10. The same as PuertoNuevoApp |
+| Compottie | Lottie animations (the loader), on both platforms | `2.2.4` | `mobile-app/gradle/libs.versions.toml`; Maven Central, 2026-10-10. The line the library documents for Compose Multiplatform 1.11 |
+| Material Icons Extended | Icons of the screens | `1.7.3` | `mobile-app/gradle/libs.versions.toml`; Maven Central, 2026-10-10. The same as PuertoNuevoApp |
 | Ktor Client | HTTP calls from the app | *Pending* | — |
 | SQLDelight | Local cache | *Pending* | — |
 
