@@ -1,8 +1,8 @@
-package dev.axzy.stock.mobile.feature.receiving
+package dev.axzy.stock.mobile.core.receiving
 
 import androidx.compose.ui.graphics.Color
 import dev.axzy.stock.domain.receiving.InvoiceLineStatus
-import dev.axzy.stock.mobile.core.theme.AppColors
+import dev.axzy.stock.mobile.core.theme.ITColors
 import dev.axzy.stock.mobile.core.theme.Brand
 import dev.axzy.stock.mobile.generated.resources.Res
 import dev.axzy.stock.mobile.generated.resources.status_approved
@@ -27,11 +27,11 @@ fun InvoiceLineStatus.labelRes(): StringResource = when (this) {
 
 /** The color of each status. It only paints the state: what each status allows is decided by the domain. */
 fun InvoiceLineStatus.chipColor(): Color = when (this) {
-    InvoiceLineStatus.PENDING -> AppColors.Warning
-    InvoiceLineStatus.ASSIGNED -> AppColors.Info
+    InvoiceLineStatus.PENDING -> ITColors.Warning
+    InvoiceLineStatus.ASSIGNED -> ITColors.Info
     InvoiceLineStatus.CAPTURED -> Brand.Primary
-    InvoiceLineStatus.DISCREPANCY -> AppColors.Danger
+    InvoiceLineStatus.DISCREPANCY -> ITColors.Danger
     InvoiceLineStatus.LOCATED,
-    InvoiceLineStatus.APPROVED -> AppColors.Success
+    InvoiceLineStatus.APPROVED -> ITColors.Success
     InvoiceLineStatus.CANCELLED -> Brand.TextMuted
 }

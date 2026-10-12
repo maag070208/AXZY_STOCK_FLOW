@@ -3,6 +3,7 @@ package dev.axzy.stock.mobile.core.ui
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -14,40 +15,57 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import dev.axzy.stock.mobile.generated.resources.Res
 import dev.axzy.stock.mobile.generated.resources.common_back
+import dev.axzy.stock.mobile.generated.resources.common_menu
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * The frame of every screen: the brand top bar, a back action when there is a screen to go back to,
- * and the padding that keeps the content clear of the status bar and the home indicator.
+ * The frame of every screen: a light top bar, a navigation action (the drawer menu on a top-level screen, a back
+ * arrow on a screen opened from another), the tab bar of the top-level screens, and the padding that keeps the
+ * content clear of the status bar and the home indicator.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppScaffold(
+fun ITPage(
     title: String,
     onBack: (() -> Unit)? = null,
+    onMenu: (() -> Unit)? = null,
+    bottomBar: @Composable () -> Unit = {},
     content: @Composable (PaddingValues) -> Unit,
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text(title, style = MaterialTheme.typography.titleLarge) },
+                title = {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                },
                 navigationIcon = {
-                    if (onBack != null) {
-                        IconButton(onClick = onBack) {
+                    when {
+                        onBack != null -> IconButton(onClick = onBack) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = stringResource(Res.string.common_back),
                             )
                         }
+                        onMenu != null -> IconButton(onClick = onMenu) {
+                            Icon(
+                                imageVector = Icons.Filled.Menu,
+                                contentDescription = stringResource(Res.string.common_menu),
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.primary,
+                    navigationIconContentColor = MaterialTheme.colorScheme.primary,
                 ),
             )
         },
+        bottomBar = bottomBar,
     ) { padding -> content(padding) }
 }

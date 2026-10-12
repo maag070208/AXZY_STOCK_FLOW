@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
  * with [row]; the list places them and keeps their order. [contentPadding] is the screen's margin.
  */
 @Composable
-fun <T> AppList(
+fun <T> ITList(
     items: List<T>,
     key: (T) -> Any,
     emptyTitle: String,
@@ -28,9 +28,9 @@ fun <T> AppList(
     row: @Composable (T) -> Unit,
 ) {
     when {
-        items.isEmpty() && isLoading -> LoadingState(modifier = modifier)
-        items.isEmpty() && error != null -> ErrorState(message = error, modifier = modifier, onRetry = onRetry)
-        items.isEmpty() -> EmptyState(title = emptyTitle, message = emptyMessage, modifier = modifier)
+        items.isEmpty() && isLoading -> ITLoadingState(modifier = modifier)
+        items.isEmpty() && error != null -> ITErrorState(message = error, modifier = modifier, onRetry = onRetry)
+        items.isEmpty() -> ITEmptyState(title = emptyTitle, message = emptyMessage, modifier = modifier)
         else -> LazyColumn(
             modifier = modifier,
             contentPadding = contentPadding,

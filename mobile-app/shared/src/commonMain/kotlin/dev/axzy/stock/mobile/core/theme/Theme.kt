@@ -23,17 +23,21 @@ private val LightColors = lightColorScheme(
     surface = Brand.Surface,
     onSurface = Brand.TextPrimary,
     onSurfaceVariant = Brand.TextMuted,
-    error = AppColors.Danger,
+    // Without these, Material falls back to its own grey, which has a lilac cast next to the brand's navy.
+    surfaceVariant = Brand.Border,
+    outline = Brand.BorderStrong,
+    outlineVariant = Brand.Border,
+    error = ITColors.Danger,
     onError = Color.White,
 )
 
-// Material's own components take their corners from here, so they match AppShape without extra code.
+// Material's own components take their corners from here, so they match ITShape without extra code.
 private val AppShapes = Shapes(
     extraSmall = RoundedCornerShape(8.dp),
-    small = AppShape.Control,
-    medium = AppShape.Row,
-    large = AppShape.Card,
-    extraLarge = AppShape.Card,
+    small = ITShape.Control,
+    medium = ITShape.Row,
+    large = ITShape.Card,
+    extraLarge = ITShape.Card,
 )
 
 private val AppTypography = Typography(

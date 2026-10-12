@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,15 +21,15 @@ import org.jetbrains.compose.resources.stringResource
 
 /** Full-area loading state: the brand loader, centered. */
 @Composable
-fun LoadingState(modifier: Modifier = Modifier) {
+fun ITLoadingState(modifier: Modifier = Modifier) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        BrandLoader(modifier = Modifier.size(120.dp))
+        ITLoader(modifier = Modifier.size(120.dp))
     }
 }
 
 /** Nothing to show yet: the logo, what is missing, and why or what comes next. */
 @Composable
-fun EmptyState(
+fun ITEmptyState(
     title: String,
     modifier: Modifier = Modifier,
     message: String? = null,
@@ -38,7 +39,7 @@ fun EmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        BrandLogo(modifier = Modifier.size(56.dp))
+        ITBrandLogo(modifier = Modifier.width(96.dp))
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
@@ -58,7 +59,7 @@ fun EmptyState(
 
 /** A failed load. The retry action appears only when the screen can load again. */
 @Composable
-fun ErrorState(
+fun ITErrorState(
     message: String,
     modifier: Modifier = Modifier,
     onRetry: (() -> Unit)? = null,
@@ -75,7 +76,7 @@ fun ErrorState(
             textAlign = TextAlign.Center,
         )
         if (onRetry != null) {
-            AppButton(text = stringResource(Res.string.common_try_again), onClick = onRetry)
+            ITButton(text = stringResource(Res.string.common_try_again), onClick = onRetry)
         }
     }
 }

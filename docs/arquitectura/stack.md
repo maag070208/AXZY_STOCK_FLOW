@@ -1,7 +1,7 @@
 # Reconstruction stack
 > **Reference.** What is used in each part and by which criterion each version is pinned. The API and the domain
 > versions are pinned and verified; the app and the web ones are pinned when their phases start.
-> The build file governs, not this table. Last revised: 2026-10-10.
+> The build file governs, not this table. Last revised: 2026-10-11.
 > The previous stack (Ktor, Exposed, the API's Compose) is in [historico/STACK-KTOR.md](../historico/STACK-KTOR.md).
 
 ## Criterion for pinning a version
@@ -67,7 +67,8 @@ It is compiled to Java 17 bytecode so that the API and Android can load it
 | Android Gradle Plugin | Android build | `9.0.1` | `mobile-app/gradle/libs.versions.toml`; Google's Maven, 2026-10-10. The same as PuertoNuevoApp |
 | Compottie | Lottie animations (the loader), on both platforms | `2.2.4` | `mobile-app/gradle/libs.versions.toml`; Maven Central, 2026-10-10. The line the library documents for Compose Multiplatform 1.11 |
 | Material Icons Extended | Icons of the screens | `1.7.3` | `mobile-app/gradle/libs.versions.toml`; Maven Central, 2026-10-10. The same as PuertoNuevoApp |
-| Ktor Client | HTTP calls from the app | *Pending* | — |
+| Ktor Client | HTTP calls from the app (OkHttp engine on Android, Darwin on iOS; the mock engine in tests) | `3.0.1` | `mobile-app/gradle/libs.versions.toml`. The version PuertoNuevoApp runs; exercised against the local API on 2026-10-11 |
+| kotlinx-serialization (app) | The JSON of the API's bodies | `1.11.0` | The domain's version, so the included build and the app load one copy |
 | SQLDelight | Local cache | *Pending* | — |
 
 > Note: the app's HTTP client uses Ktor **only as a client**. It is not the API. This is the only

@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English translation of values/strings.xml. Same keys; used when the device language is English. -->
+<resources>
+    <string name="app_name">StockFlow</string>
+    <string name="app_tagline">Floor operations</string>
+
+    <!-- Common -->
+    <string name="common_back">Back</string>
+    <string name="common_menu">Open menu</string>
+    <string name="common_try_again">Try again</string>
+    <string name="common_loading">Loading</string>
+    <string name="common_delete">Delete</string>
+
+    <!-- Navigation: the tab bar, the drawer and the screen titles -->
+    <string name="nav_home">Home</string>
+    <string name="nav_receiving">Receiving</string>
+    <string name="nav_component_catalog">Component catalog</string>
+    <string name="nav_catalog_short">Catalog</string>
+    <string name="drawer_section_modules">Modules</string>
+    <string name="drawer_section_development">Development</string>
+
+    <!-- Summary of the receiving work -->
+    <string name="summary_pending">Pending</string>
+    <string name="summary_counted">Counted</string>
+    <string name="summary_discrepancies">Discrepancies</string>
+
+    <!-- Home -->
+    <string name="home_modules">Modules</string>
+    <string name="home_greeting">Hello, %1$s</string>
+    <string name="home_hero_progress">%1$d of %2$d lines resolved</string>
+    <string name="home_stat_invoices">Open invoices</string>
+    <string name="home_stat_blocking">To resolve</string>
+    <string name="home_stat_resolved">Resolved</string>
+    <string name="home_receiving_title">Receiving</string>
+    <string name="home_receiving_subtitle">Open an invoice, count its lines and receive them.</string>
+    <string name="home_next_title">Next invoices</string>
+    <string name="home_next_empty">No open invoices. Everything is received.</string>
+
+    <!-- Receiving: lines -->
+    <string name="receiving_lines_empty_title">No invoice lines</string>
+    <string name="receiving_lines_empty_message">This invoice has no lines.</string>
+    <string name="receiving_filter_empty">No lines match this filter.</string>
+    <plurals name="receiving_units_invoiced">
+        <item quantity="one">%1$d unit invoiced</item>
+        <item quantity="other">%1$d units invoiced</item>
+    </plurals>
+
+    <!-- Receiving: count -->
+    <string name="receiving_count_title">Count</string>
+    <string name="count_invoiced_units">Invoiced</string>
+    <string name="count_invoiced_boxes">Boxes</string>
+    <string name="count_per_box">Per box</string>
+    <string name="receiving_units_counted">Units counted</string>
+    <string name="receiving_boxes_counted">Boxes counted</string>
+    <string name="receiving_capture">Capture count</string>
+    <string name="receiving_line_missing">This line is no longer in the list.</string>
+    <string name="receiving_capture_matches">The count matches the invoice.</string>
+    <plurals name="receiving_difference_short">
+        <item quantity="one">%1$d unit is missing against the invoice.</item>
+        <item quantity="other">%1$d units are missing against the invoice.</item>
+    </plurals>
+    <plurals name="receiving_difference_over">
+        <item quantity="one">%1$d unit more than the invoice.</item>
+        <item quantity="other">%1$d units more than the invoice.</item>
+    </plurals>
+
+    <!-- Receiving: why a count was not accepted -->
+    <string name="receiving_error_input">Enter whole numbers, zero or more, for units and boxes.</string>
+    <string name="receiving_error_invalid_quantity">The counted quantity must be greater than zero.</string>
+    <string name="receiving_error_inconsistent_boxes">%1$d units cannot be %2$d boxes of %3$d.</string>
+    <string name="receiving_error_invalid_transition">This line cannot be counted in its current status.</string>
+    <string name="receiving_error_unknown">The count was not accepted.</string>
+
+    <!-- Receiving: statuses of an invoice line -->
+    <string name="status_pending">Pending</string>
+    <string name="status_assigned">Assigned</string>
+    <string name="status_captured">Captured</string>
+    <string name="status_discrepancy">Discrepancy</string>
+    <string name="status_located">Located</string>
+    <string name="status_approved">Approved</string>
+    <string name="status_cancelled">Cancelled</string>
+
+    <!-- Component catalog -->
+    <string name="catalog_subtitle">The pieces every screen reuses.</string>
+    <string name="catalog_section_input">Button and input</string>
+    <string name="catalog_section_keypad">Number pad</string>
+    <string name="catalog_section_chips">Status chips</string>
+    <string name="catalog_section_list">List of rows</string>
+    <string name="catalog_section_feedback">Summary and messages</string>
+    <string name="catalog_section_states">Loader, empty and error</string>
+    <string name="catalog_error_message">The API did not answer.</string>
+
+    <!-- What the API answers that is not about one screen -->
+    <string name="common_error_unreachable">The server cannot be reached. Check the network and try again.</string>
+    <string name="common_error_permission">You do not have permission to do this.</string>
+    <string name="common_error_unknown">Something went wrong. Try again.</string>
+
+    <!-- Sign-in -->
+    <string name="login_title">Sign in</string>
+    <string name="login_subtitle">Use your StockFlow user.</string>
+    <string name="login_username">User</string>
+    <string name="login_password">Password</string>
+    <string name="login_submit">Sign in</string>
+    <string name="login_error_credentials">Wrong user or password.</string>
+    <string name="login_error_locked">Too many attempts. Wait a few minutes and try again.</string>
+    <string name="login_error_disabled">This account is disabled. Talk to an administrator.</string>
+    <string name="login_error_password_change">You must change your password on the web before using the app.</string>
+    <string name="drawer_sign_out">Sign out</string>
+
+    <!-- Receiving: invoices -->
+    <string name="invoices_empty_title">No open invoices</string>
+    <string name="invoices_empty_message">Invoices appear here when they are registered on the web.</string>
+    <string name="invoice_progress">%1$d of %2$d lines resolved</string>
+    <string name="invoice_status_pending">Pending</string>
+    <string name="invoice_status_in_progress">In progress</string>
+    <string name="invoice_status_pending_to_locate">To locate</string>
+    <string name="invoice_status_completed">Completed</string>
+    <string name="invoice_status_cancelled">Cancelled</string>
+    <string name="receiving_error_line_changed">Someone else just counted this line. Go back to the list to see its status.</string>
+    <string name="receiving_error_line_resolved">This line was already approved or located.</string>
+    <string name="receiving_error_inconsistent_generic">The boxes do not match the units counted.</string>
+</resources>

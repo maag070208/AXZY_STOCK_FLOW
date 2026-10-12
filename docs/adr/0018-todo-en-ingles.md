@@ -31,6 +31,12 @@ Everything the project writes goes in English:
 **Exceptions that stay**, because they are data and not text: the unit of measure `PZA` of the legacy catalog
 and the letter `Ñ` of the product code alphabet.
 
+## Exception: the interface of the mobile app (2026-10-10)
+
+The **mobile app** shows its interface in **Spanish by default**, with English as a second locale. Its text lives in
+`mobile-app/shared/src/commonMain/composeResources/values/` (Spanish) and `values-en/` (English), with the same keys.
+The code, the comments and this documentation stay in English. The web keeps its interface in English as decided above.
+
 ## Migration status
 
 - Verified: complete backend (`./gradlew verify`) and browser suite (30/30).

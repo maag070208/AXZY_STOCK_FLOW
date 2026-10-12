@@ -3,7 +3,7 @@ package dev.axzy.stock.mobile.core.theme
 import androidx.compose.ui.unit.dp
 
 /** The spacing scale. Screens pick a step from here instead of writing a number. */
-object AppSpacing {
+object ITSpacing {
     val XS = 4.dp
     val S = 8.dp
     val M = 12.dp

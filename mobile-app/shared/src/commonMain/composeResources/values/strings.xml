@@ -1,65 +1,125 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Every text the user reads. The code never writes a literal: screens and components take their text from here.
-  One language for now (English, as in the web's locales/en.json). Another language is another values-<locale>/ folder
-  with the same keys; the code does not change.
+  Every text the user reads. Spanish is the default: this file is used whenever the device language has no
+  values-<locale>/ folder. English lives in values-en/ with the same keys; the code does not change.
 -->
 <resources>
     <string name="app_name">StockFlow</string>
+    <string name="app_tagline">Operación de piso</string>
 
     <!-- Common -->
-    <string name="common_back">Back</string>
-    <string name="common_try_again">Try again</string>
-    <string name="common_loading">Loading</string>
+    <string name="common_back">Atrás</string>
+    <string name="common_menu">Abrir menú</string>
+    <string name="common_try_again">Reintentar</string>
+    <string name="common_loading">Cargando</string>
+    <string name="common_delete">Borrar</string>
 
-    <!-- Navigation -->
-    <string name="nav_home">Home</string>
-    <string name="nav_receiving">Receiving</string>
-    <string name="nav_component_catalog">Component catalog</string>
+    <!-- Navigation: the tab bar, the drawer and the screen titles -->
+    <string name="nav_home">Inicio</string>
+    <string name="nav_receiving">Recepción</string>
+    <string name="nav_component_catalog">Catálogo de componentes</string>
+    <string name="nav_catalog_short">Catálogo</string>
+    <string name="drawer_section_modules">Módulos</string>
+    <string name="drawer_section_development">Desarrollo</string>
+
+    <!-- Summary of the receiving work -->
+    <string name="summary_pending">Pendientes</string>
+    <string name="summary_counted">Contadas</string>
+    <string name="summary_discrepancies">Discrepancias</string>
 
     <!-- Home -->
-    <string name="home_subtitle">Floor operations</string>
-    <string name="home_modules">Modules</string>
-    <string name="home_receiving_title">Receiving</string>
-    <string name="home_receiving_subtitle">Count the lines of an invoice and receive them.</string>
-    <string name="home_component_catalog">Component catalog</string>
+    <string name="home_modules">Módulos</string>
+    <string name="home_greeting">Hola, %1$s</string>
+    <string name="home_hero_progress">%1$d de %2$d líneas resueltas</string>
+    <string name="home_stat_invoices">Facturas abiertas</string>
+    <string name="home_stat_blocking">Por resolver</string>
+    <string name="home_stat_resolved">Resueltas</string>
+    <string name="home_receiving_title">Recepción</string>
+    <string name="home_receiving_subtitle">Abre una factura, cuenta sus líneas y recíbelas.</string>
+    <string name="home_next_title">Siguientes facturas</string>
+    <string name="home_next_empty">No hay facturas abiertas. Todo está recibido.</string>
 
     <!-- Receiving: lines -->
-    <string name="receiving_lines_empty_title">No invoice lines</string>
-    <string name="receiving_lines_empty_message">Lines appear here when an invoice is loaded.</string>
-    <string name="receiving_units_invoiced">%1$d units invoiced</string>
+    <string name="receiving_lines_empty_title">No hay líneas de factura</string>
+    <string name="receiving_lines_empty_message">Esta factura no tiene líneas.</string>
+    <string name="receiving_filter_empty">No hay líneas con este filtro.</string>
+    <plurals name="receiving_units_invoiced">
+        <item quantity="one">%1$d unidad facturada</item>
+        <item quantity="other">%1$d unidades facturadas</item>
+    </plurals>
 
     <!-- Receiving: count -->
-    <string name="receiving_count_title">Count</string>
-    <string name="receiving_invoiced_summary">%1$d units in boxes of %2$d</string>
-    <string name="receiving_units_counted">Units counted</string>
-    <string name="receiving_boxes_counted">Boxes counted</string>
-    <string name="receiving_capture">Capture count</string>
-    <string name="receiving_line_missing">This line is no longer in the list.</string>
-    <string name="receiving_capture_matches">The count matches the invoice.</string>
-    <string name="receiving_capture_discrepancy">The count differs from the invoice. A discrepancy was recorded.</string>
+    <string name="receiving_count_title">Conteo</string>
+    <string name="count_invoiced_units">Facturadas</string>
+    <string name="count_invoiced_boxes">Cajas</string>
+    <string name="count_per_box">Por caja</string>
+    <string name="receiving_units_counted">Unidades contadas</string>
+    <string name="receiving_boxes_counted">Cajas contadas</string>
+    <string name="receiving_capture">Registrar conteo</string>
+    <string name="receiving_line_missing">Esta línea ya no está en la lista.</string>
+    <string name="receiving_capture_matches">El conteo coincide con la factura.</string>
+    <plurals name="receiving_difference_short">
+        <item quantity="one">Falta %1$d unidad respecto a la factura.</item>
+        <item quantity="other">Faltan %1$d unidades respecto a la factura.</item>
+    </plurals>
+    <plurals name="receiving_difference_over">
+        <item quantity="one">Sobra %1$d unidad respecto a la factura.</item>
+        <item quantity="other">Sobran %1$d unidades respecto a la factura.</item>
+    </plurals>
 
     <!-- Receiving: why a count was not accepted -->
-    <string name="receiving_error_input">Enter whole numbers, zero or more, for units and boxes.</string>
-    <string name="receiving_error_invalid_quantity">The counted quantity must be greater than zero.</string>
-    <string name="receiving_error_inconsistent_boxes">%1$d units cannot be %2$d boxes of %3$d.</string>
-    <string name="receiving_error_invalid_transition">This line cannot be counted in its current status.</string>
-    <string name="receiving_error_unknown">The count was not accepted.</string>
+    <string name="receiving_error_input">Escribe números enteros, cero o más, en unidades y cajas.</string>
+    <string name="receiving_error_invalid_quantity">La cantidad contada debe ser mayor que cero.</string>
+    <string name="receiving_error_inconsistent_boxes">%1$d unidades no pueden ser %2$d cajas de %3$d.</string>
+    <string name="receiving_error_invalid_transition">Esta línea no se puede contar en su estado actual.</string>
+    <string name="receiving_error_unknown">No se aceptó el conteo.</string>
 
     <!-- Receiving: statuses of an invoice line -->
-    <string name="status_pending">Pending</string>
-    <string name="status_assigned">Assigned</string>
-    <string name="status_captured">Captured</string>
-    <string name="status_discrepancy">Discrepancy</string>
-    <string name="status_located">Located</string>
-    <string name="status_approved">Approved</string>
-    <string name="status_cancelled">Cancelled</string>
+    <string name="status_pending">Pendiente</string>
+    <string name="status_assigned">Asignada</string>
+    <string name="status_captured">Contada</string>
+    <string name="status_discrepancy">Discrepancia</string>
+    <string name="status_located">Ubicada</string>
+    <string name="status_approved">Aprobada</string>
+    <string name="status_cancelled">Cancelada</string>
 
     <!-- Component catalog -->
-    <string name="catalog_subtitle">The pieces every screen reuses.</string>
-    <string name="catalog_section_input">Button and input</string>
-    <string name="catalog_section_chips">Status chips</string>
-    <string name="catalog_section_list">List of rows</string>
-    <string name="catalog_section_states">Loader, empty and error</string>
-    <string name="catalog_error_message">The API did not answer.</string>
+    <string name="catalog_subtitle">Las piezas que reutiliza cada pantalla.</string>
+    <string name="catalog_section_input">Botón y campo</string>
+    <string name="catalog_section_keypad">Teclado numérico</string>
+    <string name="catalog_section_chips">Chips de estado</string>
+    <string name="catalog_section_list">Lista de filas</string>
+    <string name="catalog_section_feedback">Resumen y mensajes</string>
+    <string name="catalog_section_states">Cargando, vacío y error</string>
+    <string name="catalog_error_message">La API no respondió.</string>
+
+    <!-- What the API answers that is not about one screen -->
+    <string name="common_error_unreachable">No hay conexión con el servidor. Revisa la red e intenta de nuevo.</string>
+    <string name="common_error_permission">No tienes permiso para hacer esto.</string>
+    <string name="common_error_unknown">Algo salió mal. Intenta de nuevo.</string>
+
+    <!-- Sign-in -->
+    <string name="login_title">Inicia sesión</string>
+    <string name="login_subtitle">Entra con tu usuario de StockFlow.</string>
+    <string name="login_username">Usuario</string>
+    <string name="login_password">Contraseña</string>
+    <string name="login_submit">Entrar</string>
+    <string name="login_error_credentials">Usuario o contraseña incorrectos.</string>
+    <string name="login_error_locked">Demasiados intentos. Espera unos minutos e intenta de nuevo.</string>
+    <string name="login_error_disabled">Esta cuenta está desactivada. Habla con un administrador.</string>
+    <string name="login_error_password_change">Debes cambiar tu contraseña en la web antes de usar la app.</string>
+    <string name="drawer_sign_out">Cerrar sesión</string>
+
+    <!-- Receiving: invoices -->
+    <string name="invoices_empty_title">No hay facturas abiertas</string>
+    <string name="invoices_empty_message">Las facturas aparecen aquí cuando se registran en la web.</string>
+    <string name="invoice_progress">%1$d de %2$d líneas resueltas</string>
+    <string name="invoice_status_pending">Pendiente</string>
+    <string name="invoice_status_in_progress">En proceso</string>
+    <string name="invoice_status_pending_to_locate">Por ubicar</string>
+    <string name="invoice_status_completed">Completada</string>
+    <string name="invoice_status_cancelled">Cancelada</string>
+    <string name="receiving_error_line_changed">Otra persona acaba de contar esta línea. Vuelve a la lista para ver su estado.</string>
+    <string name="receiving_error_line_resolved">Esta línea ya fue aprobada o ubicada.</string>
+    <string name="receiving_error_inconsistent_generic">Las cajas no corresponden a las unidades contadas.</string>
 </resources>

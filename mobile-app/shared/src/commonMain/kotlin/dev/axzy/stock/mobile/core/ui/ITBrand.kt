@@ -17,7 +17,7 @@ import org.jetbrains.compose.resources.stringResource
 
 /** The StockFlow glyph: the same drawing as the web and the app icon. */
 @Composable
-fun BrandLogo(modifier: Modifier = Modifier) {
+fun ITBrandLogo(modifier: Modifier = Modifier) {
     Image(
         painter = painterResource(Res.drawable.stockflow_glyph),
         contentDescription = stringResource(Res.string.app_name),
@@ -27,7 +27,7 @@ fun BrandLogo(modifier: Modifier = Modifier) {
 
 /** The brand loader: the Lottie animation of the web, played until the content arrives. */
 @Composable
-fun BrandLoader(modifier: Modifier = Modifier) {
+fun ITLoader(modifier: Modifier = Modifier) {
     val composition by rememberLottieComposition {
         LottieCompositionSpec.JsonString(
             Res.readBytes("files/lottie/stockflow-loader-light.json").decodeToString()

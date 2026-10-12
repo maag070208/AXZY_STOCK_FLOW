@@ -1,16 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The StockFlow glyph, converted from web/src/shared/assets/brand/stockflow-glyph-light.svg.
-     The SVG's transform (translate, scale 2, translate) becomes the group below. -->
+     The SVG draws it in the middle of a 1024 square; here the canvas is cropped to the drawing plus a margin,
+     so the glyph fills the space it is given. The group carries the SVG's transform and the crop offset. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="96dp"
-    android:height="96dp"
-    android:viewportWidth="1024"
-    android:viewportHeight="1024">
+    android:width="80dp"
+    android:height="32dp"
+    android:viewportWidth="800"
+    android:viewportHeight="322">
     <group
         android:scaleX="2"
         android:scaleY="2"
-        android:translateX="-88"
-        android:translateY="272">
+        android:translateX="-200"
+        android:translateY="-82">
         <path android:fillColor="#16315F" android:pathData="M165,58 V51 a9,9 0 0 1 9,-9 H210 a9,9 0 0 1 9,9 V58 Z" />
         <path android:fillColor="#16315F" android:pathData="M165,65 H219 V87 a9,9 0 0 1 -9,9 H174 a9,9 0 0 1 -9,-9 Z" />
         <path android:fillColor="#F28C28" android:pathData="M273,58 V51 a9,9 0 0 1 9,-9 H318 a9,9 0 0 1 9,9 V58 Z" />

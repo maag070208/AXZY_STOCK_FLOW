@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug builds only: the local API of ARRANQUE.md answers over plain HTTP (http://10.0.2.2:8081 from the emulator),
+  and Android refuses clear-text traffic unless the app allows it. A release build does not get this attribute, so it
+  can only talk to an HTTPS address.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application android:usesCleartextTraffic="true" />
+
+</manifest>
