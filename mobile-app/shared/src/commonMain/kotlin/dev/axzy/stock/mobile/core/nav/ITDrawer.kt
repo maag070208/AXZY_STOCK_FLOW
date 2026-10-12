@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -35,11 +36,13 @@ import dev.axzy.stock.mobile.core.theme.Brand
 import dev.axzy.stock.mobile.core.ui.ITBrandLogo
 import dev.axzy.stock.mobile.generated.resources.Res
 import dev.axzy.stock.mobile.generated.resources.app_name
+import dev.axzy.stock.mobile.generated.resources.drawer_section_account
 import dev.axzy.stock.mobile.generated.resources.drawer_section_development
 import dev.axzy.stock.mobile.generated.resources.drawer_section_modules
-import dev.axzy.stock.mobile.generated.resources.drawer_sign_out
+import dev.axzy.stock.mobile.generated.resources.common_sign_out
 import dev.axzy.stock.mobile.generated.resources.nav_component_catalog
 import dev.axzy.stock.mobile.generated.resources.nav_home
+import dev.axzy.stock.mobile.generated.resources.password_title
 import dev.axzy.stock.mobile.generated.resources.nav_receiving
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -51,7 +54,13 @@ import org.jetbrains.compose.resources.stringResource
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ITDrawer(selected: Screen, onSelect: (Screen) -> Unit, userName: String, onSignOut: () -> Unit) {
+fun ITDrawer(
+    selected: Screen,
+    onSelect: (Screen) -> Unit,
+    userName: String,
+    onChangePassword: () -> Unit,
+    onSignOut: () -> Unit,
+) {
     val colors = MaterialTheme.colorScheme
     ModalDrawerSheet(drawerContainerColor = colors.surface) {
         Column(
@@ -107,14 +116,27 @@ fun ITDrawer(selected: Screen, onSelect: (Screen) -> Unit, userName: String, onS
             onSelect,
         )
 
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(ITSpacing.M))
         HorizontalDivider(modifier = Modifier.padding(horizontal = ITSpacing.L))
+        Text(
+            text = stringResource(Res.string.drawer_section_account),
+            style = MaterialTheme.typography.labelLarge,
+            color = colors.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = ITSpacing.XL, vertical = ITSpacing.S),
+        )
         NavigationDrawerItem(
-            label = { Text(stringResource(Res.string.drawer_sign_out)) },
+            label = { Text(stringResource(Res.string.password_title)) },
+            selected = false,
+            onClick = onChangePassword,
+            icon = { Icon(imageVector = Icons.Filled.Lock, contentDescription = null) },
+            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+        )
+        NavigationDrawerItem(
+            label = { Text(stringResource(Res.string.common_sign_out)) },
             selected = false,
             onClick = onSignOut,
             icon = { Icon(imageVector = Icons.AutoMirrored.Filled.Logout, contentDescription = null) },
-            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding).padding(vertical = ITSpacing.S),
+            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
         )
     }
 }

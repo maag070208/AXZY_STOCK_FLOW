@@ -74,7 +74,7 @@ class ReceivingRepositoryTest {
     }
 
     @Test
-    fun `an invoice arrives with its lines as the domain's lines, and the names of their products apart`() = runTest {
+    fun `an invoice arrives with its lines as the domain's lines and the names of their products apart`() = runTest {
         openInvoice15()
 
         repository.loadInvoice(15)
@@ -114,7 +114,7 @@ class ReceivingRepositoryTest {
     }
 
     @Test
-    fun `opening another invoice drops the one held before, even when the new one fails to load`() = runTest {
+    fun `opening another invoice drops the one held before even when the new one fails to load`() = runTest {
         openInvoice15()
         repository.loadInvoice(15)
         api.cutOff("GET", "/v1/invoices/16")
@@ -127,7 +127,7 @@ class ReceivingRepositoryTest {
     }
 
     @Test
-    fun `a capture sends whole numbers, and the API's line takes the place of the old one with the header's count`() = runTest {
+    fun `a capture sends whole numbers and the API's line takes the place of the old one with the header's count`() = runTest {
         openInvoice15()
         repository.loadInvoice(15)
         api.answer(

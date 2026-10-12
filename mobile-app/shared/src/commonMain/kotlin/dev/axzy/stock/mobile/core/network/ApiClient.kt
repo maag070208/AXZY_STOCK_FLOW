@@ -25,11 +25,11 @@ private const val CLIENT_CHANNEL = "MOBILE"
  * [ApiResult] (it never throws for a refused or failed call), and renews the session once when the API answers
  * that the token is no longer valid.
  *
- * It knows nothing about the session: [accessToken] and [renewSession] are set by whoever owns it.
- * [engine] is only passed by tests; without it, Ktor picks the platform's engine.
+ * It knows nothing about the session: [accessToken] and [renewSession] are set by whoever owns it. [baseUrl] is
+ * asked on every call, so a new address takes effect at once. [engine] is only passed by tests; without it, Ktor picks the platform's engine.
  */
 class ApiClient(
-    private val baseUrl: String,
+    private val baseUrl: () -> String,
     engine: HttpClientEngine? = null,
 ) {
     /** The token to send, if there is a session. */
@@ -84,7 +84,7 @@ class ApiClient(
 
     private suspend fun execute(method: HttpMethod, path: String, body: String?, token: String?): ApiResult<String> =
         try {
-            val response = http.request(baseUrl + path) {
+            val response = http.request(baseUrl() + path) {
                 this.method = method
                 header(HEADER_CLIENT_CHANNEL, CLIENT_CHANNEL)
                 if (token != null) header(HttpHeaders.Authorization, "Bearer $token")

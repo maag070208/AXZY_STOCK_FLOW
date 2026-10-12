@@ -41,6 +41,7 @@ fun InvoiceListScreen(
             isLoading = invoices.isLoading,
             error = invoices.failure?.text(),
             onRetry = viewModel::refresh,
+            onRefresh = viewModel::refresh,
             row = { invoice -> InvoiceRow(invoice = invoice, onClick = { onOpenInvoice(invoice) }) },
         )
     }

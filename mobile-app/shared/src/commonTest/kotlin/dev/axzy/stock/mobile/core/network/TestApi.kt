@@ -24,7 +24,7 @@ class TestApi {
     private val unreachable = mutableSetOf<String>()
 
     val client = ApiClient(
-        baseUrl = "http://api.test",
+        baseUrl = { "http://api.test" },
         engine = MockEngine { request ->
             val path = request.url.encodedPathAndQuery
             val route = "${request.method.value} $path"

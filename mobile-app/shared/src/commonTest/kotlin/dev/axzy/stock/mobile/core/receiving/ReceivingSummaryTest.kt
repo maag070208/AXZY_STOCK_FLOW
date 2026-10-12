@@ -37,7 +37,7 @@ class ReceivingSummaryTest {
     }
 
     @Test
-    fun `pending and assigned lines are pending, the rest are counted, and discrepancies are counted apart`() {
+    fun `pending and assigned lines are pending the rest are counted and discrepancies are counted apart`() {
         val summary = ReceivingSummary.of(
             listOf(
                 line(1, InvoiceLineStatus.PENDING),
@@ -66,7 +66,7 @@ class ReceivingSummaryTest {
     }
 
     @Test
-    fun `progress is the share of counted lines, and zero when there is no work`() {
+    fun `progress is the share of counted lines and zero when there is no work`() {
         assertEquals(0f, ReceivingSummary.of(emptyList()).progress)
         val half = ReceivingSummary.of(listOf(line(1, InvoiceLineStatus.PENDING), line(2, InvoiceLineStatus.CAPTURED)))
 

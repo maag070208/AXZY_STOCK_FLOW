@@ -50,7 +50,7 @@ class InvoiceListViewModelTest {
     }
 
     @Test
-    fun `an operator without the permission sees the API's refusal, by its code`() = runTest {
+    fun `an operator without the permission sees the API's refusal by its code`() = runTest {
         api.answer("GET", IN_PROGRESS, status = 403, body = errorJson(ApiCodes.PERMISSION_DENIED))
 
         val failed = InvoiceListViewModel(repository).uiState.first { it.invoices.failure != null }

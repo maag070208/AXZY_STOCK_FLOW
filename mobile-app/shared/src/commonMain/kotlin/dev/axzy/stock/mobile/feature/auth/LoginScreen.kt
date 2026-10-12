@@ -38,10 +38,14 @@ import dev.axzy.stock.mobile.core.ui.ITBrandLogo
 import dev.axzy.stock.mobile.core.ui.ITButton
 import dev.axzy.stock.mobile.core.ui.ITCard
 import dev.axzy.stock.mobile.core.ui.ITInput
+import dev.axzy.stock.mobile.core.ui.ITTextButton
 import dev.axzy.stock.mobile.generated.resources.Res
 import dev.axzy.stock.mobile.generated.resources.app_name
 import dev.axzy.stock.mobile.generated.resources.app_tagline
 import dev.axzy.stock.mobile.generated.resources.login_password
+import dev.axzy.stock.mobile.generated.resources.login_password_changed
+import dev.axzy.stock.mobile.generated.resources.login_server
+import dev.axzy.stock.mobile.generated.resources.login_server_address
 import dev.axzy.stock.mobile.generated.resources.login_submit
 import dev.axzy.stock.mobile.generated.resources.login_subtitle
 import dev.axzy.stock.mobile.generated.resources.login_title
@@ -49,11 +53,13 @@ import dev.axzy.stock.mobile.generated.resources.login_username
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * The door of the app: the brand over its gradient, and the card with the user, the password and the button.
+ * The door of the app: the brand over its gradient, and the card with the user, the password and the button. The
+ * server the app talks to is one tap away. [passwordChanged] says the operator just changed their password, which
+ * closed their session.
  * Opening the session is all it does; where the app goes next follows from the session, not from this screen.
  */
 @Composable
-fun LoginScreen(viewModel: LoginViewModel) {
+fun LoginScreen(viewModel: LoginViewModel, passwordChanged: Boolean = false) {
     val state by viewModel.uiState.collectAsState()
     val colors = MaterialTheme.colorScheme
 
@@ -109,6 +115,10 @@ fun LoginScreen(viewModel: LoginViewModel) {
                         )
                     }
 
+                    if (passwordChanged) {
+                        ITAlert(text = stringResource(Res.string.login_password_changed), color = ITColors.Success)
+                    }
+
                     ITInput(
                         value = state.username,
                         onValueChange = viewModel::onUsernameChanged,
@@ -137,6 +147,28 @@ fun LoginScreen(viewModel: LoginViewModel) {
                     )
 
                     state.error?.let { ITAlert(text = it.text(), color = ITColors.Danger) }
+
+                    ITTextButton(
+                        text = if (state.serverVisible) stringResource(Res.string.login_server) else "${stringResource(Res.string.login_server)}: ${state.server}",
+                        onClick = viewModel::onServerToggled,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    if (state.serverVisible) {
+                        ITInput(
+                            value = state.server,
+                            onValueChange = viewModel::onServerChanged,
+                            label = stringResource(Res.string.login_server_address),
+                            enabled = !state.isSubmitting,
+                            isError = state.error == LoginError.InvalidServer,
+                            keyboardOptions = KeyboardOptions(
+                                capitalization = KeyboardCapitalization.None,
+                                autoCorrectEnabled = false,
+                                keyboardType = KeyboardType.Uri,
+                                imeAction = ImeAction.Done,
+                            ),
+                            keyboardActions = KeyboardActions(onDone = { viewModel.submit() }),
+                        )
+                    }
 
                     ITButton(
                         text = stringResource(Res.string.login_submit),

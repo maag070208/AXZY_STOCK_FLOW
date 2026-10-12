@@ -94,6 +94,7 @@ fun ReceivingListScreen(
                 isLoading = state.isLoading,
                 error = state.failure?.text(),
                 onRetry = viewModel::refresh,
+                onRefresh = viewModel::refresh,
                 row = { line ->
                     InvoiceLineRow(
                         line = line,

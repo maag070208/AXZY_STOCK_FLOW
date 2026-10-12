@@ -31,7 +31,7 @@ class ReceivingCaptureTest {
     }
 
     @Test
-    fun `a different count becomes a discrepancy, decided by the domain`() {
+    fun `a different count becomes a discrepancy decided by the domain`() {
         val result = captureLine(pending, CountInput(units = 80, boxes = 1), userId = 7)
 
         val line = assertIs<Either.Right<InvoiceLine>>(result).value

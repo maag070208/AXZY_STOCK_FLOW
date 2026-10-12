@@ -16,9 +16,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -64,6 +66,7 @@ private val PLACEHOLDER_HEIGHT = 200.dp
  * The start of the app: who is signed in and how the open receiving stands in the hero, its figures, the first
  * open invoices, and the module to open. Everything comes from the same invoices the receiving list shows.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
@@ -75,46 +78,51 @@ fun HomeScreen(
     val state by viewModel.uiState.collectAsState()
 
     ITPage(title = stringResource(Res.string.nav_home), onMenu = onMenu, bottomBar = bottomBar) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(padding)
-                .padding(ITSpacing.L),
-            verticalArrangement = Arrangement.spacedBy(ITSpacing.L),
+        PullToRefreshBox(
+            isRefreshing = state.invoices.isLoading && state.invoices.value != null,
+            onRefresh = viewModel::refresh,
+            modifier = Modifier.fillMaxSize().padding(padding),
         ) {
-            HeroCard(state = state)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(ITSpacing.L),
+                verticalArrangement = Arrangement.spacedBy(ITSpacing.L),
+            ) {
+                HeroCard(state = state)
 
-            Row(horizontalArrangement = Arrangement.spacedBy(ITSpacing.S)) {
-                ITStatCard(
-                    value = state.openInvoices,
-                    label = stringResource(Res.string.home_stat_invoices),
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.weight(1f),
-                )
-                ITStatCard(
-                    value = state.blockingLines,
-                    label = stringResource(Res.string.home_stat_blocking),
-                    color = ITColors.Warning,
-                    modifier = Modifier.weight(1f),
-                )
-                ITStatCard(
-                    value = state.resolvedLines,
-                    label = stringResource(Res.string.home_stat_resolved),
-                    color = ITColors.Success,
-                    modifier = Modifier.weight(1f),
+                Row(horizontalArrangement = Arrangement.spacedBy(ITSpacing.S)) {
+                    ITStatCard(
+                        value = state.openInvoices,
+                        label = stringResource(Res.string.home_stat_invoices),
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f),
+                    )
+                    ITStatCard(
+                        value = state.blockingLines,
+                        label = stringResource(Res.string.home_stat_blocking),
+                        color = ITColors.Warning,
+                        modifier = Modifier.weight(1f),
+                    )
+                    ITStatCard(
+                        value = state.resolvedLines,
+                        label = stringResource(Res.string.home_stat_resolved),
+                        color = ITColors.Success,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+
+                SectionTitle(stringResource(Res.string.home_next_title))
+                NextInvoices(state = state, onOpenInvoice = onOpenInvoice, onRetry = viewModel::refresh)
+
+                SectionTitle(stringResource(Res.string.home_modules))
+                ModuleCard(
+                    title = stringResource(Res.string.home_receiving_title),
+                    subtitle = stringResource(Res.string.home_receiving_subtitle),
+                    onClick = onOpenReceiving,
                 )
             }
-
-            SectionTitle(stringResource(Res.string.home_next_title))
-            NextInvoices(state = state, onOpenInvoice = onOpenInvoice, onRetry = viewModel::refresh)
-
-            SectionTitle(stringResource(Res.string.home_modules))
-            ModuleCard(
-                title = stringResource(Res.string.home_receiving_title),
-                subtitle = stringResource(Res.string.home_receiving_subtitle),
-                onClick = onOpenReceiving,
-            )
         }
     }
 }

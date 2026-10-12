@@ -71,7 +71,7 @@ class ReceivingViewModelTest {
     }
 
     @Test
-    fun `a count the domain accepts is sent, and the line shown is the one the API answered with`() {
+    fun `a count the domain accepts is sent and the line shown is the one the API answered with`() {
         val fromApi = answered(InvoiceLineStatus.CAPTURED, units = 100, boxes = 2)
         val viewModel = viewModel { Either.Right(fromApi) }
 
@@ -87,7 +87,7 @@ class ReceivingViewModelTest {
     }
 
     @Test
-    fun `a short count is sent too, and shows the API's discrepancy with the units missing`() {
+    fun `a short count is sent too and shows the API's discrepancy with the units missing`() {
         val viewModel = viewModel { Either.Right(answered(InvoiceLineStatus.DISCREPANCY, units = 80, boxes = 1)) }
 
         viewModel.count(units = "80", boxes = "1")
@@ -108,7 +108,7 @@ class ReceivingViewModelTest {
     }
 
     @Test
-    fun `negative boxes are refused as input, not with an exception`() {
+    fun `negative boxes are refused as input not with an exception`() {
         val viewModel = viewModel()
 
         viewModel.count(units = "100", boxes = "-1")
@@ -118,7 +118,7 @@ class ReceivingViewModelTest {
     }
 
     @Test
-    fun `a count the domain refuses is never sent, and the line stays as it was`() {
+    fun `a count the domain refuses is never sent and the line stays as it was`() {
         val viewModel = viewModel()
 
         viewModel.count(units = "100", boxes = "3")
@@ -142,7 +142,7 @@ class ReceivingViewModelTest {
     }
 
     @Test
-    fun `a count the API does not record is reported, and the line stays as it was`() {
+    fun `a count the API does not record is reported and the line stays as it was`() {
         val refusal = ApiFailure.Rejected(409, "LINE_CHANGED")
         val viewModel = viewModel { Either.Left(refusal) }
 
@@ -224,7 +224,7 @@ class ReceivingViewModelTest {
     }
 
     @Test
-    fun `a seventh digit is ignored, and so is a key that is not a digit`() {
+    fun `a seventh digit is ignored and so is a key that is not a digit`() {
         val viewModel = viewModel()
 
         repeat(7) { viewModel.onDigit(9) }

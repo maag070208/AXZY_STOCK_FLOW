@@ -53,7 +53,7 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun `the home lists three open invoices at most, in the order the receiving list shows them`() = runTest {
+    fun `the home lists three open invoices at most in the order the receiving list shows them`() = runTest {
         api.answer(
             "GET", IN_PROGRESS,
             body = invoicePageJson(
@@ -85,7 +85,7 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun `a first load that fails is reported, and trying again loads the invoices`() = runTest {
+    fun `a first load that fails is reported and trying again loads the invoices`() = runTest {
         api.cutOff("GET", IN_PROGRESS)
         val viewModel = HomeViewModel(repository, "Juan Pérez")
         val failed = viewModel.uiState.first { it.invoices.failure != null }

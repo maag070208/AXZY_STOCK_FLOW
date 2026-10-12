@@ -9,6 +9,9 @@ import kotlinx.serialization.Serializable
 internal class LoginRequest(val username: String, val password: String)
 
 @Serializable
+internal class ChangePasswordRequest(val currentPassword: String, val newPassword: String)
+
+@Serializable
 internal class RefreshRequest(val refreshToken: String)
 
 @Serializable

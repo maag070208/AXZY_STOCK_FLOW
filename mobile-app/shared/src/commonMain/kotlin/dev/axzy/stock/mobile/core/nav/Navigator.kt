@@ -21,6 +21,9 @@ sealed interface Screen {
     data class ReceivingCount(val lineId: Long) : Screen
 
     data object ComponentCatalog : Screen
+
+    /** The password change, opened from the drawer. */
+    data object ChangePassword : Screen
 }
 
 /** A back stack: the last screen is the one on display. */

@@ -1,12 +1,13 @@
 package dev.axzy.stock.mobile.feature.auth
 
+import dev.axzy.stock.mobile.core.network.ApiAddress
 import dev.axzy.stock.mobile.core.network.ApiFailure
 import dev.axzy.stock.mobile.core.network.TestApi
 import dev.axzy.stock.mobile.core.network.errorJson
 import dev.axzy.stock.mobile.core.network.sessionJson
 import dev.axzy.stock.mobile.core.session.Session
 import dev.axzy.stock.mobile.core.session.SessionState
-import dev.axzy.stock.mobile.core.session.SignInFailure
+import dev.axzy.stock.mobile.core.storage.MemoryStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -19,15 +20,16 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LoginViewModelTest {
 
     private val api = TestApi()
-    private val session = Session(api.client)
-    private val viewModel by lazy { LoginViewModel(session) }
+    private val session = Session(api.client, MemoryStore())
+    private val settings = MemoryStore()
+    private val address = ApiAddress(settings, default = "http://10.0.2.2:8081")
+    private val viewModel by lazy { LoginViewModel(session, address) }
 
     @BeforeTest
     fun setUp() {
@@ -52,11 +54,11 @@ class LoginViewModelTest {
         viewModel.submit()
         session.state.first { it is SessionState.SignedIn }
 
-        assertEquals(LoginUiState(), viewModel.uiState.first { !it.isSubmitting })
+        assertEquals(LoginUiState(server = "http://10.0.2.2:8081"), viewModel.uiState.first { !it.isSubmitting })
     }
 
     @Test
-    fun `a failed sign-in keeps the user, clears the password and reports the failure`() = runTest {
+    fun `a failed sign-in keeps the user clears the password and reports the failure`() = runTest {
         api.answer("POST", "/v1/auth/login", status = 401, body = errorJson("ACCOUNT_LOCKED"))
         type("jperez", "wrong")
 
@@ -66,8 +68,8 @@ class LoginViewModelTest {
         assertEquals("jperez", state.username)
         assertEquals("", state.password)
         assertFalse(state.isSubmitting)
-        assertEquals(SignInFailure.Api(ApiFailure.Rejected(401, "ACCOUNT_LOCKED")), state.error)
-        assertEquals(SessionState.SignedOut, session.state.value)
+        assertEquals(LoginError.Failed(ApiFailure.Rejected(401, "ACCOUNT_LOCKED")), state.error)
+        assertEquals(SessionState.SignedOut(), session.state.value)
     }
 
     @Test
@@ -98,6 +100,41 @@ class LoginViewModelTest {
         type("jperez", "the password")
 
         assertFalse("the password" in viewModel.uiState.value.toString())
-        assertIs<String>(viewModel.uiState.value.toString())
+    }
+
+    @Test
+    fun `the screen starts with the server in use and hides the field until asked`() {
+        assertEquals("http://10.0.2.2:8081", viewModel.uiState.value.server)
+        assertFalse(viewModel.uiState.value.serverVisible)
+
+        viewModel.onServerToggled()
+        assertTrue(viewModel.uiState.value.serverVisible)
+    }
+
+    @Test
+    fun `a server typed by the operator is kept before the sign-in goes to it`() = runTest {
+        api.answer("POST", "/v1/auth/login", status = 401, body = errorJson("INVALID_CREDENTIALS"))
+        type("jperez", "wrong")
+        viewModel.onServerChanged(" http://192.168.1.20:8081/ ")
+
+        viewModel.submit()
+        viewModel.uiState.first { it.error != null }
+
+        assertEquals("http://192.168.1.20:8081", address.url)
+        assertEquals("http://192.168.1.20:8081", viewModel.uiState.value.server)
+    }
+
+    @Test
+    fun `a server that is not an address is refused shown and nothing is sent`() {
+        type("jperez", "the password")
+        viewModel.onServerChanged("192.168.1.20")
+
+        viewModel.submit()
+
+        val state = viewModel.uiState.value
+        assertEquals(LoginError.InvalidServer, state.error)
+        assertTrue(state.serverVisible)
+        assertTrue(api.calls.isEmpty())
+        assertEquals("http://10.0.2.2:8081", address.url)
     }
 }

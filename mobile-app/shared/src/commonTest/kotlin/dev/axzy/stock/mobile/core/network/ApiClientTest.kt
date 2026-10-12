@@ -15,7 +15,7 @@ class ApiClientTest {
     private val api = TestApi()
 
     @Test
-    fun `a successful answer is decoded, and the request carries the channel and the session's token`() = runTest {
+    fun `a successful answer is decoded and the request carries the channel and the session's token`() = runTest {
         api.client.accessToken = { "token-1" }
         api.answer("GET", "/v1/things/1", body = """{"id":1,"name":"clamp","addedLater":true}""")
 
@@ -103,7 +103,7 @@ class ApiClientTest {
     }
 
     @Test
-    fun `a 401 that is not about the token, like a wrong password, does not renew the session`() = runTest {
+    fun `a 401 that is not about the token like a wrong password does not renew the session`() = runTest {
         var renewals = 0
         api.client.accessToken = { "token-1" }
         api.client.renewSession = { renewals++; true }

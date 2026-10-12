@@ -51,7 +51,7 @@ class NavigatorTest {
     }
 
     @Test
-    fun `the stack lists every screen that can still be gone back to, the current one last`() {
+    fun `the stack lists every screen that can still be gone back to the current one last`() {
         val navigator = Navigator(Screen.Invoices)
         navigator.open(Screen.InvoiceLines(invoiceId = 15))
         navigator.open(Screen.ReceivingCount(lineId = 1))

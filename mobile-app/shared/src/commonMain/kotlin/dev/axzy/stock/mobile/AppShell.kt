@@ -20,9 +20,12 @@ import dev.axzy.stock.mobile.core.nav.Screen
 import dev.axzy.stock.mobile.core.nav.ScreenViewModels
 import dev.axzy.stock.mobile.core.network.ApiClient
 import dev.axzy.stock.mobile.core.receiving.ReceivingRepository
+import dev.axzy.stock.mobile.core.session.Session
 import dev.axzy.stock.mobile.core.session.SessionUser
 import dev.axzy.stock.mobile.core.ui.ITEmptyState
 import dev.axzy.stock.mobile.core.ui.ITPage
+import dev.axzy.stock.mobile.feature.auth.ChangePasswordScreen
+import dev.axzy.stock.mobile.feature.auth.ChangePasswordViewModel
 import dev.axzy.stock.mobile.feature.catalog.ComponentCatalogScreen
 import dev.axzy.stock.mobile.feature.home.HomeScreen
 import dev.axzy.stock.mobile.feature.home.HomeViewModel
@@ -43,7 +46,7 @@ import org.jetbrains.compose.resources.stringResource
  * session: what it holds (the back stack, what the repository loaded, every ViewModel) ends with it.
  */
 @Composable
-fun AppShell(user: SessionUser, api: ApiClient, onSignOut: () -> Unit) {
+fun AppShell(user: SessionUser, api: ApiClient, session: Session, onSignOut: () -> Unit) {
     val navigator = remember { Navigator(Screen.Home) }
     val receiving = remember { ReceivingRepository(api) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -77,6 +80,10 @@ fun AppShell(user: SessionUser, api: ApiClient, onSignOut: () -> Unit) {
                     closeDrawer()
                 },
                 userName = user.name,
+                onChangePassword = {
+                    if (navigator.current != Screen.ChangePassword) navigator.open(Screen.ChangePassword)
+                    closeDrawer()
+                },
                 onSignOut = onSignOut,
             )
         },
@@ -135,6 +142,13 @@ fun AppShell(user: SessionUser, api: ApiClient, onSignOut: () -> Unit) {
                     }
 
                     Screen.ComponentCatalog -> ComponentCatalogScreen(onMenu = ::openDrawer, bottomBar = tabs)
+
+                    Screen.ChangePassword -> ChangePasswordScreen(
+                        viewModel = viewModel { ChangePasswordViewModel(session, user.username) },
+                        required = false,
+                        onBack = navigator::back,
+                        onSignOut = onSignOut,
+                    )
                 }
             }
         }

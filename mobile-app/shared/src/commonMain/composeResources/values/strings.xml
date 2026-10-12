@@ -13,6 +13,7 @@
     <string name="common_try_again">Reintentar</string>
     <string name="common_loading">Cargando</string>
     <string name="common_delete">Borrar</string>
+    <string name="common_sign_out">Cerrar sesión</string>
 
     <!-- Navigation: the tab bar, the drawer and the screen titles -->
     <string name="nav_home">Inicio</string>
@@ -107,8 +108,10 @@
     <string name="login_error_credentials">Usuario o contraseña incorrectos.</string>
     <string name="login_error_locked">Demasiados intentos. Espera unos minutos e intenta de nuevo.</string>
     <string name="login_error_disabled">Esta cuenta está desactivada. Habla con un administrador.</string>
-    <string name="login_error_password_change">Debes cambiar tu contraseña en la web antes de usar la app.</string>
-    <string name="drawer_sign_out">Cerrar sesión</string>
+    <string name="login_password_changed">Contraseña cambiada. Entra con la nueva.</string>
+    <string name="login_server">Servidor</string>
+    <string name="login_server_address">Dirección del servidor</string>
+    <string name="login_error_server">Escribe una dirección que empiece con http:// o https://.</string>
 
     <!-- Receiving: invoices -->
     <string name="invoices_empty_title">No hay facturas abiertas</string>
@@ -122,4 +125,24 @@
     <string name="receiving_error_line_changed">Otra persona acaba de contar esta línea. Vuelve a la lista para ver su estado.</string>
     <string name="receiving_error_line_resolved">Esta línea ya fue aprobada o ubicada.</string>
     <string name="receiving_error_inconsistent_generic">Las cajas no corresponden a las unidades contadas.</string>
+
+    <!-- Account: password change -->
+    <string name="drawer_section_account">Cuenta</string>
+    <string name="password_title">Cambiar contraseña</string>
+    <string name="password_required_notice">Por seguridad debes cambiar tu contraseña antes de continuar.</string>
+    <string name="password_current">Contraseña actual</string>
+    <string name="password_new">Contraseña nueva</string>
+    <string name="password_confirm">Repite la contraseña nueva</string>
+    <string name="password_hint">Mínimo %1$d caracteres. No uses una contraseña común ni tu usuario. Al cambiarla se cierran todas tus sesiones.</string>
+    <string name="password_submit">Cambiar contraseña</string>
+    <string name="password_error_mismatch">Las contraseñas nuevas no coinciden.</string>
+    <string name="password_error_too_short">La contraseña debe tener al menos %1$d caracteres.</string>
+    <string name="password_error_too_long">La contraseña no puede pasar de %1$d caracteres.</string>
+    <string name="password_error_blank">La contraseña no puede ser solo espacios.</string>
+    <string name="password_error_common">Esa contraseña es de las más usadas y filtradas. Elige otra.</string>
+    <string name="password_error_contains_username">La contraseña no puede contener tu usuario.</string>
+    <string name="password_error_too_simple">Combina letras y números, o usa una frase larga.</string>
+    <string name="password_error_current">La contraseña actual no es correcta.</string>
+    <string name="password_error_same">La contraseña nueva debe ser distinta de la actual.</string>
+    <string name="password_error_weak">La contraseña nueva no cumple la política de seguridad.</string>
 </resources>

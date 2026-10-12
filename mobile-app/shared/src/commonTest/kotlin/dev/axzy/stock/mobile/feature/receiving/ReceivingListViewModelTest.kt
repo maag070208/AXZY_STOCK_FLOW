@@ -58,7 +58,7 @@ class ReceivingListViewModelTest {
     }
 
     @Test
-    fun `the screen opens loading, then shows the invoice's number, its lines and the names of their products`() = runTest {
+    fun `the screen opens loading then shows the invoice's number its lines and the names of their products`() = runTest {
         prepareInvoice()
         val viewModel = ReceivingListViewModel(repository, invoiceId = 15)
         assertTrue(viewModel.uiState.value.isLoading)
@@ -72,7 +72,7 @@ class ReceivingListViewModelTest {
     }
 
     @Test
-    fun `a line counted on another screen shows here at once, with the summary`() = runTest {
+    fun `a line counted on another screen shows here at once with the summary`() = runTest {
         val viewModel = loadedViewModel()
         assertEquals(2, viewModel.uiState.value.summary.pending)
         api.answer(

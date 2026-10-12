@@ -10,6 +10,7 @@
     <string name="common_try_again">Try again</string>
     <string name="common_loading">Loading</string>
     <string name="common_delete">Delete</string>
+    <string name="common_sign_out">Sign out</string>
 
     <!-- Navigation: the tab bar, the drawer and the screen titles -->
     <string name="nav_home">Home</string>
@@ -104,8 +105,10 @@
     <string name="login_error_credentials">Wrong user or password.</string>
     <string name="login_error_locked">Too many attempts. Wait a few minutes and try again.</string>
     <string name="login_error_disabled">This account is disabled. Talk to an administrator.</string>
-    <string name="login_error_password_change">You must change your password on the web before using the app.</string>
-    <string name="drawer_sign_out">Sign out</string>
+    <string name="login_password_changed">Password changed. Sign in with the new one.</string>
+    <string name="login_server">Server</string>
+    <string name="login_server_address">Server address</string>
+    <string name="login_error_server">Enter an address that starts with http:// or https://.</string>
 
     <!-- Receiving: invoices -->
     <string name="invoices_empty_title">No open invoices</string>
@@ -119,4 +122,24 @@
     <string name="receiving_error_line_changed">Someone else just counted this line. Go back to the list to see its status.</string>
     <string name="receiving_error_line_resolved">This line was already approved or located.</string>
     <string name="receiving_error_inconsistent_generic">The boxes do not match the units counted.</string>
+
+    <!-- Account: password change -->
+    <string name="drawer_section_account">Account</string>
+    <string name="password_title">Change password</string>
+    <string name="password_required_notice">For security you must change your password before continuing.</string>
+    <string name="password_current">Current password</string>
+    <string name="password_new">New password</string>
+    <string name="password_confirm">Repeat the new password</string>
+    <string name="password_hint">At least %1$d characters. Do not use a common password or your user name. Changing it signs you out everywhere.</string>
+    <string name="password_submit">Change password</string>
+    <string name="password_error_mismatch">The new passwords do not match.</string>
+    <string name="password_error_too_short">The password must be at least %1$d characters long.</string>
+    <string name="password_error_too_long">The password cannot be longer than %1$d characters.</string>
+    <string name="password_error_blank">The password cannot be only spaces.</string>
+    <string name="password_error_common">That password is among the most used and leaked. Choose another.</string>
+    <string name="password_error_contains_username">The password cannot contain your user name.</string>
+    <string name="password_error_too_simple">Combine letters and numbers, or use a long passphrase.</string>
+    <string name="password_error_current">The current password is not correct.</string>
+    <string name="password_error_same">The new password must be different from the current one.</string>
+    <string name="password_error_weak">The new password does not meet the security policy.</string>
 </resources>
